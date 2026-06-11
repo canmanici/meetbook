@@ -1,9 +1,12 @@
 """Auth endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+import redis.asyncio as aioredis
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.db import get_session
+from app.core.throttle import LoginThrottle
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
 from app.modules.auth.schemas import (
@@ -26,6 +29,10 @@ def _get_service(session: AsyncSession = Depends(get_session)) -> AuthService:
     return AuthService(session)
 
 
+def _get_throttle() -> LoginThrottle:
+    return LoginThrottle(aioredis.from_url(get_settings().redis_url))
+
+
 @router.post("/register", response_model=AuthTokensResponse, status_code=201)
 async def register(
     body: RegisterRequest,
@@ -40,10 +47,13 @@ async def register(
 @router.post("/login", response_model=TokenResponse)
 async def login(
     body: LoginRequest,
+    request: Request,
     service: AuthService = Depends(_get_service),
+    throttle: LoginThrottle = Depends(_get_throttle),
 ) -> TokenResponse:
     try:
-        return await service.login(body.email, body.password)
+        ip = request.client.host if request.client else "127.0.0.1"
+        return await service.login(body.email, body.password, throttle, ip)
     except AuthError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 

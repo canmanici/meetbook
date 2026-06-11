@@ -14,6 +14,7 @@ from app.core.security import (
     hash_token,
     verify_password,
 )
+from app.core.throttle import LoginThrottle
 from app.modules.auth.models import UserStatus
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.schemas import (
@@ -64,8 +65,17 @@ class AuthService:
         )
 
     async def login(
-        self, email: str, password: str
+        self, email: str, password: str, throttle: LoginThrottle | None = None, ip: str = "127.0.0.1"
     ) -> TokenResponse:
+        # Check throttle if provided
+        if throttle:
+            allowed, retry_after = await throttle.check(email, ip)
+            if not allowed:
+                raise AuthError(
+                    f"Too many failed attempts. Try again in {retry_after} seconds",
+                    429,
+                )
+
         # Get user
         user = await self.repo.get_user_by_email(email)
         if not user:
@@ -82,6 +92,8 @@ class AuthService:
 
         # Verify password
         if not verify_password(password, credential.password_hash):
+            if throttle:
+                await throttle.record_failure(email, ip)
             raise AuthError("Email or password is incorrect", 401)
 
         # Generate tokens
