@@ -9,13 +9,12 @@ from app.core.config import get_settings
 from app.core.security import (
     create_access_token,
     create_refresh_token,
-    decode_access_token,
     generate_opaque_token,
     hash_password,
     hash_token,
     verify_password,
 )
-from app.modules.auth.models import UserCredential, UserStatus
+from app.modules.auth.models import UserStatus
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.schemas import (
     AuthTokensResponse,
@@ -77,7 +76,7 @@ class AuthService:
             raise AuthError("Account is not active", 401)
 
         # Get credentials
-        credential = await self.repo.session.get(UserCredential, user.id)
+        credential = await self.repo.get_credential_by_user_id(user.id)
         if not credential:
             raise AuthError("Email or password is incorrect", 401)
 
@@ -185,7 +184,7 @@ class AuthService:
         if not user:
             raise AuthError("Invalid reset token", 400)
 
-        credential = await self.repo.session.get(UserCredential, user.id)
+        credential = await self.repo.get_credential_by_user_id(user.id)
         if credential:
             credential.password_hash = hash_password(new_password)
 

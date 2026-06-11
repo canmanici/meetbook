@@ -20,6 +20,16 @@ class AuthRepository:
         self.session = session
 
     # ------------------------------------------------------------------
+    # Credentials
+    # ------------------------------------------------------------------
+
+    async def get_credential_by_user_id(self, user_id: uuid.UUID) -> UserCredential | None:
+        result = await self.session.execute(
+            select(UserCredential).where(UserCredential.user_id == user_id)
+        )
+        return result.scalar_one_or_none()
+
+    # ------------------------------------------------------------------
     # Users
     # ------------------------------------------------------------------
 
