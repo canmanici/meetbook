@@ -2,6 +2,7 @@
 
 import uuid
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +21,7 @@ async def get_current_user(
 ) -> User:
     try:
         payload = decode_access_token(credentials.credentials)
-    except Exception:
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
         raise HTTPException(  # noqa: B904
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
@@ -33,8 +34,16 @@ async def get_current_user(
             detail="Invalid token payload",
         )
 
+    try:
+        parsed_user_id = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(  # noqa: B904
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
     repo = AuthRepository(session)
-    user = await repo.get_user_by_id(uuid.UUID(user_id))
+    user = await repo.get_user_by_id(parsed_user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

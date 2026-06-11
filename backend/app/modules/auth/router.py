@@ -1,6 +1,6 @@
 """Auth endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
@@ -29,7 +29,6 @@ def _get_service(session: AsyncSession = Depends(get_session)) -> AuthService:
 @router.post("/register", response_model=AuthTokensResponse, status_code=201)
 async def register(
     body: RegisterRequest,
-    request: Request,
     service: AuthService = Depends(_get_service),
 ) -> AuthTokensResponse:
     try:
@@ -41,7 +40,6 @@ async def register(
 @router.post("/login", response_model=TokenResponse)
 async def login(
     body: LoginRequest,
-    request: Request,
     service: AuthService = Depends(_get_service),
 ) -> TokenResponse:
     try:
