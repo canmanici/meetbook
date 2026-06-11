@@ -1,12 +1,10 @@
 """Shared test fixtures."""
 
-import asyncio
-from collections.abc import AsyncIterator, Generator
+from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
-import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -15,15 +13,8 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.core.config import get_settings
-from app.core.db import Base
+from app.core.db import Base, get_session
 from app.main import create_app
-
-
-@pytest.fixture(scope="session")
-def event_loop() -> Generator[asyncio.AbstractEventLoop]:
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest_asyncio.fixture
@@ -56,10 +47,8 @@ async def client(db_engine: Any) -> AsyncIterator[httpx.AsyncClient]:
             await session.rollback()
 
     app = create_app()
-    app.dependency_overrides = {}
+    app.dependency_overrides[get_session] = override_get_session
 
-    # We'll override get_session once it's wired in main.py
-    # For now, just return a basic client
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
