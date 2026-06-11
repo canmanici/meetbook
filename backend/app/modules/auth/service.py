@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import log_event
 from app.core.config import get_settings
 from app.core.security import (
     create_access_token,
@@ -56,6 +57,7 @@ class AuthService:
         )
 
         access_token = create_access_token(str(user.id))
+        await log_event(self.session, "register_success", user_id=user.id)
         await self.session.commit()
 
         return AuthTokensResponse(
@@ -65,7 +67,11 @@ class AuthService:
         )
 
     async def login(
-        self, email: str, password: str, throttle: LoginThrottle | None = None, ip: str = "127.0.0.1"
+        self,
+        email: str,
+        password: str,
+        throttle: LoginThrottle | None = None,
+        ip: str = "127.0.0.1",
     ) -> TokenResponse:
         # Check throttle if provided
         if throttle:
@@ -79,6 +85,7 @@ class AuthService:
         # Get user
         user = await self.repo.get_user_by_email(email)
         if not user:
+            await log_event(self.session, "login_failed", metadata={"email": email})
             raise AuthError("Email or password is incorrect", 401)
 
         # Check status
@@ -94,6 +101,7 @@ class AuthService:
         if not verify_password(password, credential.password_hash):
             if throttle:
                 await throttle.record_failure(email, ip)
+            await log_event(self.session, "login_failed", metadata={"email": email})
             raise AuthError("Email or password is incorrect", 401)
 
         # Generate tokens
@@ -108,6 +116,7 @@ class AuthService:
         await self.repo.update_last_active(user.id)
 
         access_token = create_access_token(str(user.id))
+        await log_event(self.session, "login_success", user_id=user.id)
         await self.session.commit()
 
         return TokenResponse(
@@ -126,6 +135,7 @@ class AuthService:
         if rt.revoked_at is not None:
             # Token reuse detected — revoke entire family
             await self.repo.revoke_family(rt.family_id)
+            await log_event(self.session, "token_reuse_detected", user_id=rt.user_id)
             await self.session.commit()
             raise AuthError("Token reuse detected — please log in again", 401)
 
@@ -145,6 +155,7 @@ class AuthService:
         )
 
         access_token = create_access_token(str(rt.user_id))
+        await log_event(self.session, "token_refreshed", user_id=rt.user_id)
         await self.session.commit()
 
         return TokenResponse(
@@ -160,6 +171,7 @@ class AuthService:
             rt = await self.repo.get_refresh_token(token_hashed)
             if rt and rt.user_id == user_id:
                 await self.repo.revoke_family(rt.family_id)
+        await log_event(self.session, "logout", user_id=user_id)
         await self.session.commit()
 
     async def request_password_reset(self, email: str) -> MessageResponse:
@@ -170,6 +182,9 @@ class AuthService:
             expires_at = datetime.now(UTC) + timedelta(minutes=15)
             await self.repo.create_password_reset_token(
                 user.id, token_hashed, expires_at
+            )
+            await log_event(
+                self.session, "password_reset_requested", user_id=user.id
             )
             await self.session.commit()
             # In production: send email with raw_token
@@ -206,5 +221,6 @@ class AuthService:
         # Revoke all refresh tokens
         await self.repo.revoke_all_user_tokens(user.id)
 
+        await log_event(self.session, "password_reset_completed", user_id=user.id)
         await self.session.commit()
         return MessageResponse(message="Password has been reset")
