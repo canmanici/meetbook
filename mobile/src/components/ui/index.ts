@@ -1,4 +1,5 @@
 export { Button } from './button';
+export type { ButtonVariant } from './button';
 export { Input } from './input';
 export { Card, BookCard } from './card';
 export { Avatar } from './avatar';
