@@ -8,7 +8,7 @@ interface BlurredAreaPinProps {
   testID?: string;
 }
 
-export type ExactPinVariant = 'default' | 'selected' | 'pending';
+type ExactPinVariant = 'default' | 'selected' | 'pending';
 
 interface ExactPinProps {
   variant?: ExactPinVariant;
