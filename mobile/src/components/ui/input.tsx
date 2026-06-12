@@ -11,7 +11,7 @@ import {
 import { palette, spacing, radius, fontSize } from './tokens';
 
 interface InputProps {
-  label: string;
+  label?: string;
   placeholder?: string;
   value?: string;
   onChangeText?: (text: string) => void;
@@ -19,6 +19,7 @@ interface InputProps {
   error?: string;
   secureTextEntry?: boolean;
   keyboardType?: 'email-address' | 'phone-pad' | 'default';
+  testID?: string;
   style?: ViewStyle;
 }
 
@@ -31,6 +32,7 @@ export const Input: React.FC<InputProps> = ({
   error,
   secureTextEntry = false,
   keyboardType = 'default',
+  testID = 'input-field',
   style,
 }) => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(!secureTextEntry);
@@ -43,7 +45,7 @@ export const Input: React.FC<InputProps> = ({
 
   return (
     <View style={[styles.container, style]}>
-      <Text style={[styles.label, hasError && styles.errorLabel]}>{label}</Text>
+      {label ? <Text style={[styles.label, hasError && styles.errorLabel]}>{label}</Text> : null}
       <View style={[styles.inputContainer, hasError && styles.errorInput]}>
         <TextInput
           style={styles.input}
@@ -53,7 +55,7 @@ export const Input: React.FC<InputProps> = ({
           secureTextEntry={secureTextEntry && !isPasswordVisible}
           keyboardType={keyboardType}
           placeholderTextColor={palette.light.textMuted}
-          testID="input-field"
+          testID={testID}
         />
         {secureTextEntry && (
           <TouchableOpacity
