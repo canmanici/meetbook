@@ -8,6 +8,64 @@ interface BlurredAreaPinProps {
   testID?: string;
 }
 
+export type ExactPinVariant = 'default' | 'selected' | 'pending';
+
+interface ExactPinProps {
+  variant?: ExactPinVariant;
+  testID?: string;
+}
+
+export const ExactPin: React.FC<ExactPinProps> = ({
+  variant = 'default',
+  testID = 'exact-pin',
+}) => {
+  const bodySize = 16;
+  const stemHeight = 12;
+  const stemWidth = 10;
+  const innerDotSize = 4;
+
+  const isPending = variant === 'pending';
+  const isSelected = variant === 'selected';
+  const fillColor = isPending ? palette.light.accent : palette.light.primary;
+  const scale = isSelected ? 1.15 : 1;
+
+  return (
+    <View
+      style={[
+        styles.exactContainer,
+        { transform: [{ scale }] },
+        isSelected && styles.exactShadow,
+      ]}
+      testID={testID}
+    >
+      <View style={[styles.exactBody, { backgroundColor: fillColor, width: bodySize, height: bodySize, borderRadius: bodySize / 2 }]}>
+        <View
+          style={[
+            styles.exactInner,
+            { width: innerDotSize, height: innerDotSize, borderRadius: innerDotSize / 2 },
+          ]}
+          testID="exact-pin-inner"
+        />
+      </View>
+      <View
+        style={[
+          styles.exactStem,
+          {
+            width: 0,
+            height: 0,
+            borderLeftWidth: stemWidth / 2,
+            borderRightWidth: stemWidth / 2,
+            borderTopWidth: stemHeight,
+            borderLeftColor: 'transparent',
+            borderRightColor: 'transparent',
+            borderTopColor: fillColor,
+          },
+        ]}
+      />
+    </View>
+  );
+};
+
 export const BlurredAreaPin: React.FC<BlurredAreaPinProps> = ({
   count,
   selected = false,
@@ -53,6 +111,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: palette.light.surface,
   },
+  exactContainer: {
+    alignItems: 'center',
+  },
+  exactBody: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  exactInner: {
+    backgroundColor: palette.light.surface,
+  },
+  exactStem: {},
+  exactShadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
 });
 
-export type { BlurredAreaPinProps };
+export type { BlurredAreaPinProps, ExactPinVariant };
