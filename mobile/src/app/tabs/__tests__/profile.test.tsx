@@ -8,7 +8,11 @@ import { useAuthStore } from '@/stores/auth-store';
 import ProfileScreen from '../profile';
 
 jest.mock('expo-router', () => ({
-  router: { replace: jest.fn() },
+  router: { replace: jest.fn(), push: jest.fn() },
+}));
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 jest.mock('@/lib/api/client', () => ({
@@ -74,5 +78,18 @@ describe('ProfileScreen', () => {
     });
     expect(mockClearSession).toHaveBeenCalled();
     expect(router.replace).toHaveBeenCalledWith('/auth/login');
+  });
+
+  it('shows empty books message', () => {
+    const { getByText } = render(<ProfileScreen />);
+
+    expect(getByText('Henüz kitap eklenmedi')).toBeTruthy();
+  });
+
+  it('shows stats badges', () => {
+    const { getByText } = render(<ProfileScreen />);
+
+    expect(getByText('0 takas')).toBeTruthy();
+    expect(getByText('0 kitap')).toBeTruthy();
   });
 });

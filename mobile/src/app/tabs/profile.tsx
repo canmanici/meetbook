@@ -1,8 +1,17 @@
 import { router } from 'expo-router';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
 
-import { Button, palette, spacing, fontSize } from '@/components/ui';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  palette,
+  spacing,
+  fontSize,
+} from '@/components/ui';
 import { logout } from '@/lib/api/client';
 import { clearTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
@@ -11,6 +20,7 @@ export default function ProfileScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = palette[isDark ? 'dark' : 'light'];
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const refreshToken = useAuthStore((state) => state.refreshToken);
   const clearSession = useAuthStore((state) => state.clearSession);
@@ -27,20 +37,55 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.title, { color: colors.text }]}>
-        {user?.name ?? 'Kullanıcı'}
-      </Text>
-      <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-        {user?.email ?? ''}
-      </Text>
-      <Button
-        onPress={onLogout}
-        variant="danger"
-        testID="logout-button"
-        style={styles.logoutButton}>
-        Çıkış yap
-      </Button>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <View style={[styles.header, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          Profil
+        </Text>
+      </View>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.profileSection}>
+          <Avatar name={user?.name ?? 'K'} size="large" />
+          <Text style={[styles.name, { color: colors.text }]}>
+            {user?.name ?? 'Kullanıcı'}
+          </Text>
+          <Text style={[styles.email, { color: colors.textMuted }]}>
+            {user?.email ?? ''}
+          </Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            İstatistikler
+          </Text>
+          <View style={styles.statsRow}>
+            <Badge text="0 takas" variant="primary" />
+            <Badge text="0 kitap" variant="info" />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Kitaplarım
+          </Text>
+          <Card>
+            <Text style={[styles.emptyBooks, { color: colors.textMuted }]}>
+              Henüz kitap eklenmedi
+            </Text>
+          </Card>
+        </View>
+
+        <Button
+          onPress={onLogout}
+          variant="danger"
+          testID="logout-button"
+        >
+          Çıkış Yap
+        </Button>
+      </ScrollView>
     </View>
   );
 }
@@ -48,21 +93,48 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+  },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.light.background,
+  },
+  headerTitle: {
+    fontSize: fontSize.heading,
+    fontWeight: '700',
+  },
+  scrollContent: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  profileSection: {
     alignItems: 'center',
-    padding: spacing.xl,
+    paddingVertical: spacing.xl,
   },
-  title: {
-    fontSize: fontSize.display,
-    fontWeight: 'bold',
-    marginBottom: spacing.md,
+  name: {
+    fontSize: fontSize.title,
+    fontWeight: '700',
+    marginTop: spacing.md,
   },
-  subtitle: {
+  email: {
     fontSize: fontSize.body,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
+    marginTop: spacing.xs,
   },
-  logoutButton: {
-    minWidth: 160,
+  section: {
+    gap: spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '600',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  emptyBooks: {
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: spacing.lg,
   },
 });
