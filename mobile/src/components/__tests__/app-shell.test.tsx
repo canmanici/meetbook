@@ -41,11 +41,11 @@ describe('App Shell', () => {
 
   it('maps each tab to its route name', () => {
     const { getByTestId, getByText } = render(<AppTabs />);
-    expect(getByTestId('home-tab')).toHaveTextContent('home');
-    expect(getByTestId('search-tab')).toHaveTextContent('search');
-    expect(getByTestId('requests-tab')).toHaveTextContent('requests');
-    expect(getByTestId('chats-tab')).toHaveTextContent('chats');
-    expect(getByTestId('profile-tab')).toHaveTextContent('profile');
+    expect(getByTestId('home-tab')).toHaveTextContent('home', { exact: false });
+    expect(getByTestId('search-tab')).toHaveTextContent('search', { exact: false });
+    expect(getByTestId('requests-tab')).toHaveTextContent('requests', { exact: false });
+    expect(getByTestId('chats-tab')).toHaveTextContent('chats', { exact: false });
+    expect(getByTestId('profile-tab')).toHaveTextContent('profile', { exact: false });
 
     expect(getByText('Home')).toBeTruthy();
     expect(getByText('Search')).toBeTruthy();

@@ -1,6 +1,6 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
-import { Text, Pressable } from 'react-native';
+import { render, fireEvent } from '@testing-library/react-native';
+import { Text } from 'react-native';
 import { Sheet } from '../sheet';
 
 describe('Sheet Component', () => {
@@ -22,13 +22,7 @@ describe('Sheet Component', () => {
     );
 
     const closeButton = getByTestId('close-button');
-    // Simulate press using the element's props
-    if (closeButton && 'props' in closeButton) {
-      const onPress = closeButton.props.onPress;
-      if (onPress) {
-        onPress();
-      }
-    }
+    fireEvent.press(closeButton);
     expect(onClose).toHaveBeenCalled();
   });
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { View } from 'react-native';
 import { EmptyState } from '../emptystate';
 
 describe('EmptyState Component', () => {

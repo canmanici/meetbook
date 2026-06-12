@@ -18,6 +18,7 @@ interface ButtonProps {
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
+  testID?: string;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -27,6 +28,7 @@ export const Button: React.FC<ButtonProps> = ({
   disabled = false,
   loading = false,
   style,
+  testID,
 }) => {
   const [isPressed, setIsPressed] = useState(false);
 
@@ -57,7 +59,7 @@ export const Button: React.FC<ButtonProps> = ({
       onPressOut={() => setIsPressed(false)}
       disabled={disabled || loading}
       activeOpacity={1.0}
-      testID={loading ? "button-loading" : "button"}
+      testID={testID ?? (loading ? "button-loading" : "button")}
     >
       {loading ? (
         <ActivityIndicator color={palette.light.surface} size="small" />
