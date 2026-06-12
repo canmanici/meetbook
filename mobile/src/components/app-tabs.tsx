@@ -1,42 +1,75 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
+import { Tabs } from 'expo-router';
+import { Text, useColorScheme } from 'react-native';
 
 import { palette } from '@/components/ui/tokens';
 
-export default function AppTabs() {
+const TAB_ICONS: Record<string, string> = {
+  home: '🏠',
+  search: '🔍',
+  requests: '📋',
+  chats: '💬',
+  profile: '👤',
+};
+
+function TabIcon({ name, color }: { name: keyof typeof TAB_ICONS; color: string }) {
+  return <Text style={{ fontSize: 24, color }}>{TAB_ICONS[name]}</Text>;
+}
+
+export function AppTabs() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = palette[isDark ? 'dark' : 'light'];
 
   return (
-    <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.primary}
-      labelStyle={{ selected: { color: colors.primary } }}>
-      <NativeTabs.Trigger name="home">
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon>🏠</NativeTabs.Trigger.Icon>
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="search">
-        <NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon>🔍</NativeTabs.Trigger.Icon>
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="requests">
-        <NativeTabs.Trigger.Label>Requests</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon>📋</NativeTabs.Trigger.Icon>
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="chats">
-        <NativeTabs.Trigger.Label>Chats</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon>💬</NativeTabs.Trigger.Icon>
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="profile">
-        <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon>👤</NativeTabs.Trigger.Icon>
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+        },
+      }}>
+      <Tabs.Screen
+        name="home"
+        options={{
+          title: 'Home',
+          tabBarTestID: 'home-tab',
+          tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          title: 'Search',
+          tabBarTestID: 'search-tab',
+          tabBarIcon: ({ color }) => <TabIcon name="search" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="requests"
+        options={{
+          title: 'Requests',
+          tabBarTestID: 'requests-tab',
+          tabBarIcon: ({ color }) => <TabIcon name="requests" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="chats"
+        options={{
+          title: 'Chats',
+          tabBarTestID: 'chats-tab',
+          tabBarIcon: ({ color }) => <TabIcon name="chats" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarTestID: 'profile-tab',
+          tabBarIcon: ({ color }) => <TabIcon name="profile" color={color} />,
+        }}
+      />
+    </Tabs>
   );
 }
