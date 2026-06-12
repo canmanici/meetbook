@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     color: palette.light.text,
   },
   illustrationEmoji: {
-    fontSize: 48,
+    fontSize: fontSize.display,
     marginBottom: spacing.xl,
   },
   row: {
