@@ -1,0 +1,129 @@
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ViewStyle,
+  TextStyle,
+} from 'react-native';
+import { palette, spacing, fontSize } from './tokens';
+import { Button } from './button';
+
+export interface EmptyStateProps {
+  /**
+   * Main message to display (e.g., 'No books found')
+   */
+  message: string;
+
+  /**
+   * Optional secondary text providing context (e.g., 'Try adjusting your filters')
+   */
+  description?: string;
+
+  /**
+   * Optional text for the action button
+   */
+  actionLabel?: string;
+
+  /**
+   * Callback when action button is pressed
+   */
+  onAction?: () => void;
+
+  /**
+   * Optional custom illustration component (overrides default)
+   */
+  illustration?: React.ReactNode;
+
+  /**
+   * Optional style for the container
+   */
+  style?: ViewStyle;
+}
+
+/**
+ * EmptyState component — displays an illustrated placeholder when content is absent.
+ *
+ * Features:
+ * - Customizable illustration (or default visual)
+ * - Primary message with optional description
+ * - Optional action button for next steps
+ * - Consistent spacing and typography from design tokens
+ * - Centered layout with proper vertical rhythm
+ *
+ * Usage:
+ * ```tsx
+ * <EmptyState
+ *   message="No books found"
+ *   description="Try adjusting your search filters"
+ *   actionLabel="Clear filters"
+ *   onAction={() => clearFilters()}
+ * />
+ * ```
+ */
+export const EmptyState: React.FC<EmptyStateProps> = ({
+  message,
+  description,
+  actionLabel,
+  onAction,
+  illustration,
+  style,
+}) => {
+  return (
+    <View style={[styles.container, style]} testID="empty-state">
+      {illustration || <View style={styles.defaultIllustration} testID="default-illustration" />}
+      <Text style={styles.message} testID="empty-state-message">
+        {message}
+      </Text>
+      {description ? (
+        <Text style={styles.description} testID="empty-state-description">
+          {description}
+        </Text>
+      ) : null}
+      {actionLabel && onAction ? (
+        <Button
+          variant="secondary"
+          onPress={onAction}
+          style={styles.actionButton}
+          testID="empty-state-action"
+        >
+          {actionLabel}
+        </Button>
+      ) : null}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.xl,
+  },
+  defaultIllustration: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: palette.light.textMuted,
+    opacity: 0.2,
+    marginBottom: spacing.xl,
+  },
+  message: {
+    fontSize: fontSize.title,
+    fontWeight: '600',
+    color: palette.light.text,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  description: {
+    fontSize: fontSize.body,
+    color: palette.light.textMuted,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+  },
+  actionButton: {
+    minWidth: 150,
+  },
+});
