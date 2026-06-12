@@ -22,7 +22,10 @@ from app.modules.auth.schemas import (
     AuthTokensResponse,
     MessageResponse,
     TokenResponse,
+    UserPublic,
 )
+
+CURRENT_KVKK_POLICY_VERSION = "1.0"
 
 
 class AuthError(Exception):
@@ -37,8 +40,11 @@ class AuthService:
         self.repo = AuthRepository(session)
 
     async def register(
-        self, email: str, password: str, name: str
+        self, email: str, password: str, name: str, kvkk_consent: bool
     ) -> AuthTokensResponse:
+        if kvkk_consent is not True:
+            raise AuthError("KVKK consent is required", 422)
+
         # Check duplicate email
         existing = await self.repo.get_user_by_email(email)
         if existing:
@@ -47,6 +53,11 @@ class AuthService:
         # Create user + credentials
         pw_hash = hash_password(password)
         user, _ = await self.repo.create_user(email, name, pw_hash)
+
+        now = datetime.now(UTC)
+        user.email_verified_at = now
+        user.kvkk_consent_at = now
+        user.kvkk_policy_version = CURRENT_KVKK_POLICY_VERSION
 
         # Generate tokens
         raw_token, token_hashed, family_id = create_refresh_token()
@@ -64,6 +75,7 @@ class AuthService:
             user_id=user.id,
             access_token=access_token,
             refresh_token=raw_token,
+            user=UserPublic(id=user.id, email=user.email, name=user.name),
         )
 
     async def login(
@@ -122,6 +134,7 @@ class AuthService:
         return TokenResponse(
             access_token=access_token,
             refresh_token=raw_token,
+            user=UserPublic(id=user.id, email=user.email, name=user.name),
         )
 
     async def refresh(self, refresh_token: str) -> TokenResponse:
@@ -158,9 +171,14 @@ class AuthService:
         await log_event(self.session, "token_refreshed", user_id=rt.user_id)
         await self.session.commit()
 
+        user = await self.repo.get_user_by_id(rt.user_id)
+        if user is None:
+            raise AuthError("User not found", 401)
+
         return TokenResponse(
             access_token=access_token,
             refresh_token=new_raw,
+            user=UserPublic(id=user.id, email=user.email, name=user.name),
         )
 
     async def logout(

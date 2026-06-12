@@ -39,7 +39,7 @@ async def register(
     service: AuthService = Depends(_get_service),
 ) -> AuthTokensResponse:
     try:
-        return await service.register(body.email, body.password, body.name)
+        return await service.register(body.email, body.password, body.name, body.kvkk_consent)
     except AuthError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
