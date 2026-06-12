@@ -33,13 +33,21 @@ export const BlurredAreaPin: React.FC<BlurredAreaPinProps> = ({
   return (
     <View style={pinStyle} testID={testID}>
       {count != null && (
-        <Text style={styles.countText}>{count}</Text>
+        <View style={styles.countBadge}>
+          <Text style={styles.countText}>{count}</Text>
+        </View>
       )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  countBadge: {
+    backgroundColor: palette.light.primary,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
   countText: {
     fontSize: fontSize.caption,
     fontWeight: '700',
