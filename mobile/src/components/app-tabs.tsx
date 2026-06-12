@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Text, useColorScheme } from 'react-native';
 
-import { palette } from '@/components/ui/tokens';
+import { palette, fontSize } from '@/components/ui/tokens';
 
 const TAB_ICONS: Record<string, string> = {
   home: '🏠',
@@ -12,7 +12,7 @@ const TAB_ICONS: Record<string, string> = {
 };
 
 function TabIcon({ name, color }: { name: keyof typeof TAB_ICONS; color: string }) {
-  return <Text style={{ fontSize: 24, color }}>{TAB_ICONS[name]}</Text>;
+  return <Text style={{ fontSize: fontSize.heading, color }}>{TAB_ICONS[name]}</Text>;
 }
 
 export function AppTabs() {
