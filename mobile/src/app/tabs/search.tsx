@@ -1,19 +1,31 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
 
-import { palette, spacing, fontSize } from '@/components/ui/tokens';
+import { Input, Skeleton, palette, spacing } from '@/components/ui';
 
 export default function SearchScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = palette[isDark ? 'dark' : 'light'];
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.title, { color: colors.text }]}>Search</Text>
-      <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-        Find books and people
-      </Text>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <View style={[styles.searchBar, { backgroundColor: colors.surface }]}>
+        <Input
+          placeholder="Kitap veya yazar ara..."
+          testID="search-input"
+        />
+      </View>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
+      </ScrollView>
     </View>
   );
 }
@@ -21,17 +33,12 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
   },
-  title: {
-    fontSize: fontSize.display,
-    fontWeight: 'bold',
-    marginBottom: spacing.md,
+  searchBar: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
-  subtitle: {
-    fontSize: fontSize.body,
-    textAlign: 'center',
+  scrollContent: {
+    padding: spacing.lg,
   },
 });
