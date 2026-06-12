@@ -15,11 +15,11 @@ jest.mock('expo-router', () => {
     options,
   }: {
     name: string;
-    options?: { tabBarTestID?: string; title?: string; tabBarIcon?: (props: { color: string }) => React.ReactNode };
+    options?: { tabBarButtonTestID?: string; title?: string; tabBarIcon?: (props: { color: string }) => React.ReactNode };
   }) {
     return ReactActual.createElement(
       RNView,
-      { testID: options?.tabBarTestID },
+      { testID: options?.tabBarButtonTestID },
       ReactActual.createElement(RNText, null, name),
       ReactActual.createElement(RNText, null, options?.title),
       options?.tabBarIcon?.({ color: '#000' })

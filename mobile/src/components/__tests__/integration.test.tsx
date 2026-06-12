@@ -50,7 +50,7 @@ describe('Design System Integration', () => {
     );
 
     expect(getAllByText('Test').length).toBeGreaterThan(0);
-    expect(getByText('1 km'.replace('1 km', '~1 km'))).toBeTruthy();
+    expect(getByText('~1 km')).toBeTruthy();
   });
 
   it('Sheet renders its content when visible', () => {

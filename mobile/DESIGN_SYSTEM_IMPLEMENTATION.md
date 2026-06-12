@@ -135,3 +135,11 @@ Sheet, Skeleton, Toast, tokens — are at 100%).
 3. Dark mode polish — verify all components look correct against `palette.dark`
 4. Wire up real data and navigation flows between screens
 5. Address the `/__gallery` route exclusion follow-up noted above before production release
+
+## Known Issues
+
+`npx tsc --noEmit` reports two pre-existing errors unrelated to the design system work in this phase:
+- `src/components/animated-icon.web.tsx` — missing type declarations for a `.module.css` import
+- `src/constants/theme.ts` — missing type declarations for a `@/global.css` side-effect import
+
+Both come from the original Expo starter scaffold (predate this phase) and don't affect `npm test`, which passes cleanly. They should be resolved (e.g. by adding a `.d.ts` module declaration for CSS imports) before relying on `tsc --noEmit` as a CI gate.
