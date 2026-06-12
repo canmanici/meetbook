@@ -19,6 +19,7 @@ async def test_register_creates_audit_entry(
             "email": "audit@example.com",
             "password": "securepass123",
             "name": "Audit User",
+            "kvkk_consent": True,
         },
     )
     assert resp.status_code == 201
@@ -46,6 +47,7 @@ async def test_login_failure_creates_audit_entry(
             "email": email,
             "password": "securepass123",
             "name": "Audit User",
+            "kvkk_consent": True,
         },
     )
     resp = await client.post(
@@ -73,6 +75,7 @@ async def test_audit_no_pii_in_metadata(
             "email": "nopii@example.com",
             "password": "securepass123",
             "name": "No PII User",
+            "kvkk_consent": True,
         },
     )
     assert resp.status_code == 201

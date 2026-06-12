@@ -9,7 +9,7 @@ async def _register_user(
 ) -> dict:
     resp = await client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": password, "name": "Test User"},
+        json={"email": email, "password": password, "name": "Test User", "kvkk_consent": True},
     )
     return resp.json()
 

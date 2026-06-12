@@ -10,6 +10,7 @@ async def test_login_success(client: httpx.AsyncClient) -> None:
             "email": "login@example.com",
             "password": "securepass123",
             "name": "Test User",
+            "kvkk_consent": True,
         },
     )
     resp = await client.post(
@@ -20,6 +21,11 @@ async def test_login_success(client: httpx.AsyncClient) -> None:
     body = resp.json()
     assert "access_token" in body
     assert "refresh_token" in body
+    assert body["user"] == {
+        "id": body["user"]["id"],
+        "email": "login@example.com",
+        "name": "Test User",
+    }
 
 
 @pytest.mark.asyncio
@@ -30,6 +36,7 @@ async def test_login_wrong_password(client: httpx.AsyncClient) -> None:
             "email": "login@example.com",
             "password": "securepass123",
             "name": "Test User",
+            "kvkk_consent": True,
         },
     )
     resp = await client.post(

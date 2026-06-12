@@ -10,6 +10,7 @@ async def test_refresh_success(client: httpx.AsyncClient) -> None:
             "email": "refresh@example.com",
             "password": "securepass123",
             "name": "Test User",
+            "kvkk_consent": True,
         },
     )
     login_resp = await client.post(
@@ -37,6 +38,7 @@ async def test_refresh_old_token_revoked(client: httpx.AsyncClient) -> None:
             "email": "refresh_revoke@example.com",
             "password": "securepass123",
             "name": "Test User",
+            "kvkk_consent": True,
         },
     )
     login_resp = await client.post(
