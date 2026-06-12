@@ -43,6 +43,10 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     last_active_at = Column(DateTime(timezone=True), nullable=True)
+    kvkk_consent_at = Column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    kvkk_policy_version = Column(String(20), nullable=False, default="1.0")
 
     # Relationships
     credential = relationship("UserCredential", back_populates="user", uselist=False)
