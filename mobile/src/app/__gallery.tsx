@@ -9,7 +9,8 @@ import { Sheet } from '@/components/ui/sheet';
 import { EmptyState } from '@/components/ui/emptystate';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toast, InlineError } from '@/components/ui/toast';
-import { spacing, palette, fontSize } from '@/components/ui/tokens';
+import { BlurredAreaPin, ExactPin } from '@/components/ui/mappin';
+import { spacing, palette, fontSize, radius } from '@/components/ui/tokens';
 
 /**
  * Component Gallery — dev-only design review screen.
@@ -161,6 +162,52 @@ export default function ComponentGallery() {
             message="Couldn't reach the server — pull to retry"
             style={styles.spacedTop}
           />
+        </View>
+
+        {/* Map Pins */}
+        <View style={styles.section} testID="gallery-mappin">
+          <Text style={styles.sectionTitle}>Map Pins</Text>
+          <View
+            style={{
+              backgroundColor: '#2A2A2A',
+              borderRadius: radius.input,
+              padding: spacing.lg,
+              marginBottom: spacing.sm,
+            }}
+          >
+            <Text style={[styles.cardText, { color: '#F0EEE8', marginBottom: spacing.md }]}>
+              Blurred Area Pins
+            </Text>
+            <View style={styles.row}>
+              <BlurredAreaPin testID="gallery-pin-blurred-default" />
+              <View style={styles.spacedLeft}>
+                <BlurredAreaPin selected testID="gallery-pin-blurred-selected" />
+              </View>
+              <View style={styles.spacedLeft}>
+                <BlurredAreaPin count={3} testID="gallery-pin-blurred-count" />
+              </View>
+            </View>
+          </View>
+          <View
+            style={{
+              backgroundColor: '#2A2A2A',
+              borderRadius: radius.input,
+              padding: spacing.lg,
+            }}
+          >
+            <Text style={[styles.cardText, { color: '#F0EEE8', marginBottom: spacing.md }]}>
+              Exact Pins
+            </Text>
+            <View style={[styles.row, { alignItems: 'flex-start' }]}>
+              <ExactPin testID="gallery-pin-exact-default" />
+              <View style={styles.spacedLeft}>
+                <ExactPin variant="selected" testID="gallery-pin-exact-selected" />
+              </View>
+              <View style={styles.spacedLeft}>
+                <ExactPin variant="pending" testID="gallery-pin-exact-pending" />
+              </View>
+            </View>
+          </View>
         </View>
 
         <View style={styles.spacer} />
