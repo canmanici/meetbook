@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { palette } from './tokens';
 
 interface Step {
   label: string;
@@ -11,6 +12,9 @@ interface StepProgressProps {
 }
 
 export function StepProgress({ steps, currentStep }: StepProgressProps) {
+  const scheme = useColorScheme();
+  const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
+
   return (
     <View style={styles.container}>
       {steps.map((step, index) => {
@@ -21,26 +25,26 @@ export function StepProgress({ steps, currentStep }: StepProgressProps) {
         return (
           <View key={step.label} style={styles.step}>
             {index > 0 && (
-              <View style={[styles.line, isDone && styles.lineDone]} />
+              <View style={[styles.line, { backgroundColor: isDone ? colors.primary : colors.textMuted + '30' }]} />
             )}
             <View
               style={[
                 styles.dot,
-                isDone && styles.dotDone,
-                isActive && styles.dotActive,
-                isPending && styles.dotPending,
+                isDone && { backgroundColor: colors.primary },
+                isActive && { backgroundColor: colors.primary, shadowColor: colors.primary },
+                isPending && { backgroundColor: colors.textMuted + '30' },
               ]}
             >
               <Text
                 style={[
                   styles.dotText,
-                  (isDone || isActive) && styles.dotTextActive,
+                  { color: (isDone || isActive) ? colors.surface : colors.textMuted },
                 ]}
               >
                 {isDone ? '✓' : index + 1}
               </Text>
             </View>
-            <Text style={[styles.label, isActive && styles.labelActive]}>
+            <Text style={[styles.label, { color: isActive ? colors.primary : colors.textMuted }]}>
               {step.label}
             </Text>
           </View>
@@ -68,11 +72,7 @@ const styles = StyleSheet.create({
     left: '50%',
     width: '100%',
     height: 2,
-    backgroundColor: '#e5e7eb',
     zIndex: 0,
-  },
-  lineDone: {
-    backgroundColor: '#0F6E5D',
   },
   dot: {
     width: 32,
@@ -81,37 +81,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
-  },
-  dotDone: {
-    backgroundColor: '#0F6E5D',
-  },
-  dotActive: {
-    backgroundColor: '#0F6E5D',
-    shadowColor: '#0F6E5D',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
-  dotPending: {
-    backgroundColor: '#e5e7eb',
-  },
   dotText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#9ca3af',
-  },
-  dotTextActive: {
-    color: '#ffffff',
   },
   label: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#9ca3af',
     marginTop: 6,
     textAlign: 'center',
-  },
-  labelActive: {
-    color: '#0F6E5D',
   },
 });

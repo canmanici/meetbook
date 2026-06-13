@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Final Polish — Wishlist, Requests, Profile</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#0a0a0a; color:#fff; }
+  .container { max-width:1100px; margin:0 auto; padding:24px; }
+  h1 { font-size:28px; font-weight:800; margin-bottom:8px; letter-spacing:-0.5px; }
+  .subtitle { color:#666; font-size:14px; margin-bottom:32px; }
+  .phones { display:flex; gap:28px; justify-content:center; flex-wrap:wrap; }
+  .phone { background:#111; border-radius:36px; padding:14px; box-shadow:0 30px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); flex-shrink:0; }
+  .phone-screen { background:#f8f7f4; border-radius:26px; overflow:hidden; height:620px; position:relative; }
+  .phone-notch { position:absolute; top:0; left:50%; transform:translateX(-50%); width:126px; height:26px; background:#000; border-radius:0 0 18px 18px; z-index:100; }
+  .phone-label { text-align:center; margin-top:14px; font-size:13px; font-weight:600; color:#555; letter-spacing:0.3px; }
+  .scroll { height:100%; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .scroll::-webkit-scrollbar { display:none; }
+
+  /* ── Wishlist ── */
+  .wl-header { padding:38px 20px 14px; display:flex; align-items:center; gap:12px; }
+  .wl-title { flex:1; font-size:23px; font-weight:800; color:#111; letter-spacing:-0.3px; }
+  .wl-icon { width:42px; height:42px; background:white; border-radius:13px; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.04); }
+
+  .wl-add { display:flex; gap:10px; padding:0 20px 14px; }
+  .wl-input { flex:1; padding:13px 16px; border:2px solid #eae9e4; border-radius:15px; font-size:14px; color:#111; background:white; outline:none; transition:border-color .2s; box-shadow:0 1px 3px rgba(0,0,0,0.03); }
+  .wl-input:focus { border-color:#0F6E5D; }
+  .wl-add-btn { width:50px; background:linear-gradient(135deg,#0F6E5D,#0a5c4e); color:white; border-radius:15px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(15,110,93,0.3); flex-shrink:0; }
+
+  .wl-card { background:white; border-radius:20px; margin:0 20px 14px; box-shadow:0 1px 2px rgba(0,0,0,0.03), 0 8px 28px rgba(0,0,0,0.05); overflow:hidden; }
+  .wl-card-head { padding:15px 18px; border-bottom:1px solid #f2f1ec; display:flex; justify-content:space-between; align-items:center; }
+  .wl-card-title { font-size:14px; font-weight:700; color:#111; }
+  .wl-card-link { font-size:12px; color:#0F6E5D; font-weight:700; }
+
+  .wl-item { display:flex; gap:13px; padding:15px 18px; border-bottom:1px solid #f2f1ec; align-items:center; transition:background .1s; }
+  .wl-item:last-child { border-bottom:none; }
+  .wl-item:active { background:#fafaf8; }
+  .wl-cover { width:52px; height:72px; border-radius:11px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:white; font-size:9px; text-align:center; font-weight:700; line-height:1.2; box-shadow:0 3px 12px rgba(0,0,0,0.2); position:relative; overflow:hidden; }
+  .wl-cover::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 40%); border-radius:11px; }
+  .wl-info { flex:1; min-width:0; }
+  .wl-name { font-size:14px; font-weight:700; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .wl-author { font-size:12px; color:#888; margin-top:1px; }
+  .wl-match { display:inline-flex; align-items:center; gap:4px; margin-top:5px; font-size:11px; font-weight:700; padding:3px 8px; border-radius:7px; }
+  .wl-match-yes { background:#ecfdf5; color:#059669; }
+  .wl-match-wait { background:#fffbeb; color:#d97706; }
+  .wl-remove { width:32px; height:32px; background:#fef2f2; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:transform .1s; }
+
+  .wl-nearby-head { padding:6px 20px 10px; display:flex; justify-content:space-between; align-items:center; }
+  .wl-nearby-title { font-size:16px; font-weight:800; color:#111; letter-spacing:-0.2px; }
+  .wl-nearby-more { font-size:12px; color:#0F6E5D; font-weight:700; }
+
+  .wl-scroll { display:flex; gap:12px; padding:0 20px 20px; overflow-x:auto; }
+  .wl-scroll::-webkit-scrollbar { display:none; }
+  .wl-scroll-card { min-width:155px; background:white; border-radius:18px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.04), 0 10px 30px rgba(0,0,0,0.06); flex-shrink:0; }
+  .wl-scroll-cover { height:105px; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:700; text-align:center; padding:10px; position:relative; }
+  .wl-scroll-cover::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(255,255,255,0.12) 0%,transparent 50%); }
+  .wl-scroll-dist { position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.45); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); padding:4px 9px; border-radius:8px; font-size:10px; color:white; font-weight:600; z-index:2; border:1px solid rgba(255,255,255,0.1); }
+  .wl-scroll-info { padding:12px 13px 14px; }
+  .wl-scroll-name { font-size:13px; font-weight:700; color:#111; }
+  .wl-scroll-sub { font-size:11px; color:#888; margin-top:1px; }
+  .wl-scroll-btn { background:linear-gradient(135deg,#0F6E5D,#0a5c4e); color:white; padding:8px; border-radius:11px; text-align:center; font-size:11px; font-weight:700; margin-top:9px; box-shadow:0 2px 8px rgba(15,110,93,0.25); }
+
+  /* ── Requests ── */
+  .rq-header { padding:38px 20px 14px; display:flex; align-items:center; gap:12px; }
+  .rq-title { flex:1; font-size:23px; font-weight:800; color:#111; letter-spacing:-0.3px; }
+  .rq-bell { width:42px; height:42px; background:white; border-radius:13px; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.04); position:relative; }
+  .rq-bell-dot { position:absolute;top:8px;right:9px;width:8px;height:8px;background:#ef4444;border-radius:50%;border:2px solid white; }
+
+  .rq-tabs { display:flex; gap:0; margin:0 20px 14px; background:#edecea; border-radius:15px; padding:4px; }
+  .rq-tab { flex:1; padding:10px; border-radius:12px; text-align:center; font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; }
+  .rq-tab-active { background:white; color:#0F6E5D; box-shadow:0 1px 6px rgba(0,0,0,0.06); }
+  .rq-tab-inactive { color:#888; }
+
+  .rq-card { background:white; border-radius:20px; margin:0 20px 14px; box-shadow:0 1px 2px rgba(0,0,0,0.03), 0 8px 28px rgba(0,0,0,0.05); overflow:hidden; }
+
+  .rq-item { padding:16px 18px; border-bottom:1px solid #f2f1ec; }
+  .rq-item:last-child { border-bottom:none; }
+  .rq-top { display:flex; gap:11px; align-items:center; margin-bottom:11px; }
+  .rq-avatar { width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-weight:800; font-size:14px; flex-shrink:0; box-shadow:0 3px 12px rgba(0,0,0,0.15); position:relative; }
+  .rq-avatar::after { content:''; position:absolute; inset:-2px; border-radius:50%; border:2px solid rgba(255,255,255,0.3); }
+  .rq-info { flex:1; min-width:0; }
+  .rq-name { font-size:14px; font-weight:700; color:#111; }
+  .rq-book { font-size:12px; color:#888; margin-top:1px; }
+  .rq-time { font-size:11px; color:#bbb; margin-top:2px; }
+  .rq-badge { padding:4px 10px; border-radius:9px; font-size:10px; font-weight:700; flex-shrink:0; letter-spacing:0.2px; }
+  .rq-badge-pending { background:#fef3c7; color:#b45309; }
+  .rq-badge-accepted { background:#dcfce7; color:#15803d; }
+  .rq-badge-completed { background:#dbeafe; color:#1d4ed8; }
+  .rq-badge-rejected { background:#fee2e2; color:#dc2626; }
+
+  .rq-book-thumb { width:46px; height:46px; border-radius:13px; display:flex; align-items:center; justify-content:center; color:white; font-size:9px; font-weight:700; text-align:center; flex-shrink:0; box-shadow:0 3px 12px rgba(0,0,0,0.15); position:relative; overflow:hidden; }
+  .rq-book-thumb::after { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,0.18) 0%,transparent 50%); border-radius:13px; }
+
+  .rq-actions { display:flex; gap:9px; }
+  .rq-btn { flex:1; padding:11px; border-radius:13px; text-align:center; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:5px; cursor:pointer; transition:all .15s; }
+  .rq-btn:active { transform:scale(0.97); }
+  .rq-accept { background:linear-gradient(135deg,#0F6E5D,#0891b2); color:white; box-shadow:0 3px 12px rgba(15,110,93,0.3); }
+  .rq-reject { background:#f5f4f0; color:#555; border:1px solid #eae9e4; }
+
+  /* ── Profile ── */
+  .pr-hero { padding:42px 20px 28px; text-align:center; position:relative; background:linear-gradient(180deg,#ecfdf5 0%,#f0fdf4 50%,#f8f7f4 100%); }
+  .pr-settings { position:absolute; top:42px; right:18px; width:42px; height:42px; background:white; border-radius:13px; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.04); }
+  .pr-avatar { width:88px; height:88px; border-radius:50%; background:linear-gradient(135deg,#6366f1,#8b5cf6); display:flex; align-items:center; justify-content:center; color:white; font-weight:800; font-size:30px; margin:0 auto 16px; box-shadow:0 6px 28px rgba(99,102,241,0.35); border:4px solid white; position:relative; }
+  .pr-verified { position:absolute; bottom:2px; right:0px; width:26px; height:26px; background:linear-gradient(135deg,#10b981,#059669); border-radius:50%; border:3px solid white; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(16,185,129,0.3); }
+  .pr-name { font-size:26px; font-weight:800; color:#111; letter-spacing:-0.5px; }
+  .pr-email { font-size:13px; color:#888; margin-top:3px; }
+  .pr-joined { font-size:11px; color:#bbb; margin-top:5px; display:flex; align-items:center; justify-content:center; gap:4px; }
+
+  .pr-stats { display:flex; gap:10px; margin:18px 20px; }
+  .pr-stat { flex:1; background:white; border-radius:18px; padding:18px 12px; text-align:center; box-shadow:0 1px 2px rgba(0,0,0,0.03), 0 8px 28px rgba(0,0,0,0.05); position:relative; overflow:hidden; }
+  .pr-stat::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+  .pr-stat:nth-child(1)::before { background:linear-gradient(90deg,#0F6E5D,#34d399); }
+  .pr-stat:nth-child(2)::before { background:linear-gradient(90deg,#1d4ed8,#60a5fa); }
+  .pr-stat:nth-child(3)::before { background:linear-gradient(90deg,#7c3aed,#a78bfa); }
+  .pr-stat-val { font-size:28px; font-weight:800; letter-spacing:-0.5px; }
+  .pr-stat-label { font-size:11px; color:#888; margin-top:3px; font-weight:500; }
+
+  .pr-card { background:white; border-radius:20px; margin:0 20px 14px; box-shadow:0 1px 2px rgba(0,0,0,0.03), 0 8px 28px rgba(0,0,0,0.05); overflow:hidden; }
+  .pr-menu { display:flex; align-items:center; gap:13px; padding:15px 18px; border-bottom:1px solid #f2f1ec; cursor:pointer; transition:background .1s; }
+  .pr-menu:last-child { border-bottom:none; }
+  .pr-menu:active { background:#fafaf8; }
+  .pr-menu-icon { width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .pr-menu-text { flex:1; }
+  .pr-menu-title { font-size:14px; font-weight:600; color:#111; }
+  .pr-menu-desc { font-size:11px; color:#999; margin-top:1px; }
+  .pr-menu-badge { padding:3px 9px; border-radius:8px; font-size:10px; font-weight:700; flex-shrink:0; }
+  .pr-menu-arrow { color:#ccc; flex-shrink:0; }
+
+  .pr-logout { margin:0 20px 20px; background:white; border:2px solid #fecaca; border-radius:16px; padding:15px; text-align:center; color:#dc2626; font-size:14px; font-weight:700; cursor:pointer; transition:all .15s; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .pr-logout:active { transform:scale(0.98); background:#fef2f2; }
+  .pr-footer { text-align:center; padding:12px 20px 20px; font-size:11px; color:#ccc; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Final Polish</h1>
+  <p class="subtitle">Maximum refinement — glass, depth, micro-details</p>
+  <div class="phones">
+
+    <!-- ═══════ WISHLIST ═══════ -->
+    <div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="phone-notch"></div>
+          <div class="scroll">
+            <div class="wl-header">
+              <div class="wl-title">istek Listem</div>
+              <div class="wl-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              </div>
+            </div>
+
+            <div class="wl-add">
+              <input class="wl-input" placeholder="ISBN veya kitap adı yazın...">
+              <div class="wl-add-btn">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </div>
+            </div>
+
+            <div class="wl-card">
+              <div class="wl-card-head">
+                <div class="wl-card-title">isteklerim (4)</div>
+                <div class="wl-card-link">Eşleşmeleri gör →</div>
+              </div>
+
+              <div class="wl-item">
+                <div class="wl-cover" style="background:linear-gradient(145deg,#78350f,#c27214)"><div style="position:relative;z-index:1">Yüzüklerin<br>Efendisi</div></div>
+                <div class="wl-info">
+                  <div class="wl-name">Yüzüklerin Efendisi</div>
+                  <div class="wl-author">J.R.R. Tolkien</div>
+                  <div class="wl-match wl-match-yes">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    2 eşleşme
+                  </div>
+                </div>
+                <div class="wl-remove">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+              </div>
+
+              <div class="wl-item">
+                <div class="wl-cover" style="background:linear-gradient(145deg,#1e3a5f,#4488cc)"><div style="position:relative;z-index:1">Dune</div></div>
+                <div class="wl-info">
+                  <div class="wl-name">Dune</div>
+                  <div class="wl-author">Frank Herbert</div>
+                  <div class="wl-match wl-match-yes">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    1 eşleşme
+                  </div>
+                </div>
+                <div class="wl-remove">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+              </div>
+
+              <div class="wl-item">
+                <div class="wl-cover" style="background:linear-gradient(145deg,#7f1d1d,#ef4444)"><div style="position:relative;z-index:1">1984</div></div>
+                <div class="wl-info">
+                  <div class="wl-name">1984</div>
+                  <div class="wl-author">George Orwell</div>
+                  <div class="wl-match wl-match-wait">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Bekleniyor
+                  </div>
+                </div>
+                <div class="wl-remove">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+              </div>
+
+              <div class="wl-item">
+                <div class="wl-cover" style="background:linear-gradient(145deg,#065f46,#34d399)"><div style="position:relative;z-index:1">Çavdar<br>Tarası</div></div>
+                <div class="wl-info">
+                  <div class="wl-name">Çavdar Tarlasında Çocuklar</div>
+                  <div class="wl-author">J.D. Salinger</div>
+                  <div class="wl-match wl-match-wait">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Bekleniyor
+                  </div>
+                </div>
+                <div class="wl-remove">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="wl-nearby-head">
+              <div class="wl-nearby-title">Yakınınızda Eşleşenler</div>
+              <div class="wl-nearby-more">Tümü →</div>
+            </div>
+
+            <div class="wl-scroll">
+              <div class="wl-scroll-card">
+                <div class="wl-scroll-cover" style="background:linear-gradient(145deg,#78350f,#c27214)">
+                  <div class="wl-scroll-dist">📍 1.2 km</div>
+                  <div style="position:relative;z-index:1">Suç ve Ceza</div>
+                </div>
+                <div class="wl-scroll-info">
+                  <div class="wl-scroll-name">Suç ve Ceza</div>
+                  <div class="wl-scroll-sub">Dostoyevski · Yeni gibi</div>
+                  <div class="wl-scroll-btn">exchange iste</div>
+                </div>
+              </div>
+              <div class="wl-scroll-card">
+                <div class="wl-scroll-cover" style="background:linear-gradient(145deg,#1e3a5f,#4488cc)">
+                  <div class="wl-scroll-dist">📍 2.8 km</div>
+                  <div style="position:relative;z-index:1">Dune</div>
+                </div>
+                <div class="wl-scroll-info">
+                  <div class="wl-scroll-name">Dune</div>
+                  <div class="wl-scroll-sub">Herbert · İyi</div>
+                  <div class="wl-scroll-btn">exchange iste</div>
+                </div>
+              </div>
+              <div class="wl-scroll-card">
+                <div class="wl-scroll-cover" style="background:linear-gradient(145deg,#7f1d1d,#ef4444)">
+                  <div class="wl-scroll-dist">📍 3.5 km</div>
+                  <div style="position:relative;z-index:1">1984</div>
+                </div>
+                <div class="wl-scroll-info">
+                  <div class="wl-scroll-name">1984</div>
+                  <div class="wl-scroll-sub">Orwell · Yeni</div>
+                  <div class="wl-scroll-btn">exchange iste</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Wishlist</div>
+    </div>
+
+    <!-- ═══════ REQUESTS ═══════ -->
+    <div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="phone-notch"></div>
+          <div class="scroll">
+            <div class="rq-header">
+              <div class="rq-title">Talepler</div>
+              <div class="rq-bell">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                <div class="rq-bell-dot"></div>
+              </div>
+            </div>
+
+            <div class="rq-tabs">
+              <div class="rq-tab rq-tab-active">Gelen (2)</div>
+              <div class="rq-tab rq-tab-inactive">Giden (3)</div>
+            </div>
+
+            <div class="rq-card">
+              <div class="rq-item">
+                <div class="rq-top">
+                  <div class="rq-avatar" style="background:linear-gradient(145deg,#f472b6,#ec4899)">AM</div>
+                  <div class="rq-info">
+                    <div class="rq-name">Ayşe M.</div>
+                    <div class="rq-book">Suç ve Ceza istedi</div>
+                    <div class="rq-time">2 saat önce</div>
+                  </div>
+                  <span class="rq-badge rq-badge-pending">Bekliyor</span>
+                </div>
+                <div class="rq-actions">
+                  <div class="rq-btn rq-accept">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    Onayla
+                  </div>
+                  <div class="rq-btn rq-reject">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    Reddet
+                  </div>
+                </div>
+              </div>
+              <div class="rq-item">
+                <div class="rq-top">
+                  <div class="rq-avatar" style="background:linear-gradient(145deg,#60a5fa,#3b82f6)">CB</div>
+                  <div class="rq-info">
+                    <div class="rq-name">Can B.</div>
+                    <div class="rq-book">Matematik 101 istedi</div>
+                    <div class="rq-time">1 gün önce</div>
+                  </div>
+                  <span class="rq-badge rq-badge-pending">Bekliyor</span>
+                </div>
+                <div class="rq-actions">
+                  <div class="rq-btn rq-accept">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    Onayla
+                  </div>
+                  <div class="rq-btn rq-reject">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    Reddet
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="padding:14px 20px 8px">
+              <div style="font-size:12px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.8px">Giden Taleplerim</div>
+            </div>
+
+            <div class="rq-card">
+              <div class="rq-item">
+                <div class="rq-top">
+                  <div class="rq-book-thumb" style="background:linear-gradient(145deg,#fbbf24,#f59e0b)">Yüzük<br>Efendisi</div>
+                  <div class="rq-info">
+                    <div class="rq-name">Elif D.'den istendi</div>
+                    <div class="rq-book">Yüzüklerin Efendisi</div>
+                    <div class="rq-time">3 gün önce</div>
+                  </div>
+                  <span class="rq-badge rq-badge-accepted">Onaylandı</span>
+                </div>
+              </div>
+              <div class="rq-item">
+                <div class="rq-top">
+                  <div class="rq-book-thumb" style="background:linear-gradient(145deg,#a78bfa,#8b5cf6)">1984</div>
+                  <div class="rq-info">
+                    <div class="rq-name">Murat K.'dan istendi</div>
+                    <div class="rq-book">1984</div>
+                    <div class="rq-time">5 gün önce</div>
+                  </div>
+                  <span class="rq-badge rq-badge-rejected">Reddedildi</span>
+                </div>
+              </div>
+              <div class="rq-item">
+                <div class="rq-top">
+                  <div class="rq-book-thumb" style="background:linear-gradient(145deg,#34d399,#10b981)">Nutuk</div>
+                  <div class="rq-info">
+                    <div class="rq-name">Zeynep A.'dan istendi</div>
+                    <div class="rq-book">Nutuk</div>
+                    <div class="rq-time">1 hafta önce</div>
+                  </div>
+                  <span class="rq-badge rq-badge-completed">Tamamlandı</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Requests</div>
+    </div>
+
+    <!-- ═══════ PROFILE ═══════ -->
+    <div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="phone-notch"></div>
+          <div class="scroll">
+            <div class="pr-hero">
+              <div class="pr-settings">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+              </div>
+              <div class="pr-avatar">
+                AK
+                <div class="pr-verified">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+              </div>
+              <div class="pr-name">Ahmet K.</div>
+              <div class="pr-email">ahmet@email.com</div>
+              <div class="pr-joined">🗓️ Ocak 2025'ten beri</div>
+            </div>
+
+            <div class="pr-stats">
+              <div class="pr-stat">
+                <div class="pr-stat-val" style="color:#0F6E5D">7</div>
+                <div class="pr-stat-label">exchange</div>
+              </div>
+              <div class="pr-stat">
+                <div class="pr-stat-val" style="color:#1d4ed8">5</div>
+                <div class="pr-stat-label">Kitap</div>
+              </div>
+              <div class="pr-stat">
+                <div class="pr-stat-val" style="color:#7c3aed">4.8</div>
+                <div class="pr-stat-label">Puan</div>
+              </div>
+            </div>
+
+            <div class="pr-card">
+              <div class="pr-menu">
+                <div class="pr-menu-icon" style="background:#ecfdf5">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F6E5D" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+                </div>
+                <div class="pr-menu-text">
+                  <div class="pr-menu-title">Kitaplarım</div>
+                  <div class="pr-menu-desc">5 aktif ilan</div>
+                </div>
+                <div class="pr-menu-badge" style="background:#dcfce7;color:#15803d">5</div>
+                <svg class="pr-menu-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+              <div class="pr-menu">
+                <div class="pr-menu-icon" style="background:#fef3c7">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+                </div>
+                <div class="pr-menu-text">
+                  <div class="pr-menu-title">istek Listem</div>
+                  <div class="pr-menu-desc">4 kitap bekliyor</div>
+                </div>
+                <div class="pr-menu-badge" style="background:#fef3c7;color:#d97706">4</div>
+                <svg class="pr-menu-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+              <div class="pr-menu">
+                <div class="pr-menu-icon" style="background:#eff6ff">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                </div>
+                <div class="pr-menu-text">
+                  <div class="pr-menu-title">Güvendiğim Kişi</div>
+                  <div class="pr-menu-desc">Anne — Ayşe K.</div>
+                </div>
+                <svg class="pr-menu-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+              <div class="pr-menu">
+                <div class="pr-menu-icon" style="background:#f5f3ff">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <div class="pr-menu-text">
+                  <div class="pr-menu-title">Gizlilik & Güvenlik</div>
+                </div>
+                <svg class="pr-menu-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+            </div>
+
+            <div class="pr-card" style="margin-top:10px">
+              <div class="pr-menu">
+                <div class="pr-menu-icon" style="background:#f5f5f4">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                </div>
+                <div class="pr-menu-text"><div class="pr-menu-title">Ayarlar</div></div>
+                <svg class="pr-menu-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+              <div class="pr-menu">
+                <div class="pr-menu-icon" style="background:#fef2f2">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </div>
+                <div class="pr-menu-text"><div class="pr-menu-title" style="color:#dc2626">Çıkış Yap</div></div>
+              </div>
+            </div>
+
+            <div class="pr-footer">MeetBook v1.0.0</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Profile</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<h2>Map View: Book Cover Pins</h2>
+<p class="subtitle">How book covers appear on the map and what happens when tapped</p>
+
+<div class="section">
+  <h3>Map with Book Cover Pins</h3>
+</div>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Scattered Pins View</div>
+    <div class="mockup-body" style="padding:0;height:340px;background:#c8e6c9;position:relative;border-radius:0 0 12px 12px;overflow:hidden">
+      <!-- Toggle -->
+      <div style="position:absolute;top:10px;right:10px;background:white;border-radius:20px;padding:4px 12px;display:flex;gap:0;box-shadow:0 2px 8px rgba(0,0,0,0.15);font-size:13px;font-weight:600;z-index:20">
+        <div style="background:#0F6E5D;color:white;padding:4px 12px;border-radius:16px">🗺️ Harita</div>
+        <div style="color:#666;padding:4px 12px">📋 Liste</div>
+      </div>
+      
+      <!-- Search bar -->
+      <div style="position:absolute;top:10px;left:10px;right:80px;background:white;border-radius:10px;padding:8px 12px;box-shadow:0 2px 6px rgba(0,0,0,0.1);display:flex;align-items:center;gap:8px;z-index:20">
+        <span>🔍</span>
+        <span style="color:#999;font-size:13px">Kitap ara...</span>
+      </div>
+      
+      <!-- Book cover pins -->
+      <div style="position:absolute;top:60px;left:40px;z-index:10">
+        <div style="width:44px;height:60px;background:linear-gradient(135deg,#8B4513,#D2691E);border-radius:4px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;font-size:8px;text-align:center;padding:2px;line-height:1.1">Suç ve Ceza</div>
+        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid white;margin:-1px auto 0"></div>
+      </div>
+      
+      <div style="position:absolute;top:90px;left:150px;z-index:10">
+        <div style="width:44px;height:60px;background:linear-gradient(135deg,#1a237e,#283593);border-radius:4px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;font-size:8px;text-align:center;padding:2px;line-height:1.1">Matematik 101</div>
+        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid white;margin:-1px auto 0"></div>
+      </div>
+      
+      <div style="position:absolute;top:50px;right:50px;z-index:10">
+        <div style="width:44px;height:60px;background:linear-gradient(135deg,#b71c1c,#c62828);border-radius:4px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;font-size:8px;text-align:center;padding:2px;line-height:1.1">Watchmen</div>
+        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid white;margin:-1px auto 0"></div>
+      </div>
+      
+      <div style="position:absolute;bottom:80px;left:100px;z-index:10">
+        <div style="width:44px;height:60px;background:linear-gradient(135deg,#1b5e20,#2e7d32);border-radius:4px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;font-size:8px;text-align:center;padding:2px;line-height:1.1">Nutuk</div>
+        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid white;margin:-1px auto 0"></div>
+      </div>
+      
+      <!-- Cluster (nearby books) -->
+      <div style="position:absolute;bottom:60px;right:70px;z-index:10">
+        <div style="width:48px;height:48px;background:#0F6E5D;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:16px;cursor:pointer">3</div>
+      </div>
+      
+      <!-- User location -->
+      <div style="position:absolute;top:55%;left:55%;transform:translate(-50%,-50%);z-index:10">
+        <div style="width:16px;height:16px;background:#4285F4;border-radius:50%;border:3px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>
+      </div>
+      
+      <!-- Bottom info -->
+      <div style="position:absolute;bottom:0;left:0;right:0;background:white;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;z-index:20">
+        <small style="color:#666">12 kitap bulundu · 4 visible</small>
+        <div style="display:flex;gap:6px">
+          <div style="background:#f0f0f0;padding:3px 10px;border-radius:12px;font-size:11px">📍 Yakınım</div>
+          <div style="background:#f0f0f0;padding:3px 10px;border-radius:12px;font-size:11px">🔄 Yenile</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="mockup">
+    <div class="mockup-header">After Tap: Book Detail Bottom Sheet</div>
+    <div class="mockup-body" style="padding:0;height:340px;background:#c8e6c9;position:relative;border-radius:0 0 12px 12px;overflow:hidden">
+      <!-- Dimmed map background -->
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.3)"></div>
+      
+      <!-- Bottom Sheet -->
+      <div style="position:absolute;bottom:0;left:0;right:0;background:white;border-radius:16px 16px 0 0;padding:16px;box-shadow:0 -4px 20px rgba(0,0,0,0.15);z-index:20">
+        <!-- Handle bar -->
+        <div style="width:40px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 12px"></div>
+        
+        <!-- Book cover + info -->
+        <div style="display:flex;gap:12px">
+          <div style="width:60px;height:80px;background:linear-gradient(135deg,#8B4513,#D2691E);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:white;font-size:10px;text-align:center;padding:4px;line-height:1.2">Suç ve Ceza</div>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:16px">Suç ve Ceza</div>
+            <div style="color:#666;font-size:13px">Fyodor Dostoyevski</div>
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <span style="background:#e8f5e9;color:#2e7d32;padding:3px 8px;border-radius:8px;font-size:11px">Yeni gibi</span>
+              <span style="background:#f3e5f5;color:#7b1fa2;padding:3px 8px;border-radius:8px;font-size:11px">📖 Roman</span>
+            </div>
+            <div style="color:#0F6E5D;font-size:12px;margin-top:6px">📍 1.2 km uzaklıkta</div>
+          </div>
+        </div>
+        
+        <!-- Action buttons -->
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <div style="flex:1;background:#0F6E5D;color:white;padding:10px;border-radius:10px;text-align:center;font-size:13px;font-weight:600">exchange iste</div>
+          <div style="flex:1;background:#f5f5f5;padding:10px;border-radius:10px;text-align:center;font-size:13px;font-weight:600">📋 Detay</div>
+          <div style="width:42px;height:42px;background:#f5f5f5;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px">❤️</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:20px">
+  <h3>Pin Cluster Behavior</h3>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="expand-cluster" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Expand Cluster on Tap</h3>
+      <p>Tap a cluster (green circle with "3") → it zooms in and spreads out the individual book pins. Tap a pin → bottom sheet with book details.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="list-cluster" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Cluster → Mini List Sheet</h3>
+      <p>Tap a cluster → opens a bottom sheet with a scrollable list of books in that area. Tap a book in the list → opens full book detail.</p>
+    </div>
+  </div>
+</div>

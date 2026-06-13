@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Image, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet, useColorScheme } from 'react-native';
+import { palette } from './tokens';
 
 interface MapBookPinProps {
   coverUrl?: string;
@@ -8,19 +9,22 @@ interface MapBookPinProps {
 }
 
 export function MapBookPin({ coverUrl, title, isSelected = false }: MapBookPinProps) {
+  const scheme = useColorScheme();
+  const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
+
   return (
     <View style={[styles.container, isSelected && styles.selected]}>
       {coverUrl ? (
-        <Image source={{ uri: coverUrl }} style={styles.cover} />
+        <Image source={{ uri: coverUrl }} style={[styles.cover, { borderColor: colors.surface }]} />
       ) : (
-        <View style={[styles.cover, styles.placeholder]}>
+        <View style={[styles.cover, styles.placeholder, { backgroundColor: colors.textMuted + '40' }]}>
           <View style={styles.placeholderLines}>
-            <View style={styles.line} />
-            <View style={[styles.line, { width: '60%' }]} />
+            <View style={[styles.line, { backgroundColor: colors.textMuted + '60' }]} />
+            <View style={[styles.line, { width: '60%', backgroundColor: colors.textMuted + '60' }]} />
           </View>
         </View>
       )}
-      <View style={styles.pointer} />
+      <View style={[styles.pointer, { borderTopColor: colors.surface }]} />
     </View>
   );
 }
@@ -37,7 +41,6 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 6,
     borderWidth: 2.5,
-    borderColor: '#ffffff',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
@@ -45,7 +48,6 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   placeholder: {
-    backgroundColor: '#ddd',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -56,7 +58,6 @@ const styles = StyleSheet.create({
   line: {
     height: 3,
     width: '70%',
-    backgroundColor: '#bbb',
     borderRadius: 2,
   },
   pointer: {
@@ -67,7 +68,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 8,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderTopColor: '#ffffff',
     marginTop: -2,
   },
 });

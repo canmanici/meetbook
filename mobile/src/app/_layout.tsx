@@ -39,6 +39,11 @@ export default function RootLayout() {
         </Stack.Protected>
         <Stack.Protected guard={status === 'authenticated'}>
           <Stack.Screen name="tabs" options={{ headerShown: false }} />
+          <Stack.Screen name="book" options={{ headerShown: false }} />
+          <Stack.Screen name="exchange" options={{ headerShown: false }} />
+          <Stack.Screen name="meetup" options={{ headerShown: false }} />
+          <Stack.Screen name="wishlist" options={{ headerShown: false }} />
+          <Stack.Screen name="settings" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack>
     </QueryClientProvider>

@@ -1,0 +1,97 @@
+<h2>Search Screen Redesign</h2>
+<p class="subtitle">Text search + filters + optional map view</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Search: List View (Default)</div>
+    <div class="mockup-body" style="padding:0">
+      <div style="padding:12px">
+        <!-- Search bar with voice/camera -->
+        <div style="background:#f5f5f5;border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px">
+          <span>🔍</span>
+          <span style="flex:1;color:#999;font-size:14px">Kitap, yazar veya ISBN ara...</span>
+          <span style="font-size:18px">📷</span>
+        </div>
+      </div>
+      
+      <!-- Active filters -->
+      <div style="padding:0 12px 8px;display:flex;gap:6px;flex-wrap:wrap">
+        <div style="background:#0F6E5D;color:white;padding:4px 10px;border-radius:16px;font-size:12px;display:flex;align-items:center;gap:4px">📖 Roman ✕</div>
+        <div style="background:#0F6E5D;color:white;padding:4px 10px;border-radius:16px;font-size:12px;display:flex;align-items:center;gap:4px">Yeni gibi ✕</div>
+        <div style="background:#f0f0f0;padding:4px 10px;border-radius:16px;font-size:12px;color:#666">Tüm filtreler</div>
+      </div>
+      
+      <!-- Filter chips row -->
+      <div style="display:flex;gap:6px;padding:0 12px 10px;overflow-x:hidden">
+        <div style="background:#f0f0f0;padding:5px 12px;border-radius:16px;font-size:12px;white-space:nowrap">📁 Kategori</div>
+        <div style="background:#f0f0f0;padding:5px 12px;border-radius:16px;font-size:12px;white-space:nowrap">✨ Durum</div>
+        <div style="background:#f0f0f0;padding:5px 12px;border-radius:16px;font-size:12px;white-space:nowrap">🌐 Dil</div>
+        <div style="background:#f0f0f0;padding:5px 12px;border-radius:16px;font-size:12px;white-space:nowrap">📏 Mesafe</div>
+      </div>
+      
+      <!-- Results header -->
+      <div style="padding:0 12px 8px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:#666">8 sonuç bulundu</span>
+        <span style="font-size:13px;color:#0F6E5D;font-weight:600">↕️ Yakınlık</span>
+      </div>
+      
+      <!-- Book cards -->
+      <div style="padding:0 12px">
+        <div style="background:white;border:1px solid #eee;border-radius:12px;padding:10px;margin-bottom:8px;display:flex;gap:10px">
+          <div style="width:50px;height:65px;background:linear-gradient(135deg,#8B4513,#D2691E);border-radius:6px;flex-shrink:0"></div>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:14px">Suç ve Ceza</div>
+            <div style="color:#666;font-size:12px">Dostoyevski</div>
+            <div style="display:flex;gap:4px;margin-top:4px">
+              <span style="background:#e8f5e9;color:#2e7d32;padding:2px 6px;border-radius:8px;font-size:10px">Yeni gibi</span>
+              <span style="color:#0F6E5D;font-size:11px">📍 1.2 km</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Search: Map View</div>
+    <div class="mockup-body" style="padding:0;height:300px;background:#c8e6c9;position:relative;border-radius:0 0 12px 12px;overflow:hidden">
+      <!-- Toggle -->
+      <div style="position:absolute;top:10px;right:10px;background:white;border-radius:20px;padding:4px 12px;display:flex;gap:0;box-shadow:0 2px 8px rgba(0,0,0,0.15);font-size:13px;font-weight:600;z-index:20">
+        <div style="background:#0F6E5D;color:white;padding:4px 12px;border-radius:16px">🗺️</div>
+        <div style="color:#666;padding:4px 12px">📋</div>
+      </div>
+      
+      <!-- Search bar -->
+      <div style="position:absolute;top:10px;left:10px;right:70px;background:white;border-radius:10px;padding:8px 12px;box-shadow:0 2px 6px rgba(0,0,0,0.1);display:flex;align-items:center;gap:8px;z-index:20">
+        <span>🔍</span>
+        <span style="color:#999;font-size:13px">Roman · Yeni gibi</span>
+      </div>
+      
+      <!-- Book pins -->
+      <div style="position:absolute;top:60px;left:50px;z-index:10">
+        <div style="width:40px;height:54px;background:linear-gradient(135deg,#8B4513,#D2691E);border-radius:4px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>
+        <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid white;margin:-1px auto 0"></div>
+      </div>
+      
+      <div style="position:absolute;top:80px;left:160px;z-index:10">
+        <div style="width:40px;height:54px;background:linear-gradient(135deg,#1b5e20,#2e7d32);border-radius:4px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>
+        <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid white;margin:-1px auto 0"></div>
+      </div>
+      
+      <div style="position:absolute;bottom:50px;right:40px;z-index:10">
+        <div style="width:44px;height:44px;background:#0F6E5D;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:14px">2</div>
+      </div>
+      
+      <!-- User location -->
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10">
+        <div style="width:14px;height:14px;background:#4285F4;border-radius:50%;border:3px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>
+      </div>
+      
+      <!-- Bottom bar -->
+      <div style="position:absolute;bottom:0;left:0;right:0;background:white;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;z-index:20">
+        <small style="color:#666">8 sonuç · 3 haritada</small>
+        <div style="background:#f0f0f0;padding:3px 10px;border-radius:12px;font-size:11px">📍 Yakınım</div>
+      </div>
+    </div>
+  </div>
+</div>

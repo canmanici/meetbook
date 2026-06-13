@@ -38,6 +38,11 @@ class PasswordResetConfirmRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
+class UpdateMeRequest(BaseModel):
+    trusted_contact_name: str | None = Field(default=None, max_length=100)
+    trusted_contact_phone: str | None = Field(default=None, max_length=20)
+
+
 # ---------------------------------------------------------------------------
 # Response schemas
 # ---------------------------------------------------------------------------
@@ -64,3 +69,11 @@ class TokenResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class MeResponse(BaseModel):
+    id: uuid.UUID
+    email: EmailStr
+    name: str
+    trusted_contact_name: str | None
+    trusted_contact_phone: str | None

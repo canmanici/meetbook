@@ -10,6 +10,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -47,6 +48,9 @@ class User(Base):
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
     kvkk_policy_version = Column(String(20), nullable=False, default="1.0")
+    completed_exchanges = Column(Integer, nullable=False, default=0)
+    trusted_contact_name = Column(String(100), nullable=True)
+    trusted_contact_phone = Column(String(20), nullable=True)
 
     # Relationships
     credential = relationship("UserCredential", back_populates="user", uselist=False)

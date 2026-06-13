@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
+  useColorScheme,
   ViewStyle,
   TextStyle,
 } from 'react-native';
@@ -30,6 +31,8 @@ export const Button: React.FC<ButtonProps> = ({
   style,
   testID,
 }) => {
+  const scheme = useColorScheme();
+  const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
   const [isPressed, setIsPressed] = useState(false);
 
   const handlePress = () => {
@@ -38,22 +41,24 @@ export const Button: React.FC<ButtonProps> = ({
     }
   };
 
-  const buttonStyle = [
-    styles.button,
-    styles[variant],
-    (disabled || loading) && styles.disabled,
-    isPressed && styles.pressed,
-    style,
-  ];
-
-  const textStyle = [
-    styles.text,
-    styles[`${variant}Text`],
-  ];
+  const variantStyles: Record<ButtonVariant, { bg: string; text: string }> = {
+    primary: { bg: colors.primary, text: colors.surface },
+    secondary: { bg: colors.surface, text: colors.primary },
+    ghost: { bg: 'transparent', text: colors.primary },
+    danger: { bg: colors.danger, text: colors.surface },
+  };
+  const v = variantStyles[variant];
 
   return (
     <TouchableOpacity
-      style={buttonStyle}
+      style={[
+        styles.button,
+        { backgroundColor: v.bg },
+        variant === 'secondary' && { borderColor: colors.primary, borderWidth: 1 },
+        (disabled || loading) && styles.disabled,
+        isPressed && styles.pressed,
+        style,
+      ]}
       onPress={handlePress}
       onPressIn={() => setIsPressed(true)}
       onPressOut={() => setIsPressed(false)}
@@ -62,9 +67,9 @@ export const Button: React.FC<ButtonProps> = ({
       testID={testID ?? (loading ? "button-loading" : "button")}
     >
       {loading ? (
-        <ActivityIndicator color={palette.light.surface} size="small" />
+        <ActivityIndicator color={colors.surface} size="small" />
       ) : (
-        <Text style={textStyle}>{children}</Text>
+        <Text style={[styles.text, { color: v.text }]}>{children}</Text>
       )}
     </TouchableOpacity>
   );
@@ -78,32 +83,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  primary: {
-    backgroundColor: palette.light.primary,
-  },
-  primaryText: {
-    color: palette.light.surface,
-  },
-  secondary: {
-    backgroundColor: palette.light.surface,
-    borderWidth: 1,
-    borderColor: palette.light.primary,
-  },
-  secondaryText: {
-    color: palette.light.primary,
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-  },
-  ghostText: {
-    color: palette.light.primary,
-  },
-  danger: {
-    backgroundColor: palette.light.danger,
-  },
-  dangerText: {
-    color: palette.light.surface,
   },
   disabled: {
     opacity: 0.5,

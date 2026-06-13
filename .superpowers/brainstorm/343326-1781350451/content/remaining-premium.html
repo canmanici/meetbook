@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wishlist, Requests, Profile — Premium</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#0f0f0f; color:#fff; }
+  .container { max-width:1100px; margin:0 auto; padding:24px; }
+  h1 { font-size:28px; font-weight:800; margin-bottom:8px; }
+  .subtitle { color:#888; font-size:14px; margin-bottom:32px; }
+  .phones { display:flex; gap:24px; justify-content:center; flex-wrap:wrap; }
+  .phone { background:#1a1a1a; border-radius:32px; padding:12px; box-shadow:0 20px 60px rgba(0,0,0,0.5); border:1px solid #333; flex-shrink:0; }
+  .phone-screen { background:#fafaf8; border-radius:24px; overflow:hidden; height:580px; position:relative; }
+  .phone-notch { position:absolute; top:0; left:50%; transform:translateX(-50%); width:120px; height:24px; background:#000; border-radius:0 0 16px 16px; z-index:100; }
+  .phone-label { text-align:center; margin-top:12px; font-size:13px; font-weight:600; color:#888; }
+  
+  .scroll-content { height:100%; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .scroll-content::-webkit-scrollbar { display:none; }
+  
+  .header { padding:36px 20px 16px; display:flex; align-items:center; gap:12px; }
+  .header-title { flex:1; font-size:22px; font-weight:800; color:#111827; }
+  .header-icon { width:40px; height:40px; background:#f3f4f6; border-radius:12px; display:flex; align-items:center; justify-content:center; }
+  
+  .card { background:white; border-radius:16px; margin:0 16px 12px; box-shadow:0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }
+  .card-header { padding:14px 16px; border-bottom:1px solid #f3f4f6; display:flex; justify-content:space-between; align-items:center; }
+  .card-title { font-size:14px; font-weight:700; color:#111827; }
+  
+  .chip { padding:8px 16px; border-radius:12px; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.15s; border:2px solid transparent; display:inline-block; }
+  .chip-active { background:#0F6E5D; color:white; box-shadow:0 2px 8px rgba(15,110,93,0.3); }
+  .chip-inactive { background:white; color:#6b7280; border-color:#e5e7eb; }
+  
+  .form-input { width:100%; padding:12px 14px; border:2px solid #e5e7eb; border-radius:12px; font-size:14px; color:#111827; background:white; outline:none; }
+  .form-input:focus { border-color:#0F6E5D; }
+  
+  .btn { padding:14px; border-radius:14px; text-align:center; font-size:14px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; }
+  .btn-primary { background:linear-gradient(135deg,#0F6E5D,#047857); color:white; box-shadow:0 4px 16px rgba(15,110,93,0.3); }
+  .btn-secondary { background:#f3f4f6; color:#374151; border:1px solid #e5e7eb; }
+  
+  .match-card { display:flex; gap:12px; padding:14px 16px; border-bottom:1px solid #f3f4f6; align-items:center; }
+  .match-cover { width:48px; height:64px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:white; font-size:9px; text-align:center; font-weight:600; line-height:1.2; }
+  .match-info { flex:1; }
+  .match-title { font-size:14px; font-weight:700; color:#111827; }
+  .match-author { font-size:12px; color:#6b7280; }
+  .match-distance { font-size:12px; color:#0F6E5D; font-weight:600; margin-top:4px; }
+  
+  .request-item { padding:14px 16px; border-bottom:1px solid #f3f4f6; display:flex; gap:12px; align-items:flex-start; }
+  .request-avatar { width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:14px; flex-shrink:0; }
+  .request-info { flex:1; }
+  .request-name { font-size:14px; font-weight:700; color:#111827; }
+  .request-book { font-size:12px; color:#6b7280; margin-top:2px; }
+  .request-time { font-size:11px; color:#9ca3af; margin-top:2px; }
+  .request-badge { padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700; }
+  
+  /* Profile */
+  .profile-hero { padding:36px 20px 20px; text-align:center; position:relative; }
+  .profile-avatar { width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg,#6366f1,#8b5cf6); display:flex; align-items:center; justify-content:center; color:white; font-weight:800; font-size:28px; margin:0 auto 12px; box-shadow:0 4px 20px rgba(99,102,241,0.3); border:4px solid white; }
+  .profile-name { font-size:22px; font-weight:800; color:#111827; }
+  .profile-email { font-size:13px; color:#6b7280; margin-top:2px; }
+  
+  .stats-row { display:flex; gap:8px; margin:16px 16px; }
+  .stat-card { flex:1; background:white; border-radius:14px; padding:14px 10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06); }
+  .stat-val { font-size:24px; font-weight:800; }
+  .stat-label { font-size:11px; color:#6b7280; margin-top:2px; }
+  
+  .menu-item { display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid #f3f4f6; cursor:pointer; transition:background 0.1s; }
+  .menu-item:hover { background:#f9fafb; }
+  .menu-icon { width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; }
+  .menu-text { flex:1; }
+  .menu-title { font-size:14px; font-weight:600; color:#111827; }
+  .menu-desc { font-size:11px; color:#6b7280; margin-top:1px; }
+  .menu-arrow { color:#d1d5db; }
+  
+  .logout-btn { margin:16px; background:white; border:2px solid #fecaca; border-radius:14px; padding:14px; text-align:center; color:#dc2626; font-size:14px; font-weight:700; cursor:pointer; }
+  
+  .badge { padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700; }
+  .badge-pending { background:#fef3c7; color:#92400e; }
+  .badge-accepted { background:#dcfce7; color:#166534; }
+  .badge-completed { background:#dbeafe; color:#1e40af; }
+  .badge-rejected { background:#fee2e2; color:#dc2626; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Wishlist, Requests & Profile — Premium</h1>
+  <p class="subtitle">Remaining screens with the same polished design language</p>
+  
+  <div class="phones">
+    <!-- WISHLIST -->
+    <div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="phone-notch"></div>
+          <div class="scroll-content">
+            <div class="header">
+              <div class="header-title">istek Listem</div>
+              <div class="header-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              </div>
+            </div>
+            
+            <!-- Add form -->
+            <div class="card" style="margin-bottom:12px">
+              <div style="padding:16px">
+                <div style="display:flex;gap:8px;margin-bottom:12px">
+                  <input class="form-input" placeholder="ISBN veya kitap adı girin" style="flex:1">
+                  <div style="width:44px;background:#0F6E5D;color:white;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </div>
+                </div>
+                <div style="display:flex;gap:6px">
+                  <div class="chip chip-active" style="padding:6px 12px;font-size:12px">📖 Roman</div>
+                  <div class="chip chip-inactive" style="padding:6px 12px;font-size:12px">📚 Ders</div>
+                  <div class="chip chip-inactive" style="padding:6px 12px;font-size:12px">🎨 Çizgi</div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Wishlist items -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">isteklerim (4)</div>
+                <div style="font-size:12px;color:#0F6E5D;font-weight:600">Eşleşmeleri gör</div>
+              </div>
+              
+              <div class="match-card">
+                <div class="match-cover" style="background:linear-gradient(135deg,#78350f,#b45309)">Yüzüklerin<br>Efendisi</div>
+                <div class="match-info">
+                  <div class="match-title">Yüzüklerin Efendisi</div>
+                  <div class="match-author">J.R.R. Tolkien</div>
+                  <div class="match-distance" style="color:#16a34a">✓ 2 eşleşme bulundu</div>
+                </div>
+                <div style="width:28px;height:28px;background:#fee2e2;border-radius:8px;display:flex;align-items:center;justify-content:center">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+              </div>
+              
+              <div class="match-card">
+                <div class="match-cover" style="background:linear-gradient(135deg,#1e3a5f,#3b82f6)">Dune</div>
+                <div class="match-info">
+                  <div class="match-title">Dune</div>
+                  <div class="match-author">Frank Herbert</div>
+                  <div class="match-distance" style="color:#16a34a">✓ 1 eşleşme bulundu</div>
+                </div>
+                <div style="width:28px;height:28px;background:#fee2e2;border-radius:8px;display:flex;align-items:center;justify-content:center">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+              </div>
+              
+              <div class="match-card">
+                <div class="match-cover" style="background:linear-gradient(135deg,#7f1d1d,#dc2626)">1984</div>
+                <div class="match-info">
+                  <div class="match-title">1984</div>
+                  <div class="match-author">George Orwell</div>
+                  <div class="match-distance" style="color:#92400e">Eşleşme bekleniyor</div>
+                </div>
+                <div style="width:28px;height:28px;background:#fee2e2;border-radius:8px;display:flex;align-items:center;justify-content:center">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+              </div>
+              
+              <div class="match-card" style="border-bottom:none">
+                <div class="match-cover" style="background:linear-gradient(135deg,#065f46,#10b981)">Çavdar Tarlasında<br>Çocuklar</div>
+                <div class="match-info">
+                  <div class="match-title">Çavdar Tarlasında Çocuklar</div>
+                  <div class="match-author">J.D. Salinger</div>
+                  <div class="match-distance" style="color:#92400e">Eşleşme bekleniyor</div>
+                </div>
+                <div style="width:28px;height:28px;background:#fee2e2;border-radius:8px;display:flex;align-items:center;justify-content:center">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Nearby matches -->
+            <div style="padding:0 16px 16px">
+              <div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:10px">Yakınınızda Eşleşen Kitaplar</div>
+              <div style="display:flex;gap:10px;overflow-x:hidden">
+                <div style="min-width:140px;background:white;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06)">
+                  <div style="height:100px;background:linear-gradient(135deg,#78350f,#b45309);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:600;text-align:center;padding:8px">Yüzüklerin<br>Efendisi</div>
+                  <div style="padding:10px">
+                    <div style="font-size:12px;font-weight:700;color:#111827">Suç ve Ceza</div>
+                    <div style="font-size:10px;color:#6b7280">1.2 km · Yeni gibi</div>
+                    <div style="background:#0F6E5D;color:white;padding:5px;border-radius:8px;text-align:center;font-size:10px;font-weight:600;margin-top:6px">exchange iste</div>
+                  </div>
+                </div>
+                <div style="min-width:140px;background:white;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06)">
+                  <div style="height:100px;background:linear-gradient(135deg,#1e3a5f,#3b82f6);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:600;text-align:center;padding:8px">Dune</div>
+                  <div style="padding:10px">
+                    <div style="font-size:12px;font-weight:700;color:#111827">Dune</div>
+                    <div style="font-size:10px;color:#6b7280">2.8 km · İyi</div>
+                    <div style="background:#0F6E5D;color:white;padding:5px;border-radius:8px;text-align:center;font-size:10px;font-weight:600;margin-top:6px">exchange iste</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Wishlist</div>
+    </div>
+    
+    <!-- REQUESTS -->
+    <div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="phone-notch"></div>
+          <div class="scroll-content">
+            <div class="header">
+              <div class="header-title">Talepler</div>
+              <div class="header-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              </div>
+            </div>
+            
+            <!-- Tabs -->
+            <div style="display:flex;gap:0;margin:0 16px 12px;background:#f3f4f6;border-radius:12px;padding:3px">
+              <div style="flex:1;background:white;padding:8px;border-radius:10px;text-align:center;font-size:13px;font-weight:700;color:#0F6E5D;box-shadow:0 1px 4px rgba(0,0,0,0.08)">Gelen (2)</div>
+              <div style="flex:1;padding:8px;border-radius:10px;text-align:center;font-size:13px;font-weight:600;color:#6b7280">Giden (3)</div>
+            </div>
+            
+            <!-- Incoming requests -->
+            <div class="card">
+              <div class="request-item">
+                <div class="request-avatar" style="background:linear-gradient(135deg,#f472b6,#ec4899)">AM</div>
+                <div class="request-info">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                    <div>
+                      <div class="request-name">Ayşe M.</div>
+                      <div class="request-book">Suç ve Ceza istedi</div>
+                    </div>
+                    <span class="request-badge badge-pending">Bekliyor</span>
+                  </div>
+                  <div class="request-time">2 saat önce</div>
+                  <div style="display:flex;gap:6px;margin-top:8px">
+                    <div style="flex:1;background:#0F6E5D;color:white;padding:8px;border-radius:10px;text-align:center;font-size:12px;font-weight:600">✓ Onayla</div>
+                    <div style="flex:1;background:#f3f4f6;color:#374151;padding:8px;border-radius:10px;text-align:center;font-size:12px;font-weight:600">✕ Reddet</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="request-item" style="border-bottom:none">
+                <div class="request-avatar" style="background:linear-gradient(135deg,#60a5fa,#3b82f6)">CB</div>
+                <div class="request-info">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                    <div>
+                      <div class="request-name">Can B.</div>
+                      <div class="request-book">Matematik 101 istedi</div>
+                    </div>
+                    <span class="request-badge badge-pending">Bekliyor</span>
+                  </div>
+                  <div class="request-time">1 gün önce</div>
+                  <div style="display:flex;gap:6px;margin-top:8px">
+                    <div style="flex:1;background:#0F6E5D;color:white;padding:8px;border-radius:10px;text-align:center;font-size:12px;font-weight:600">✓ Onayla</div>
+                    <div style="flex:1;background:#f3f4f6;color:#374151;padding:8px;border-radius:10px;text-align:center;font-size:12px;font-weight:600">✕ Reddet</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Outgoing section -->
+            <div style="padding:0 16px 8px;margin-top:8px">
+              <div style="font-size:13px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.5px">Giden Taleplerim</div>
+            </div>
+            
+            <div class="card">
+              <div class="request-item">
+                <div style="width:44px;height:44px;background:linear-gradient(135deg,#fbbf24,#f59e0b);border-radius:12px;display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:600;text-align:center">Yüzük<br>Efendisi</div>
+                <div class="request-info">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                    <div>
+                      <div class="request-name">Elif D.'den istendi</div>
+                      <div class="request-book">Yüzüklerin Efendisi</div>
+                    </div>
+                    <span class="request-badge badge-accepted">Onaylandı</span>
+                  </div>
+                  <div class="request-time">3 gün önce</div>
+                </div>
+              </div>
+              
+              <div class="request-item">
+                <div style="width:44px;height:44px;background:linear-gradient(135deg,#a78bfa,#8b5cf6);border-radius:12px;display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:600;text-align:center">1984</div>
+                <div class="request-info">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                    <div>
+                      <div class="request-name">Murat K.'dan istendi</div>
+                      <div class="request-book">1984</div>
+                    </div>
+                    <span class="request-badge badge-rejected">Reddedildi</span>
+                  </div>
+                  <div class="request-time">5 gün önce</div>
+                </div>
+              </div>
+              
+              <div class="request-item" style="border-bottom:none">
+                <div style="width:44px;height:44px;background:linear-gradient(135deg,#34d399,#10b981);border-radius:12px;display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:600;text-align:center">Nutuk</div>
+                <div class="request-info">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                    <div>
+                      <div class="request-name">Zeynep A.'dan istendi</div>
+                      <div class="request-book">Nutuk</div>
+                    </div>
+                    <span class="request-badge badge-completed">Tamamlandı</span>
+                  </div>
+                  <div class="request-time">1 hafta önce</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Requests</div>
+    </div>
+    
+    <!-- PROFILE -->
+    <div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="phone-notch"></div>
+          <div class="scroll-content">
+            <!-- Hero -->
+            <div class="profile-hero" style="background:linear-gradient(180deg,#f0fdf4 0%,#fafaf8 100%)">
+              <div style="position:absolute;top:36px;right:16px;width:36px;height:36px;background:white;border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.08)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+              </div>
+              <div class="profile-avatar">AK</div>
+              <div class="profile-name">Ahmet K.</div>
+              <div class="profile-email">ahmet@email.com</div>
+            </div>
+            
+            <!-- Stats -->
+            <div class="stats-row">
+              <div class="stat-card">
+                <div class="stat-val" style="color:#0F6E5D">7</div>
+                <div class="stat-label">exchange</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-val" style="color:#1d4ed8">5</div>
+                <div class="stat-label">Kitap</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-val" style="color:#7c3aed">4.8</div>
+                <div class="stat-label">Puan</div>
+              </div>
+            </div>
+            
+            <!-- Menu -->
+            <div class="card">
+              <div class="menu-item">
+                <div class="menu-icon" style="background:#ecfdf5">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F6E5D" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+                </div>
+                <div class="menu-text">
+                  <div class="menu-title">Kitaplarım</div>
+                  <div class="menu-desc">5 aktif ilan</div>
+                </div>
+                <svg class="menu-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+              
+              <div class="menu-item">
+                <div class="menu-icon" style="background:#fef3c7">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+                </div>
+                <div class="menu-text">
+                  <div class="menu-title">istek Listem</div>
+                  <div class="menu-desc">4 kitap bekliyor</div>
+                </div>
+                <svg class="menu-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+              
+              <div class="menu-item">
+                <div class="menu-icon" style="background:#eff6ff">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <div class="menu-text">
+                  <div class="menu-title">Güvendiğim Kişi</div>
+                  <div class="menu-desc">Anne — Ayşe K.</div>
+                </div>
+                <svg class="menu-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+            </div>
+            
+            <div class="card" style="margin-top:8px">
+              <div class="menu-item">
+                <div class="menu-icon" style="background:#f3f4f6">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                </div>
+                <div class="menu-text">
+                  <div class="menu-title">Ayarlar</div>
+                </div>
+                <svg class="menu-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+              
+              <div class="menu-item" style="border-bottom:none">
+                <div class="menu-icon" style="background:#fef2f2">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </div>
+                <div class="menu-text">
+                  <div class="menu-title" style="color:#dc2626">Çıkış Yap</div>
+                </div>
+              </div>
+            </div>
+            
+            <div style="text-align:center;padding:16px;font-size:11px;color:#9ca3af">
+              MeetBook v1.0.0 · Made with ❤️
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Profile</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

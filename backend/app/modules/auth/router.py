@@ -13,12 +13,14 @@ from app.modules.auth.schemas import (
     AuthTokensResponse,
     LoginRequest,
     LogoutRequest,
+    MeResponse,
     MessageResponse,
     PasswordResetConfirmRequest,
     PasswordResetRequest,
     RefreshRequest,
     RegisterRequest,
     TokenResponse,
+    UpdateMeRequest,
 )
 from app.modules.auth.service import AuthError, AuthService
 
@@ -94,5 +96,28 @@ async def password_reset_confirm(
 ) -> MessageResponse:
     try:
         return await service.confirm_password_reset(body.token, body.new_password)
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.get("/me", response_model=MeResponse)
+async def get_me(
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> MeResponse:
+    try:
+        return await service.get_me(user.id)
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.patch("/me", response_model=MeResponse)
+async def update_me(
+    body: UpdateMeRequest,
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> MeResponse:
+    try:
+        return await service.update_me(user.id, body)
     except AuthError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

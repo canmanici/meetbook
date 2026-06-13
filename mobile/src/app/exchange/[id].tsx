@@ -287,15 +287,15 @@ export default function ExchangeDetailScreen() {
       {exchange.status === 'pending' && isOwner && (
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.acceptButton, { backgroundColor: '#0F6E5D' }]}
+            style={[styles.acceptButton, { backgroundColor: colors.primary }]}
             onPress={() => acceptMutation.mutate()}
             disabled={pending}
             testID="accept-button"
           >
             {acceptMutation.isPending ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.surface} />
             ) : (
-              <Text style={styles.acceptButtonText}>Onayla</Text>
+              <Text style={[styles.acceptButtonText, { color: colors.surface }]}>Onayla</Text>
             )}
           </TouchableOpacity>
           <TouchableOpacity
@@ -356,15 +356,15 @@ export default function ExchangeDetailScreen() {
               {exchange.status === 'meetup_proposed' && !isMeetupProposer && (
                 <View style={styles.meetupActions}>
                   <TouchableOpacity
-                    style={[styles.acceptButton, { backgroundColor: '#0F6E5D' }]}
+                    style={[styles.acceptButton, { backgroundColor: colors.primary }]}
                     onPress={onAcceptMeetup}
                     disabled={meetupPending}
                     testID="accept-meetup-button"
                   >
                     {meetupPending ? (
-                      <ActivityIndicator color="#fff" />
+                      <ActivityIndicator color={colors.surface} />
                     ) : (
-                      <Text style={styles.acceptButtonText}>Buluşmayı Onayla</Text>
+                      <Text style={[styles.acceptButtonText, { color: colors.surface }]}>Buluşmayı Onayla</Text>
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -447,12 +447,12 @@ export default function ExchangeDetailScreen() {
       )}
 
       {/* Security Tip Card */}
-      <Card style={styles.securityCard}>
+      <Card style={[styles.securityCard, { backgroundColor: colors.success + '10', borderColor: colors.success + '40' }]}>
         <View style={styles.securityHeader}>
-          <Ionicons name="shield-checkmark" size={20} color="#059669" />
-          <Text style={[styles.securityTitle, { color: '#065f46' }]}>Güvenlik İpucu</Text>
+          <Ionicons name="shield-checkmark" size={20} color={colors.success} />
+          <Text style={[styles.securityTitle, { color: colors.success }]}>Güvenlik İpucu</Text>
         </View>
-        <Text style={[styles.securityText, { color: '#047857' }]}>
+        <Text style={[styles.securityText, { color: colors.textMuted }]}>
           Buluşma için her zaman kalabalık ve güvenli kamusal alanları tercih edin.
           Tanımadığınız kişilerle yalnız başına buluşmaktan kaçının.
         </Text>
@@ -461,12 +461,12 @@ export default function ExchangeDetailScreen() {
       {/* Share with Trusted Contact */}
       {meetup && (exchange.status === 'meetup_confirmed' || exchange.status === 'meetup_proposed') && (
         <TouchableOpacity
-          style={[styles.shareButton, { backgroundColor: '#2563eb' }]}
+          style={[styles.shareButton, { backgroundColor: colors.info }]}
           onPress={onShareWithTrustedContact}
           testID="share-trusted-contact-button"
         >
-          <Ionicons name="share-social" size={18} color="#fff" />
-          <Text style={styles.shareButtonText}>Güvenilir Kişiyle Paylaş</Text>
+          <Ionicons name="share-social" size={18} color={colors.surface} />
+          <Text style={[styles.shareButtonText, { color: colors.surface }]}>Güvenilir Kişiyle Paylaş</Text>
         </TouchableOpacity>
       )}
 
@@ -474,15 +474,15 @@ export default function ExchangeDetailScreen() {
       {exchange.status === 'accepted' && (
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.acceptButton, { backgroundColor: '#0F6E5D' }]}
+            style={[styles.acceptButton, { backgroundColor: colors.primary }]}
             onPress={() => completeMutation.mutate()}
             disabled={pending}
             testID="complete-button"
           >
             {completeMutation.isPending ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.surface} />
             ) : (
-              <Text style={styles.acceptButtonText}>Takası Tamamla</Text>
+              <Text style={[styles.acceptButtonText, { color: colors.surface }]}>Takası Tamamla</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -497,15 +497,15 @@ export default function ExchangeDetailScreen() {
       {exchange.status === 'completion_pending' && exchange.completion_marked_by !== userId && (
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.acceptButton, { backgroundColor: '#0F6E5D' }]}
+            style={[styles.acceptButton, { backgroundColor: colors.primary }]}
             onPress={() => confirmMutation.mutate()}
             disabled={pending}
             testID="confirm-completion-button"
           >
             {confirmMutation.isPending ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.surface} />
             ) : (
-              <Text style={styles.acceptButtonText}>Tamamlandığını Onayla</Text>
+              <Text style={[styles.acceptButtonText, { color: colors.surface }]}>Tamamlandığını Onayla</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -520,21 +520,21 @@ export default function ExchangeDetailScreen() {
 
       {/* Cancel Zone */}
       {(exchange.status === 'pending' || exchange.status === 'accepted' || exchange.status === 'completion_pending') && (
-        <View style={[styles.cancelZone, { borderColor: '#ef4444' }]}>
-          <Text style={[styles.cancelZoneTitle, { color: '#ef4444' }]}>İptal</Text>
+        <View style={[styles.cancelZone, { borderColor: colors.danger }]}>
+          <Text style={[styles.cancelZoneTitle, { color: colors.danger }]}>İptal</Text>
           <Text style={[styles.cancelZoneText, { color: colors.textMuted }]}>
             Bu işlem geri alınamaz.
           </Text>
           <TouchableOpacity
-            style={[styles.cancelButton, { borderColor: '#ef4444' }]}
+            style={[styles.cancelButton, { borderColor: colors.danger }]}
             onPress={() => cancelMutation.mutate()}
             disabled={pending}
             testID="cancel-button"
           >
             {cancelMutation.isPending ? (
-              <ActivityIndicator color="#ef4444" />
+              <ActivityIndicator color={colors.danger} />
             ) : (
-              <Text style={[styles.cancelButtonText, { color: '#ef4444' }]}>
+              <Text style={[styles.cancelButtonText, { color: colors.danger }]}>
                 {exchange.status === 'pending' && isRequester ? 'Talebi İptal Et' : 'İptal Et'}
               </Text>
             )}
@@ -658,7 +658,6 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   acceptButtonText: {
-    color: '#fff',
     fontSize: fontSize.body,
     fontWeight: '700',
   },
@@ -714,8 +713,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderWidth: 1,
     gap: spacing.xs,
-    backgroundColor: '#ecfdf5',
-    borderColor: '#a7f3d0',
   },
   securityHeader: {
     flexDirection: 'row',
@@ -740,7 +737,6 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   shareButtonText: {
-    color: '#fff',
     fontSize: fontSize.body,
     fontWeight: '700',
   },

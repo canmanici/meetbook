@@ -20,8 +20,10 @@ from app.modules.auth.models import UserStatus
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.schemas import (
     AuthTokensResponse,
+    MeResponse,
     MessageResponse,
     TokenResponse,
+    UpdateMeRequest,
     UserPublic,
 )
 
@@ -242,3 +244,24 @@ class AuthService:
         await log_event(self.session, "password_reset_completed", user_id=user.id)
         await self.session.commit()
         return MessageResponse(message="Password has been reset")
+
+    async def get_me(self, user_id: uuid.UUID) -> MeResponse:
+        user = await self.repo.get_user_by_id(user_id)
+        if user is None:
+            raise AuthError("Not found", 404)
+        return MeResponse(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            trusted_contact_name=user.trusted_contact_name,
+            trusted_contact_phone=user.trusted_contact_phone,
+        )
+
+    async def update_me(self, user_id: uuid.UUID, body: UpdateMeRequest) -> MeResponse:
+        user = await self.repo.get_user_by_id(user_id)
+        if user is None:
+            raise AuthError("Not found", 404)
+        user.trusted_contact_name = body.trusted_contact_name
+        user.trusted_contact_phone = body.trusted_contact_phone
+        await self.session.commit()
+        return await self.get_me(user_id)

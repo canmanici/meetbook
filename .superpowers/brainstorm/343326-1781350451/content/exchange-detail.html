@@ -1,0 +1,213 @@
+<h2>Exchange Detail Screen — Premium Redesign</h2>
+<p class="subtitle">Status timeline, actions, meetup, safety</p>
+
+<style>
+  .step { display:flex;gap:12px;align-items:flex-start;position:relative }
+  .step-line { width:2px;background:#e5e7eb;position:absolute;left:15px;top:32px;bottom:0 }
+  .step-dot { width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;position:relative;z-index:1 }
+  .step-done { background:#dcfce7;color:#166534 }
+  .step-active { background:#0F6E5D;color:white;box-shadow:0 0 0 4px rgba(15,110,93,0.2) }
+  .step-pending { background:#f3f4f6;color:#9ca3af }
+  .action-btn { padding:12px;border-radius:12px;text-align:center;font-size:14px;font-weight:600;flex:1 }
+</style>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Exchange — Status & Timeline</div>
+    <div class="mockup-body" style="padding:0;background:#fafaf8">
+      
+      <!-- Header -->
+      <div style="padding:16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #f3f4f6">
+        <div style="width:32px;height:32px;background:#f3f4f6;border-radius:8px;display:flex;align-items:center;justify-content:center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:17px;color:#111827">exchange Detayı</div>
+        </div>
+        <div style="background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600">⏳ Bekliyor</div>
+      </div>
+      
+      <!-- Book + Counterpart -->
+      <div style="padding:16px;display:flex;gap:12px;border-bottom:1px solid #f3f4f6">
+        <div style="width:56px;height:78px;background:linear-gradient(135deg,#78350f,#b45309);border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:white;font-size:10px;text-align:center;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.2)">Suç ve<br>Ceza</div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:15px;color:#111827">Suç ve Ceza</div>
+          <div style="color:#6b7280;font-size:13px">Fyodor Dostoyevski</div>
+          <div style="display:flex;gap:4px;margin-top:6px">
+            <span style="background:#ecfdf5;color:#065f46;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600">✨ Yeni gibi</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding:8px;background:#f9fafb;border-radius:8px">
+            <div style="width:28px;height:28px;background:#ddd;border-radius:50%"></div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:#111827">Mehmet K.</div>
+              <div style="font-size:11px;color:#6b7280">exchange sahibi</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Timeline -->
+      <div style="padding:16px">
+        <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px">Süreç</div>
+        
+        <div class="step">
+          <div class="step-line"></div>
+          <div class="step-dot step-done">✓</div>
+          <div style="padding-bottom:20px">
+            <div style="font-size:14px;font-weight:600;color:#111827">Talep Gönderildi</div>
+            <div style="font-size:12px;color:#6b7280">12 Haziran 14:30</div>
+          </div>
+        </div>
+        
+        <div class="step">
+          <div class="step-line"></div>
+          <div class="step-dot step-active">2</div>
+          <div style="padding-bottom:20px">
+            <div style="font-size:14px;font-weight:600;color:#0F6E5D">Onay Bekleniyor</div>
+            <div style="font-size:12px;color:#6b7280">Karşı tarafın onayı bekleniyor</div>
+          </div>
+        </div>
+        
+        <div class="step">
+          <div class="step-line"></div>
+          <div class="step-dot step-pending">3</div>
+          <div style="padding-bottom:20px">
+            <div style="font-size:14px;font-weight:600;color:#9ca3af">Buluşma Belirlenecek</div>
+            <div style="font-size:12px;color:#d1d5db">Onaylandıktan sonra buluşma yeri seçilecek</div>
+          </div>
+        </div>
+        
+        <div class="step">
+          <div class="step-line"></div>
+          <div class="step-dot step-pending">4</div>
+          <div style="padding-bottom:20px">
+            <div style="font-size:14px;font-weight:600;color:#9ca3af">Buluşma</div>
+            <div style="font-size:12px;color:#d1d5db">Belirlenen yer ve zamanda buluşma</div>
+          </div>
+        </div>
+        
+        <div class="step">
+          <div class="step-dot step-pending">5</div>
+          <div>
+            <div style="font-size:14px;font-weight:600;color:#9ca3af">Tamamlandı</div>
+            <div style="font-size:12px;color:#d1d5db">exchange başarıyla tamamlandı</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Message -->
+      <div style="padding:0 16px 16px">
+        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:12px">
+          <div style="font-size:12px;color:#6b7280;margin-bottom:4px">Mesajın</div>
+          <div style="font-size:14px;color:#111827;line-height:1.5">Merhaba, Suç ve Ceza kitabını çok beğeniyorum..exchange yapmak istiyorum. Müsait olduğunuz bir zamanda buluşabilir miyiz?</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Exchange — Actions & Meetup</div>
+    <div class="mockup-body" style="padding:0;background:#fafaf8">
+      
+      <!-- Action buttons -->
+      <div style="padding:16px;display:flex;gap:8px">
+        <div style="flex:1;background:#0F6E5D;color:white;padding:12px;border-radius:12px;text-align:center;font-size:14px;font-weight:600">✓ Onayla</div>
+        <div style="flex:1;background:white;border:1px solid #e5e7eb;padding:12px;border-radius:12px;text-align:center;font-size:14px;font-weight:600;color:#374151">✕ Reddet</div>
+      </div>
+      
+      <!-- Meetup section -->
+      <div style="padding:0 16px 16px">
+        <div style="background:white;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">
+          <div style="padding:14px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:10px">
+            <div style="width:36px;height:36px;background:#ecfdf5;border-radius:10px;display:flex;align-items:center;justify-content:center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F6E5D" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:700;color:#111827">Buluşma Yeri</div>
+              <div style="font-size:12px;color:#6b7280">Henüz belirlenmedi</div>
+            </div>
+          </div>
+          
+          <!-- Suggested places -->
+          <div style="padding:12px 14px">
+            <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:8px">ÖNERİLEN GÜVENLİ YERLER</div>
+            
+            <div style="display:flex;gap:8px;margin-bottom:8px;padding:10px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb">
+              <div style="width:44px;height:44px;background:#ddd;border-radius:8px;flex-shrink:0"></div>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:#111827">Kadıköy Sahaf</div>
+                <div style="font-size:11px;color:#6b7280">☕ Kafe · 1.2 km</div>
+                <div style="display:flex;gap:2px;margin-top:4px">
+                  <span style="color:#f59e0b;font-size:11px">★★★★</span><span style="color:#d1d5db;font-size:11px">★</span>
+                  <span style="font-size:11px;color:#6b7280;margin-left:4px">4.2</span>
+                </div>
+              </div>
+              <div style="background:#0F6E5D;color:white;padding:6px 10px;border-radius:8px;font-size:11px;font-weight:600;align-self:center">Seç</div>
+            </div>
+            
+            <div style="display:flex;gap:8px;margin-bottom:8px;padding:10px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb">
+              <div style="width:44px;height:44px;background:#ddd;border-radius:8px;flex-shrink:0"></div>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:#111827">Moda Kütüphanesi</div>
+                <div style="font-size:11px;color:#6b7280">📚 Kütüphane · 0.8 km</div>
+                <div style="display:flex;gap:2px;margin-top:4px">
+                  <span style="color:#f59e0b;font-size:11px">★★★★★</span>
+                  <span style="font-size:11px;color:#6b7280;margin-left:4px">4.8</span>
+                </div>
+              </div>
+              <div style="background:#0F6E5D;color:white;padding:6px 10px;border-radius:8px;font-size:11px;font-weight:600;align-self:center">Seç</div>
+            </div>
+            
+            <div style="display:flex;gap:8px;padding:10px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb">
+              <div style="width:44px;height:44px;background:#ddd;border-radius:8px;flex-shrink:0"></div>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:#111827">SALT Galata</div>
+                <div style="font-size:11px;color:#6b7280">🏛️ Kültür Merkezi · 2.1 km</div>
+                <div style="display:flex;gap:2px;margin-top:4px">
+                  <span style="color:#f59e0b;font-size:11px">★★★★</span><span style="color:#d1d5db;font-size:11px">★</span>
+                  <span style="font-size:11px;color:#6b7280;margin-left:4px">4.5</span>
+                </div>
+              </div>
+              <div style="background:#0F6E5D;color:white;padding:6px 10px;border-radius:8px;font-size:11px;font-weight:600;align-self:center">Seç</div>
+            </div>
+          </div>
+          
+          <div style="padding:0 14px 14px">
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px;display:flex;gap:8px;align-items:center">
+              <span style="font-size:16px">🛡️</span>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:#166534">Güvenlik İpucu</div>
+                <div style="font-size:11px;color:#15803d;line-height:1.4">Her zaman kamusal, kalabalık yerlerde buluşun. Güvendiğiniz birine buluşma bilgilerini gönderin.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Share with trusted contact -->
+      <div style="padding:0 16px 16px">
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px">
+          <div style="width:36px;height:36px;background:#dbeafe;border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:#1e40af">Güvendiğin Kişiye Gönder</div>
+            <div style="font-size:11px;color:#3b82f6">Buluşma detaylarını anne babana veya arkadaşına gönder</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+      
+      <!-- Danger zone -->
+      <div style="padding:0 16px 16px">
+        <div style="background:white;border:1px solid #fecaca;border-radius:12px;padding:12px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <div style="font-size:13px;font-weight:600;color:#dc2626">exchange İptal</div>
+          </div>
+          <div style="font-size:11px;color:#6b7280;margin-top:4px;margin-left:24px">exchange'i iptal etmek istediğinizden emin misiniz?</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -16,12 +16,12 @@ meetbook/
     alembic/          migrations
     tests/
     pyproject.toml
-  mobile/             Expo app (TypeScript)
-    app/              Expo Router routes (see below)
-    components/ui/    design-system components
-    features/<name>/  hooks, api, components per feature
-    lib/              api client, secure storage, i18n, query client
-    stores/           zustand stores
+  mobile/             Expo app (TypeScript; template uses src/ layout)
+    src/app/          Expo Router routes (see below)
+    src/components/ui design-system components (tokens.ts lives here)
+    src/features/<name>/  hooks, api, components per feature
+    src/lib/          api client, secure storage, i18n, query client
+    src/stores/       zustand stores
   admin/              minimal React web dashboard (added in Phase 7)
   docker-compose.yml  postgres+postgis, redis
   .github/workflows/  ci.yml

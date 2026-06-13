@@ -2,6 +2,7 @@ import React from 'react';
 import {
   View,
   StyleSheet,
+  useColorScheme,
   ViewStyle,
 } from 'react-native';
 import { palette, spacing, radius, fontSize } from './tokens';
@@ -44,120 +45,37 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   variant = 'list-item',
   style,
 }) => {
+  const scheme = useColorScheme();
+  const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
+  const shimmer = { backgroundColor: colors.textMuted, opacity: 0.15 } as const;
+
   if (variant === 'card') {
     return (
-      <View style={[styles.cardContainer, style]} testID="skeleton-card">
-        <View style={styles.cardCover} testID="skeleton-cover" />
-        <View style={styles.cardContent}>
-          <View style={[styles.cardTitleLine, { width: '90%' }]} testID="skeleton-title" />
-          <View style={[styles.cardMetaLine, { width: '60%' }]} testID="skeleton-author" />
-          <View style={styles.cardFooter}>
-            <View style={[styles.badge, { width: 60 }]} testID="skeleton-badge" />
-            <View style={[styles.cardMetaLine, { width: 40 }]} testID="skeleton-distance" />
+      <View style={[{ flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.input, padding: spacing.md, marginBottom: spacing.sm }, style]} testID="skeleton-card">
+        <View style={{ width: 60, height: 80, borderRadius: radius.input, marginRight: spacing.md, ...shimmer }} testID="skeleton-cover" />
+        <View style={{ flex: 1, justifyContent: 'space-between' }}>
+          <View style={{ height: fontSize.body, borderRadius: radius.input, marginBottom: spacing.xs, width: '90%', ...shimmer }} testID="skeleton-title" />
+          <View style={{ height: fontSize.bodySm, borderRadius: radius.input, marginBottom: spacing.sm, width: '60%', ...shimmer }} testID="skeleton-author" />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ height: 20, borderRadius: radius.pill, width: 60, ...shimmer }} testID="skeleton-badge" />
+            <View style={{ height: fontSize.bodySm, borderRadius: radius.input, width: 40, ...shimmer }} testID="skeleton-distance" />
           </View>
         </View>
       </View>
     );
   }
 
-  // list-item variant
   return (
-    <View style={[styles.listContainer, style]} testID="skeleton-list">
-      <View style={styles.listCover} testID="skeleton-cover" />
-      <View style={styles.listContent}>
-        <View style={[styles.listTitleLine, { width: '80%' }]} testID="skeleton-title" />
-        <View style={[styles.listMetaLine, { width: '50%' }]} testID="skeleton-author" />
-        <View style={styles.listFooter}>
-          <View style={[styles.badge, { width: 50 }]} testID="skeleton-badge" />
-          <View style={[styles.listMetaLine, { width: 35 }]} testID="skeleton-distance" />
+    <View style={[{ flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.input, padding: spacing.md, marginBottom: spacing.sm }, style]} testID="skeleton-list">
+      <View style={{ width: 50, height: 70, borderRadius: radius.input, marginRight: spacing.md, ...shimmer }} testID="skeleton-cover" />
+      <View style={{ flex: 1, justifyContent: 'space-between' }}>
+        <View style={{ height: fontSize.body, borderRadius: radius.input, marginBottom: spacing.xs, width: '80%', ...shimmer }} testID="skeleton-title" />
+        <View style={{ height: fontSize.bodySm, borderRadius: radius.input, marginBottom: spacing.sm, width: '50%', ...shimmer }} testID="skeleton-author" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ height: 20, borderRadius: radius.pill, width: 50, ...shimmer }} testID="skeleton-badge" />
+          <View style={{ height: fontSize.bodySm, borderRadius: radius.input, width: 35, ...shimmer }} testID="skeleton-distance" />
         </View>
       </View>
     </View>
   );
 };
-
-const shimmerBase = {
-  backgroundColor: palette.light.textMuted,
-  opacity: 0.15,
-} as const;
-
-const styles = StyleSheet.create({
-  // Card variant (horizontal layout like BookCard)
-  cardContainer: {
-    flexDirection: 'row',
-    backgroundColor: palette.light.surface,
-    borderRadius: radius.input,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  cardCover: {
-    width: 60,
-    height: 80,
-    borderRadius: radius.input,
-    marginRight: spacing.md,
-    ...shimmerBase,
-  },
-  cardContent: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  cardTitleLine: {
-    height: fontSize.body,
-    borderRadius: radius.input,
-    marginBottom: spacing.xs,
-    ...shimmerBase,
-  },
-  cardMetaLine: {
-    height: fontSize.bodySm,
-    borderRadius: radius.input,
-    marginBottom: spacing.sm,
-    ...shimmerBase,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  // List item variant (compact horizontal layout)
-  listContainer: {
-    flexDirection: 'row',
-    backgroundColor: palette.light.surface,
-    borderRadius: radius.input,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  listCover: {
-    width: 50,
-    height: 70,
-    borderRadius: radius.input,
-    marginRight: spacing.md,
-    ...shimmerBase,
-  },
-  listContent: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  listTitleLine: {
-    height: fontSize.body,
-    borderRadius: radius.input,
-    marginBottom: spacing.xs,
-    ...shimmerBase,
-  },
-  listMetaLine: {
-    height: fontSize.bodySm,
-    borderRadius: radius.input,
-    marginBottom: spacing.sm,
-    ...shimmerBase,
-  },
-  listFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  // Shared elements
-  badge: {
-    height: 20,
-    borderRadius: radius.pill,
-    ...shimmerBase,
-  },
-});

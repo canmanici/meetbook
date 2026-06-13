@@ -1,20 +1,24 @@
 """Shared test fixtures."""
 
+import os
 from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest_asyncio
+import redis.asyncio as aioredis
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
 
-from app.core.config import get_settings
-from app.core.db import Base, get_session
-from app.main import create_app
+os.environ["ENV"] = "test"
+
+from app.core.config import get_settings  # noqa: E402
+from app.core.db import Base, get_session  # noqa: E402
+from app.main import create_app  # noqa: E402
 
 
 @pytest_asyncio.fixture
@@ -35,6 +39,17 @@ async def db_session(db_engine: Any) -> AsyncIterator[AsyncSession]:
     async with session_factory() as session:
         yield session
         await session.rollback()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _flush_rate_limits() -> AsyncIterator[None]:
+    """Reset the rate-limit counters in Redis so tests don't interfere with each other."""
+    r = aioredis.from_url(get_settings().redis_url)
+    await r.flushdb()
+    try:
+        yield
+    finally:
+        await r.aclose()
 
 
 @pytest_asyncio.fixture

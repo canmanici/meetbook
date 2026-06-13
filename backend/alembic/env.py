@@ -10,6 +10,9 @@ from app.core.db import Base
 
 # Import every module's models so autogenerate sees them (grows with phases):
 from app.modules.auth import models as auth_models  # noqa: F401
+from app.modules.books import models as books_models  # noqa: F401
+from app.modules.exchanges import models as exchanges_models  # noqa: F401
+from app.modules.wishlist import models as wishlist_models  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url)

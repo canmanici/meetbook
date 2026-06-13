@@ -4,6 +4,7 @@ import {
   Text,
   Image,
   StyleSheet,
+  useColorScheme,
   ViewStyle,
 } from 'react-native';
 import { palette, spacing, radius, fontSize } from './tokens';
@@ -25,6 +26,8 @@ export const Avatar: React.FC<AvatarProps> = ({
   verified = false,
   style,
 }) => {
+  const scheme = useColorScheme();
+  const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
   const initials = name
     .split(' ')
     .map((n) => n[0])
@@ -42,7 +45,7 @@ export const Avatar: React.FC<AvatarProps> = ({
 
   return (
     <View style={[styles.container, style]}>
-      <View style={[styles.avatar, { width: currentSize.width, height: currentSize.height }]}>
+      <View style={[styles.avatar, { backgroundColor: colors.primary, width: currentSize.width, height: currentSize.height }]}>
         {imageUrl ? (
           <Image
             source={{ uri: imageUrl }}
@@ -50,14 +53,14 @@ export const Avatar: React.FC<AvatarProps> = ({
             testID="avatar-image"
           />
         ) : (
-          <Text style={[styles.initials, { fontSize: currentSize.fontSize }]}>
+          <Text style={[styles.initials, { color: colors.surface, fontSize: currentSize.fontSize }]}>
             {initials}
           </Text>
         )}
       </View>
       {verified && (
-        <View style={styles.verificationBadge} testID="verification-badge">
-          <Text style={styles.checkmark}>✓</Text>
+        <View style={[styles.verificationBadge, { backgroundColor: colors.success, borderColor: colors.surface }]} testID="verification-badge">
+          <Text style={[styles.checkmark, { color: colors.surface }]}>✓</Text>
         </View>
       )}
     </View>
@@ -70,7 +73,6 @@ const styles = StyleSheet.create({
   },
   avatar: {
     borderRadius: radius.pill,
-    backgroundColor: palette.light.primary,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -80,24 +82,20 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   initials: {
-    color: palette.light.surface,
     fontWeight: '600',
   },
   verificationBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: palette.light.success,
     borderRadius: radius.pill,
     width: 14,
     height: 14,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: palette.light.surface,
   },
   checkmark: {
-    color: palette.light.surface,
     fontSize: 10,
     fontWeight: 'bold',
   },

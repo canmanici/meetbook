@@ -126,6 +126,454 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Me */
+        get: operations["get_me_api_v1_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Me */
+        patch: operations["update_me_api_v1_auth_me_patch"];
+        trace?: never;
+    };
+    "/api/v1/books/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Books */
+        get: operations["search_books_api_v1_books_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/books": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Books */
+        get: operations["list_books_api_v1_books_get"];
+        put?: never;
+        /** Create Book */
+        post: operations["create_book_api_v1_books_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/books/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List My Books */
+        get: operations["list_my_books_api_v1_books_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/books/{book_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Book */
+        get: operations["get_book_api_v1_books__book_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Book */
+        delete: operations["delete_book_api_v1_books__book_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Book */
+        patch: operations["update_book_api_v1_books__book_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/books/{book_id}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Photo */
+        post: operations["upload_photo_api_v1_books__book_id__photos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/books/{book_id}/photos/{photo_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Photo */
+        delete: operations["delete_photo_api_v1_books__book_id__photos__photo_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/books/{book_id}/photos/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Reorder Photos */
+        patch: operations["reorder_photos_api_v1_books__book_id__photos_reorder_patch"];
+        trace?: never;
+    };
+    "/api/v1/books/isbn/{isbn_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lookup Isbn */
+        get: operations["lookup_isbn_api_v1_books_isbn__isbn_code__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wishlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Wishlist */
+        get: operations["list_wishlist_api_v1_wishlist_get"];
+        put?: never;
+        /** Add Wishlist Item */
+        post: operations["add_wishlist_item_api_v1_wishlist_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wishlist/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Wishlist Item */
+        delete: operations["delete_wishlist_item_api_v1_wishlist__item_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wishlist/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Find Wishlist Matches */
+        get: operations["find_wishlist_matches_api_v1_wishlist_matches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Exchanges */
+        get: operations["list_exchanges_api_v1_exchanges_get"];
+        put?: never;
+        /** Create Exchange */
+        post: operations["create_exchange_api_v1_exchanges_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/{exchange_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Exchange */
+        get: operations["get_exchange_api_v1_exchanges__exchange_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/{exchange_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Exchange */
+        post: operations["accept_exchange_api_v1_exchanges__exchange_id__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/{exchange_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Exchange */
+        post: operations["reject_exchange_api_v1_exchanges__exchange_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/{exchange_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Exchange */
+        post: operations["cancel_exchange_api_v1_exchanges__exchange_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/{exchange_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete Exchange */
+        post: operations["complete_exchange_api_v1_exchanges__exchange_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/{exchange_id}/confirm-completion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Completion */
+        post: operations["confirm_completion_api_v1_exchanges__exchange_id__confirm_completion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/{exchange_id}/meetup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Propose Meetup */
+        post: operations["propose_meetup_api_v1_exchanges__exchange_id__meetup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/{exchange_id}/meetup/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Meetup */
+        post: operations["accept_meetup_api_v1_exchanges__exchange_id__meetup_accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/{exchange_id}/meetup/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Meetup */
+        post: operations["reject_meetup_api_v1_exchanges__exchange_id__meetup_reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/{exchange_id}/meetup/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Meetup Suggestions */
+        get: operations["meetup_suggestions_api_v1_exchanges__exchange_id__meetup_suggestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/places/autocomplete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autocomplete */
+        get: operations["autocomplete_api_v1_places_autocomplete_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/places/details/{place_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Place Details */
+        get: operations["place_details_api_v1_places_details__place_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/places/nearby": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Nearby */
+        get: operations["nearby_api_v1_places_nearby_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -143,10 +591,369 @@ export interface components {
             refresh_token: string;
             user: components["schemas"]["UserPublic"];
         };
+        /** AutocompleteResponse */
+        AutocompleteResponse: {
+            /** Items */
+            items: components["schemas"]["PlaceSuggestion"][];
+        };
+        /** Body_upload_photo_api_v1_books__book_id__photos_post */
+        Body_upload_photo_api_v1_books__book_id__photos_post: {
+            /** File */
+            file: string;
+        };
+        /**
+         * BookCategory
+         * @enum {string}
+         */
+        BookCategory: "fiction" | "non_fiction" | "textbook" | "children" | "comics" | "poetry" | "other";
+        /**
+         * BookCondition
+         * @enum {string}
+         */
+        BookCondition: "new" | "like_new" | "good" | "worn";
+        /** BookCreateRequest */
+        BookCreateRequest: {
+            /** Title */
+            title: string;
+            /** Author */
+            author?: string | null;
+            /** Isbn */
+            isbn?: string | null;
+            /** Description */
+            description?: string | null;
+            category: components["schemas"]["BookCategory"];
+            /**
+             * Language
+             * @default tr
+             */
+            language: string;
+            condition: components["schemas"]["BookCondition"];
+            location: components["schemas"]["LocationInput"];
+        };
+        /** BookListResponse */
+        BookListResponse: {
+            /** Items */
+            items: (components["schemas"]["BookOwnerView"] | components["schemas"]["BookPublicView"])[];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
+        /**
+         * BookOwnerView
+         * @description Full view, returned only to the book's owner — includes the true location.
+         */
+        BookOwnerView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Title */
+            title: string;
+            /** Author */
+            author: string | null;
+            /** Isbn */
+            isbn: string | null;
+            /** Description */
+            description: string | null;
+            category: components["schemas"]["BookCategory"];
+            /** Language */
+            language: string;
+            condition: components["schemas"]["BookCondition"];
+            /** Is Available */
+            is_available: boolean;
+            location: components["schemas"]["LocationOutput"];
+            public_location: components["schemas"]["LocationOutput"];
+            /**
+             * Photos
+             * @default []
+             */
+            photos: components["schemas"]["PhotoView"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * BookPublicView
+         * @description Returned to non-owners. `location` is structurally absent — never serialized.
+         */
+        BookPublicView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Title */
+            title: string;
+            /** Author */
+            author: string | null;
+            /** Isbn */
+            isbn: string | null;
+            /** Description */
+            description: string | null;
+            category: components["schemas"]["BookCategory"];
+            /** Language */
+            language: string;
+            condition: components["schemas"]["BookCondition"];
+            /** Is Available */
+            is_available: boolean;
+            public_location: components["schemas"]["LocationOutput"];
+            /**
+             * Photos
+             * @default []
+             */
+            photos: components["schemas"]["PhotoView"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** BookSearchResponse */
+        BookSearchResponse: {
+            /** Items */
+            items: components["schemas"]["BookSearchResult"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
+        /** BookSearchResult */
+        BookSearchResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Title */
+            title: string;
+            /** Author */
+            author: string | null;
+            /** Isbn */
+            isbn: string | null;
+            /** Description */
+            description: string | null;
+            category: components["schemas"]["BookCategory"];
+            /** Language */
+            language: string;
+            condition: components["schemas"]["BookCondition"];
+            /** Is Available */
+            is_available: boolean;
+            public_location: components["schemas"]["LocationOutput"];
+            /** Distance Km */
+            distance_km: number;
+            /**
+             * Photos
+             * @default []
+             */
+            photos: components["schemas"]["PhotoView"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * BookSummary
+         * @description Minimal book view embedded in exchange responses — never includes true location.
+         */
+        BookSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Author */
+            author: string | null;
+            category: components["schemas"]["BookCategory"];
+            condition: components["schemas"]["BookCondition"];
+            /** Is Available */
+            is_available: boolean;
+            public_location: components["schemas"]["LocationOutput"];
+            /**
+             * Photos
+             * @default []
+             */
+            photos: components["schemas"]["PhotoView"][];
+        };
+        /** BookUpdateRequest */
+        BookUpdateRequest: {
+            /** Title */
+            title?: string | null;
+            /** Author */
+            author?: string | null;
+            /** Isbn */
+            isbn?: string | null;
+            /** Description */
+            description?: string | null;
+            category?: components["schemas"]["BookCategory"] | null;
+            /** Language */
+            language?: string | null;
+            condition?: components["schemas"]["BookCondition"] | null;
+            /** Is Available */
+            is_available?: boolean | null;
+            location?: components["schemas"]["LocationInput"] | null;
+        };
+        /** CounterpartView */
+        CounterpartView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** ExchangeCreateRequest */
+        ExchangeCreateRequest: {
+            /**
+             * Book Id
+             * Format: uuid
+             */
+            book_id: string;
+            /** Initial Message */
+            initial_message: string;
+        };
+        /** ExchangeDetail */
+        ExchangeDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            book: components["schemas"]["BookSummary"];
+            counterpart: components["schemas"]["CounterpartView"];
+            /**
+             * Requested By
+             * Format: uuid
+             */
+            requested_by: string;
+            /**
+             * Requested To
+             * Format: uuid
+             */
+            requested_to: string;
+            status: components["schemas"]["ExchangeStatus"];
+            /** Initial Message */
+            initial_message: string;
+            /** Completion Marked By */
+            completion_marked_by: string | null;
+            meetup?: components["schemas"]["MeetupDetail"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /** ExchangeListResponse */
+        ExchangeListResponse: {
+            /** Items */
+            items: components["schemas"]["ExchangeSummary"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
+        /**
+         * ExchangeStatus
+         * @enum {string}
+         */
+        ExchangeStatus: "pending" | "accepted" | "rejected" | "cancelled" | "meetup_proposed" | "meetup_confirmed" | "completion_pending" | "completed" | "expired";
+        /** ExchangeSummary */
+        ExchangeSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            book: components["schemas"]["BookSummary"];
+            counterpart: components["schemas"]["CounterpartView"];
+            status: components["schemas"]["ExchangeStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ISBNLookupResponse */
+        ISBNLookupResponse: {
+            /** Isbn */
+            isbn: string;
+            /** Title */
+            title?: string | null;
+            /** Author */
+            author?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Cover Url */
+            cover_url?: string | null;
+            /** Page Count */
+            page_count?: number | null;
+            /** Published Year */
+            published_year?: number | null;
+        };
+        /** LocationInput */
+        LocationInput: {
+            /** Lat */
+            lat: number;
+            /** Lng */
+            lng: number;
+        };
+        /** LocationOutput */
+        LocationOutput: {
+            /** Lat */
+            lat: number;
+            /** Lng */
+            lng: number;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -163,10 +970,126 @@ export interface components {
             /** Refresh Token */
             refresh_token?: string | null;
         };
+        /** MeResponse */
+        MeResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Name */
+            name: string;
+            /** Trusted Contact Name */
+            trusted_contact_name: string | null;
+            /** Trusted Contact Phone */
+            trusted_contact_phone: string | null;
+        };
+        /** MeetupAcceptRequest */
+        MeetupAcceptRequest: {
+            /**
+             * Acknowledge Warning
+             * @default false
+             */
+            acknowledge_warning: boolean;
+        };
+        /** MeetupDetail */
+        MeetupDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Place Id */
+            place_id: string | null;
+            /** Place Name */
+            place_name: string;
+            /** Address */
+            address: string | null;
+            /** Category */
+            category: string | null;
+            /** Lat */
+            lat: number;
+            /** Lng */
+            lng: number;
+            validation_status: components["schemas"]["MeetupValidationStatus"];
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /**
+             * Proposed By
+             * Format: uuid
+             */
+            proposed_by: string;
+            /** Proposer Acknowledged */
+            proposer_acknowledged: boolean;
+            /** Other Acknowledged */
+            other_acknowledged: boolean;
+            /** Requires Acknowledgment */
+            requires_acknowledgment: boolean;
+            /** Can Confirm */
+            can_confirm: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** MeetupProposeRequest */
+        MeetupProposeRequest: {
+            /** Place Id */
+            place_id?: string | null;
+            /** Place Name */
+            place_name: string;
+            /** Address */
+            address?: string | null;
+            /** Category */
+            category?: string | null;
+            /** Lat */
+            lat: number;
+            /** Lng */
+            lng: number;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /**
+             * Acknowledge Warning
+             * @default false
+             */
+            acknowledge_warning: boolean;
+        };
+        /** MeetupSuggestionsResponse */
+        MeetupSuggestionsResponse: {
+            /** Items */
+            items: components["schemas"]["PlaceSummary"][];
+        };
+        /**
+         * MeetupValidationStatus
+         * @enum {string}
+         */
+        MeetupValidationStatus: "auto" | "warning" | "rejected";
         /** MessageResponse */
         MessageResponse: {
             /** Message */
             message: string;
+        };
+        /** NearbyResponse */
+        NearbyResponse: {
+            /** Items */
+            items: components["schemas"]["PlaceSummary"][];
         };
         /** PasswordResetConfirmRequest */
         PasswordResetConfirmRequest: {
@@ -182,6 +1105,48 @@ export interface components {
              * Format: email
              */
             email: string;
+        };
+        /** PhotoReorderRequest */
+        PhotoReorderRequest: {
+            /** Photo Ids */
+            photo_ids: string[];
+        };
+        /** PhotoView */
+        PhotoView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Url */
+            url: string;
+            /** Position */
+            position: number;
+        };
+        /** PlaceSuggestion */
+        PlaceSuggestion: {
+            /** Place Id */
+            place_id: string;
+            /** Description */
+            description: string;
+        };
+        /**
+         * PlaceSummary
+         * @description A place result — never includes either participant's true location.
+         */
+        PlaceSummary: {
+            /** Place Id */
+            place_id: string | null;
+            /** Name */
+            name: string;
+            /** Address */
+            address: string | null;
+            /** Category */
+            category: string | null;
+            /** Lat */
+            lat: number;
+            /** Lng */
+            lng: number;
         };
         /** RefreshRequest */
         RefreshRequest: {
@@ -210,6 +1175,13 @@ export interface components {
             refresh_token: string;
             user: components["schemas"]["UserPublic"];
         };
+        /** UpdateMeRequest */
+        UpdateMeRequest: {
+            /** Trusted Contact Name */
+            trusted_contact_name?: string | null;
+            /** Trusted Contact Phone */
+            trusted_contact_phone?: string | null;
+        };
         /** UserPublic */
         UserPublic: {
             /**
@@ -237,6 +1209,78 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WishlistItemCreateRequest */
+        WishlistItemCreateRequest: {
+            /** Isbn */
+            isbn: string;
+            /** Title */
+            title?: string | null;
+            /** Author */
+            author?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** WishlistItemView */
+        WishlistItemView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isbn */
+            isbn: string;
+            /** Title */
+            title: string | null;
+            /** Author */
+            author: string | null;
+            /** Notes */
+            notes: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** WishlistListResponse */
+        WishlistListResponse: {
+            /** Items */
+            items: components["schemas"]["WishlistItemView"][];
+        };
+        /** WishlistMatchResponse */
+        WishlistMatchResponse: {
+            /** Matches */
+            matches: components["schemas"]["WishlistMatchView"][];
+        };
+        /** WishlistMatchView */
+        WishlistMatchView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Author */
+            author: string | null;
+            /** Isbn */
+            isbn: string;
+            /** Condition */
+            condition: string;
+            /** Distance Km */
+            distance_km: number;
+            /**
+             * Photos
+             * @default []
+             */
+            photos: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
     };
     responses: never;
@@ -452,6 +1496,1003 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_me_api_v1_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+        };
+    };
+    update_me_api_v1_auth_me_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_books_api_v1_books_search_get: {
+        parameters: {
+            query: {
+                lat: number;
+                lng: number;
+                radius_km?: number;
+                category?: string | null;
+                language?: string | null;
+                condition?: string | null;
+                q?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookSearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_books_api_v1_books_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_book_api_v1_books_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookOwnerView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_books_api_v1_books_me_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_book_api_v1_books__book_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                book_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookOwnerView"] | components["schemas"]["BookPublicView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_book_api_v1_books__book_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                book_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_book_api_v1_books__book_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                book_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookOwnerView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_photo_api_v1_books__book_id__photos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                book_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_photo_api_v1_books__book_id__photos_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhotoView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_photo_api_v1_books__book_id__photos__photo_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                book_id: string;
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_photos_api_v1_books__book_id__photos_reorder_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                book_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhotoReorderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhotoView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lookup_isbn_api_v1_books_isbn__isbn_code__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                isbn_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ISBNLookupResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_wishlist_api_v1_wishlist_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WishlistListResponse"];
+                };
+            };
+        };
+    };
+    add_wishlist_item_api_v1_wishlist_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WishlistItemCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WishlistItemView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_wishlist_item_api_v1_wishlist__item_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    find_wishlist_matches_api_v1_wishlist_matches_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WishlistMatchResponse"];
+                };
+            };
+        };
+    };
+    list_exchanges_api_v1_exchanges_get: {
+        parameters: {
+            query: {
+                role: "sent" | "received";
+                status?: components["schemas"]["ExchangeStatus"] | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_exchange_api_v1_exchanges_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExchangeCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_exchange_api_v1_exchanges__exchange_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exchange_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_exchange_api_v1_exchanges__exchange_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exchange_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_exchange_api_v1_exchanges__exchange_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exchange_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_exchange_api_v1_exchanges__exchange_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exchange_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_exchange_api_v1_exchanges__exchange_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exchange_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_completion_api_v1_exchanges__exchange_id__confirm_completion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exchange_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    propose_meetup_api_v1_exchanges__exchange_id__meetup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exchange_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeetupProposeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_meetup_api_v1_exchanges__exchange_id__meetup_accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exchange_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeetupAcceptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_meetup_api_v1_exchanges__exchange_id__meetup_reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exchange_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    meetup_suggestions_api_v1_exchanges__exchange_id__meetup_suggestions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exchange_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetupSuggestionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    autocomplete_api_v1_places_autocomplete_get: {
+        parameters: {
+            query: {
+                query: string;
+                lat: number;
+                lng: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutocompleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    place_details_api_v1_places_details__place_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                place_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceSummary"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    nearby_api_v1_places_nearby_get: {
+        parameters: {
+            query: {
+                lat: number;
+                lng: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NearbyResponse"];
                 };
             };
             /** @description Validation Error */

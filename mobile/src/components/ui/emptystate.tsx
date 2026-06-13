@@ -3,6 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
+  useColorScheme,
   ViewStyle,
   TextStyle,
 } from 'react-native';
@@ -69,14 +70,16 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   illustration,
   style,
 }) => {
+  const scheme = useColorScheme();
+  const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
   return (
-    <View style={[styles.container, style]} testID="empty-state">
-      {illustration || <View style={styles.defaultIllustration} testID="default-illustration" />}
-      <Text style={styles.message} testID="empty-state-message">
+    <View style={[{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: spacing.xxxl, paddingHorizontal: spacing.xl }, style]} testID="empty-state">
+      {illustration || <View style={{ width: 120, height: 120, borderRadius: 60, backgroundColor: colors.textMuted, opacity: 0.2, marginBottom: spacing.xl }} testID="default-illustration" />}
+      <Text style={{ fontSize: fontSize.title, fontWeight: '600', color: colors.text, textAlign: 'center', marginBottom: spacing.sm }} testID="empty-state-message">
         {message}
       </Text>
       {description ? (
-        <Text style={styles.description} testID="empty-state-description">
+        <Text style={{ fontSize: fontSize.body, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.xl }} testID="empty-state-description">
           {description}
         </Text>
       ) : null}
@@ -84,7 +87,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         <Button
           variant="secondary"
           onPress={onAction}
-          style={styles.actionButton}
+          style={{ minWidth: 150 }}
           testID="empty-state-action"
         >
           {actionLabel}

@@ -1,0 +1,82 @@
+<h2>MeetBook Frontend Redesign</h2>
+<p class="subtitle">Current problems and redesign directions</p>
+
+<div class="section">
+  <h3>Current Problems</h3>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">Current Home (List Only)</div>
+      <div class="mockup-body">
+        <div class="mock-nav">🏠 Home | 🔍 Search | 📋 Requests | 💬 Chats | 👤 Profile</div>
+        <div style="padding:8px">
+          <div style="background:#f0f0f0;padding:8px;border-radius:8px;margin-bottom:6px">
+            <b>📚 Book Card</b><br>
+            <small>Title · Author · ~2.3 km</small>
+          </div>
+          <div style="background:#f0f0f0;padding:8px;border-radius:8px;margin-bottom:6px">
+            <b>📚 Book Card</b><br>
+            <small>Title · Author · ~4.1 km</small>
+          </div>
+          <div style="background:#f0f0f0;padding:8px;border-radius:8px;margin-bottom:6px">
+            <b>📚 Book Card</b><br>
+            <small>Title · Author · ~5.7 km</small>
+          </div>
+          <p style="color:#999;font-size:12px;text-align:center">Scroll to explore... no map, no spatial context</p>
+        </div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">Current Map (Location Picker Only)</div>
+      <div class="mockup-body">
+        <div style="background:#e8f5e9;height:200px;border-radius:8px;display:flex;align-items:center;justify-content:center;position:relative">
+          <div style="font-size:24px">📍</div>
+          <div style="position:absolute;bottom:8px;left:8px;right:8px;background:white;padding:8px;border-radius:8px;text-align:center">
+            <small>Tap to pick location · "Use My Location" button</small>
+          </div>
+        </div>
+        <p style="color:#999;font-size:12px;text-align:center;margin-top:8px">Maps only used for picking locations, not browsing</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Proposed Redesign Direction</h3>
+  <p>Which approach feels right for MeetBook?</p>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="map-first" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Map-First Experience</h3>
+      <p>Home screen IS a map. Book pins everywhere. Tap a cluster to expand. List view is a secondary tab. Feels like Airbnb/Google Maps.</p>
+      <div style="margin-top:8px;padding:8px;background:rgba(255,255,255,0.05);border-radius:6px;font-size:13px">
+        <b>Pros:</b> Spatial discovery, visual browsing, "what's near me" at a glance<br>
+        <b>Cons:</b> More complex to build, requires good clustering, can feel cluttered
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="hybrid" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Hybrid: Toggle Between Map & List</h3>
+      <p>Home has a map/list toggle button. Default is list (current behavior), but user can flip to map view with one tap. Best of both worlds.</p>
+      <div style="margin-top:8px;padding:8px;background:rgba(255,255,255,0.05);border-radius:6px;font-size:13px">
+        <b>Pros:</b> User choice, easy migration, low risk<br>
+        <b>Cons:</b> Two code paths to maintain, toggle can be hidden/missed
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="card-map" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Card-with-Map Preview</h3>
+      <p>Each BookCard shows a small embedded map preview of its location. Tap to expand full map. List stays primary, but spatial context is always visible.</p>
+      <div style="margin-top:8px;padding:8px;background:rgba(255,255,255,0.05);border-radius:6px;font-size:13px">
+        <b>Pros:</b> Spatial context without leaving list, lightweight<br>
+        <b>Cons:</b> Many small maps = performance concern, not true map browsing
+      </div>
+    </div>
+  </div>
+</div>

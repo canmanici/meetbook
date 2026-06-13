@@ -80,3 +80,4 @@ export const shadows = {
 } as const;
 
 export type ThemeName = keyof typeof palette;
+export type ThemeColors = (typeof palette)[ThemeName];

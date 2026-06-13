@@ -5,6 +5,7 @@ import {
   TextInput,
   StyleSheet,
   TouchableOpacity,
+  useColorScheme,
   ViewStyle,
   TextStyle,
 } from 'react-native';
@@ -35,6 +36,8 @@ export const Input: React.FC<InputProps> = ({
   testID = 'input-field',
   style,
 }) => {
+  const scheme = useColorScheme();
+  const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
   const [isPasswordVisible, setIsPasswordVisible] = useState(!secureTextEntry);
 
   const togglePasswordVisibility = () => {
@@ -45,16 +48,16 @@ export const Input: React.FC<InputProps> = ({
 
   return (
     <View style={[styles.container, style]}>
-      {label ? <Text style={[styles.label, hasError && styles.errorLabel]}>{label}</Text> : null}
-      <View style={[styles.inputContainer, hasError && styles.errorInput]}>
+      {label ? <Text style={[styles.label, { color: colors.text }, hasError && { color: colors.danger }]}>{label}</Text> : null}
+      <View style={[styles.inputContainer, { borderColor: colors.textMuted }, hasError && { borderColor: colors.danger }]}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.text }]}
           placeholder={placeholder}
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry && !isPasswordVisible}
           keyboardType={keyboardType}
-          placeholderTextColor={palette.light.textMuted}
+          placeholderTextColor={colors.textMuted}
           testID={testID}
         />
         {secureTextEntry && (
@@ -68,7 +71,7 @@ export const Input: React.FC<InputProps> = ({
         )}
       </View>
       {(helper || error) && (
-        <Text style={[styles.helper, hasError && styles.errorText]}>
+        <Text style={[styles.helper, { color: colors.textMuted }, hasError && { color: colors.danger }]}>
           {error || helper}
         </Text>
       )}
@@ -83,28 +86,19 @@ const styles = StyleSheet.create({
   label: {
     fontSize: fontSize.bodySm,
     fontWeight: '600',
-    color: palette.light.text,
     marginBottom: spacing.xs,
-  },
-  errorLabel: {
-    color: palette.light.danger,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: palette.light.textMuted,
     borderRadius: radius.input,
     paddingHorizontal: spacing.md,
     minHeight: 44,
   },
-  errorInput: {
-    borderColor: palette.light.danger,
-  },
   input: {
     flex: 1,
     fontSize: fontSize.body,
-    color: palette.light.text,
     paddingVertical: spacing.sm,
   },
   eyeIcon: {
@@ -115,10 +109,6 @@ const styles = StyleSheet.create({
   },
   helper: {
     fontSize: fontSize.caption,
-    color: palette.light.textMuted,
     marginTop: spacing.xs,
-  },
-  errorText: {
-    color: palette.light.danger,
   },
 });

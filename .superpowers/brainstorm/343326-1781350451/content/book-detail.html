@@ -1,0 +1,213 @@
+<h2>Book Detail Screen — Premium Redesign</h2>
+<p class="subtitle">Photo gallery, owner/visitor views, exchange request</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Book Detail — Visitor View</div>
+    <div class="mockup-body" style="padding:0;background:#fafaf8">
+      
+      <!-- Full-width photo gallery -->
+      <div style="position:relative;height:220px;background:linear-gradient(135deg,#78350f,#b45309);display:flex;align-items:flex-end;padding:16px;border-radius:0 0 20px 20px;overflow:hidden">
+        <!-- Photo dots -->
+        <div style="position:absolute;bottom:56px;left:0;right:0;display:flex;justify-content:center;gap:6px">
+          <div style="width:8px;height:8px;background:white;border-radius:50%"></div>
+          <div style="width:8px;height:8px;background rgba(255,255,255,0.4);border-radius:50%"></div>
+          <div style="width:8px;height:8px;background rgba(255,255,255,0.4);border-radius:50%"></div>
+        </div>
+        
+        <!-- Back + actions -->
+        <div style="position:absolute;top:12px;left:12px;display:flex;gap:8px">
+          <div style="width:36px;height:36px;background:rgba(0,0,0,0.3);backdrop-filter:blur(10px);border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          </div>
+        </div>
+        <div style="position:absolute;top:12px;right:12px;display:flex;gap:8px">
+          <div style="width:36px;height:36px;background:rgba(0,0,0,0.3);backdrop-filter:blur(10px);border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          </div>
+          <div style="width:36px;height:36px;background:rgba(0,0,0,0.3);backdrop-filter:blur(10px);border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+        </div>
+        
+        <!-- Book title overlay -->
+        <div style="width:100%">
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <span style="background:rgba(255,255,255,0.2);backdrop-filter:blur(10px);color:white;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600">✨ Yeni gibi</span>
+            <span style="background:rgba(255,255,255,0.2);backdrop-filter:blur(10px);color:white;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600">📖 Roman</span>
+          </div>
+          <div style="font-size:24px;font-weight:800;color:white;text-shadow:0 2px 8px rgba(0,0,0,0.3)">Suç ve Ceza</div>
+        </div>
+      </div>
+      
+      <!-- Book info card -->
+      <div style="padding:16px;margin-top:-12px;position:relative;z-index:10">
+        <div style="background:white;border-radius:16px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-size:18px;font-weight:800;color:#111827">Suç ve Ceza</div>
+              <div style="font-size:14px;color:#6b7280;margin-top:2px">Fyodor Dostoyevski</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:13px;font-weight:700;color:#0F6E5D">1.2 km</div>
+              <div style="font-size:11px;color:#6b7280">uzaklıkta</div>
+            </div>
+          </div>
+          
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <div style="flex:1;background:#f9fafb;padding:10px;border-radius:10px;text-align:center">
+              <div style="font-size:11px;color:#6b7280">Durum</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-top:2px">Yeni gibi</div>
+            </div>
+            <div style="flex:1;background:#f9fafb;padding:10px;border-radius:10px;text-align:center">
+              <div style="font-size:11px;color:#6b7280">Dil</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-top:2px">🇹🇷 Türkçe</div>
+            </div>
+            <div style="flex:1;background:#f9fafb;padding:10px;border-radius:10px;text-align:center">
+              <div style="font-size:11px;color:#6b7280">Kategori</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-top:2px">📖 Roman</div>
+            </div>
+          </div>
+          
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #f3f4f6">
+            <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:6px">Açıklama</div>
+            <div style="font-size:13px;color:#6b7280;line-height:1.6">Rus edebiyatının başyapıtlarından biri. St. Petersburg'da fakir bir öğrenci olan Raskolnikov'un suç ve pişmanlık hikayesi.</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Owner card -->
+      <div style="padding:0 16px 16px">
+        <div style="background:white;border-radius:16px;padding:14px;box-shadow:0 2px 12px rgba(0,0,0,0.08);display:flex;align-items:center;gap:12px">
+          <div style="width:48px;height:48px;background:#ddd;border-radius:50%"></div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700;color:#111827">Mehmet K.</div>
+            <div style="font-size:12px;color:#6b7280">3 exchange tamamladı · ⭐ 4.8</div>
+          </div>
+          <div style="background:#ecfdf5;color:#065f46;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600">Profil</div>
+        </div>
+      </div>
+      
+      <!-- Exchange request button (sticky bottom) -->
+      <div style="padding:0 16px 16px;background:linear-gradient(transparent,#fafaf8 30%)">
+        <div style="background:#0F6E5D;color:white;padding:14px;border-radius:14px;text-align:center;font-size:15px;font-weight:700;box-shadow:0 4px 16px rgba(15,110,93,0.3)">
+          🔄 exchange İsteği Gönder
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Book Detail — Owner View</div>
+    <div class="mockup-body" style="padding:0;background:#fafaf8">
+      
+      <!-- Photo gallery (same) -->
+      <div style="position:relative;height:220px;background:linear-gradient(135deg,#78350f,#b45309);display:flex;align-items:flex-end;padding:16px;border-radius:0 0 20px 20px;overflow:hidden">
+        <div style="position:absolute;bottom:56px;left:0;right:0;display:flex;justify-content:center;gap:6px">
+          <div style="width:8px;height:8px;background:white;border-radius:50%"></div>
+          <div style="width:8px;height:8px;background rgba(255,255,255,0.4);border-radius:50%"></div>
+        </div>
+        
+        <div style="position:absolute;top:12px;left:12px">
+          <div style="width:36px;height:36px;background:rgba(0,0,0,0.3);backdrop-filter:blur(10px);border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          </div>
+        </div>
+        <div style="position:absolute;top:12px;right:12px;display:flex;gap:8px">
+          <div style="width:36px;height:36px;background:rgba(0,0,0,0.3);backdrop-filter:blur(10px);border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </div>
+          <div style="width:36px;height:36px;background:rgba(220,38,38,0.8);backdrop-filter:blur(10px);border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </div>
+        </div>
+        
+        <div style="width:100%">
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <span style="background:rgba(255,255,255,0.2);backdrop-filter:blur(10px);color:white;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600">✨ Yeni gibi</span>
+            <span style="background:rgba(74,222,128,0.3);backdrop-filter:blur(10px);color:white;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600">✓ Müsait</span>
+          </div>
+          <div style="font-size:24px;font-weight:800;color:white;text-shadow:0 2px 8px rgba(0,0,0,0.3)">Suç ve Ceza</div>
+        </div>
+      </div>
+      
+      <!-- Owner stats card -->
+      <div style="padding:16px;margin-top:-12px;position:relative;z-index:10">
+        <div style="background:white;border-radius:16px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div style="font-size:18px;font-weight:800;color:#111827">Suç ve Ceza</div>
+            <div style="background:#ecfdf5;color:#065f46;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600">Aktif</div>
+          </div>
+          
+          <!-- Stats row -->
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <div style="flex:1;background:#f0fdf4;padding:10px;border-radius:10px;text-align:center">
+              <div style="font-size:20px;font-weight:800;color:#0F6E5D">2</div>
+              <div style="font-size:11px;color:#6b7280">Talep</div>
+            </div>
+            <div style="flex:1;background:#eff6ff;padding:10px;border-radius:10px;text-align:center">
+              <div style="font-size:20px;font-weight:800;color:#1d4ed8">1</div>
+              <div style="font-size:11px;color:#6b7280">Görüntülenme</div>
+            </div>
+            <div style="flex:1;background:#fef3c7;padding:10px;border-radius:10px;text-align:center">
+              <div style="font-size:20px;font-weight:800;color:#92400e">5</div>
+              <div style="font-size:11px;color:#6b7280">Gün</div>
+            </div>
+          </div>
+          
+          <!-- Location -->
+          <div style="background:#f9fafb;padding:10px;border-radius:10px;display:flex;align-items:center;gap:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <div>
+              <div style="font-size:12px;color:#6b7280">Konum</div>
+              <div style="font-size:13px;font-weight:600;color:#111827">Kadıköy, İstanbul</div>
+            </div>
+            <div style="margin-left:auto;background:white;padding:4px 8px;border-radius:6px;border:1px solid #e5e7eb;font-size:11px;color:#0F6E5D;font-weight:600">haritada göster</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Pending requests -->
+      <div style="padding:0 16px 16px">
+        <div style="background:white;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.08);overflow:hidden">
+          <div style="padding:14px 16px;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:14px;font-weight:700;color:#111827">Gelen Talepler (2)</div>
+            <div style="font-size:12px;color:#0F6E5D;font-weight:600">Tümünü gör</div>
+          </div>
+          
+          <div style="padding:12px 16px;border-bottom:1px solid #f9fafb;display:flex;gap:10px;align-items:center">
+            <div style="width:40px;height:40px;background:#ddd;border-radius:50%"></div>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600;color:#111827">Ayşe M.</div>
+              <div style="font-size:11px;color:#6b7280">2 saat önce · exchange istedi</div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <div style="width:32px;height:32px;background:#dcfce7;border-radius:8px;display:flex;align-items:center;justify-content:center">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div style="width:32px;height:32px;background:#fee2e2;border-radius:8px;display:flex;align-items:center;justify-content:center">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </div>
+            </div>
+          </div>
+          
+          <div style="padding:12px 16px;display:flex;gap:10px;align-items:center">
+            <div style="width:40px;height:40px;background:#ddd;border-radius:50%"></div>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600;color:#111827">Can B.</div>
+              <div style="font-size:11px;color:#6b7280">1 gün önce · exchange istedi</div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <div style="width:32px;height:32px;background:#dcfce7;border-radius:8px;display:flex;align-items:center;justify-content:center">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div style="width:32px;height:32px;background:#fee2e2;border-radius:8px;display:flex;align-items:center;justify-content:center">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

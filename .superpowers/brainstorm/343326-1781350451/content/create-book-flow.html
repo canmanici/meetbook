@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create Book — Ultra Premium</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#0f0f0f; color:#fff; }
+  .container { max-width:1100px; margin:0 auto; padding:24px; }
+  h1 { font-size:28px; font-weight:800; margin-bottom:8px; }
+  .subtitle { color:#888; font-size:14px; margin-bottom:32px; }
+  .phones { display:flex; gap:24px; justify-content:center; flex-wrap:wrap; }
+  .phone { background:#1a1a1a; border-radius:32px; padding:12px; box-shadow:0 20px 60px rgba(0,0,0,0.5); border:1px solid #333; flex-shrink:0; }
+  .phone-screen { background:#fafaf8; border-radius:24px; overflow:hidden; height:580px; position:relative; }
+  .phone-notch { position:absolute; top:0; left:50%; transform:translateX(-50%); width:120px; height:24px; background:#000; border-radius:0 0 16px 16px; z-index:100; }
+  .phone-label { text-align:center; margin-top:12px; font-size:13px; font-weight:600; color:#888; }
+  
+  /* Progress bar */
+  .progress { display:flex; align-items:center; padding:36px 20px 16px; gap:0; }
+  .progress-step { display:flex; flex-direction:column; align-items:center; flex:1; position:relative; }
+  .progress-dot { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; z-index:2; }
+  .progress-dot.done { background:#0F6E5D; color:white; }
+  .progress-dot.active { background:#0F6E5D; color:white; box-shadow:0 0 0 4px rgba(15,110,93,0.2); }
+  .progress-dot.pending { background:#e5e7eb; color:#9ca3af; }
+  .progress-label { font-size:10px; color:#6b7280; margin-top:6px; font-weight:600; text-align:center; }
+  .progress-line { position:absolute; top:16px; left:50%; width:100%; height:2px; background:#e5e7eb; z-index:1; }
+  .progress-line.done { background:#0F6E5D; }
+  
+  /* Form elements */
+  .form-group { margin:0 20px 16px; }
+  .form-label { font-size:12px; font-weight:700; color:#374151; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; display:block; }
+  .form-input { width:100%; padding:12px 14px; border:2px solid #e5e7eb; border-radius:12px; font-size:14px; color:#111827; background:white; outline:none; transition:border-color 0.2s; }
+  .form-input:focus { border-color:#0F6E5D; }
+  .form-input::placeholder { color:#9ca3af; }
+  .form-textarea { width:100%; padding:12px 14px; border:2px solid #e5e7eb; border-radius:12px; font-size:14px; color:#111827; background:white; outline:none; resize:none; height:80px; font-family:inherit; transition:border-color 0.2s; }
+  .form-textarea:focus { border-color:#0F6E5D; }
+  
+  /* Chips */
+  .chips { display:flex; gap:8px; flex-wrap:wrap; }
+  .chip { padding:8px 16px; border-radius:12px; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.15s; border:2px solid transparent; }
+  .chip-active { background:#0F6E5D; color:white; box-shadow:0 2px 8px rgba(15,110,93,0.3); }
+  .chip-inactive { background:white; color:#6b7280; border-color:#e5e7eb; }
+  .chip-inactive:hover { border-color:#0F6E5D; color:#0F6E5D; }
+  
+  /* Photo upload */
+  .photo-upload { display:flex; gap:10px; margin:0 20px 16px; }
+  .photo-slot { width:80px; height:100px; border:2px dashed #d1d5db; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; cursor:pointer; transition:all 0.15s; background:white; }
+  .photo-slot:hover { border-color:#0F6E5D; background:#f0fdf4; }
+  .photo-filled { width:80px; height:100px; border-radius:12px; position:relative; overflow:hidden; }
+  .photo-filled-remove { position:absolute; top:4px; right:4px; width:20px; height:20px; background:rgba(0,0,0,0.5); border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  
+  /* ISBN scan */
+  .isbn-scan { margin:0 20px 16px; background:white; border:2px solid #e5e7eb; border-radius:16px; padding:20px; display:flex; align-items:center; gap:16px; cursor:pointer; transition:all 0.15s; }
+  .isbn-scan:hover { border-color:#0F6E5D; background:#f0fdf4; }
+  .isbn-icon { width:52px; height:52px; background:linear-gradient(135deg,#0F6E5D,#047857); border-radius:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .isbn-text { flex:1; }
+  .isbn-title { font-size:14px; font-weight:700; color:#111827; }
+  .isbn-desc { font-size:12px; color:#6b7280; margin-top:2px; }
+  
+  /* ISBN result */
+  .isbn-result { margin:0 20px 16px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:14px; padding:14px; display:flex; gap:12px; align-items:center; }
+  .isbn-result-cover { width:48px; height:64px; background:linear-gradient(135deg,#78350f,#b45309); border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:white; font-size:9px; text-align:center; font-weight:600; }
+  .isbn-result-info { flex:1; }
+  .isbn-result-title { font-size:14px; font-weight:700; color:#111827; }
+  .isbn-result-author { font-size:12px; color:#6b7280; }
+  .isbn-result-check { width:28px; height:28px; background:#0F6E5D; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  
+  /* Location picker */
+  .location-picker { margin:0 20px 16px; background:white; border:2px solid #e5e7eb; border-radius:16px; overflow:hidden; }
+  .location-map { height:140px; background:linear-gradient(135deg,#c8e6c9,#a5d6a7); position:relative; }
+  .location-pin { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:5; }
+  .location-pin-dot { width:24px; height:24px; background:#0F6E5D; border-radius:50%; border:3px solid white; box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+  .location-pin-shadow { width:12px; height:4px; background:rgba(0,0,0,0.15); border-radius:50%; margin:2px auto 0; }
+  .location-info { padding:12px 14px; display:flex; align-items:center; gap:10px; }
+  .location-address { flex:1; }
+  .location-address-text { font-size:13px; font-weight:600; color:#111827; }
+  .location-address-sub { font-size:11px; color:#6b7280; }
+  .location-my { background:#f3f4f6; padding:6px 12px; border-radius:8px; font-size:11px; font-weight:600; color:#374151; border:1px solid #e5e7eb; }
+  
+  /* Bottom actions */
+  .bottom-bar { padding:12px 20px 24px; display:flex; gap:10px; }
+  .btn { flex:1; padding:14px; border-radius:14px; text-align:center; font-size:14px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; transition:all 0.15s; }
+  .btn-primary { background:linear-gradient(135deg,#0F6E5D,#047857); color:white; box-shadow:0 4px 16px rgba(15,110,93,0.3); }
+  .btn-primary:hover { box-shadow:0 6px 24px rgba(15,110,93,0.4); transform:translateY(-1px); }
+  .btn-secondary { background:#f3f4f6; color:#374151; border:1px solid #e5e7eb; }
+  .btn-icon { width:44px; flex:none; background:#f3f4f6; color:#374151; border:1px solid #e5e7eb; }
+  
+  /* Scroll */
+  .scroll-content { height:100%; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .scroll-content::-webkit-scrollbar { display:none; }
+  
+  /* Keyboard */
+  .keyboard { position:absolute; bottom:0; left:0; right:0; background:#d1d5db; padding:8px 4px; z-index:50; }
+  .keyboard-row { display:flex; gap:4px; justify-content:center; margin-bottom:4px; }
+  .key { background:white; border-radius:6px; padding:8px 12px; font-size:14px; color:#111827; box-shadow:0 1px 2px rgba(0,0,0,0.1); min-width:28px; text-align:center; }
+  .key-wide { min-width:60px; }
+  .key-space { flex:1; }
+  .key-action { background:#0F6E5D; color:white; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Create Book — Stepped Wizard</h1>
+  <p class="subtitle">4-step flow with photo, ISBN scan, details, and location</p>
+  
+  <div class="phones">
+    <!-- STEP 1: Photos -->
+    <div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="phone-notch"></div>
+          <div class="scroll-content">
+            <div class="progress">
+              <div class="progress-step">
+                <div class="progress-line done"></div>
+                <div class="progress-dot active">1</div>
+                <div class="progress-label">Fotoğraf</div>
+              </div>
+              <div class="progress-step">
+                <div class="progress-line"></div>
+                <div class="progress-dot pending">2</div>
+                <div class="progress-label">Kitap</div>
+              </div>
+              <div class="progress-step">
+                <div class="progress-line"></div>
+                <div class="progress-dot pending">3</div>
+                <div class="progress-label">Detay</div>
+              </div>
+              <div class="progress-step">
+                <div class="progress-dot pending">4</div>
+                <div class="progress-label">Konum</div>
+              </div>
+            </div>
+            
+            <div style="padding:0 20px 8px">
+              <div style="font-size:18px;font-weight:800;color:#111827">Kitabın Fotoğrafını Ekle</div>
+              <div style="font-size:13px;color:#6b7280;margin-top:4px">Kitabın fotoğrafları exchange ihtimalini %80 artırır</div>
+            </div>
+            
+            <div class="photo-upload">
+              <div class="photo-filled" style="background:linear-gradient(135deg,#78350f,#b45309)">
+                <div class="photo-filled-remove">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+              </div>
+              <div class="photo-filled" style="background:linear-gradient(135deg,#1e3a5f,#3b82f6)">
+                <div class="photo-filled-remove">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+              </div>
+              <div class="photo-slot">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span style="font-size:10px;color:#9ca3af;font-weight:600">Ekle</span>
+              </div>
+            </div>
+            
+            <div style="padding:0 20px">
+              <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px;display:flex;gap:10px;align-items:center">
+                <span style="font-size:18px">💡</span>
+                <div>
+                  <div style="font-size:12px;font-weight:600;color:#1e40af">İpucu</div>
+                  <div style="font-size:11px;color:#3b82f6;line-height:1.4">Ön kapak, arka kapak ve omuz fotoğrafı ekleyin. İyi aydınlatılmış, temiz fotoğraflar tercih edin.</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="bottom-bar">
+              <div class="btn btn-secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Geri
+              </div>
+              <div class="btn btn-primary">
+                Devam
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Step 1 — Fotoğraf</div>
+    </div>
+    
+    <!-- STEP 2: ISBN Scan -->
+    <div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="phone-notch"></div>
+          <div class="scroll-content">
+            <div class="progress">
+              <div class="progress-step">
+                <div class="progress-line done"></div>
+                <div class="progress-dot done">✓</div>
+                <div class="progress-label">Fotoğraf</div>
+              </div>
+              <div class="progress-step">
+                <div class="progress-line done"></div>
+                <div class="progress-dot active">2</div>
+                <div class="progress-label">Kitap</div>
+              </div>
+              <div class="progress-step">
+                <div class="progress-line"></div>
+                <div class="progress-dot pending">3</div>
+                <div class="progress-label">Detay</div>
+              </div>
+              <div class="progress-step">
+                <div class="progress-dot pending">4</div>
+                <div class="progress-label">Konum</div>
+              </div>
+            </div>
+            
+            <div style="padding:0 20px 12px">
+              <div style="font-size:18px;font-weight:800;color:#111827">Kitap Bilgileri</div>
+              <div style="font-size:13px;color:#6b7280;margin-top:4px">ISBN tarayarak otomatik doldurun veya elle girin</div>
+            </div>
+            
+            <div class="isbn-scan">
+              <div class="isbn-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </div>
+              <div class="isbn-text">
+                <div class="isbn-title">ISBN Tara</div>
+                <div class="isbn-desc">Kamera ile barkodu tarayın veya elle girin</div>
+              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            
+            <div style="padding:0 20px 12px;display:flex;align-items:center;gap:10px">
+              <div style="flex:1;height:1px;background:#e5e7eb"></div>
+              <span style="font-size:12px;color:#9ca3af;font-weight:600">veya</span>
+              <div style="flex:1;height:1px;background:#e5e7eb"></div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Kitap Adı *</label>
+              <input class="form-input" value="Suç ve Ceza" placeholder="Kitabın adını yazın">
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Yazar</label>
+              <input class="form-input" value="Fyodor Dostoyevski" placeholder="Yazar adını yazın">
+            </div>
+            
+            <div class="isbn-result">
+              <div class="isbn-result-cover">
+                <div>Suç ve<br>Ceza</div>
+              </div>
+              <div class="isbn-result-info">
+                <div class="isbn-result-title">Suç ve Ceza</div>
+                <div class="isbn-result-author">Fyodor Dostoyevski · 1866</div>
+              </div>
+              <div class="isbn-result-check">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+            </div>
+            
+            <div class="bottom-bar">
+              <div class="btn btn-secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Geri
+              </div>
+              <div class="btn btn-primary">
+                Devam
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Step 2 — Kitap Bilgisi</div>
+    </div>
+    
+    <!-- STEP 3: Details -->
+    <div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="phone-notch"></div>
+          <div class="scroll-content">
+            <div class="progress">
+              <div class="progress-step">
+                <div class="progress-line done"></div>
+                <div class="progress-dot done">✓</div>
+                <div class="progress-label">Fotoğraf</div>
+              </div>
+              <div class="progress-step">
+                <div class="progress-line done"></div>
+                <div class="progress-dot done">✓</div>
+                <div class="progress-label">Kitap</div>
+              </div>
+              <div class="progress-step">
+                <div class="progress-line done"></div>
+                <div class="progress-dot active">3</div>
+                <div class="progress-label">Detay</div>
+              </div>
+              <div class="progress-step">
+                <div class="progress-dot pending">4</div>
+                <div class="progress-label">Konum</div>
+              </div>
+            </div>
+            
+            <div style="padding:0 20px 12px">
+              <div style="font-size:18px;font-weight:800;color:#111827">Detay Bilgiler</div>
+              <div style="font-size:13px;color:#6b7280;margin-top:4px">Kitabınızın durumunu ve kategorisini seçin</div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Kategori *</label>
+              <div class="chips">
+                <div class="chip chip-active">📖 Roman</div>
+                <div class="chip chip-inactive">📚 Ders Kitabı</div>
+                <div class="chip chip-inactive">🎨 Çizgi Roman</div>
+                <div class="chip chip-inactive">👶 Çocuk</div>
+                <div class="chip chip-inactive">📜 Şiir</div>
+                <div class="chip chip-inactive">📦 Diğer</div>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Durum *</label>
+              <div class="chips">
+                <div class="chip chip-inactive">✨ Yeni</div>
+                <div class="chip chip-active">🌟 Yeni Gibi</div>
+                <div class="chip chip-inactive">👍 İyi</div>
+                <div class="chip chip-inactive">📖 Kullanılmış</div>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Dil *</label>
+              <div class="chips">
+                <div class="chip chip-active">🇹🇷 Türkçe</div>
+                <div class="chip chip-inactive">🇬🇧 English</div>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Açıklama</label>
+              <textarea class="form-textarea" placeholder="Kitabınız hakkında kısa bir açıklama yazın...">Rus edebiyatının başyapıtlarından biri. Güzel bir baskı, temiz durumda.</textarea>
+            </div>
+            
+            <div class="bottom-bar">
+              <div class="btn btn-secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Geri
+              </div>
+              <div class="btn btn-primary">
+                Devam
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Step 3 — Detay</div>
+    </div>
+    
+    <!-- STEP 4: Location -->
+    <div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="phone-notch"></div>
+          <div class="scroll-content">
+            <div class="progress">
+              <div class="progress-step">
+                <div class="progress-line done"></div>
+                <div class="progress-dot done">✓</div>
+                <div class="progress-label">Fotoğraf</div>
+              </div>
+              <div class="progress-step">
+                <div class="progress-line done"></div>
+                <div class="progress-dot done">✓</div>
+                <div class="progress-label">Kitap</div>
+              </div>
+              <div class="progress-step">
+                <div class="progress-line done"></div>
+                <div class="progress-dot done">✓</div>
+                <div class="progress-label">Detay</div>
+              </div>
+              <div class="progress-step">
+                <div class="progress-dot active">4</div>
+                <div class="progress-label">Konum</div>
+              </div>
+            </div>
+            
+            <div style="padding:0 20px 12px">
+              <div style="font-size:18px;font-weight:800;color:#111827">Konum Seç</div>
+              <div style="font-size:13px;color:#6b7280;margin-top:4px">Kitabınızın bulunabileceği konumu seçin</div>
+            </div>
+            
+            <div class="location-picker">
+              <div class="location-map">
+                <!-- Map background elements -->
+                <div style="position:absolute;top:20px;left:30px;width:60px;height:3px;background:rgba(255,255,255,0.4);border-radius:2px"></div>
+                <div style="position:absolute;top:40px;left:50px;width:80px;height:3px;background:rgba(255,255,255,0.3);border-radius:2px"></div>
+                <div style="position:absolute;top:60px;left:20px;width:40px;height:3px;background:rgba(255,255,255,0.3);border-radius:2px"></div>
+                <div style="position:absolute;top:80px;left:60px;width:70px;height:3px;background:rgba(255,255,255,0.4);border-radius:2px"></div>
+                <div style="position:absolute;top:100px;left:40px;width:50px;height:3px;background:rgba(255,255,255,0.3);border-radius:2px"></div>
+                
+                <div class="location-pin">
+                  <div class="location-pin-dot"></div>
+                  <div class="location-pin-shadow"></div>
+                </div>
+              </div>
+              <div class="location-info">
+                <div style="width:36px;height:36px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F6E5D" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                </div>
+                <div class="location-address">
+                  <div class="location-address-text">Kadıköy, İstanbul</div>
+                  <div class="location-address-sub">Haritaya dokunarak konumu değiştirin</div>
+                </div>
+                <div class="location-my">Konumum</div>
+              </div>
+            </div>
+            
+            <div style="padding:0 20px">
+              <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px;display:flex;gap:10px;align-items:center">
+                <span style="font-size:18px">🛡️</span>
+                <div>
+                  <div style="font-size:12px;font-weight:600;color:#166534">Gizlilik</div>
+                  <div style="font-size:11px;color:#15803d;line-height:1.4">Gerçek konumunuz diğer kullanıcılara sadece ~1.1 km yakınlık olarak gösterilir.</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="bottom-bar">
+              <div class="btn btn-secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Geri
+              </div>
+              <div class="btn btn-primary" style="flex:2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Kitabı Yayınla
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Step 4 — Konum</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

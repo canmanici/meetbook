@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { palette } from './tokens';
 
 interface ClusterPinProps {
   count: number;
@@ -7,10 +8,12 @@ interface ClusterPinProps {
 
 export function ClusterPin({ count }: ClusterPinProps) {
   const size = Math.min(40 + count * 2, 60);
+  const scheme = useColorScheme();
+  const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
 
   return (
-    <View style={[styles.container, { width: size, height: size }]}>
-      <Text style={styles.count}>{count}</Text>
+    <View style={[styles.container, { width: size, height: size, backgroundColor: colors.primary, borderColor: colors.surface }]}>
+      <Text style={[styles.count, { color: colors.surface }]}>{count}</Text>
     </View>
   );
 }
@@ -18,9 +21,7 @@ export function ClusterPin({ count }: ClusterPinProps) {
 const styles = StyleSheet.create({
   container: {
     borderRadius: 999,
-    backgroundColor: '#0F6E5D',
     borderWidth: 3,
-    borderColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -30,7 +31,6 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   count: {
-    color: '#ffffff',
     fontWeight: '800',
     fontSize: 16,
   },

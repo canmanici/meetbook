@@ -7,13 +7,14 @@ import {
   Image,
   useColorScheme,
   ViewStyle,
+  StyleProp,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { palette, spacing, radius, fontSize, shadows } from './tokens';
 
 interface CardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const Card: React.FC<CardProps> = ({ children, style }) => {
@@ -50,12 +51,12 @@ const conditionLabels: Record<BookCondition, string> = {
   'poor': 'Kötü',
 };
 
-const conditionColors: Record<BookCondition, string> = {
-  'new': palette.light.success,
-  'like-new': palette.light.success,
-  'good': palette.light.primary,
-  'fair': palette.light.warning,
-  'poor': palette.light.danger,
+const conditionColorKeys: Record<BookCondition, keyof typeof palette.light> = {
+  'new': 'success',
+  'like-new': 'success',
+  'good': 'primary',
+  'fair': 'warning',
+  'poor': 'danger',
 };
 
 export const BookCard: React.FC<BookCardProps> = ({
@@ -80,6 +81,8 @@ export const BookCard: React.FC<BookCardProps> = ({
     ? { onPress, activeOpacity: 0.7, testID }
     : { testID };
 
+  const conditionColor = colors[conditionColorKeys[condition]];
+
   const handleImageError = () => {
     setImageError(true);
   };
@@ -99,8 +102,8 @@ export const BookCard: React.FC<BookCardProps> = ({
             onError={handleImageError}
           />
         ) : coverFailed ? (
-          <View style={[styles.cover, styles.coverError]} testID="book-cover-error">
-            <Ionicons name="book-outline" size={24} color={colors.surface} />
+          <View style={[styles.cover, { backgroundColor: colors.textMuted + '40' }]} testID="book-cover-error">
+            <Ionicons name="book-outline" size={24} color={colors.textMuted} />
           </View>
         ) : (
           <View style={[styles.cover, { backgroundColor: colors.textMuted + '30' }]} testID="book-cover-placeholder">
@@ -172,9 +175,6 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  coverError: {
-    backgroundColor: palette.light.textMuted,
   },
   distanceBadge: {
     position: 'absolute',

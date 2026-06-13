@@ -64,7 +64,7 @@ export default function WishlistScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <View style={[styles.header, { backgroundColor: colors.surface }]}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.textMuted + '15' }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>İstek Listesi</Text>
       </View>
 
@@ -90,7 +90,7 @@ export default function WishlistScreen() {
           disabled={!isbn.trim() || addMutation.isPending}
           testID="wishlist-add-button"
         >
-          <Ionicons name="add" size={24} color="#fff" />
+          <Ionicons name="add" size={24} color={colors.surface} />
         </TouchableOpacity>
       </View>
 
@@ -223,7 +223,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   headerTitle: {
     fontSize: fontSize.heading,
