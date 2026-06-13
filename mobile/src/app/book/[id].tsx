@@ -8,6 +8,7 @@ import {
   Alert,
   Dimensions,
   Image,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -38,7 +39,7 @@ import {
   type BookCategory,
   type BookCondition,
 } from '@/constants/books';
-import { ApiError, createExchange, deleteBook, getBook, lookupISBN, updateBook } from '@/lib/api/client';
+import { ApiError, createExchange, deleteBook, getBook, listExchanges, lookupISBN, updateBook } from '@/lib/api/client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useBookDraftStore } from '@/stores/book-draft-store';
 
@@ -78,6 +79,16 @@ export default function BookDetailScreen() {
   const [saving, setSaving] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+
+  const pendingRequests = useQuery({
+    queryKey: ['exchanges', 'received', id],
+    queryFn: () => listExchanges({ role: 'received' }),
+    enabled: isOwner,
+    select: (data) => ({
+      ...data,
+      items: data.items.filter((item: any) => item.book?.id === id),
+    }),
+  }).data;
 
   useEffect(() => {
     if (book && isOwner && 'location' in book) {
@@ -363,22 +374,41 @@ export default function BookDetailScreen() {
               <Ionicons name="arrow-back" size={20} color="#fff" />
             </TouchableOpacity>
             <View style={styles.galleryTopRight}>
-              <TouchableOpacity
-                style={styles.glassButton}
-                onPress={() => setIsFavorite(!isFavorite)}
-                testID="favorite-button">
-                <Ionicons
-                  name={isFavorite ? 'heart' : 'heart-outline'}
-                  size={20}
-                  color={isFavorite ? '#FF6B6B' : '#fff'}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.glassButton}
-                onPress={() => {}}
-                testID="share-button">
-                <Ionicons name="share-outline" size={20} color="#fff" />
-              </TouchableOpacity>
+              {isOwner ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.glassButton}
+                    onPress={() => setEditing(true)}
+                    testID="gallery-edit-button">
+                    <Ionicons name="pencil" size={18} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.glassButton}
+                    onPress={onDelete}
+                    testID="gallery-delete-button">
+                    <Ionicons name="trash" size={18} color="#fff" />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.glassButton}
+                    onPress={() => setIsFavorite(!isFavorite)}
+                    testID="favorite-button">
+                    <Ionicons
+                      name={isFavorite ? 'heart' : 'heart-outline'}
+                      size={20}
+                      color={isFavorite ? '#FF6B6B' : '#fff'}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.glassButton}
+                    onPress={() => {}}
+                    testID="share-button">
+                    <Ionicons name="share-outline" size={20} color="#fff" />
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </View>
 
@@ -425,6 +455,13 @@ export default function BookDetailScreen() {
                 </Text>
               </View>
             </View>
+            {isOwner && (
+              <View style={[styles.availabilityBadge, { backgroundColor: book.is_available ? colors.success + '20' : colors.danger + '20' }]}>
+                <Text style={[styles.availabilityText, { color: book.is_available ? colors.success : colors.danger }]}>
+                  {book.is_available ? 'Müsait' : 'Müsait Değil'}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -485,6 +522,32 @@ export default function BookDetailScreen() {
           ) : null}
         </View>
 
+        {/* Owner Stats Card */}
+        {isOwner && (
+          <View style={[styles.statsCard, { backgroundColor: colors.surface }]}>
+            <View style={styles.statsGrid}>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, { color: colors.primary }]}>{pendingRequests?.items?.length ?? 0}</Text>
+                <Text style={[styles.statLabel2, { color: colors.textMuted }]}>Talep</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, { color: colors.accent }]}>0</Text>
+                <Text style={[styles.statLabel2, { color: colors.textMuted }]}>Görüntülenme</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, { color: colors.success }]}>0</Text>
+                <Text style={[styles.statLabel2, { color: colors.textMuted }]}>Favori</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, { color: colors.info }]}>
+                  {Math.floor((Date.now() - new Date(book.created_at).getTime()) / 86400000)}
+                </Text>
+                <Text style={[styles.statLabel2, { color: colors.textMuted }]}>gün yayında</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Owner Card */}
         {!isOwner && (
           <View style={[styles.ownerCard, { backgroundColor: colors.surface }]}>
@@ -521,11 +584,46 @@ export default function BookDetailScreen() {
             <Button onPress={() => setEditing(true)} testID="edit-book-button">
               Düzenle
             </Button>
+            <Button
+              variant="secondary"
+              onPress={async () => {
+                await updateBook(id, { is_available: !book.is_available });
+                await queryClient.invalidateQueries({ queryKey: ['books', id] });
+              }}
+              testID="toggle-availability-button"
+            >
+              {book.is_available ? 'Müsaitliği Kapat' : 'Müsait Yap'}
+            </Button>
             <Button variant="danger" onPress={onDelete} testID="delete-book-button">
               Sil
             </Button>
           </View>
         )}
+
+        {/* Owner Location Section */}
+        {isOwner && 'location' in book && book.location && (
+          <View style={[styles.locationCard, { backgroundColor: colors.surface }]}>
+            <View style={styles.locationCardHeader}>
+              <Ionicons name="location" size={18} color={colors.primary} />
+              <Text style={[styles.locationCardTitle, { color: colors.text }]}>Konum</Text>
+            </View>
+            <Text style={[styles.locationCardCoords, { color: colors.textMuted }]}>
+              {book.location.lat.toFixed(4)}, {book.location.lng.toFixed(4)}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                const url = `https://www.google.com/maps?q=${book.location.lat},${book.location.lng}`;
+                Linking.openURL(url);
+              }}
+              testID="show-on-map-button"
+            >
+              <Text style={[styles.mapLink, { color: colors.primary }]}>Haritada Göster</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Pending Requests */}
+        {isOwner && <PendingRequestsSection bookId={id!} colors={colors} queryClient={queryClient} />}
 
         {/* Request section for non-owners */}
         {!isOwner && book.is_available && (
@@ -579,6 +677,110 @@ export default function BookDetailScreen() {
           </TouchableOpacity>
         </View>
       )}
+    </View>
+  );
+}
+
+function PendingRequestsSection({ bookId, colors, queryClient }: { bookId: string; colors: any; queryClient: any }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['exchanges', 'received', bookId],
+    queryFn: () => listExchanges({ role: 'received' }),
+    select: (data) => ({
+      ...data,
+      items: data.items.filter((item: any) => item.book?.id === bookId),
+    }),
+  });
+
+  const acceptMutation = useMutation({
+    mutationFn: (exchangeId: string) => import('@/lib/api/client').then((m) => m.acceptExchange(exchangeId)),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['exchanges'] });
+      await queryClient.invalidateQueries({ queryKey: ['books', bookId] });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (exchangeId: string) => import('@/lib/api/client').then((m) => m.rejectExchange(exchangeId)),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['exchanges'] });
+    },
+  });
+
+  if (isLoading) return null;
+  if (!data?.items?.length) return null;
+
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 60) return `${diffMin} dk önce`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `${diffH} saat önce`;
+    const diffD = Math.floor(diffH / 24);
+    return `${diffD} gün önce`;
+  };
+
+  return (
+    <View style={[styles.pendingSection, { backgroundColor: colors.surface }]}>
+      <Text style={[styles.pendingTitle, { color: colors.text }]}>Gelen Talepler ({data.items.length})</Text>
+      {data.items.map((exchange: any) => {
+        const isPending = exchange.status === 'pending';
+        return (
+          <View key={exchange.id} style={[styles.pendingItem, { borderBottomColor: colors.textMuted + '15' }]}>
+            <View style={styles.pendingItemLeft}>
+              <View style={[styles.pendingAvatar, { backgroundColor: colors.primary }]}>
+                <Text style={styles.pendingAvatarText}>
+                  {exchange.sender?.name?.[0] ?? '?'}
+                </Text>
+              </View>
+              <View style={styles.pendingItemInfo}>
+                <Text style={[styles.pendingItemName, { color: colors.text }]}>
+                  {exchange.sender?.name ?? 'Bilinmeyen'}
+                </Text>
+                <Text style={[styles.pendingItemTime, { color: colors.textMuted }]}>
+                  {formatTime(exchange.created_at)}
+                </Text>
+              </View>
+            </View>
+            {isPending && (
+              <View style={styles.pendingActions}>
+                <TouchableOpacity
+                  style={[styles.pendingAcceptBtn, { backgroundColor: colors.success + '20' }]}
+                  onPress={() => acceptMutation.mutate(exchange.id)}
+                  disabled={acceptMutation.isPending}
+                  testID={`accept-exchange-${exchange.id}`}
+                >
+                  <Ionicons name="checkmark" size={18} color={colors.success} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.pendingRejectBtn, { backgroundColor: colors.danger + '20' }]}
+                  onPress={() => rejectMutation.mutate(exchange.id)}
+                  disabled={rejectMutation.isPending}
+                  testID={`reject-exchange-${exchange.id}`}
+                >
+                  <Ionicons name="close" size={18} color={colors.danger} />
+                </TouchableOpacity>
+              </View>
+            )}
+            {!isPending && (
+              <View style={[styles.pendingStatusBadge, {
+                backgroundColor: exchange.status === 'accepted' ? colors.success + '20' :
+                  exchange.status === 'rejected' ? colors.danger + '20' : colors.info + '20',
+              }]}>
+                <Text style={[styles.pendingStatusText, {
+                  color: exchange.status === 'accepted' ? colors.success :
+                    exchange.status === 'rejected' ? colors.danger : colors.info,
+                }]}>
+                  {exchange.status === 'accepted' ? 'Kabul' :
+                    exchange.status === 'rejected' ? 'Reddedildi' :
+                    exchange.status === 'completed' ? 'Tamamlandı' : exchange.status}
+                </Text>
+              </View>
+            )}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -933,5 +1135,144 @@ const styles = StyleSheet.create({
   exchangeButtonText: {
     fontSize: fontSize.body,
     fontWeight: '700',
+  },
+
+  // Availability badge
+  availabilityBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+  },
+  availabilityText: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+  },
+
+  // Owner stats card
+  statsCard: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.sheet,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: fontSize.title,
+    fontWeight: '700',
+  },
+  statLabel2: {
+    fontSize: fontSize.caption,
+    marginTop: 2,
+  },
+
+  // Location card
+  locationCard: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.sheet,
+  },
+  locationCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  locationCardTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '600',
+  },
+  locationCardCoords: {
+    fontSize: fontSize.bodySm,
+    marginBottom: spacing.sm,
+  },
+  mapLink: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+  },
+
+  // Pending requests
+  pendingSection: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.sheet,
+  },
+  pendingTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '600',
+    marginBottom: spacing.md,
+  },
+  pendingItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+  },
+  pendingItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  pendingAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingAvatarText: {
+    color: '#fff',
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+  },
+  pendingItemInfo: {
+    flex: 1,
+  },
+  pendingItemName: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+  },
+  pendingItemTime: {
+    fontSize: fontSize.caption,
+    marginTop: 1,
+  },
+  pendingActions: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  pendingAcceptBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingRejectBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingStatusBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+  },
+  pendingStatusText: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
   },
 });
