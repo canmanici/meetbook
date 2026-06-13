@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -30,8 +29,6 @@ const CATEGORIES = [
   { value: 'children', label: 'Çocuk' },
   { value: 'poetry', label: 'Şiir' },
 ];
-
-const VIEW_MODE_KEY = 'meetbook_view_mode';
 
 export default function HomeScreen() {
   const scheme = useColorScheme();
@@ -64,15 +61,8 @@ export default function HomeScreen() {
     })();
   }, []);
 
-  useEffect(() => {
-    AsyncStorage.getItem(VIEW_MODE_KEY).then((val: string | null) => {
-      if (val === 'list' || val === 'map') setViewMode(val);
-    });
-  }, []);
-
   const toggleViewMode = (mode: 'list' | 'map') => {
     setViewMode(mode);
-    AsyncStorage.setItem(VIEW_MODE_KEY, mode);
   };
 
   const toggleFavorite = (bookId: string) => {
