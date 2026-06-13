@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import BottomSheet from '@gorhom/bottom-sheet';
 
-interface FilterState {
+export interface FilterState {
   category: string | null;
   condition: string | null;
   language: string | null;

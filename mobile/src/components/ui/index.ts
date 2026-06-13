@@ -22,6 +22,6 @@ export type { EmptyStateProps } from './emptystate';
 export type { SkeletonProps, SkeletonVariant } from './skeleton';
 export type { ToastVariant } from './toast';
 export type { BlurredAreaPinProps, ExactPinVariant } from './mappin';
-export { FilterSheet } from './filter-sheet';
+export { FilterSheet, type FilterState } from './filter-sheet';
 export { StepProgress } from './step-progress';
 export { TimelineStep } from './timeline-step';
