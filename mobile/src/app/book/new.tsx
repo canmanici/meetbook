@@ -1,7 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, type LatLng, type MapPressEvent } from 'react-native-maps';
 import * as Location from 'expo-location';
 
@@ -58,6 +59,7 @@ export default function NewBookScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupResult, setLookupResult] = useState<{ found: boolean } | null>(null);
 
   // Map state
   const [marker, setMarker] = useState<LatLng | null>(null);
@@ -82,6 +84,7 @@ export default function NewBookScreen() {
 
   const handleISBNLookup = async (isbnCode: string) => {
     setLookupLoading(true);
+    setLookupResult(null);
     try {
       const result = await lookupISBN(isbnCode);
       if (result.title) setTitle(result.title);
@@ -90,8 +93,9 @@ export default function NewBookScreen() {
       if (result.cover_url) {
         setPhotos([{ uri: result.cover_url, type: 'image/jpeg' }]);
       }
+      setLookupResult({ found: !!(result.title || result.author) });
     } catch {
-      // Silently fail - user can fill manually
+      setLookupResult({ found: false });
     } finally {
       setLookupLoading(false);
     }
@@ -206,8 +210,29 @@ export default function NewBookScreen() {
             <Input label="Başlık" placeholder="Kitabın adı" value={title} onChangeText={setTitle} />
             <Input label="Yazar" placeholder="Yazar (opsiyonel)" value={author} onChangeText={setAuthor} />
             {lookupLoading && (
-              <Card style={{ ...styles.lookupCard, backgroundColor: colors.surface }}>
+              <Card style={[styles.lookupCard, { backgroundColor: colors.surface }]}>
+                <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={[styles.lookupText, { color: colors.textMuted }]}>ISBN aranıyor...</Text>
+              </Card>
+            )}
+            {!lookupLoading && lookupResult?.found && (
+              <Card style={[styles.lookupResultCard, { backgroundColor: colors.success + '10', borderColor: colors.success + '30' }]}>
+                <View style={styles.lookupResultRow}>
+                  {photos[0] && (
+                    <Image source={{ uri: photos[0].uri }} style={styles.lookupCover} />
+                  )}
+                  <View style={styles.lookupResultInfo}>
+                    <View style={[styles.lookupBadge, { backgroundColor: colors.success + '20' }]}>
+                      <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                      <Text style={[styles.lookupBadgeText, { color: colors.success }]}>Kitap bulundu!</Text>
+                    </View>
+                    {title ? <Text style={[styles.lookupTitle, { color: colors.text }]} numberOfLines={1}>{title}</Text> : null}
+                    {author ? <Text style={[styles.lookupAuthor, { color: colors.textMuted }]} numberOfLines={1}>{author}</Text> : null}
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => setLookupResult(null)}>
+                  <Text style={[styles.lookupManualLink, { color: colors.primary }]}>Manuel olarak doldur</Text>
+                </TouchableOpacity>
               </Card>
             )}
           </View>
@@ -365,9 +390,56 @@ const styles = StyleSheet.create({
   lookupCard: {
     padding: spacing.md,
     borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   lookupText: {
     fontSize: 13,
+  },
+  lookupResultCard: {
+    padding: spacing.md,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.sm,
+  },
+  lookupResultRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'center',
+  },
+  lookupCover: {
+    width: 48,
+    height: 64,
+    borderRadius: 4,
+  },
+  lookupResultInfo: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  lookupBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  lookupBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  lookupTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  lookupAuthor: {
+    fontSize: 13,
+  },
+  lookupManualLink: {
+    fontSize: 13,
+    textAlign: 'center',
   },
   mapContainer: {
     height: 200,
