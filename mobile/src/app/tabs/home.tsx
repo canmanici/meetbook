@@ -65,7 +65,7 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    AsyncStorage.getItem(VIEW_MODE_KEY).then((val) => {
+    AsyncStorage.getItem(VIEW_MODE_KEY).then((val: string | null) => {
       if (val === 'list' || val === 'map') setViewMode(val);
     });
   }, []);
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     right: spacing.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
+    borderRadius: radius.sheet,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
