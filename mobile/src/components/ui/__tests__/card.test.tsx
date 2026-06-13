@@ -19,14 +19,15 @@ describe('Card Component', () => {
         title="The Great Gatsby"
         author="F. Scott Fitzgerald"
         condition="good"
-        distance="3 km"
-        coverImageUrl="https://example.com/cover.jpg"
+        category="Roman"
+        distanceKm={3}
+        coverUrl="https://example.com/cover.jpg"
       />
     );
     expect(getByText('The Great Gatsby')).toBeTruthy();
     expect(getByText('F. Scott Fitzgerald')).toBeTruthy();
-    expect(getByText('~3 km')).toBeTruthy();
-    expect(getByTestId('condition-badge')).toBeTruthy();
+    expect(getByText('3.0 km')).toBeTruthy();
+    expect(getByTestId('condition-tag')).toBeTruthy();
   });
 
   it('displays condition badge', () => {
@@ -35,11 +36,12 @@ describe('Card Component', () => {
         title="Test Book"
         author="Test Author"
         condition="like-new"
-        distance="5 km"
-        coverImageUrl="https://example.com/cover.jpg"
+        category="Roman"
+        distanceKm={5}
+        coverUrl="https://example.com/cover.jpg"
       />
     );
-    expect(getByTestId('condition-badge')).toBeTruthy();
+    expect(getByTestId('condition-tag')).toBeTruthy();
     expect(getByText('Yeni gibi')).toBeTruthy();
   });
 
@@ -50,8 +52,9 @@ describe('Card Component', () => {
         title="Test Book"
         author="Test Author"
         condition="good"
-        distance="2 km"
-        coverImageUrl="https://example.com/cover.jpg"
+        category="Roman"
+        distanceKm={2}
+        coverUrl="https://example.com/cover.jpg"
         onPress={onPress}
         testID="book-card"
       />
@@ -68,7 +71,8 @@ describe('Card Component', () => {
         title="Test Book"
         author="Test Author"
         condition="fair"
-        distance="1 km"
+        category="Roman"
+        distanceKm={1}
       />
     );
     expect(getByText('Test Book')).toBeTruthy();
@@ -90,7 +94,8 @@ describe('Card Component', () => {
           title="Test"
           author="Test"
           condition={condition}
-          distance="1 km"
+          category="Test"
+          distanceKm={1}
         />
       );
       expect(getByText(label)).toBeTruthy();

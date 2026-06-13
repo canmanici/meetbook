@@ -38,7 +38,7 @@ describe('Design System Integration', () => {
         <Card>
           <Avatar name="Test" />
         </Card>
-        <BookCard title="Test" author="Test" condition="good" distance="1 km" />
+        <BookCard title="Test" author="Test" condition="good" category="Test" distanceKm={1} />
         <Avatar name="Test" />
         <Badge text="Test" />
         <EmptyState message="Test" />
@@ -50,7 +50,7 @@ describe('Design System Integration', () => {
     );
 
     expect(getAllByText('Test').length).toBeGreaterThan(0);
-    expect(getByText('~1 km')).toBeTruthy();
+    expect(getByText('1.0 km')).toBeTruthy();
   });
 
   it('Sheet renders its content when visible', () => {

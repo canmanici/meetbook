@@ -81,14 +81,16 @@ export default function ComponentGallery() {
             title="The Great Gatsby"
             author="F. Scott Fitzgerald"
             condition="good"
-            distance="3 km"
-            coverImageUrl="https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=200"
+            category="Roman"
+            distanceKm={3}
+            coverUrl="https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=200"
           />
           <BookCard
             title="No cover available for this book"
             author="Unknown Author"
             condition="fair"
-            distance="1.2 km"
+            category="Bilinmeyen"
+            distanceKm={1.2}
           />
         </View>
 
