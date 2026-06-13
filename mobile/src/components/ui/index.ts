@@ -23,3 +23,4 @@ export type { SkeletonProps, SkeletonVariant } from './skeleton';
 export type { ToastVariant } from './toast';
 export type { BlurredAreaPinProps, ExactPinVariant } from './mappin';
 export { FilterSheet } from './filter-sheet';
+export { StepProgress } from './step-progress';
