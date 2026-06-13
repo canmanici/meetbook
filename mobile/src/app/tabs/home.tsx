@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -30,6 +31,8 @@ const CATEGORIES = [
   { value: 'poetry', label: 'Şiir' },
 ];
 
+const VIEW_MODE_KEY = 'meetbook_view_mode';
+
 export default function HomeScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
@@ -41,6 +44,8 @@ export default function HomeScreen() {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [searchText, setSearchText] = useState('');
   const [selectedBook, setSelectedBook] = useState<BookPreviewData | null>(null);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<'distance' | 'newest'>('distance');
   const [mapRegion, setMapRegion] = useState({
     latitude: 41.0082,
     longitude: 28.9784,
@@ -59,7 +64,27 @@ export default function HomeScreen() {
     })();
   }, []);
 
-  const { data, isLoading } = useQuery({
+  useEffect(() => {
+    AsyncStorage.getItem(VIEW_MODE_KEY).then((val) => {
+      if (val === 'list' || val === 'map') setViewMode(val);
+    });
+  }, []);
+
+  const toggleViewMode = (mode: 'list' | 'map') => {
+    setViewMode(mode);
+    AsyncStorage.setItem(VIEW_MODE_KEY, mode);
+  };
+
+  const toggleFavorite = (bookId: string) => {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(bookId)) next.delete(bookId);
+      else next.add(bookId);
+      return next;
+    });
+  };
+
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['books', 'nearby', userLocation?.lat, userLocation?.lng, selectedCategory, searchText],
     queryFn: () =>
       searchNearbyBooks({
@@ -72,6 +97,11 @@ export default function HomeScreen() {
   });
   const books = data?.items ?? [];
 
+  const sortedBooks = [...books].sort((a, b) => {
+    if (sortBy === 'distance') return (a.distance_km ?? Infinity) - (b.distance_km ?? Infinity);
+    return 0;
+  });
+
   const recenterOnUser = () => {
     if (userLocation && mapRef.current) {
       mapRef.current.animateToRegion({
@@ -83,24 +113,8 @@ export default function HomeScreen() {
     }
   };
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <View style={[styles.header, { backgroundColor: colors.background }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Home</Text>
-        <TouchableOpacity
-          style={[styles.viewToggle, { backgroundColor: colors.surface }]}
-          onPress={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}
-          activeOpacity={0.7}
-          testID="view-toggle"
-        >
-          <Ionicons
-            name={viewMode === 'list' ? 'map-outline' : 'list-outline'}
-            size={20}
-            color={colors.primary}
-          />
-        </TouchableOpacity>
-      </View>
-
+  const renderSearchAndChips = () => (
+    <>
       <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.textMuted + '40' }]}>
         <Ionicons name="search-outline" size={18} color={colors.textMuted} />
         <TextInput
@@ -111,6 +125,9 @@ export default function HomeScreen() {
           onChangeText={setSearchText}
           testID="search-input"
         />
+        <TouchableOpacity onPress={() => router.push('/book/scan-isbn')} style={styles.cameraBtn}>
+          <Ionicons name="camera-outline" size={20} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -143,38 +160,104 @@ export default function HomeScreen() {
         ))}
       </ScrollView>
 
-      {viewMode === 'list' ? (
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+      {selectedCategory && (
+        <View style={styles.activeFilterRow}>
+          <View style={[styles.activeChip, { backgroundColor: colors.primary + '20' }]}>
+            <Text style={[styles.activeChipText, { color: colors.primary }]}>
+              {CATEGORIES.find((c) => c.value === selectedCategory)?.label}
+            </Text>
+            <TouchableOpacity onPress={() => setSelectedCategory(null)}>
+              <Ionicons name="close-circle" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {viewMode === 'list' && (
+        <View style={styles.sortRow}>
+          <TouchableOpacity
+            style={[
+              styles.sortPill,
+              { backgroundColor: colors.surface, borderColor: colors.textMuted + '40' },
+              sortBy === 'distance' && { backgroundColor: colors.primary, borderColor: colors.primary },
+            ]}
+            onPress={() => setSortBy('distance')}
+          >
+            <Text style={[styles.sortPillText, { color: colors.text }, sortBy === 'distance' && { color: '#fff' }]}>
+              Yakınlık
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.sortPill,
+              { backgroundColor: colors.surface, borderColor: colors.textMuted + '40' },
+              sortBy === 'newest' && { backgroundColor: colors.primary, borderColor: colors.primary },
+            ]}
+            onPress={() => setSortBy('newest')}
+          >
+            <Text style={[styles.sortPillText, { color: colors.text }, sortBy === 'newest' && { color: '#fff' }]}>
+              En Yeni
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </>
+  );
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Home</Text>
+        <TouchableOpacity
+          style={[styles.viewToggle, { backgroundColor: colors.surface }]}
+          onPress={() => toggleViewMode(viewMode === 'list' ? 'map' : 'list')}
+          activeOpacity={0.7}
+          testID="view-toggle"
         >
-          {isLoading || !userLocation ? (
-            <>
-              <Skeleton variant="card" />
-              <Skeleton variant="card" />
-              <Skeleton variant="card" />
-            </>
-          ) : books.length === 0 ? (
-            <EmptyState
-              message="Kitap bulunamadı"
-              description="Yakınlarda takas için kitap yok"
-            />
-          ) : (
-            books.map((book) => (
-              <BookCard
-                key={book.id}
-                title={book.title}
-                author={book.author ?? ''}
-                condition={book.condition as any}
-                category={(book.category as string) ?? ''}
-                distanceKm={book.distance_km}
-                coverUrl={book.photos?.[0]?.url}
-                onPress={() => router.push(`/book/${book.id}`)}
-                testID={`book-card-${book.id}`}
+          <Ionicons
+            name={viewMode === 'list' ? 'map-outline' : 'list-outline'}
+            size={20}
+            color={colors.primary}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {viewMode === 'list' ? (
+        <>
+          {renderSearchAndChips()}
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {isLoading || !userLocation ? (
+              <>
+                <Skeleton variant="card" />
+                <Skeleton variant="card" />
+                <Skeleton variant="card" />
+              </>
+            ) : sortedBooks.length === 0 ? (
+              <EmptyState
+                message="Kitap bulunamadı"
+                description="Yakınlarda takas için kitap yok"
               />
-            ))
-          )}
-        </ScrollView>
+            ) : (
+              sortedBooks.map((book) => (
+                <BookCard
+                  key={book.id}
+                  title={book.title}
+                  author={book.author ?? ''}
+                  condition={book.condition as any}
+                  category={(book.category as string) ?? ''}
+                  distanceKm={book.distance_km}
+                  coverUrl={book.photos?.[0]?.url}
+                  onPress={() => router.push(`/book/${book.id}`)}
+                  onFavorite={() => toggleFavorite(book.id)}
+                  testID={`book-card-${book.id}`}
+                />
+              ))
+            )}
+          </ScrollView>
+        </>
       ) : (
         <View style={styles.mapContainer}>
           <ClusteredMapView
@@ -217,6 +300,10 @@ export default function HomeScreen() {
             })}
           </ClusteredMapView>
 
+          <View style={[styles.floatingSearchContainer, { paddingTop: insets.top }]}>
+            {renderSearchAndChips()}
+          </View>
+
           <TouchableOpacity
             style={[styles.recenterBtn, { backgroundColor: colors.surface, shadowColor: colors.text }]}
             onPress={recenterOnUser}
@@ -226,10 +313,26 @@ export default function HomeScreen() {
             <Ionicons name="locate-outline" size={22} color={colors.primary} />
           </TouchableOpacity>
 
-          <View style={[styles.resultCount, { backgroundColor: colors.surface }]}>
+          <View style={[styles.mapBottomBar, { backgroundColor: colors.surface }]}>
             <Text style={[styles.resultCountText, { color: colors.text }]}>
               {books.length} kitap bulundu
             </Text>
+            <View style={styles.mapBottomActions}>
+              <TouchableOpacity
+                style={[styles.mapActionBtn, { backgroundColor: colors.primary + '20' }]}
+                onPress={recenterOnUser}
+              >
+                <Ionicons name="navigate-outline" size={16} color={colors.primary} />
+                <Text style={[styles.mapActionText, { color: colors.primary }]}>Yakınım</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.mapActionBtn, { backgroundColor: colors.primary + '20' }]}
+                onPress={() => refetch()}
+              >
+                <Ionicons name="refresh-outline" size={16} color={colors.primary} />
+                <Text style={[styles.mapActionText, { color: colors.primary }]}>Yenile</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
@@ -288,6 +391,10 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
     fontSize: fontSize.bodySm,
   },
+  cameraBtn: {
+    marginLeft: spacing.sm,
+    padding: spacing.xs,
+  },
   chipRow: {
     maxHeight: 44,
     marginBottom: spacing.sm,
@@ -306,6 +413,39 @@ const styles = StyleSheet.create({
     fontSize: fontSize.bodySm,
     fontWeight: '500',
   },
+  activeFilterRow: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  activeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    gap: spacing.xs,
+  },
+  activeChipText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+  },
+  sortRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  sortPill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  sortPillText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '500',
+  },
   scrollContent: {
     padding: spacing.lg,
     paddingTop: spacing.xs,
@@ -315,6 +455,14 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  floatingSearchContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingBottom: spacing.sm,
   },
   recenterBtn: {
     position: 'absolute',
@@ -327,19 +475,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...shadows.card,
   },
-  resultCount: {
+  mapBottomBar: {
     position: 'absolute',
     bottom: spacing.lg,
     left: spacing.lg,
     right: spacing.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
+    borderRadius: radius.lg,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     ...shadows.card,
   },
   resultCountText: {
     fontSize: fontSize.bodySm,
+    fontWeight: '600',
+  },
+  mapBottomActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  mapActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    gap: spacing.xs,
+  },
+  mapActionText: {
+    fontSize: fontSize.caption,
     fontWeight: '600',
   },
 });
