@@ -1,18 +1,44 @@
 import { Tabs } from 'expo-router';
-import { Text, useColorScheme, ColorValue } from 'react-native';
+import { Text, View, useColorScheme, ColorValue } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { palette, fontSize } from '@/components/ui/tokens';
 
-const TAB_ICONS: Record<string, string> = {
-  home: '🏠',
-  search: '🔍',
-  requests: '📋',
-  chats: '💬',
-  profile: '👤',
+const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  home: 'home',
+  search: 'search',
+  requests: 'clipboard',
+  chats: 'chatbubble',
+  profile: 'person',
 };
 
-function TabIcon({ name, color }: { name: keyof typeof TAB_ICONS; color: ColorValue }) {
-  return <Text style={{ fontSize: fontSize.heading, color }}>{TAB_ICONS[name]}</Text>;
+function TabIcon({ name, color, badgeCount }: { name: keyof typeof TAB_ICONS; color: ColorValue; badgeCount?: number }) {
+  const iconName = TAB_ICONS[name];
+  return (
+    <View style={{ position: 'relative' }}>
+      <Ionicons name={iconName} size={22} color={color as string} />
+      {badgeCount !== undefined && badgeCount > 0 && (
+        <View
+          style={{
+            position: 'absolute',
+            top: -4,
+            right: -8,
+            backgroundColor: '#ef4444',
+            borderRadius: 10,
+            minWidth: 18,
+            height: 18,
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: 4,
+          }}
+        >
+          <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
 }
 
 export function AppTabs() {
