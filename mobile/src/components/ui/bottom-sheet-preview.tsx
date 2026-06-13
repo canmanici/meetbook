@@ -39,8 +39,6 @@ export function BottomSheetPreview({
     }
   }, [book]);
 
-  if (!book) return null;
-
   return (
     <BottomSheet
       ref={sheetRef}
@@ -51,42 +49,46 @@ export function BottomSheetPreview({
       backgroundStyle={[styles.background, { backgroundColor: colors.surface }]}
       handleIndicatorStyle={[styles.indicator, { backgroundColor: colors.textMuted }]}
     >
-      <View style={styles.content}>
-        <View style={styles.bookRow}>
-          {book.coverUrl ? (
-            <Image source={{ uri: book.coverUrl }} style={styles.cover} />
-          ) : (
-            <View style={[styles.cover, { backgroundColor: colors.textMuted + '30' }]} />
-          )}
-          <View style={styles.info}>
-            <Text style={[styles.title, { color: colors.text }]}>{book.title}</Text>
-            <Text style={[styles.author, { color: colors.textMuted }]}>{book.author}</Text>
-            <View style={styles.tags}>
-              <View style={[styles.tag, { backgroundColor: colors.textMuted + '20' }]}>
-                <Text style={[styles.tagText, { color: colors.textMuted }]}>{book.condition}</Text>
+      {book ? (
+        <View style={styles.content}>
+          <View style={styles.bookRow}>
+            {book.coverUrl ? (
+              <Image source={{ uri: book.coverUrl }} style={styles.cover} />
+            ) : (
+              <View style={[styles.cover, { backgroundColor: colors.textMuted + '30' }]} />
+            )}
+            <View style={styles.info}>
+              <Text style={[styles.title, { color: colors.text }]}>{book.title}</Text>
+              <Text style={[styles.author, { color: colors.textMuted }]}>{book.author}</Text>
+              <View style={styles.tags}>
+                <View style={[styles.tag, { backgroundColor: colors.textMuted + '20' }]}>
+                  <Text style={[styles.tagText, { color: colors.textMuted }]}>{book.condition}</Text>
+                </View>
+                <View style={[styles.tag, { backgroundColor: colors.textMuted + '20' }]}>
+                  <Text style={[styles.tagText, { color: colors.textMuted }]}>{book.category}</Text>
+                </View>
               </View>
-              <View style={[styles.tag, { backgroundColor: colors.textMuted + '20' }]}>
-                <Text style={[styles.tagText, { color: colors.textMuted }]}>{book.category}</Text>
-              </View>
+              <Text style={[styles.distance, { color: colors.primary }]}>{book.distanceKm.toFixed(1)} km</Text>
             </View>
-            <Text style={[styles.distance, { color: colors.primary }]}>{book.distanceKm.toFixed(1)} km</Text>
+          </View>
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+              onPress={() => onRequestExchange(book.id)}
+            >
+              <Text style={[styles.primaryBtnText, { color: colors.surface }]}>Takas İste</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.secondaryBtn, { backgroundColor: colors.textMuted + '20' }]}
+              onPress={() => onViewDetail(book.id)}
+            >
+              <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Detay</Text>
+            </TouchableOpacity>
           </View>
         </View>
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
-            onPress={() => onRequestExchange(book.id)}
-          >
-            <Text style={[styles.primaryBtnText, { color: colors.surface }]}>exchange İste</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.secondaryBtn, { backgroundColor: colors.textMuted + '20' }]}
-            onPress={() => onViewDetail(book.id)}
-          >
-            <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Detay</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      ) : (
+        <View />
+      )}
     </BottomSheet>
   );
 }
