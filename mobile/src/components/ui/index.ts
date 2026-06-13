@@ -12,6 +12,8 @@ export { Toast, InlineError } from './toast';
 export { BlurredAreaPin, ExactPin } from './mappin';
 export { MapBookPin } from './map-book-pin';
 export { ClusterPin } from './cluster-pin';
+export { BottomSheetPreview } from './bottom-sheet-preview';
+export type { BookPreviewData } from './bottom-sheet-preview';
 export * from './tokens';
 export type { BookCondition } from './card';
 export type { AvatarSize } from './avatar';
