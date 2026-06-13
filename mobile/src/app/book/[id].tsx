@@ -39,6 +39,7 @@ import {
   type BookCondition,
 } from '@/constants/books';
 import { ApiError, createExchange, deleteBook, getBook, lookupISBN, updateBook } from '@/lib/api/client';
+import { useAuthStore } from '@/stores/auth-store';
 import { useBookDraftStore } from '@/stores/book-draft-store';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -60,7 +61,8 @@ export default function BookDetailScreen() {
     queryFn: () => getBook(id),
   });
 
-  const isOwner = !!book && 'location' in book;
+  const user = useAuthStore((state) => state.user);
+  const isOwner = !!book && !!user && book.owner_id === user.id;
 
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState('');

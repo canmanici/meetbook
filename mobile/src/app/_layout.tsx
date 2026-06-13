@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useColorScheme } from 'react-native';
 
 import { palette } from '@/components/ui/tokens';
@@ -21,9 +22,10 @@ export default function RootLayout() {
   }, [bootstrap]);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AnimatedSplashOverlay />
-      <Stack
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <AnimatedSplashOverlay />
+        <Stack
         screenOptions={{
           headerStyle: {
             backgroundColor: colors.surface,
@@ -46,6 +48,7 @@ export default function RootLayout() {
           <Stack.Screen name="settings" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack>
-    </QueryClientProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
