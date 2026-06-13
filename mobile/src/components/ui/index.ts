@@ -24,3 +24,4 @@ export type { ToastVariant } from './toast';
 export type { BlurredAreaPinProps, ExactPinVariant } from './mappin';
 export { FilterSheet } from './filter-sheet';
 export { StepProgress } from './step-progress';
+export { TimelineStep } from './timeline-step';
