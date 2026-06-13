@@ -1,12 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  useColorScheme,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useColorScheme } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { BookCard, EmptyState, Input, Skeleton, palette, spacing, fontSize } from '@/components/ui';
-import { getWishlist, addToWishlist, removeFromWishlist, getWishlistMatches } from '@/lib/api/client';
+import { Input, EmptyState, Skeleton, Badge, palette, spacing, radius, fontSize, shadows } from '@/components/ui';
+import { getWishlist, addToWishlist, removeFromWishlist, getWishlistMatches, WishlistItem } from '@/lib/api/client';
 
 export default function WishlistScreen() {
   const scheme = useColorScheme();
@@ -16,7 +24,7 @@ export default function WishlistScreen() {
   const queryClient = useQueryClient();
   const [isbn, setIsbn] = useState('');
   const [title, setTitle] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [author, setAuthor] = useState('');
 
   const { data: wishlistData, isLoading: wishlistLoading } = useQuery({
     queryKey: ['wishlist'],
@@ -35,7 +43,7 @@ export default function WishlistScreen() {
       queryClient.invalidateQueries({ queryKey: ['wishlist-matches'] });
       setIsbn('');
       setTitle('');
-      setShowAddForm(false);
+      setAuthor('');
     },
   });
 
@@ -50,49 +58,41 @@ export default function WishlistScreen() {
   const items = wishlistData?.items ?? [];
   const matches = matchesData?.matches ?? [];
 
+  const hasMatch = (itemIsbn: string): boolean => {
+    return matches.some((m) => m.isbn === itemIsbn);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
-          İstek Listesi
-        </Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: colors.primary }]}
-          onPress={() => setShowAddForm(!showAddForm)}
-        >
-          <Text style={styles.addButtonText}>{showAddForm ? 'İptal' : '+ Ekle'}</Text>
-        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>İstek Listesi</Text>
       </View>
 
-      {showAddForm && (
-        <View style={[styles.addForm, { backgroundColor: colors.surface, borderBottomColor: colors.textMuted }]}>
-          <Input
-            placeholder="ISBN (örn: 9789753425582)"
-            value={isbn}
-            onChangeText={setIsbn}
-            testID="wishlist-isbn-input"
-          />
-          <Input
-            placeholder="Kitap adı (isteğe bağlı)"
-            value={title}
-            onChangeText={setTitle}
-            testID="wishlist-title-input"
-          />
-          <TouchableOpacity
-            style={[styles.submitButton, { backgroundColor: colors.primary }]}
-            onPress={() => {
-              if (isbn.trim()) {
-                addMutation.mutate({ isbn: isbn.trim(), title: title.trim() || undefined });
-              }
-            }}
-            disabled={!isbn.trim() || addMutation.isPending}
-          >
-            <Text style={styles.submitButtonText}>
-              {addMutation.isPending ? 'Ekleniyor...' : 'Ekle'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <View style={[styles.searchRow, { backgroundColor: colors.surface }]}>
+        <Input
+          placeholder="Kitap adı veya ISBN"
+          value={isbn}
+          onChangeText={setIsbn}
+          style={styles.searchInput}
+          testID="wishlist-search-input"
+        />
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: colors.primary }]}
+          onPress={() => {
+            if (isbn.trim()) {
+              addMutation.mutate({
+                isbn: isbn.trim(),
+                title: title.trim() || undefined,
+                author: author.trim() || undefined,
+              });
+            }
+          }}
+          disabled={!isbn.trim() || addMutation.isPending}
+          testID="wishlist-add-button"
+        >
+          <Ionicons name="add" size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -102,47 +102,107 @@ export default function WishlistScreen() {
           <>
             <Skeleton variant="card" />
             <Skeleton variant="card" />
+            <Skeleton variant="card" />
           </>
         ) : items.length === 0 ? (
           <EmptyState
             message="İstek listesi boş"
-            description="Kitap eklemek için + butonuna tıklayın"
+            description="Kitap eklemek için yukarıdaki alana ISBN veya kitap adı yazın"
           />
         ) : (
           <>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Kitaplarım</Text>
             {items.map((item) => (
-              <View key={item.id} style={[styles.wishlistItem, { backgroundColor: colors.surface }]}>
-                <View style={styles.itemInfo}>
-                  <Text style={[styles.itemTitle, { color: colors.text }]}>{item.title || item.isbn}</Text>
-                  {item.author && <Text style={[styles.itemAuthor, { color: colors.textMuted }]}>{item.author}</Text>}
-                  <Text style={[styles.itemIsbn, { color: colors.textMuted }]}>ISBN: {item.isbn}</Text>
+              <View
+                key={item.id}
+                style={[styles.wishlistCard, { backgroundColor: colors.surface }]}
+                testID={`wishlist-card-${item.id}`}
+              >
+                <View style={[styles.cover, { backgroundColor: colors.textMuted + '30' }]}>
+                  <Ionicons name="book-outline" size={24} color={colors.textMuted} />
+                </View>
+                <View style={styles.cardContent}>
+                  <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={1}>
+                    {item.title || item.isbn}
+                  </Text>
+                  {item.author && (
+                    <Text style={[styles.cardAuthor, { color: colors.textMuted }]} numberOfLines={1}>
+                      {item.author}
+                    </Text>
+                  )}
+                  <View style={styles.statusRow}>
+                    {hasMatch(item.isbn) ? (
+                      <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
+                        <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                        <Text style={[styles.statusText, { color: colors.success }]}>Eşleşme bulundu</Text>
+                      </View>
+                    ) : (
+                      <View style={[styles.statusBadge, { backgroundColor: colors.warning + '20' }]}>
+                        <Ionicons name="time-outline" size={14} color={colors.warning} />
+                        <Text style={[styles.statusText, { color: colors.warning }]}>Bekleniyor</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
                 <TouchableOpacity
-                  style={styles.removeButton}
+                  style={[styles.removeButton, { backgroundColor: colors.danger + '15' }]}
                   onPress={() => removeMutation.mutate(item.id)}
+                  testID={`wishlist-remove-${item.id}`}
                 >
-                  <Text style={styles.removeButtonText}>Sil</Text>
+                  <Ionicons name="trash-outline" size={18} color={colors.danger} />
                 </TouchableOpacity>
               </View>
             ))}
 
             {matches.length > 0 && (
               <>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                  Eşleşen Kitaplar ({matches.length})
-                </Text>
-                {matches.map((match) => (
-                  <BookCard
-                    key={match.id}
-                    title={match.title}
-                    author={match.author ?? ''}
-                    condition={match.condition as any}
-                    distanceKm={match.distance_km}
-                    coverUrl={match.photos?.[0]?.url}
-                    onPress={() => router.push(`/book/${match.id}`)}
-                    testID={`match-card-${match.id}`}
-                  />
-                ))}
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Yakınınızda Eşleşenler</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.matchesScroll}
+                >
+                  {matches.map((match) => (
+                    <TouchableOpacity
+                      key={match.id}
+                      style={[styles.matchCard, { backgroundColor: colors.surface }]}
+                      onPress={() => router.push(`/book/${match.id}`)}
+                      testID={`match-card-${match.id}`}
+                    >
+                      <View style={[styles.matchCover, { backgroundColor: colors.textMuted + '30' }]}>
+                        {match.photos?.[0]?.url ? (
+                          <Image
+                            source={{ uri: match.photos[0].url }}
+                            style={styles.matchCoverImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <Ionicons name="book-outline" size={20} color={colors.textMuted} />
+                        )}
+                        <View style={[styles.distanceBadge, { backgroundColor: colors.primary }]}>
+                          <Text style={styles.distanceBadgeText}>{match.distance_km.toFixed(1)} km</Text>
+                        </View>
+                      </View>
+                      <View style={styles.matchInfo}>
+                        <Text style={[styles.matchTitle, { color: colors.text }]} numberOfLines={1}>
+                          {match.title}
+                        </Text>
+                        {match.author && (
+                          <Text style={[styles.matchAuthor, { color: colors.textMuted }]} numberOfLines={1}>
+                            {match.author}
+                          </Text>
+                        )}
+                        <TouchableOpacity
+                          style={[styles.exchangeButton, { backgroundColor: colors.primary }]}
+                          onPress={() => router.push(`/book/${match.id}`)}
+                          testID={`exchange-request-${match.id}`}
+                        >
+                          <Text style={styles.exchangeButtonText}>exchange iste</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </>
             )}
           </>
@@ -163,74 +223,143 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   headerTitle: {
     fontSize: fontSize.heading,
     fontWeight: '700',
   },
-  addButton: {
-    paddingHorizontal: spacing.md,
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  addForm: {
-    padding: spacing.lg,
-    borderBottomWidth: 1,
     gap: spacing.sm,
   },
-  submitButton: {
-    padding: spacing.md,
-    borderRadius: 8,
-    alignItems: 'center',
+  searchInput: {
+    flex: 1,
+    marginBottom: 0,
   },
-  submitButtonText: {
-    color: '#fff',
-    fontWeight: '600',
+  addButton: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.input,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollContent: {
     padding: spacing.lg,
   },
-  wishlistItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: 12,
-    marginBottom: spacing.sm,
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  itemTitle: {
-    fontSize: fontSize.body,
-    fontWeight: '600',
-  },
-  itemAuthor: {
-    fontSize: fontSize.bodySm,
-    marginTop: 2,
-  },
-  itemIsbn: {
-    fontSize: fontSize.caption,
-    marginTop: 4,
-  },
-  removeButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: '#ff4444',
-    borderRadius: 6,
-  },
-  removeButtonText: {
-    color: '#fff',
-    fontSize: fontSize.bodySm,
-  },
   sectionTitle: {
     fontSize: fontSize.title,
     fontWeight: '700',
-    marginTop: spacing.xl,
     marginBottom: spacing.md,
+  },
+  wishlistCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: radius.input,
+    marginBottom: spacing.sm,
+    ...shadows.card,
+  },
+  cover: {
+    width: 48,
+    height: 64,
+    borderRadius: radius.input,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  cardContent: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  cardAuthor: {
+    fontSize: fontSize.bodySm,
+    marginBottom: spacing.xs,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    gap: spacing.xs,
+  },
+  statusText: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
+  },
+  removeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: spacing.sm,
+  },
+  matchesScroll: {
+    paddingRight: spacing.lg,
+  },
+  matchCard: {
+    width: 160,
+    borderRadius: radius.input,
+    marginRight: spacing.sm,
+    overflow: 'hidden',
+    ...shadows.card,
+  },
+  matchCover: {
+    width: '100%',
+    height: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  matchCoverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  distanceBadge: {
+    position: 'absolute',
+    top: spacing.xs,
+    right: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+  },
+  distanceBadgeText: {
+    color: '#fff',
+    fontSize: fontSize.caption,
+    fontWeight: '600',
+  },
+  matchInfo: {
+    padding: spacing.sm,
+  },
+  matchTitle: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  matchAuthor: {
+    fontSize: fontSize.caption,
+    marginBottom: spacing.sm,
+  },
+  exchangeButton: {
+    paddingVertical: spacing.sm,
+    borderRadius: radius.input,
+    alignItems: 'center',
+  },
+  exchangeButtonText: {
+    color: '#fff',
+    fontSize: fontSize.caption,
+    fontWeight: '600',
   },
 });
