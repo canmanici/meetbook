@@ -25,3 +25,4 @@ export type { BlurredAreaPinProps, ExactPinVariant } from './mappin';
 export { FilterSheet, type FilterState } from './filter-sheet';
 export { StepProgress } from './step-progress';
 export { TimelineStep } from './timeline-step';
+export { SuggestedPlace } from './suggested-place';

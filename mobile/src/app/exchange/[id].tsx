@@ -15,7 +15,7 @@ import {
   useColorScheme,
 } from 'react-native';
 
-import { Avatar, Badge, Button, Card, SafetySheet, TimelineStep, palette, spacing, fontSize } from '@/components/ui';
+import { Avatar, Badge, Button, Card, SafetySheet, SuggestedPlace, TimelineStep, palette, spacing, fontSize } from '@/components/ui';
 import { BOOK_CATEGORY_LABELS, BOOK_CONDITION_LABELS } from '@/constants/books';
 import { EXCHANGE_STATUS_LABELS, EXCHANGE_STATUS_VARIANTS } from '@/constants/exchanges';
 import { MEETUP_VALIDATION_LABELS } from '@/constants/meetup';
@@ -33,6 +33,13 @@ import {
 } from '@/lib/api/client';
 import { buildMapLinks } from '@/lib/maps';
 import { useAuthStore } from '@/stores/auth-store';
+
+const SUGGESTED_PLACES = [
+  { id: '1', name: 'Kadıköy Meydanı', category: 'Açık Alan', address: 'Kadıköy, İstanbul', distance: 1.2, rating: 4.5 },
+  { id: '2', name: 'Starbucks Bağdat Caddesi', category: 'Kafe', address: 'Bağdat Caddesi, Kadıköy', distance: 2.1, rating: 4.3 },
+  { id: '3', name: 'Sultanahmet Meydanı', category: 'Tarihi Mekan', address: 'Sultanahmet, Fatih', distance: 5.8, rating: 4.7 },
+  { id: '4', name: 'Taksim Meydanı', category: 'Açık Alan', address: 'Taksim, Beyoğlu', distance: 3.4, rating: 4.2 },
+];
 
 type StepStatus = 'done' | 'active' | 'pending';
 
@@ -433,14 +440,26 @@ export default function ExchangeDetailScreen() {
             </>
           ) : (
             exchange.status === 'accepted' && (
-              <Button
-                onPress={() =>
-                  router.push({ pathname: '/meetup/select-place', params: { exchangeId: id } })
-                }
-                testID="propose-meetup-link-button"
-              >
-                Buluşma Öner
-              </Button>
+              <>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>Önerilen Güvenli Mekanlar</Text>
+                {SUGGESTED_PLACES.map((place) => (
+                  <SuggestedPlace
+                    key={place.id}
+                    name={place.name}
+                    category={place.category}
+                    address={place.address}
+                    distanceKm={place.distance}
+                    rating={place.rating}
+                    onSelect={() => router.push({ pathname: '/meetup/select-place', params: { exchangeId: id } })}
+                  />
+                ))}
+                <Button
+                  onPress={() => router.push({ pathname: '/meetup/select-place', params: { exchangeId: id } })}
+                  testID="propose-meetup-link-button"
+                >
+                  Buluşma Öner
+                </Button>
+              </>
             )
           )}
         </Card>
