@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import ClusteredMapView from 'react-native-map-clustering';
 
 import { BookCard, EmptyState, Skeleton, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
+import { MapBookPin } from '@/components/ui/map-book-pin';
+import { BottomSheetPreview, BookPreviewData } from '@/components/ui/bottom-sheet-preview';
 import { searchNearbyBooks } from '@/lib/api/client';
 
 const CATEGORIES = [
@@ -36,6 +40,14 @@ export default function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [searchText, setSearchText] = useState('');
+  const [selectedBook, setSelectedBook] = useState<BookPreviewData | null>(null);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 41.0082,
+    longitude: 28.9784,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
+  });
+  const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
     (async () => {
@@ -59,6 +71,17 @@ export default function HomeScreen() {
     enabled: !!userLocation,
   });
   const books = data?.items ?? [];
+
+  const recenterOnUser = () => {
+    if (userLocation && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: userLocation.lat,
+        longitude: userLocation.lng,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -120,37 +143,109 @@ export default function HomeScreen() {
         ))}
       </ScrollView>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {isLoading || !userLocation ? (
-          <>
-            <Skeleton variant="card" />
-            <Skeleton variant="card" />
-            <Skeleton variant="card" />
-          </>
-        ) : books.length === 0 ? (
-          <EmptyState
-            message="Kitap bulunamadı"
-            description="Yakınlarda takas için kitap yok"
-          />
-        ) : (
-          books.map((book) => (
-            <BookCard
-              key={book.id}
-              title={book.title}
-              author={book.author ?? ''}
-              condition={book.condition as any}
-              category={(book.category as string) ?? ''}
-              distanceKm={book.distance_km}
-              coverUrl={book.photos?.[0]?.url}
-              onPress={() => router.push(`/book/${book.id}`)}
-              testID={`book-card-${book.id}`}
+      {viewMode === 'list' ? (
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {isLoading || !userLocation ? (
+            <>
+              <Skeleton variant="card" />
+              <Skeleton variant="card" />
+              <Skeleton variant="card" />
+            </>
+          ) : books.length === 0 ? (
+            <EmptyState
+              message="Kitap bulunamadı"
+              description="Yakınlarda takas için kitap yok"
             />
-          ))
-        )}
-      </ScrollView>
+          ) : (
+            books.map((book) => (
+              <BookCard
+                key={book.id}
+                title={book.title}
+                author={book.author ?? ''}
+                condition={book.condition as any}
+                category={(book.category as string) ?? ''}
+                distanceKm={book.distance_km}
+                coverUrl={book.photos?.[0]?.url}
+                onPress={() => router.push(`/book/${book.id}`)}
+                testID={`book-card-${book.id}`}
+              />
+            ))
+          )}
+        </ScrollView>
+      ) : (
+        <View style={styles.mapContainer}>
+          <ClusteredMapView
+            ref={mapRef as any}
+            style={styles.map}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={mapRegion}
+            showsUserLocation
+            showsMyLocationButton={false}
+            onRegionChangeComplete={setMapRegion}
+          >
+            {books.map((book) => {
+              if (!book.public_location) return null;
+              return (
+                <Marker
+                  key={book.id}
+                  coordinate={{
+                    latitude: book.public_location.lat,
+                    longitude: book.public_location.lng,
+                  }}
+                  onPress={() =>
+                    setSelectedBook({
+                      id: book.id,
+                      title: book.title,
+                      author: book.author ?? '',
+                      coverUrl: book.photos?.[0]?.url,
+                      condition: book.condition ?? '',
+                      distanceKm: book.distance_km ?? 0,
+                      category: (book.category as string) ?? '',
+                    })
+                  }
+                >
+                  <MapBookPin
+                    coverUrl={book.photos?.[0]?.url}
+                    title={book.title}
+                    isSelected={selectedBook?.id === book.id}
+                  />
+                </Marker>
+              );
+            })}
+          </ClusteredMapView>
+
+          <TouchableOpacity
+            style={[styles.recenterBtn, { backgroundColor: colors.surface, shadowColor: colors.text }]}
+            onPress={recenterOnUser}
+            activeOpacity={0.7}
+            testID="recenter-btn"
+          >
+            <Ionicons name="locate-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
+
+          <View style={[styles.resultCount, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.resultCountText, { color: colors.text }]}>
+              {books.length} kitap bulundu
+            </Text>
+          </View>
+        </View>
+      )}
+
+      <BottomSheetPreview
+        book={selectedBook}
+        onClose={() => setSelectedBook(null)}
+        onRequestExchange={(bookId) => {
+          setSelectedBook(null);
+          router.push(`/exchange/${bookId}`);
+        }}
+        onViewDetail={(bookId) => {
+          setSelectedBook(null);
+          router.push(`/book/${bookId}`);
+        }}
+      />
     </View>
   );
 }
@@ -214,5 +309,37 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingTop: spacing.xs,
+  },
+  mapContainer: {
+    flex: 1,
+  },
+  map: {
+    flex: 1,
+  },
+  recenterBtn: {
+    position: 'absolute',
+    right: spacing.lg,
+    bottom: spacing.xxl + 56,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.card,
+  },
+  resultCount: {
+    position: 'absolute',
+    bottom: spacing.lg,
+    left: spacing.lg,
+    right: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    ...shadows.card,
+  },
+  resultCountText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
   },
 });
