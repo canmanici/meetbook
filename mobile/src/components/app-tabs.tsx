@@ -68,7 +68,7 @@ export function AppTabs() {
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Home',
+          title: 'Ana Sayfa',
           tabBarButtonTestID: 'home-tab',
           tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
         }}
@@ -76,7 +76,7 @@ export function AppTabs() {
       <Tabs.Screen
         name="search"
         options={{
-          title: 'Search',
+          title: 'Ara',
           tabBarButtonTestID: 'search-tab',
           tabBarIcon: ({ color }) => <TabIcon name="search" color={color} />,
         }}
@@ -84,7 +84,7 @@ export function AppTabs() {
       <Tabs.Screen
         name="requests"
         options={{
-          title: 'Requests',
+          title: 'Talepler',
           tabBarButtonTestID: 'requests-tab',
           tabBarIcon: ({ color }) => <TabIcon name="requests" color={color} badgeCount={pendingCount > 0 ? pendingCount : undefined} />,
         }}
@@ -92,7 +92,7 @@ export function AppTabs() {
       <Tabs.Screen
         name="chats"
         options={{
-          title: 'Chats',
+          title: 'Mesajlar',
           tabBarButtonTestID: 'chats-tab',
           tabBarIcon: ({ color }) => <TabIcon name="chats" color={color} />,
         }}
@@ -100,7 +100,7 @@ export function AppTabs() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'Profil',
           tabBarButtonTestID: 'profile-tab',
           tabBarIcon: ({ color }) => <TabIcon name="profile" color={color} />,
         }}

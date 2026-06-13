@@ -197,7 +197,7 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: colors.background }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Home</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Ana Sayfa</Text>
         <TouchableOpacity
           style={[styles.viewToggle, { backgroundColor: colors.surface }]}
           onPress={() => toggleViewMode(viewMode === 'list' ? 'map' : 'list')}
