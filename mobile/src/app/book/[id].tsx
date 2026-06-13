@@ -554,19 +554,11 @@ export default function BookDetailScreen() {
             <View style={styles.ownerInfo}>
               <View style={[styles.ownerAvatar, { backgroundColor: colors.primary }]}>
                 <Text style={styles.ownerAvatarText}>
-                  {'K' /* owner initial placeholder */}
+                  {book.owner_id.charAt(0).toUpperCase()}
                 </Text>
               </View>
               <View style={styles.ownerDetails}>
                 <Text style={[styles.ownerName, { color: colors.text }]}>Kitap Sahibi</Text>
-                <View style={styles.ownerMeta}>
-                  <Text style={[styles.ownerMetaText, { color: colors.textMuted }]}>
-                    12 takas
-                  </Text>
-                  <Text style={[styles.ownerMetaDot, { color: colors.textMuted }]}>·</Text>
-                  <Ionicons name="star" size={12} color={colors.accent} />
-                  <Text style={[styles.ownerMetaText, { color: colors.textMuted }]}>4.8</Text>
-                </View>
               </View>
             </View>
             <TouchableOpacity
