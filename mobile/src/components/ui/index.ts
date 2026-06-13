@@ -11,6 +11,7 @@ export { Skeleton } from './skeleton';
 export { Toast, InlineError } from './toast';
 export { BlurredAreaPin, ExactPin } from './mappin';
 export { MapBookPin } from './map-book-pin';
+export { ClusterPin } from './cluster-pin';
 export * from './tokens';
 export type { BookCondition } from './card';
 export type { AvatarSize } from './avatar';
