@@ -1,8 +1,10 @@
 import { Tabs } from 'expo-router';
 import { Text, View, useColorScheme, ColorValue } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 
 import { palette, fontSize } from '@/components/ui/tokens';
+import { listExchanges } from '@/lib/api/client';
 
 const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   home: 'home',
@@ -46,6 +48,13 @@ export function AppTabs() {
   const isDark = scheme === 'dark';
   const colors = palette[isDark ? 'dark' : 'light'];
 
+  const { data: receivedData } = useQuery({
+    queryKey: ['exchanges', 'received', 'badge'],
+    queryFn: () => listExchanges({ role: 'received', status: 'pending' }),
+    refetchInterval: 30000,
+  });
+  const pendingCount = receivedData?.items?.length ?? 0;
+
   return (
     <Tabs
       screenOptions={{
@@ -77,7 +86,7 @@ export function AppTabs() {
         options={{
           title: 'Requests',
           tabBarButtonTestID: 'requests-tab',
-          tabBarIcon: ({ color }) => <TabIcon name="requests" color={color} />,
+          tabBarIcon: ({ color }) => <TabIcon name="requests" color={color} badgeCount={pendingCount > 0 ? pendingCount : undefined} />,
         }}
       />
       <Tabs.Screen
