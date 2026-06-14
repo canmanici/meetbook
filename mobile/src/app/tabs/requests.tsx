@@ -15,16 +15,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Badge, EmptyState, Skeleton, palette, spacing, fontSize, radius, type ThemeColors } from '@/components/ui';
 import { acceptExchange, rejectExchange, listExchanges, type ExchangeSummary } from '@/lib/api/client';
+import { EXCHANGE_STATUS_LABELS, EXCHANGE_STATUS_VARIANTS } from '@/constants/exchanges';
 import { Ionicons } from '@expo/vector-icons';
 
 type RequestTab = 'received' | 'sent';
-
-const STATUS_BADGE_MAP: Record<string, { label: string; variant: 'warning' | 'success' | 'danger' | 'info' }> = {
-  pending: { label: 'Bekliyor', variant: 'warning' },
-  accepted: { label: 'Onaylandı', variant: 'success' },
-  rejected: { label: 'Reddedildi', variant: 'danger' },
-  completed: { label: 'Tamamlandı', variant: 'info' },
-};
 
 export default function RequestsScreen() {
   const scheme = useColorScheme();
@@ -116,7 +110,8 @@ function IncomingRequestRow({
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
   const createdAt = new Date(item.created_at);
-  const statusInfo = STATUS_BADGE_MAP[item.status] ?? { label: item.status, variant: 'info' as const };
+  const statusLabel = EXCHANGE_STATUS_LABELS[item.status] ?? item.status;
+  const statusVariant = EXCHANGE_STATUS_VARIANTS[item.status] ?? 'info';
 
   const acceptMutation = useMutation({
     mutationFn: acceptExchange,
@@ -160,7 +155,7 @@ function IncomingRequestRow({
             {createdAt.toLocaleDateString('tr-TR')}
           </Text>
         </View>
-        <Badge text={statusInfo.label} variant={statusInfo.variant} testID={`request-status-${item.id}`} />
+        <Badge text={statusLabel} variant={statusVariant} testID={`request-status-${item.id}`} />
       </View>
       {isPending && (
         <View style={styles.actionRow}>
@@ -201,7 +196,8 @@ function OutgoingRequestRow({
   colors: ThemeColors;
 }) {
   const createdAt = new Date(item.created_at);
-  const statusInfo = STATUS_BADGE_MAP[item.status] ?? { label: item.status, variant: 'info' as const };
+  const statusLabel = EXCHANGE_STATUS_LABELS[item.status] ?? item.status;
+  const statusVariant = EXCHANGE_STATUS_VARIANTS[item.status] ?? 'info';
 
   return (
     <TouchableOpacity
@@ -225,7 +221,7 @@ function OutgoingRequestRow({
             {createdAt.toLocaleDateString('tr-TR')}
           </Text>
         </View>
-        <Badge text={statusInfo.label} variant={statusInfo.variant} testID={`request-status-${item.id}`} />
+        <Badge text={statusLabel} variant={statusVariant} testID={`request-status-${item.id}`} />
       </View>
     </TouchableOpacity>
   );

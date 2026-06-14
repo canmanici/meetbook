@@ -184,7 +184,9 @@ export default function BookDetailScreen() {
     mutationFn: () => createExchange({ book_id: id, initial_message: requestMessage.trim() }),
     onSuccess: async (exchange) => {
       await queryClient.invalidateQueries({ queryKey: ['exchanges', 'sent'] });
-      router.push(`/exchange/${exchange.id}`);
+      Alert.alert('İstek Gönderildi', 'Yanıt bekliyor.', [
+        { text: 'Tamam', onPress: () => router.push(`/exchange/${exchange.id}`) },
+      ]);
     },
     onError: (err) => {
       if (err instanceof ApiError && err.status === 409) {
@@ -662,7 +664,7 @@ export default function BookDetailScreen() {
                 <ActivityIndicator color={colors.surface} size="small" />
               ) : (
                 <Text style={[styles.exchangeButtonText, { color: colors.surface }]}>
-                  exchange İsteği Gönder
+                  Değişim İste
                 </Text>
               )}
             </LinearGradient>
