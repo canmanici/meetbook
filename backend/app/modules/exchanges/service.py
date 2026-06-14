@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 import redis.asyncio as aioredis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.geo import in_turkey_bbox
+from app.core.geo import in_turkey_bbox, make_point
 from app.core.redis import get_redis
 from app.modules.auth.repository import AuthRepository
 from app.modules.books.repository import BookRepository, BookRow, encode_cursor
@@ -24,6 +24,7 @@ from app.modules.exchanges.schemas import (
     ExchangeSummary,
     MeetupAcceptRequest,
     MeetupDetail,
+    MeetupOfferView,
     MeetupProposeRequest,
 )
 from app.modules.exchanges.state_machine import (
@@ -84,6 +85,7 @@ def _meetup_to_detail(meetup: Meetup) -> MeetupDetail:
         other_acknowledged=meetup.other_acknowledged,
         requires_acknowledgment=requires_acknowledgment,
         can_confirm=can_confirm,
+        offers=[MeetupOfferView(**offer) for offer in meetup.offers],
         created_at=meetup.created_at,
         updated_at=meetup.updated_at,
     )
@@ -294,38 +296,46 @@ class ExchangeService:
         ):
             raise ExchangeError("WRONG_ACTOR", 409)
 
-        if not in_turkey_bbox(body.lat, body.lng) or not await self.repo.is_in_turkey(
-            body.lat, body.lng
-        ):
-            raise ExchangeError("OUTSIDE_TURKEY", 400)
+        offer_dicts = []
+        any_warning = False
+        for offer in body.offers:
+            if not in_turkey_bbox(offer.lat, offer.lng) or not await self.repo.is_in_turkey(
+                offer.lat, offer.lng
+            ):
+                raise ExchangeError("OUTSIDE_TURKEY", 400)
 
-        if await self.repo.is_near_blocked_place(body.lat, body.lng):
-            raise ExchangeError("BLOCKED_PLACE", 400)
+            if await self.repo.is_near_blocked_place(offer.lat, offer.lng):
+                raise ExchangeError("BLOCKED_PLACE", 400)
 
-        validation_status = (
-            MeetupValidationStatus.auto
-            if body.category in places_service.SAFE_CATEGORIES
-            else MeetupValidationStatus.warning
-        )
+            validation_status = (
+                MeetupValidationStatus.auto
+                if offer.category in places_service.SAFE_CATEGORIES
+                else MeetupValidationStatus.warning
+            )
+            if validation_status == MeetupValidationStatus.warning:
+                any_warning = True
+            offer_dicts.append(
+                {**offer.model_dump(mode="json"), "validation_status": validation_status.value}
+            )
+
+        primary = body.offers[0]
+        primary_validation_status = MeetupValidationStatus(offer_dicts[0]["validation_status"])
 
         await self.repo.upsert_meetup(
             request.id,
             {
-                "place_id": body.place_id,
-                "place_name": body.place_name,
-                "address": body.address,
-                "category": body.category,
-                "lat": body.lat,
-                "lng": body.lng,
-                "validation_status": validation_status,
-                "scheduled_at": body.scheduled_at,
+                "place_id": primary.place_id,
+                "place_name": primary.place_name,
+                "address": primary.address,
+                "category": primary.category,
+                "lat": primary.lat,
+                "lng": primary.lng,
+                "validation_status": primary_validation_status,
+                "scheduled_at": primary.scheduled_at,
                 "proposed_by": current_user_id,
-                "proposer_acknowledged": (
-                    body.acknowledge_warning
-                    if validation_status == MeetupValidationStatus.warning
-                    else False
-                ),
+                "proposer_acknowledged": body.acknowledge_warning if any_warning else False,
                 "other_acknowledged": False,
+                "offers": offer_dicts,
             },
         )
 
@@ -349,6 +359,12 @@ class ExchangeService:
         if current_user_id == meetup.proposed_by:
             raise ExchangeError("ACCEPT_OWN_PROPOSAL", 409)
 
+        offers = meetup.offers or []
+        if body.offer_index >= len(offers):
+            raise ExchangeError("INVALID_OFFER", 400)
+        chosen = offers[body.offer_index]
+        chosen_validation_status = MeetupValidationStatus(chosen["validation_status"])
+
         try:
             next_status, actor = get_transition(request.status, ExchangeAction.accept_meetup)
         except TransitionError as e:
@@ -363,13 +379,24 @@ class ExchangeService:
         ):
             raise ExchangeError("WRONG_ACTOR", 409)
 
-        if meetup.validation_status == MeetupValidationStatus.warning:
+        if chosen_validation_status == MeetupValidationStatus.warning:
             if not meetup.other_acknowledged and not body.acknowledge_warning:
                 raise ExchangeError("ACKNOWLEDGMENT_REQUIRED", 400)
             if not meetup.proposer_acknowledged:
                 raise ExchangeError("ACKNOWLEDGMENT_REQUIRED", 400)
             if body.acknowledge_warning:
                 meetup.other_acknowledged = True
+
+        meetup.place_id = chosen.get("place_id")
+        meetup.place_name = chosen["place_name"]
+        meetup.address = chosen.get("address")
+        meetup.category = chosen.get("category")
+        meetup.lat = chosen["lat"]
+        meetup.lng = chosen["lng"]
+        meetup.geom = make_point(chosen["lat"], chosen["lng"])
+        meetup.scheduled_at = datetime.fromisoformat(chosen["scheduled_at"])
+        meetup.validation_status = chosen_validation_status
+        meetup.updated_at = datetime.now(UTC)
 
         request.status = next_status
         request.updated_at = datetime.now(UTC)

@@ -356,6 +356,8 @@ export type MeetupProposeBody =
 export type MeetupAcceptBody =
   paths['/api/v1/exchanges/{exchange_id}/meetup/accept']['post']['requestBody']['content']['application/json'];
 export type MeetupDetail = components['schemas']['MeetupDetail'];
+export type MeetupOffer = components['schemas']['MeetupOffer'];
+export type MeetupOfferView = components['schemas']['MeetupOfferView'];
 export type MeetupValidationStatus = components['schemas']['MeetupValidationStatus'];
 export type MeetupSuggestionsResponse =
   paths['/api/v1/exchanges/{exchange_id}/meetup/suggestions']['get']['responses'][200]['content']['application/json'];
@@ -369,7 +371,7 @@ export async function proposeMeetup(
 
 export async function acceptMeetup(
   exchangeId: string,
-  body: MeetupAcceptBody = { acknowledge_warning: false },
+  body: MeetupAcceptBody = { offer_index: 0, acknowledge_warning: false },
 ): Promise<ExchangeDetail> {
   return authedRequest<ExchangeDetail>(`/exchanges/${exchangeId}/meetup/accept`, 'POST', body);
 }

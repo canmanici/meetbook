@@ -34,11 +34,15 @@ async def test_propose_meetup_safe_category_is_auto_confirmed(
     resp = await client.post(
         f"/api/v1/exchanges/{exchange_id}/meetup",
         json={
-            "place_name": "Kadikoy Cafe",
-            "category": "cafe",
-            "lat": KADIKOY_CAFE["lat"],
-            "lng": KADIKOY_CAFE["lng"],
-            "scheduled_at": "2026-07-01T12:00:00Z",
+            "offers": [
+                {
+                    "place_name": "Kadikoy Cafe",
+                    "category": "cafe",
+                    "lat": KADIKOY_CAFE["lat"],
+                    "lng": KADIKOY_CAFE["lng"],
+                    "scheduled_at": "2026-07-01T12:00:00Z",
+                }
+            ],
         },
         headers=requester["headers"],
     )
@@ -48,6 +52,8 @@ async def test_propose_meetup_safe_category_is_auto_confirmed(
     assert body["meetup"]["validation_status"] == "auto"
     assert body["meetup"]["can_confirm"] is True
     assert body["meetup"]["requires_acknowledgment"] is False
+    assert len(body["meetup"]["offers"]) == 1
+    assert body["meetup"]["offers"][0]["validation_status"] == "auto"
 
 
 @pytest.mark.asyncio
@@ -62,11 +68,15 @@ async def test_propose_meetup_manual_pin_is_warning_and_requires_double_ack(
     propose_resp = await client.post(
         f"/api/v1/exchanges/{exchange_id}/meetup",
         json={
-            "place_name": "Manual pin",
-            "category": None,
-            "lat": KADIKOY_CAFE["lat"],
-            "lng": KADIKOY_CAFE["lng"],
-            "scheduled_at": "2026-07-01T12:00:00Z",
+            "offers": [
+                {
+                    "place_name": "Manual pin",
+                    "category": None,
+                    "lat": KADIKOY_CAFE["lat"],
+                    "lng": KADIKOY_CAFE["lng"],
+                    "scheduled_at": "2026-07-01T12:00:00Z",
+                }
+            ],
         },
         headers=requester["headers"],
     )
@@ -100,11 +110,15 @@ async def test_accept_meetup_with_acknowledgment_confirms(
     propose_resp = await client.post(
         f"/api/v1/exchanges/{exchange_id}/meetup",
         json={
-            "place_name": "Manual pin",
-            "category": None,
-            "lat": KADIKOY_CAFE["lat"],
-            "lng": KADIKOY_CAFE["lng"],
-            "scheduled_at": "2026-07-01T12:00:00Z",
+            "offers": [
+                {
+                    "place_name": "Manual pin",
+                    "category": None,
+                    "lat": KADIKOY_CAFE["lat"],
+                    "lng": KADIKOY_CAFE["lng"],
+                    "scheduled_at": "2026-07-01T12:00:00Z",
+                }
+            ],
             "acknowledge_warning": True,
         },
         headers=requester["headers"],
@@ -135,11 +149,15 @@ async def test_accept_own_proposal_rejected(
     await client.post(
         f"/api/v1/exchanges/{exchange_id}/meetup",
         json={
-            "place_name": "Kadikoy Cafe",
-            "category": "cafe",
-            "lat": KADIKOY_CAFE["lat"],
-            "lng": KADIKOY_CAFE["lng"],
-            "scheduled_at": "2026-07-01T12:00:00Z",
+            "offers": [
+                {
+                    "place_name": "Kadikoy Cafe",
+                    "category": "cafe",
+                    "lat": KADIKOY_CAFE["lat"],
+                    "lng": KADIKOY_CAFE["lng"],
+                    "scheduled_at": "2026-07-01T12:00:00Z",
+                }
+            ],
         },
         headers=requester["headers"],
     )
@@ -165,11 +183,15 @@ async def test_reject_meetup_returns_to_accepted(
     await client.post(
         f"/api/v1/exchanges/{exchange_id}/meetup",
         json={
-            "place_name": "Kadikoy Cafe",
-            "category": "cafe",
-            "lat": KADIKOY_CAFE["lat"],
-            "lng": KADIKOY_CAFE["lng"],
-            "scheduled_at": "2026-07-01T12:00:00Z",
+            "offers": [
+                {
+                    "place_name": "Kadikoy Cafe",
+                    "category": "cafe",
+                    "lat": KADIKOY_CAFE["lat"],
+                    "lng": KADIKOY_CAFE["lng"],
+                    "scheduled_at": "2026-07-01T12:00:00Z",
+                }
+            ],
         },
         headers=requester["headers"],
     )
@@ -193,11 +215,15 @@ async def test_reschedule_resets_acknowledgments(
     await client.post(
         f"/api/v1/exchanges/{exchange_id}/meetup",
         json={
-            "place_name": "Manual pin",
-            "category": None,
-            "lat": KADIKOY_CAFE["lat"],
-            "lng": KADIKOY_CAFE["lng"],
-            "scheduled_at": "2026-07-01T12:00:00Z",
+            "offers": [
+                {
+                    "place_name": "Manual pin",
+                    "category": None,
+                    "lat": KADIKOY_CAFE["lat"],
+                    "lng": KADIKOY_CAFE["lng"],
+                    "scheduled_at": "2026-07-01T12:00:00Z",
+                }
+            ],
             "acknowledge_warning": True,
         },
         headers=requester["headers"],
@@ -211,11 +237,15 @@ async def test_reschedule_resets_acknowledgments(
     resched_resp = await client.post(
         f"/api/v1/exchanges/{exchange_id}/meetup",
         json={
-            "place_name": "Manual pin v2",
-            "category": None,
-            "lat": KADIKOY_CAFE["lat"],
-            "lng": KADIKOY_CAFE["lng"],
-            "scheduled_at": "2026-07-02T12:00:00Z",
+            "offers": [
+                {
+                    "place_name": "Manual pin v2",
+                    "category": None,
+                    "lat": KADIKOY_CAFE["lat"],
+                    "lng": KADIKOY_CAFE["lng"],
+                    "scheduled_at": "2026-07-02T12:00:00Z",
+                }
+            ],
         },
         headers=requester["headers"],
     )
@@ -238,11 +268,15 @@ async def test_propose_meetup_outside_turkey_rejected(
     resp = await client.post(
         f"/api/v1/exchanges/{exchange_id}/meetup",
         json={
-            "place_name": "Rhodes Cafe",
-            "category": "cafe",
-            "lat": RHODES["lat"],
-            "lng": RHODES["lng"],
-            "scheduled_at": "2026-07-01T12:00:00Z",
+            "offers": [
+                {
+                    "place_name": "Rhodes Cafe",
+                    "category": "cafe",
+                    "lat": RHODES["lat"],
+                    "lng": RHODES["lng"],
+                    "scheduled_at": "2026-07-01T12:00:00Z",
+                }
+            ],
         },
         headers=requester["headers"],
     )
@@ -264,11 +298,15 @@ async def test_propose_meetup_near_blocked_place_rejected(
     resp = await client.post(
         f"/api/v1/exchanges/{exchange_id}/meetup",
         json={
-            "place_name": "Blocked place",
-            "category": "cafe",
-            "lat": KADIKOY_CAFE["lat"],
-            "lng": KADIKOY_CAFE["lng"],
-            "scheduled_at": "2026-07-01T12:00:00Z",
+            "offers": [
+                {
+                    "place_name": "Blocked place",
+                    "category": "cafe",
+                    "lat": KADIKOY_CAFE["lat"],
+                    "lng": KADIKOY_CAFE["lng"],
+                    "scheduled_at": "2026-07-01T12:00:00Z",
+                }
+            ],
         },
         headers=requester["headers"],
     )
@@ -294,11 +332,15 @@ async def test_propose_meetup_before_accepted_is_invalid_transition(
     resp = await client.post(
         f"/api/v1/exchanges/{exchange_id}/meetup",
         json={
-            "place_name": "Kadikoy Cafe",
-            "category": "cafe",
-            "lat": KADIKOY_CAFE["lat"],
-            "lng": KADIKOY_CAFE["lng"],
-            "scheduled_at": "2026-07-01T12:00:00Z",
+            "offers": [
+                {
+                    "place_name": "Kadikoy Cafe",
+                    "category": "cafe",
+                    "lat": KADIKOY_CAFE["lat"],
+                    "lng": KADIKOY_CAFE["lng"],
+                    "scheduled_at": "2026-07-01T12:00:00Z",
+                }
+            ],
         },
         headers=requester["headers"],
     )
@@ -336,12 +378,88 @@ async def test_meetup_actions_require_participant(
     resp = await client.post(
         f"/api/v1/exchanges/{exchange_id}/meetup",
         json={
-            "place_name": "Kadikoy Cafe",
-            "category": "cafe",
-            "lat": KADIKOY_CAFE["lat"],
-            "lng": KADIKOY_CAFE["lng"],
-            "scheduled_at": "2026-07-01T12:00:00Z",
+            "offers": [
+                {
+                    "place_name": "Kadikoy Cafe",
+                    "category": "cafe",
+                    "lat": KADIKOY_CAFE["lat"],
+                    "lng": KADIKOY_CAFE["lng"],
+                    "scheduled_at": "2026-07-01T12:00:00Z",
+                }
+            ],
         },
         headers=stranger["headers"],
     )
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_propose_multiple_offers_and_counter_proposal(
+    client: httpx.AsyncClient, register_user, create_book, seed_turkey_boundary
+) -> None:
+    owner = await register_user("meetup_multi_owner@example.com", "Owner")
+    requester = await register_user("meetup_multi_requester@example.com", "Requester")
+    book_id = await create_book(owner["headers"])
+    exchange_id = await _create_accepted_exchange(client, requester, owner, book_id)
+
+    # Owner (seller) offers two candidate places, each with its own time.
+    propose_resp = await client.post(
+        f"/api/v1/exchanges/{exchange_id}/meetup",
+        json={
+            "offers": [
+                {
+                    "place_name": "Kadikoy Cafe",
+                    "category": "cafe",
+                    "lat": KADIKOY_CAFE["lat"],
+                    "lng": KADIKOY_CAFE["lng"],
+                    "scheduled_at": "2026-07-01T12:00:00Z",
+                },
+                {
+                    "place_name": "Istanbul Square",
+                    "category": "park",
+                    "lat": ISTANBUL["lat"],
+                    "lng": ISTANBUL["lng"],
+                    "scheduled_at": "2026-07-02T15:00:00Z",
+                },
+            ],
+        },
+        headers=owner["headers"],
+    )
+    assert propose_resp.status_code == 200
+    body = propose_resp.json()
+    assert body["status"] == "meetup_proposed"
+    assert len(body["meetup"]["offers"]) == 2
+    assert body["meetup"]["proposed_by"] == owner["user_id"]
+
+    # Requester (buyer) counters with their own set of offers.
+    counter_resp = await client.post(
+        f"/api/v1/exchanges/{exchange_id}/meetup",
+        json={
+            "offers": [
+                {
+                    "place_name": "Counter Cafe",
+                    "category": "cafe",
+                    "lat": KADIKOY_CAFE["lat"],
+                    "lng": KADIKOY_CAFE["lng"],
+                    "scheduled_at": "2026-07-03T10:00:00Z",
+                },
+            ],
+        },
+        headers=requester["headers"],
+    )
+    assert counter_resp.status_code == 200
+    counter_body = counter_resp.json()
+    assert counter_body["meetup"]["proposed_by"] == requester["user_id"]
+    assert counter_body["meetup"]["offers"][0]["place_name"] == "Counter Cafe"
+
+    # Owner accepts the requester's countered offer (index 0) and selects its time.
+    accept_resp = await client.post(
+        f"/api/v1/exchanges/{exchange_id}/meetup/accept",
+        json={"offer_index": 0},
+        headers=owner["headers"],
+    )
+    assert accept_resp.status_code == 200
+    accepted = accept_resp.json()
+    assert accepted["status"] == "meetup_confirmed"
+    assert accepted["meetup"]["place_name"] == "Counter Cafe"
+    assert accepted["meetup"]["scheduled_at"] == "2026-07-03T10:00:00Z"

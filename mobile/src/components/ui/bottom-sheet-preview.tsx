@@ -26,25 +26,18 @@ export function BottomSheetPreview({
   onRequestExchange,
   onViewDetail,
 }: BottomSheetPreviewProps) {
-  const sheetRef = React.useRef<BottomSheet>(null);
   const snapPoints = React.useMemo(() => ['45%'], []);
   const scheme = useColorScheme();
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
 
-  React.useEffect(() => {
-    if (book) {
-      sheetRef.current?.expand();
-    } else {
-      sheetRef.current?.close();
-    }
-  }, [book]);
-
   return (
     <BottomSheet
-      ref={sheetRef}
-      index={-1}
+      key={book?.id ?? 'closed'}
+      index={book ? 0 : -1}
       snapPoints={snapPoints}
-      onClose={onClose}
+      onChange={(index) => {
+        if (index === -1) onClose();
+      }}
       enablePanDownToClose
       backgroundStyle={[styles.background, { backgroundColor: colors.surface }]}
       handleIndicatorStyle={[styles.indicator, { backgroundColor: colors.textMuted }]}
@@ -86,9 +79,7 @@ export function BottomSheetPreview({
             </TouchableOpacity>
           </View>
         </View>
-      ) : (
-        <View />
-      )}
+      ) : null}
     </BottomSheet>
   );
 }

@@ -992,10 +992,56 @@ export interface components {
         /** MeetupAcceptRequest */
         MeetupAcceptRequest: {
             /**
+             * Offer Index
+             * @default 0
+             */
+            offer_index: number;
+            /**
              * Acknowledge Warning
              * @default false
              */
             acknowledge_warning: boolean;
+        };
+        /** MeetupOffer */
+        MeetupOffer: {
+            /** Place Id */
+            place_id?: string | null;
+            /** Place Name */
+            place_name: string;
+            /** Address */
+            address?: string | null;
+            /** Category */
+            category?: string | null;
+            /** Lat */
+            lat: number;
+            /** Lng */
+            lng: number;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+        };
+        /** MeetupOfferView */
+        MeetupOfferView: {
+            /** Place Id */
+            place_id?: string | null;
+            /** Place Name */
+            place_name: string;
+            /** Address */
+            address?: string | null;
+            /** Category */
+            category?: string | null;
+            /** Lat */
+            lat: number;
+            /** Lng */
+            lng: number;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            validation_status: components["schemas"]["MeetupValidationStatus"];
         };
         /** MeetupDetail */
         MeetupDetail: {
@@ -1035,6 +1081,8 @@ export interface components {
             requires_acknowledgment: boolean;
             /** Can Confirm */
             can_confirm: boolean;
+            /** Offers */
+            offers: components["schemas"]["MeetupOfferView"][];
             /**
              * Created At
              * Format: date-time
@@ -1048,23 +1096,12 @@ export interface components {
         };
         /** MeetupProposeRequest */
         MeetupProposeRequest: {
-            /** Place Id */
-            place_id?: string | null;
-            /** Place Name */
-            place_name: string;
-            /** Address */
-            address?: string | null;
-            /** Category */
-            category?: string | null;
-            /** Lat */
-            lat: number;
-            /** Lng */
-            lng: number;
             /**
-             * Scheduled At
-             * Format: date-time
+             * Offers
+             * @minItems 1
+             * @maxItems 5
              */
-            scheduled_at: string;
+            offers: components["schemas"]["MeetupOffer"][];
             /**
              * Acknowledge Warning
              * @default false

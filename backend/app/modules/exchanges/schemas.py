@@ -20,7 +20,7 @@ class ExchangeCreateRequest(BaseModel):
     initial_message: str = Field(min_length=1, max_length=1000)
 
 
-class MeetupProposeRequest(BaseModel):
+class MeetupOffer(BaseModel):
     place_id: str | None = None
     place_name: str = Field(min_length=1, max_length=255)
     address: str | None = None
@@ -28,10 +28,15 @@ class MeetupProposeRequest(BaseModel):
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
     scheduled_at: datetime
+
+
+class MeetupProposeRequest(BaseModel):
+    offers: list[MeetupOffer] = Field(min_length=1, max_length=5)
     acknowledge_warning: bool = False
 
 
 class MeetupAcceptRequest(BaseModel):
+    offer_index: int = Field(ge=0, le=4, default=0)
     acknowledge_warning: bool = False
 
 
@@ -72,6 +77,10 @@ class ExchangeListResponse(BaseModel):
     next_cursor: str | None = None
 
 
+class MeetupOfferView(MeetupOffer):
+    validation_status: MeetupValidationStatus
+
+
 class MeetupDetail(BaseModel):
     id: uuid.UUID
     place_id: str | None
@@ -87,6 +96,7 @@ class MeetupDetail(BaseModel):
     other_acknowledged: bool
     requires_acknowledgment: bool
     can_confirm: bool
+    offers: list[MeetupOfferView]
     created_at: datetime
     updated_at: datetime
 

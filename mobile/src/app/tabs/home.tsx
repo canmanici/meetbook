@@ -10,6 +10,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
+  PixelRatio,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
@@ -18,7 +19,7 @@ import ClusteredMapView from 'react-native-map-clustering';
 
 import { BookCard, EmptyState, Skeleton, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
 import { MapBookPin } from '@/components/ui/map-book-pin';
-import { BottomSheetPreview, BookPreviewData } from '@/components/ui/bottom-sheet-preview';
+
 import { searchNearbyBooks } from '@/lib/api/client';
 
 const CATEGORIES = [
@@ -40,7 +41,6 @@ export default function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [searchText, setSearchText] = useState('');
-  const [selectedBook, setSelectedBook] = useState<BookPreviewData | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<'distance' | 'newest'>('distance');
   const [mapRegion, setMapRegion] = useState({
@@ -250,6 +250,7 @@ export default function HomeScreen() {
         </>
       ) : (
         <View style={styles.mapContainer}>
+          
           <ClusteredMapView
             ref={mapRef as any}
             style={styles.map}
@@ -258,7 +259,7 @@ export default function HomeScreen() {
             showsUserLocation
             showsMyLocationButton={false}
             onRegionChangeComplete={setMapRegion}
-          >
+            >
             {books.map((book) => {
               if (!book.public_location) return null;
               return (
@@ -268,22 +269,12 @@ export default function HomeScreen() {
                     latitude: book.public_location.lat,
                     longitude: book.public_location.lng,
                   }}
-                  onPress={() =>
-                    setSelectedBook({
-                      id: book.id,
-                      title: book.title,
-                      author: book.author ?? '',
-                      coverUrl: book.photos?.[0]?.url,
-                      condition: book.condition ?? '',
-                      distanceKm: book.distance_km ?? 0,
-                      category: (book.category as string) ?? '',
-                    })
-                  }
+                  onPress={() => router.push(`/book/${book.id}`)}
+                  style={{ width: 120 * PixelRatio.get(), height: 178 * PixelRatio.get(), alignItems: 'flex-start' }}
                 >
                   <MapBookPin
                     coverUrl={book.photos?.[0]?.url}
                     title={book.title}
-                    isSelected={selectedBook?.id === book.id}
                   />
                 </Marker>
               );
@@ -327,18 +318,6 @@ export default function HomeScreen() {
         </View>
       )}
 
-      <BottomSheetPreview
-        book={selectedBook}
-        onClose={() => setSelectedBook(null)}
-        onRequestExchange={(bookId) => {
-          setSelectedBook(null);
-          router.push(`/exchange/${bookId}`);
-        }}
-        onViewDetail={(bookId) => {
-          setSelectedBook(null);
-          router.push(`/book/${bookId}`);
-        }}
-      />
     </View>
   );
 }

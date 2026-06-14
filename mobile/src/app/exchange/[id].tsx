@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -133,9 +133,15 @@ export default function ExchangeDetailScreen() {
     mutationFn: () => confirmExchangeCompletion(id),
     onSuccess: invalidate,
   });
+  const [selectedOfferIndex, setSelectedOfferIndex] = useState(0);
+
+  useEffect(() => {
+    setSelectedOfferIndex(0);
+  }, [exchange?.meetup?.proposed_by, exchange?.meetup?.updated_at]);
+
   const acceptMeetupMutation = useMutation({
-    mutationFn: (acknowledgeWarning: boolean) =>
-      acceptMeetup(id, { acknowledge_warning: acknowledgeWarning }),
+    mutationFn: ({ offerIndex, acknowledgeWarning }: { offerIndex: number; acknowledgeWarning: boolean }) =>
+      acceptMeetup(id, { offer_index: offerIndex, acknowledge_warning: acknowledgeWarning }),
     onSuccess: (updated) => {
       setMeetupSafetySheetVisible(false);
       return invalidate(updated);
@@ -173,16 +179,21 @@ export default function ExchangeDetailScreen() {
 
   const steps = getTimelineSteps(exchange, userId);
 
+  const chosenOffer = meetup?.offers[selectedOfferIndex];
+
   const onAcceptMeetup = () => {
-    if (meetup?.requires_acknowledgment) {
+    const requiresAck =
+      chosenOffer?.validation_status === 'warning' &&
+      !(meetup?.proposer_acknowledged && meetup?.other_acknowledged);
+    if (requiresAck) {
       setMeetupSafetySheetVisible(true);
       return;
     }
-    acceptMeetupMutation.mutate(false);
+    acceptMeetupMutation.mutate({ offerIndex: selectedOfferIndex, acknowledgeWarning: false });
   };
 
   const onAcknowledgeMeetupSafety = () => {
-    acceptMeetupMutation.mutate(true);
+    acceptMeetupMutation.mutate({ offerIndex: selectedOfferIndex, acknowledgeWarning: true });
   };
 
   const onOpenInMaps = (provider: 'google' | 'yandex' | 'apple') => {
@@ -329,30 +340,87 @@ export default function ExchangeDetailScreen() {
 
           {meetup ? (
             <>
-              <View style={[styles.placeCard, { backgroundColor: colors.background, borderColor: colors.textMuted + '30' }]}>
-                <View style={styles.placeHeader}>
-                  <Ionicons name="location" size={20} color={colors.primary} />
-                  <Text style={[styles.placeName, { color: colors.text }]} testID="meetup-place-name">
-                    {meetup.place_name}
-                  </Text>
+              {exchange.status === 'meetup_proposed' ? (
+                <View style={styles.offersList}>
+                  {!isMeetupProposer && meetup.offers.length > 1 && (
+                    <Text style={[styles.offersHint, { color: colors.textMuted }]}>
+                      Önerilen seçeneklerden birini seçin
+                    </Text>
+                  )}
+                  {meetup.offers.map((offer, index) => {
+                    const isChosen = !isMeetupProposer && selectedOfferIndex === index;
+                    return (
+                      <TouchableOpacity
+                        key={index}
+                        activeOpacity={isMeetupProposer ? 1 : 0.7}
+                        disabled={isMeetupProposer}
+                        onPress={() => setSelectedOfferIndex(index)}
+                        style={[
+                          styles.placeCard,
+                          {
+                            backgroundColor: colors.background,
+                            borderColor: isChosen ? colors.primary : colors.textMuted + '30',
+                            borderWidth: isChosen ? 2 : 1,
+                          },
+                        ]}
+                        testID={`meetup-offer-${index}`}
+                      >
+                        <View style={styles.placeHeader}>
+                          <Ionicons
+                            name={isChosen ? 'radio-button-on' : 'location'}
+                            size={20}
+                            color={colors.primary}
+                          />
+                          <Text style={[styles.placeName, { color: colors.text }]} testID={`meetup-offer-name-${index}`}>
+                            {offer.place_name}
+                          </Text>
+                        </View>
+                        {offer.address ? (
+                          <Text style={[styles.placeAddress, { color: colors.textMuted }]}>
+                            {offer.address}
+                          </Text>
+                        ) : null}
+                        {offer.category ? (
+                          <Badge text={offer.category} variant="info" />
+                        ) : null}
+                        <Text style={[styles.placeTime, { color: colors.text }]} testID={`meetup-offer-time-${index}`}>
+                          {formatDate(offer.scheduled_at)}
+                        </Text>
+                        <Badge
+                          text={MEETUP_VALIDATION_LABELS[offer.validation_status]}
+                          variant={offer.validation_status === 'auto' ? 'success' : 'warning'}
+                          testID={`meetup-offer-validation-${index}`}
+                        />
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-                {meetup.address ? (
-                  <Text style={[styles.placeAddress, { color: colors.textMuted }]}>
-                    {meetup.address}
+              ) : (
+                <View style={[styles.placeCard, { backgroundColor: colors.background, borderColor: colors.textMuted + '30' }]}>
+                  <View style={styles.placeHeader}>
+                    <Ionicons name="location" size={20} color={colors.primary} />
+                    <Text style={[styles.placeName, { color: colors.text }]} testID="meetup-place-name">
+                      {meetup.place_name}
+                    </Text>
+                  </View>
+                  {meetup.address ? (
+                    <Text style={[styles.placeAddress, { color: colors.textMuted }]}>
+                      {meetup.address}
+                    </Text>
+                  ) : null}
+                  {meetup.category ? (
+                    <Badge text={meetup.category} variant="info" />
+                  ) : null}
+                  <Text style={[styles.placeTime, { color: colors.text }]} testID="meetup-scheduled-at">
+                    {formatDate(meetup.scheduled_at)}
                   </Text>
-                ) : null}
-                {meetup.category ? (
-                  <Badge text={meetup.category} variant="info" />
-                ) : null}
-                <Text style={[styles.placeTime, { color: colors.text }]} testID="meetup-scheduled-at">
-                  {formatDate(meetup.scheduled_at)}
-                </Text>
-                <Badge
-                  text={MEETUP_VALIDATION_LABELS[meetup.validation_status]}
-                  variant={meetup.validation_status === 'auto' ? 'success' : 'warning'}
-                  testID="meetup-validation-badge"
-                />
-              </View>
+                  <Badge
+                    text={MEETUP_VALIDATION_LABELS[meetup.validation_status]}
+                    variant={meetup.validation_status === 'auto' ? 'success' : 'warning'}
+                    testID="meetup-validation-badge"
+                  />
+                </View>
+              )}
 
               {exchange.status === 'meetup_proposed' && isMeetupProposer && (
                 <Text style={[styles.waiting, { color: colors.textMuted }]} testID="meetup-waiting">
@@ -398,7 +466,9 @@ export default function ExchangeDetailScreen() {
                     }
                     testID="reschedule-meetup-button"
                   >
-                    Yeniden Planla
+                    {exchange.status === 'meetup_proposed' && !isMeetupProposer
+                      ? 'Karşı Öner'
+                      : 'Yeniden Planla'}
                   </Button>
                 </View>
               )}
@@ -696,6 +766,13 @@ const styles = StyleSheet.create({
   meetupCard: {
     padding: spacing.md,
     gap: spacing.sm,
+  },
+  offersList: {
+    gap: spacing.sm,
+  },
+  offersHint: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
   },
   placeCard: {
     padding: spacing.md,

@@ -16,7 +16,7 @@ from sqlalchemy import (
     Index,
     Text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.core.db import Base
 
@@ -133,6 +133,10 @@ class Meetup(Base):
     proposed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     proposer_acknowledged = Column(Boolean, nullable=False, default=False)
     other_acknowledged = Column(Boolean, nullable=False, default=False)
+    # List of {place_id, place_name, address, category, lat, lng, scheduled_at,
+    # validation_status} dicts — the current proposer's candidate places/times.
+    # offers[0] always mirrors the canonical place_*/lat/lng/scheduled_at fields above.
+    offers = Column(JSONB, nullable=False, default=list, server_default="[]")
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
 
