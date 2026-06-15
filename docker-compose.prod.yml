@@ -70,9 +70,12 @@ services:
     volumes:
       - mediadata:/app/media
     depends_on:
-      - db
-      - redis
-      - minio
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     restart: unless-stopped
     labels:
       - traefik.enable=true
