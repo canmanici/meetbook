@@ -7,9 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.modules.admin.schemas import (
+    AdminBookListResponse,
+    AdminBookDetailView,
+    AdminExchangeListResponse,
+    AdminExchangeDetailView,
     AdminReportListResponse,
     AdminReportView,
+    AdminUserListResponse,
+    AdminUserDetailView,
     AdminUserView,
+    AuditLogListResponse,
     BlockedPlaceCreateRequest,
     BlockedPlaceListResponse,
     BlockedPlaceView,
@@ -19,7 +26,8 @@ from app.modules.admin.schemas import (
 )
 from app.modules.admin.service import AdminError, AdminService
 from app.modules.auth.dependencies import get_admin_user
-from app.modules.auth.models import User
+from app.modules.auth.models import User, UserStatus
+from app.modules.exchanges.models import ExchangeStatus
 from app.modules.reports.models import ReportStatus
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -136,3 +144,86 @@ async def get_metrics(
     service: AdminService = Depends(_get_service),
 ) -> MetricsResponse:
     return await service.get_metrics()
+
+
+@router.get("/users", response_model=AdminUserListResponse)
+async def list_users(
+    search: str | None = Query(default=None),
+    status: UserStatus | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_admin_user),
+    service: AdminService = Depends(_get_service),
+) -> AdminUserListResponse:
+    return await service.list_users(search, status, limit, offset)
+
+
+@router.get("/users/{user_id}", response_model=AdminUserDetailView)
+async def get_user_detail(
+    user_id: uuid.UUID,
+    user: User = Depends(get_admin_user),
+    service: AdminService = Depends(_get_service),
+) -> AdminUserDetailView:
+    try:
+        return await service.get_user_detail(user_id)
+    except AdminError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.get("/books", response_model=AdminBookListResponse)
+async def list_books(
+    search: str | None = Query(default=None),
+    available_only: bool = Query(default=False),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_admin_user),
+    service: AdminService = Depends(_get_service),
+) -> AdminBookListResponse:
+    return await service.list_books(search, available_only, limit, offset)
+
+
+@router.get("/books/{book_id}", response_model=AdminBookDetailView)
+async def get_book_detail(
+    book_id: uuid.UUID,
+    user: User = Depends(get_admin_user),
+    service: AdminService = Depends(_get_service),
+) -> AdminBookDetailView:
+    try:
+        return await service.get_book_detail(book_id)
+    except AdminError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.get("/exchanges", response_model=AdminExchangeListResponse)
+async def list_exchanges(
+    status: ExchangeStatus | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_admin_user),
+    service: AdminService = Depends(_get_service),
+) -> AdminExchangeListResponse:
+    return await service.list_exchanges(status, limit, offset)
+
+
+@router.get("/exchanges/{exchange_id}", response_model=AdminExchangeDetailView)
+async def get_exchange_detail(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_admin_user),
+    service: AdminService = Depends(_get_service),
+) -> AdminExchangeDetailView:
+    try:
+        return await service.get_exchange_detail(exchange_id)
+    except AdminError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.get("/audit-log", response_model=AuditLogListResponse)
+async def list_audit_logs(
+    user_id: uuid.UUID | None = Query(default=None),
+    event_type: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_admin_user),
+    service: AdminService = Depends(_get_service),
+) -> AuditLogListResponse:
+    return await service.list_audit_logs(user_id, event_type, limit, offset)

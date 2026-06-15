@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.geo import make_point
-from app.modules.auth.models import User, UserStatus
+from app.modules.auth.models import AuditLog, User, UserStatus
 from app.modules.books.models import Book
 from app.modules.books.repository import BookRepository
 from app.modules.exchanges.models import BlockedPlace, ExchangeRequest, ExchangeStatus
@@ -113,3 +113,115 @@ class AdminRepository:
             .where(Report.status.in_((ReportStatus.open, ReportStatus.reviewing)))
         )
         return result.scalar() or 0
+
+    # -- Users list/detail ----------------------------------------------------
+
+    async def list_users(
+        self, search: str | None = None, status: UserStatus | None = None, limit: int = 50, offset: int = 0
+    ) -> tuple[list[User], int]:
+        stmt = select(User)
+        count_stmt = select(func.count()).select_from(User)
+
+        if search:
+            search_pattern = f"%{search}%"
+            stmt = stmt.where(User.name.ilike(search_pattern) | User.email.ilike(search_pattern))
+            count_stmt = count_stmt.where(User.name.ilike(search_pattern) | User.email.ilike(search_pattern))
+
+        if status:
+            stmt = stmt.where(User.status == status)
+            count_stmt = count_stmt.where(User.status == status)
+
+        total_result = await self.session.execute(count_stmt)
+        total = total_result.scalar() or 0
+
+        stmt = stmt.order_by(User.created_at.desc()).limit(limit).offset(offset)
+        result = await self.session.execute(stmt)
+        users = list(result.scalars().all())
+
+        return users, total
+
+    async def get_user_detail(self, user_id: uuid.UUID) -> User | None:
+        result = await self.session.execute(select(User).where(User.id == user_id))
+        return result.scalar_one_or_none()
+
+    # -- Books list/detail ----------------------------------------------------
+
+    async def list_books(
+        self, search: str | None = None, available_only: bool = False, limit: int = 50, offset: int = 0
+    ) -> tuple[list[Book], int]:
+        stmt = select(Book)
+        count_stmt = select(func.count()).select_from(Book)
+
+        if search:
+            search_pattern = f"%{search}%"
+            stmt = stmt.where(Book.title.ilike(search_pattern) | Book.author.ilike(search_pattern))
+            count_stmt = count_stmt.where(Book.title.ilike(search_pattern) | Book.author.ilike(search_pattern))
+
+        if available_only:
+            stmt = stmt.where(Book.is_available == True)
+            count_stmt = count_stmt.where(Book.is_available == True)
+
+        total_result = await self.session.execute(count_stmt)
+        total = total_result.scalar() or 0
+
+        stmt = stmt.order_by(Book.created_at.desc()).limit(limit).offset(offset)
+        result = await self.session.execute(stmt)
+        books = list(result.scalars().all())
+
+        return books, total
+
+    async def get_book_detail(self, book_id: uuid.UUID) -> Book | None:
+        result = await self.session.execute(select(Book).where(Book.id == book_id))
+        return result.scalar_one_or_none()
+
+    # -- Exchanges list/detail ------------------------------------------------
+
+    async def list_exchanges(
+        self, status: ExchangeStatus | None = None, limit: int = 50, offset: int = 0
+    ) -> tuple[list[ExchangeRequest], int]:
+        stmt = select(ExchangeRequest)
+        count_stmt = select(func.count()).select_from(ExchangeRequest)
+
+        if status:
+            stmt = stmt.where(ExchangeRequest.status == status)
+            count_stmt = count_stmt.where(ExchangeRequest.status == status)
+
+        total_result = await self.session.execute(count_stmt)
+        total = total_result.scalar() or 0
+
+        stmt = stmt.order_by(ExchangeRequest.created_at.desc()).limit(limit).offset(offset)
+        result = await self.session.execute(stmt)
+        exchanges = list(result.scalars().all())
+
+        return exchanges, total
+
+    async def get_exchange_detail(self, exchange_id: uuid.UUID) -> ExchangeRequest | None:
+        result = await self.session.execute(
+            select(ExchangeRequest).where(ExchangeRequest.id == exchange_id)
+        )
+        return result.scalar_one_or_none()
+
+    # -- Audit log ------------------------------------------------------------
+
+    async def list_audit_logs(
+        self, user_id: uuid.UUID | None = None, event_type: str | None = None, limit: int = 50, offset: int = 0
+    ) -> tuple[list[AuditLog], int]:
+        stmt = select(AuditLog)
+        count_stmt = select(func.count()).select_from(AuditLog)
+
+        if user_id:
+            stmt = stmt.where(AuditLog.user_id == user_id)
+            count_stmt = count_stmt.where(AuditLog.user_id == user_id)
+
+        if event_type:
+            stmt = stmt.where(AuditLog.event_type == event_type)
+            count_stmt = count_stmt.where(AuditLog.event_type == event_type)
+
+        total_result = await self.session.execute(count_stmt)
+        total = total_result.scalar() or 0
+
+        stmt = stmt.order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
+        result = await self.session.execute(stmt)
+        logs = list(result.scalars().all())
+
+        return logs, total

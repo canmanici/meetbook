@@ -32,6 +32,9 @@ services:
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+      MINIO_BROWSER_REDIRECT_URL: https://canmanici.com/meetbook/admin/minio
+    ports:
+      - "9001:9001"
     volumes:
       - miniodata:/data
     healthcheck:
@@ -51,6 +54,14 @@ services:
       - traefik.http.middlewares.meetbook-storage-strip.stripprefix.prefixes=/meetbook/storage
       - traefik.http.routers.meetbook-storage.middlewares=meetbook-storage-strip
       - traefik.http.services.meetbook-storage.loadbalancer.server.port=9000
+      # https://canmanici.com/meetbook/admin/minio -> minio console at :9001
+      - traefik.http.routers.meetbook-minio-console.rule=Host(`canmanici.com`) && PathPrefix(`/meetbook/admin/minio`)
+      - traefik.http.routers.meetbook-minio-console.entrypoints=websecure
+      - traefik.http.routers.meetbook-minio-console.tls.certresolver=letsencrypt
+      - traefik.http.routers.meetbook-minio-console.priority=20
+      - traefik.http.middlewares.meetbook-minio-console-strip.stripprefix.prefixes=/meetbook/admin/minio
+      - traefik.http.routers.meetbook-minio-console.middlewares=meetbook-minio-console-strip
+      - traefik.http.services.meetbook-minio-console.loadbalancer.server.port=9001
 
   backend:
     build: ./backend

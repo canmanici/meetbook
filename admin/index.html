@@ -1,0 +1,2780 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="MeetBook Admin Dashboard - Production Grade Management Interface">
+    <title>MeetBook Admin</title>
+    <style>
+        /* CSS Reset & Variables */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            /* Colors - Dark Theme */
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --bg-card: #1e293b;
+            --bg-hover: #334155;
+            --bg-active: #475569;
+
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+
+            --accent-primary: #6366f1;
+            --accent-primary-hover: #818cf8;
+            --accent-secondary: #ec4899;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-danger: #ef4444;
+            --accent-info: #06b6d4;
+
+            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-success: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --gradient-warning: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+
+            --border-color: #334155;
+            --border-radius: 12px;
+            --border-radius-sm: 8px;
+            --border-radius-lg: 16px;
+
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            --shadow-glow: 0 0 20px rgb(99 102 241 / 0.3);
+
+            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+            --sidebar-width: 280px;
+            --header-height: 70px;
+        }
+
+        html {
+            font-size: 16px;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Typography */
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 700;
+            line-height: 1.2;
+            letter-spacing: -0.025em;
+        }
+
+        h1 { font-size: 2.5rem; }
+        h2 { font-size: 2rem; }
+        h3 { font-size: 1.5rem; }
+        h4 { font-size: 1.25rem; }
+
+        a {
+            color: var(--accent-primary);
+            text-decoration: none;
+            transition: color var(--transition-fast);
+        }
+
+        a:hover {
+            color: var(--accent-primary-hover);
+        }
+
+        /* Layout */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            transition: transform var(--transition-slow);
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--gradient-primary);
+            border-radius: var(--border-radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: white;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo-badge {
+            font-size: 0.625rem;
+            font-weight: 600;
+            background: var(--accent-primary);
+            color: white;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            margin-left: auto;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .nav-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            border-radius: var(--border-radius-sm);
+            color: var(--text-secondary);
+            font-weight: 500;
+            transition: all var(--transition-fast);
+            cursor: pointer;
+            margin-bottom: 0.25rem;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--accent-primary);
+            color: white;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .nav-item-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .nav-item-text {
+            flex: 1;
+        }
+
+        .nav-item-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: var(--accent-danger);
+            color: white;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            border-radius: var(--border-radius-sm);
+            background: var(--bg-tertiary);
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--gradient-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.875rem;
+            color: white;
+        }
+
+        .user-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-role {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            height: var(--header-height);
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            backdrop-filter: blur(10px);
+            background: rgba(30, 41, 59, 0.8);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .menu-toggle {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border-radius: var(--border-radius-sm);
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+
+        .menu-toggle:hover {
+            background: var(--bg-hover);
+        }
+
+        .page-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .header-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-input {
+            width: 300px;
+            height: 40px;
+            padding: 0 1rem 0 2.5rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            transition: all var(--transition-fast);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgb(99 102 241 / 0.2);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--border-radius-sm);
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.125rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            position: relative;
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 8px;
+            height: 8px;
+            background: var(--accent-danger);
+            border-radius: 50%;
+            border: 2px solid var(--bg-secondary);
+        }
+
+        /* Content Area */
+        .content {
+            flex: 1;
+            padding: 1.5rem;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* Dashboard Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: var(--border-radius-lg);
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+            transition: all var(--transition-normal);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-primary);
+            opacity: 0;
+            transition: opacity var(--transition-normal);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--border-radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .stat-icon.primary {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--accent-primary);
+        }
+
+        .stat-icon.success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-success);
+        }
+
+        .stat-icon.warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--accent-warning);
+        }
+
+        .stat-icon.danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-danger);
+        }
+
+        .stat-change {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .stat-change.positive {
+            color: var(--accent-success);
+        }
+
+        .stat-change.negative {
+            color: var(--accent-danger);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--border-radius-lg);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .card-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+        }
+
+        /* Tables */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            background: var(--bg-tertiary);
+            padding: 0.875rem 1rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+
+        tbody td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.875rem;
+        }
+
+        tbody tr {
+            transition: background var(--transition-fast);
+        }
+
+        tbody tr:hover {
+            background: var(--bg-hover);
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .badge-primary {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--accent-primary);
+        }
+
+        .badge-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-success);
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--accent-warning);
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-danger);
+        }
+
+        .badge-info {
+            background: rgba(6, 182, 212, 0.1);
+            color: var(--accent-info);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1.25rem;
+            border-radius: var(--border-radius-sm);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            border: none;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-primary-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-active);
+        }
+
+        .btn-success {
+            background: var(--accent-success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: var(--accent-danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+        }
+
+        .btn-ghost:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: 0.625rem 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-sm);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            transition: all var(--transition-fast);
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgb(99 102 241 / 0.2);
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all var(--transition-normal);
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border-radius: var(--border-radius-lg);
+            border: 1px solid var(--border-color);
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: scale(0.95) translateY(20px);
+            transition: transform var(--transition-normal);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1) translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--border-radius-sm);
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0.25rem;
+            background: var(--bg-tertiary);
+            border-radius: var(--border-radius-sm);
+            margin-bottom: 1.5rem;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 0.625rem 1rem;
+            border-radius: var(--border-radius-sm);
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .tab:hover {
+            color: var(--text-primary);
+        }
+
+        .tab.active {
+            background: var(--accent-primary);
+            color: white;
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 0;
+        }
+
+        .pagination-info {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .pagination-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .filter-select {
+            padding: 0.5rem 2rem 0.5rem 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-sm);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-text {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--bg-tertiary);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-xl);
+            min-width: 300px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast-icon {
+            font-size: 1.25rem;
+        }
+
+        .toast-success .toast-icon { color: var(--accent-success); }
+        .toast-error .toast-icon { color: var(--accent-danger); }
+        .toast-warning .toast-icon { color: var(--accent-warning); }
+        .toast-info .toast-icon { color: var(--accent-info); }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .toast-message {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .toast-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+
+        /* Charts Container */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-container {
+            background: var(--bg-card);
+            border-radius: var(--border-radius-lg);
+            border: 1px solid var(--border-color);
+            padding: 1.5rem;
+        }
+
+        .chart-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .chart-legend {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        /* Bar Chart */
+        .bar-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 0.5rem;
+            height: 200px;
+            padding-top: 1rem;
+        }
+
+        .bar-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .bar {
+            width: 100%;
+            max-width: 40px;
+            border-radius: 4px 4px 0 0;
+            transition: all var(--transition-normal);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .bar:hover {
+            opacity: 0.8;
+            transform: scaleY(1.02);
+            transform-origin: bottom;
+        }
+
+        .bar-label {
+            font-size: 0.625rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        /* Donut Chart */
+        .donut-chart {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            margin: 0 auto;
+        }
+
+        .donut-chart svg {
+            transform: rotate(-90deg);
+        }
+
+        .donut-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .donut-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+
+        .donut-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .menu-toggle {
+                display: flex;
+            }
+
+            .search-input {
+                width: 200px;
+            }
+
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .search-box {
+                display: none;
+            }
+
+            .header {
+                padding: 0 1rem;
+            }
+
+            .content {
+                padding: 1rem;
+            }
+
+            .filters {
+                flex-direction: column;
+            }
+
+            .pagination {
+                flex-direction: column;
+                gap: 1rem;
+            }
+        }
+
+        /* Utility Classes */
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-muted { color: var(--text-muted); }
+        .text-success { color: var(--accent-success); }
+        .text-danger { color: var(--accent-danger); }
+        .text-warning { color: var(--accent-warning); }
+        .mt-1 { margin-top: 0.5rem; }
+        .mt-2 { margin-top: 1rem; }
+        .mt-3 { margin-top: 1.5rem; }
+        .mb-1 { margin-bottom: 0.5rem; }
+        .mb-2 { margin-bottom: 1rem; }
+        .mb-3 { margin-bottom: 1.5rem; }
+        .flex { display: flex; }
+        .flex-center { align-items: center; }
+        .flex-between { justify-content: space-between; }
+        .gap-1 { gap: 0.5rem; }
+        .gap-2 { gap: 1rem; }
+        .hidden { display: none !important; }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .animate-slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--bg-active);
+        }
+
+        /* Print Styles */
+        @media print {
+            .sidebar,
+            .header,
+            .no-print {
+                display: none !important;
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            body {
+                background: white;
+                color: black;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">M</div>
+                    <span class="logo-text">MeetBook</span>
+                    <span class="logo-badge">Admin</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Genel Bakis</div>
+                    <div class="nav-item active" data-page="dashboard">
+                        <span class="nav-item-icon">&#9632;</span>
+                        <span class="nav-item-text">Dashboard</span>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Yonetim</div>
+                    <div class="nav-item" data-page="reports">
+                        <span class="nav-item-icon">&#9888;</span>
+                        <span class="nav-item-text">Raporlar</span>
+                        <span class="nav-item-badge" id="reports-badge">0</span>
+                    </div>
+                    <div class="nav-item" data-page="users">
+                        <span class="nav-item-icon">&#9787;</span>
+                        <span class="nav-item-text">Kullanicilar</span>
+                    </div>
+                    <div class="nav-item" data-page="books">
+                        <span class="nav-item-icon">&#9733;</span>
+                        <span class="nav-item-text">Kitaplar</span>
+                    </div>
+                    <div class="nav-item" data-page="exchanges">
+                        <span class="nav-item-icon">&#8644;</span>
+                        <span class="nav-item-text">Takaslar</span>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Güvenlik</div>
+                    <div class="nav-item" data-page="blocked-places">
+                        <span class="nav-item-icon">&#9873;</span>
+                        <span class="nav-item-text">Engellenen Yerler</span>
+                    </div>
+                    <div class="nav-item" data-page="audit-log">
+                        <span class="nav-item-icon">&#9783;</span>
+                        <span class="nav-item-text">Denetim Kaydi</span>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="user-avatar">A</div>
+                    <div class="user-info">
+                        <div class="user-name">Admin</div>
+                        <div class="user-role">Yonetici</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <button class="menu-toggle" id="menu-toggle" aria-label="Menu">
+                        &#9776;
+                    </button>
+                    <h1 class="page-title" id="page-title">Dashboard</h1>
+                </div>
+
+                <div class="header-right">
+                    <div class="search-box">
+                        <span class="search-icon">&#128269;</span>
+                        <input type="text" class="search-input" placeholder="Ara..." id="global-search">
+                    </div>
+
+                    <div class="header-actions">
+                        <button class="icon-btn" title="Yenile" onclick="location.reload()">
+                            &#8635;
+                        </button>
+                        <button class="icon-btn" title="Bildirimler">
+                            &#128276;
+                            <span class="notification-badge"></span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <div class="content">
+                <!-- Login Page -->
+                <div class="page" id="page-login">
+                    <div style="max-width: 400px; margin: 4rem auto;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">Yonetici Giris</h2>
+                            </div>
+                            <div class="card-body">
+                                <form id="login-form">
+                                    <div class="form-group">
+                                        <label class="form-label">E-posta</label>
+                                        <input type="email" class="form-input" id="login-email" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Sifre</label>
+                                        <input type="password" class="form-input" id="login-password" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                                        Giris Yap
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dashboard Page -->
+                <div class="page" id="page-dashboard">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <div class="stat-icon primary">&#9787;</div>
+                            </div>
+                            <div class="stat-value" id="stat-total-users">-</div>
+                            <div class="stat-label">Toplam Kullanici</div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <div class="stat-icon success">&#9733;</div>
+                            </div>
+                            <div class="stat-value" id="stat-daily-active">-</div>
+                            <div class="stat-label">Gunluk Aktif Kullanici</div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <div class="stat-icon warning">&#9888;</div>
+                            </div>
+                            <div class="stat-value" id="stat-open-reports">-</div>
+                            <div class="stat-label">Acik Raporlar</div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <div class="stat-icon danger">&#8644;</div>
+                            </div>
+                            <div class="stat-value" id="stat-total-exchanges">-</div>
+                            <div class="stat-label">Toplam Takas</div>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h3 class="chart-title">Takas Durumlari</h3>
+                            </div>
+                            <div class="bar-chart" id="exchanges-chart"></div>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h3 class="chart-title">Rapor Nedenleri</h3>
+                            </div>
+                            <div class="bar-chart" id="reports-chart"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reports Page -->
+                <div class="page" id="page-reports">
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label class="filter-label">Durum:</label>
+                            <select class="filter-select" id="reports-status-filter">
+                                <option value="">Tumu</option>
+                                <option value="open">Acik</option>
+                                <option value="reviewing">Inceleniyor</option>
+                                <option value="resolved">Cozumlenmis</option>
+                                <option value="dismissed">Reddedilmis</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Raporcu</th>
+                                        <th>Hedef</th>
+                                        <th>Neden</th>
+                                        <th>Durum</th>
+                                        <th>Tarih</th>
+                                        <th>Islemler</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reports-table-body">
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted">Yukleniyor...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users Page -->
+                <div class="page" id="page-users">
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label class="filter-label">Ara:</label>
+                            <input type="text" class="form-input" id="users-search" placeholder="Isim veya e-posta..." style="width: 250px;">
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Durum:</label>
+                            <select class="filter-select" id="users-status-filter">
+                                <option value="">Tumu</option>
+                                <option value="active">Aktif</option>
+                                <option value="suspended">Askida</option>
+                                <option value="deleted">Silinmis</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Isim</th>
+                                        <th>E-posta</th>
+                                        <th>Durum</th>
+                                        <th>Puan</th>
+                                        <th>Takas</th>
+                                        <th>Kayit</th>
+                                        <th>Islemler</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-table-body">
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted">Yukleniyor...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="card-footer">
+                            <div class="pagination">
+                                <div class="pagination-info" id="users-pagination-info">0 kullanici</div>
+                                <div class="pagination-buttons">
+                                    <button class="btn btn-secondary btn-sm" id="users-prev-btn" disabled>Onceki</button>
+                                    <button class="btn btn-secondary btn-sm" id="users-next-btn" disabled>Sonraki</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Books Page -->
+                <div class="page" id="page-books">
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label class="filter-label">Ara:</label>
+                            <input type="text" class="form-input" id="books-search" placeholder="Kitap adi veya yazar..." style="width: 250px;">
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Durum:</label>
+                            <select class="filter-select" id="books-available-filter">
+                                <option value="">Tumu</option>
+                                <option value="true">Mevcut</option>
+                                <option value="false">Mevcut Degil</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Baslik</th>
+                                        <th>Yazar</th>
+                                        <th>Kategori</th>
+                                        <th>Durum</th>
+                                        <th>Goruntulenme</th>
+                                        <th>Favori</th>
+                                        <th>Islemler</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="books-table-body">
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted">Yukleniyor...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="card-footer">
+                            <div class="pagination">
+                                <div class="pagination-info" id="books-pagination-info">0 kitap</div>
+                                <div class="pagination-buttons">
+                                    <button class="btn btn-secondary btn-sm" id="books-prev-btn" disabled>Onceki</button>
+                                    <button class="btn btn-secondary btn-sm" id="books-next-btn" disabled>Sonraki</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Exchanges Page -->
+                <div class="page" id="page-exchanges">
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label class="filter-label">Durum:</label>
+                            <select class="filter-select" id="exchanges-status-filter">
+                                <option value="">Tumu</option>
+                                <option value="pending">Beklemede</option>
+                                <option value="accepted">Kabul Edilmis</option>
+                                <option value="rejected">Reddedilmis</option>
+                                <option value="cancelled">Iptal Edilmis</option>
+                                <option value="meetup_proposed">Bulusma Onerilmis</option>
+                                <option value="meetup_confirmed">Bulusma Onaylanmis</option>
+                                <option value="completion_pending">Tamamlanma Bekleniyor</option>
+                                <option value="completed">Tamamlanmis</option>
+                                <option value="expired">Suresi Dolmus</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Kitap ID</th>
+                                        <th>Isteyen</th>
+                                        <th>Hedef</th>
+                                        <th>Durum</th>
+                                        <th>Baslangic</th>
+                                        <th>Bitis</th>
+                                        <th>Islemler</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="exchanges-table-body">
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted">Yukleniyor...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="card-footer">
+                            <div class="pagination">
+                                <div class="pagination-info" id="exchanges-pagination-info">0 takas</div>
+                                <div class="pagination-buttons">
+                                    <button class="btn btn-secondary btn-sm" id="exchanges-prev-btn" disabled>Onceki</button>
+                                    <button class="btn btn-secondary btn-sm" id="exchanges-next-btn" disabled>Sonraki</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Blocked Places Page -->
+                <div class="page" id="page-blocked-places">
+                    <div class="flex flex-between mb-3">
+                        <h3>Engellenen Yerler</h3>
+                        <button class="btn btn-primary" onclick="showModal('add-place-modal')">
+                            + Yeni Ekle
+                        </button>
+                    </div>
+
+                    <div class="card">
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Yer ID</th>
+                                        <th>Enlem</th>
+                                        <th>Boylam</th>
+                                        <th>Neden</th>
+                                        <th>Tarih</th>
+                                        <th>Islemler</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="blocked-places-table-body">
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted">Yukleniyor...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Audit Log Page -->
+                <div class="page" id="page-audit-log">
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label class="filter-label">Kullanici ID:</label>
+                            <input type="text" class="form-input" id="audit-user-filter" placeholder="UUID..." style="width: 280px;">
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Olay Turu:</label>
+                            <input type="text" class="form-input" id="audit-event-filter" placeholder="ornek: report_claimed..." style="width: 250px;">
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Kullanici ID</th>
+                                        <th>Olay</th>
+                                        <th>IP</th>
+                                        <th>Tarih</th>
+                                        <th>Detaylar</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="audit-table-body">
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">Yukleniyor...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="card-footer">
+                            <div class="pagination">
+                                <div class="pagination-info" id="audit-pagination-info">0 kayit</div>
+                                <div class="pagination-buttons">
+                                    <button class="btn btn-secondary btn-sm" id="audit-prev-btn" disabled>Onceki</button>
+                                    <button class="btn btn-secondary btn-sm" id="audit-next-btn" disabled>Sonraki</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal-overlay" id="report-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Rapor Detayi</h3>
+                <button class="modal-close" onclick="closeModal('report-modal')">&times;</button>
+            </div>
+            <div class="modal-body" id="report-modal-body">
+                <p class="text-muted">Yukleniyor...</p>
+            </div>
+            <div class="modal-footer" id="report-modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('report-modal')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="user-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Kullanici Detayi</h3>
+                <button class="modal-close" onclick="closeModal('user-modal')">&times;</button>
+            </div>
+            <div class="modal-body" id="user-modal-body">
+                <p class="text-muted">Yukleniyor...</p>
+            </div>
+            <div class="modal-footer" id="user-modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('user-modal')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="book-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Kitap Detayi</h3>
+                <button class="modal-close" onclick="closeModal('book-modal')">&times;</button>
+            </div>
+            <div class="modal-body" id="book-modal-body">
+                <p class="text-muted">Yukleniyor...</p>
+            </div>
+            <div class="modal-footer" id="book-modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('book-modal')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="exchange-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Takas Detayi</h3>
+                <button class="modal-close" onclick="closeModal('exchange-modal')">&times;</button>
+            </div>
+            <div class="modal-body" id="exchange-modal-body">
+                <p class="text-muted">Yukleniyor...</p>
+            </div>
+            <div class="modal-footer" id="exchange-modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('exchange-modal')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="add-place-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Yeni Engellenen Yer</h3>
+                <button class="modal-close" onclick="closeModal('add-place-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="add-place-form">
+                    <div class="form-group">
+                        <label class="form-label">Yer ID (Opsiyonel)</label>
+                        <input type="text" class="form-input" id="place-id">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Enlem</label>
+                        <input type="number" class="form-input" id="place-lat" step="any" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Boylam</label>
+                        <input type="number" class="form-input" id="place-lng" step="any" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Neden (Opsiyonel)</label>
+                        <textarea class="form-textarea" id="place-reason"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('add-place-modal')">Iptal</button>
+                <button class="btn btn-primary" onclick="createBlockedPlace()">Ekle</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="resolve-report-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Raporu Coz</h3>
+                <button class="modal-close" onclick="closeModal('resolve-report-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="resolve-report-form">
+                    <input type="hidden" id="resolve-report-id">
+                    <div class="form-group">
+                        <label class="form-label">Durum</label>
+                        <select class="form-select" id="resolve-status" required>
+                            <option value="resolved">Cozumlenmis</option>
+                            <option value="dismissed">Reddedilmis</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Moderator Notlari</label>
+                        <textarea class="form-textarea" id="resolve-notes"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('resolve-report-modal')">Iptal</button>
+                <button class="btn btn-primary" onclick="resolveReport()">Coz</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="suspend-user-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Kullaniciyi Asagi Al</h3>
+                <button class="modal-close" onclick="closeModal('suspend-user-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="suspend-user-form">
+                    <input type="hidden" id="suspend-user-id">
+                    <div class="form-group">
+                        <label class="form-label">Neden (Opsiyonel)</label>
+                        <textarea class="form-textarea" id="suspend-reason"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('suspend-user-modal')">Iptal</button>
+                <button class="btn btn-danger" onclick="suspendUser()">Asagi Al</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        // API Configuration
+        const API_BASE = '/api/v1';
+        let authToken = localStorage.getItem('admin_token');
+        let currentPage = 'dashboard';
+        let paginationState = {
+            users: { offset: 0, limit: 50, total: 0 },
+            books: { offset: 0, limit: 50, total: 0 },
+            exchanges: { offset: 0, limit: 50, total: 0 },
+            audit: { offset: 0, limit: 50, total: 0 }
+        };
+
+        // API Helper
+        async function api(endpoint, options = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    ...options,
+                    headers
+                });
+
+                if (response.status === 401) {
+                    authToken = null;
+                    localStorage.removeItem('admin_token');
+                    showPage('login');
+                    throw new Error('Oturum sureniz dolmus');
+                }
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.detail || 'Bir hata olustu');
+                }
+
+                if (response.status === 204) {
+                    return null;
+                }
+
+                return await response.json();
+            } catch (error) {
+                showToast('Hata', error.message, 'error');
+                throw error;
+            }
+        }
+
+        // Toast Notifications
+        function showToast(title, message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+
+            const icons = {
+                success: '&#10004;',
+                error: '&#10008;',
+                warning: '&#9888;',
+                info: '&#8505;'
+            };
+
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type]}</span>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        }
+
+        // Modal Functions
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // Page Navigation
+        function showPage(page) {
+            currentPage = page;
+
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+            const pageElement = document.getElementById(`page-${page}`);
+            const navItem = document.querySelector(`[data-page="${page}"]`);
+
+            if (pageElement) {
+                pageElement.classList.add('active');
+            }
+
+            if (navItem) {
+                navItem.classList.add('active');
+            }
+
+            const titles = {
+                dashboard: 'Dashboard',
+                reports: 'Raporlar',
+                users: 'Kullanicilar',
+                books: 'Kitaplar',
+                exchanges: 'Takaslar',
+                'blocked-places': 'Engellenen Yerler',
+                'audit-log': 'Denetim Kaydi',
+                login: 'Yonetici Giris'
+            };
+
+            document.getElementById('page-title').textContent = titles[page] || page;
+
+            // Load data for the page
+            loadPageData(page);
+        }
+
+        async function loadPageData(page) {
+            if (!authToken && page !== 'login') {
+                showPage('login');
+                return;
+            }
+
+            switch (page) {
+                case 'dashboard':
+                    await loadDashboard();
+                    break;
+                case 'reports':
+                    await loadReports();
+                    break;
+                case 'users':
+                    await loadUsers();
+                    break;
+                case 'books':
+                    await loadBooks();
+                    break;
+                case 'exchanges':
+                    await loadExchanges();
+                    break;
+                case 'blocked-places':
+                    await loadBlockedPlaces();
+                    break;
+                case 'audit-log':
+                    await loadAuditLog();
+                    break;
+            }
+        }
+
+        // Dashboard
+        async function loadDashboard() {
+            try {
+                const metrics = await api('/admin/metrics');
+
+                document.getElementById('stat-total-users').textContent = metrics.total_users.toLocaleString();
+                document.getElementById('stat-daily-active').textContent = metrics.daily_active_users.toLocaleString();
+                document.getElementById('stat-open-reports').textContent = metrics.open_reports.toLocaleString();
+
+                const totalExchanges = Object.values(metrics.exchanges_by_status).reduce((a, b) => a + b, 0);
+                document.getElementById('stat-total-exchanges').textContent = totalExchanges.toLocaleString();
+
+                document.getElementById('reports-badge').textContent = metrics.open_reports;
+
+                // Render exchanges chart
+                renderBarChart('exchanges-chart', metrics.exchanges_by_status, [
+                    '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4',
+                    '#8b5cf6', '#ec4899', '#14b8a6', '#64748b'
+                ]);
+
+                // Render reports chart
+                renderBarChart('reports-chart', metrics.reports_by_reason, [
+                    '#ef4444', '#f59e0b', '#6366f1', '#10b981', '#06b6d4'
+                ]);
+            } catch (error) {
+                console.error('Dashboard load error:', error);
+            }
+        }
+
+        function renderBarChart(containerId, data, colors) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            const entries = Object.entries(data);
+            if (entries.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted" style="width: 100%; padding: 2rem;">Veri bulunamadi</div>';
+                return;
+            }
+
+            const maxValue = Math.max(...entries.map(([, v]) => v));
+
+            entries.forEach(([key, value], index) => {
+                const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                const color = colors[index % colors.length];
+
+                const group = document.createElement('div');
+                group.className = 'bar-group';
+                group.innerHTML = `
+                    <div class="bar" style="height: ${height}%; background: ${color};" title="${key}: ${value}"></div>
+                    <div class="bar-label">${key}</div>
+                `;
+
+                container.appendChild(group);
+            });
+        }
+
+        // Reports
+        async function loadReports() {
+            try {
+                const status = document.getElementById('reports-status-filter').value;
+                const params = status ? `?status=${status}` : '';
+                const data = await api(`/admin/reports${params}`);
+
+                const tbody = document.getElementById('reports-table-body');
+                if (data.items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Rapor bulunamadi</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.items.map(report => `
+                    <tr>
+                        <td><code style="font-size: 0.75rem;">${report.id.substring(0, 8)}...</code></td>
+                        <td><code style="font-size: 0.75rem;">${report.reporter_id.substring(0, 8)}...</code></td>
+                        <td>${report.target_type}</td>
+                        <td>${report.reason}</td>
+                        <td><span class="badge badge-${getStatusBadge(report.status)}">${report.status}</span></td>
+                        <td>${formatDate(report.created_at)}</td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" onclick="viewReport('${report.id}')">Gor</button>
+                            ${report.status === 'open' ? `<button class="btn btn-primary btn-sm" onclick="claimReport('${report.id}')">Sahiplen</button>` : ''}
+                            ${report.status === 'reviewing' ? `<button class="btn btn-success btn-sm" onclick="showResolveModal('${report.id}')">Coz</button>` : ''}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Reports load error:', error);
+            }
+        }
+
+        function getStatusBadge(status) {
+            const badges = {
+                open: 'danger',
+                reviewing: 'warning',
+                resolved: 'success',
+                dismissed: 'info'
+            };
+            return badges[status] || 'primary';
+        }
+
+        async function viewReport(id) {
+            try {
+                const data = await api(`/admin/reports`);
+                const report = data.items.find(r => r.id === id);
+
+                if (!report) {
+                    showToast('Hata', 'Rapor bulunamadi', 'error');
+                    return;
+                }
+
+                document.getElementById('report-modal-body').innerHTML = `
+                    <div style="display: grid; gap: 1rem;">
+                        <div><strong>ID:</strong> <code>${report.id}</code></div>
+                        <div><strong>Raporcu ID:</strong> <code>${report.reporter_id}</code></div>
+                        <div><strong>Hedef Turu:</strong> ${report.target_type}</div>
+                        <div><strong>Hedef ID:</strong> <code>${report.target_id}</code></div>
+                        <div><strong>Neden:</strong> ${report.reason}</div>
+                        <div><strong>Durum:</strong> <span class="badge badge-${getStatusBadge(report.status)}">${report.status}</span></div>
+                        <div><strong>Moderator ID:</strong> ${report.moderator_id ? `<code>${report.moderator_id}</code>` : '-'}</div>
+                        <div><strong>Moderator Notlari:</strong> ${report.moderator_notes || '-'}</div>
+                        <div><strong>Olusturma:</strong> ${formatDate(report.created_at)}</div>
+                        <div><strong>Guncelleme:</strong> ${formatDate(report.updated_at)}</div>
+                        <div><strong>Cozum:</strong> ${report.resolved_at ? formatDate(report.resolved_at) : '-'}</div>
+                        <div><strong>Icerik:</strong><pre style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.75rem;">${JSON.stringify(report.content_snapshot, null, 2)}</pre></div>
+                    </div>
+                `;
+
+                let footer = '<button class="btn btn-secondary" onclick="closeModal(\'report-modal\')">Kapat</button>';
+                if (report.status === 'open') {
+                    footer += `<button class="btn btn-primary" onclick="claimReport('${report.id}'); closeModal('report-modal');">Sahiplen</button>`;
+                }
+                if (report.status === 'reviewing') {
+                    footer += `<button class="btn btn-success" onclick="closeModal('report-modal'); showResolveModal('${report.id}');">Coz</button>`;
+                }
+                document.getElementById('report-modal-footer').innerHTML = footer;
+
+                showModal('report-modal');
+            } catch (error) {
+                console.error('View report error:', error);
+            }
+        }
+
+        async function claimReport(id) {
+            try {
+                await api(`/admin/reports/${id}/claim`, { method: 'POST' });
+                showToast('Basarili', 'Rapor sahiplenildi', 'success');
+                loadReports();
+            } catch (error) {
+                console.error('Claim report error:', error);
+            }
+        }
+
+        function showResolveModal(id) {
+            document.getElementById('resolve-report-id').value = id;
+            document.getElementById('resolve-status').value = 'resolved';
+            document.getElementById('resolve-notes').value = '';
+            showModal('resolve-report-modal');
+        }
+
+        async function resolveReport() {
+            const id = document.getElementById('resolve-report-id').value;
+            const status = document.getElementById('resolve-status').value;
+            const notes = document.getElementById('resolve-notes').value;
+
+            try {
+                await api(`/admin/reports/${id}/resolve`, {
+                    method: 'POST',
+                    body: JSON.stringify({ status, moderator_notes: notes || null })
+                });
+                showToast('Basarili', 'Rapor cozuldu', 'success');
+                closeModal('resolve-report-modal');
+                loadReports();
+            } catch (error) {
+                console.error('Resolve report error:', error);
+            }
+        }
+
+        // Users
+        async function loadUsers() {
+            try {
+                const search = document.getElementById('users-search').value;
+                const status = document.getElementById('users-status-filter').value;
+                const { offset, limit } = paginationState.users;
+
+                const params = new URLSearchParams();
+                if (search) params.set('search', search);
+                if (status) params.set('status', status);
+                params.set('limit', limit);
+                params.set('offset', offset);
+
+                const data = await api(`/admin/users?${params}`);
+                paginationState.users.total = data.total;
+
+                const tbody = document.getElementById('users-table-body');
+                if (data.items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Kullanici bulunamadi</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.items.map(user => `
+                    <tr>
+                        <td><code style="font-size: 0.75rem;">${user.id.substring(0, 8)}...</code></td>
+                        <td>${user.name}</td>
+                        <td>${user.email}</td>
+                        <td><span class="badge badge-${getUserStatusBadge(user.status)}">${user.status}</span></td>
+                        <td>${user.rating_average.toFixed(2)} (${user.rating_count})</td>
+                        <td>${user.completed_exchanges}</td>
+                        <td>${formatDate(user.created_at)}</td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" onclick="viewUser('${user.id}')">Gor</button>
+                            ${user.status === 'active' ? `<button class="btn btn-danger btn-sm" onclick="showSuspendModal('${user.id}')">Asagi Al</button>` : ''}
+                            ${user.status === 'suspended' ? `<button class="btn btn-success btn-sm" onclick="reinstateUser('${user.id}')">Geri Yükle</button>` : ''}
+                        </td>
+                    </tr>
+                `).join('');
+
+                // Update pagination
+                document.getElementById('users-pagination-info').textContent = 
+                    `${offset + 1}-${Math.min(offset + limit, data.total)} / ${data.total} kullanici`;
+                document.getElementById('users-prev-btn').disabled = offset === 0;
+                document.getElementById('users-next-btn').disabled = offset + limit >= data.total;
+            } catch (error) {
+                console.error('Users load error:', error);
+            }
+        }
+
+        function getUserStatusBadge(status) {
+            const badges = {
+                active: 'success',
+                suspended: 'warning',
+                deleted: 'danger'
+            };
+            return badges[status] || 'primary';
+        }
+
+        async function viewUser(id) {
+            try {
+                const user = await api(`/admin/users/${id}`);
+
+                document.getElementById('user-modal-body').innerHTML = `
+                    <div style="display: grid; gap: 1rem;">
+                        <div><strong>ID:</strong> <code>${user.id}</code></div>
+                        <div><strong>Isim:</strong> ${user.name}</div>
+                        <div><strong>E-posta:</strong> ${user.email}</div>
+                        <div><strong>Telefon:</strong> ${user.phone || '-'}</div>
+                        <div><strong>Durum:</strong> <span class="badge badge-${getUserStatusBadge(user.status)}">${user.status}</span></div>
+                        <div><strong>Admin:</strong> ${user.is_admin ? 'Evet' : 'Hayir'}</div>
+                        <div><strong>Puan:</strong> ${user.rating_average.toFixed(2)} (${user.rating_count} degerlendirme)</div>
+                        <div><strong>Takas:</strong> ${user.completed_exchanges} tamamlanmis</div>
+                        <div><strong>Kayit:</strong> ${formatDate(user.created_at)}</div>
+                        <div><strong>Guncelleme:</strong> ${formatDate(user.updated_at)}</div>
+                        <div><strong>Son Aktif:</strong> ${user.last_active_at ? formatDate(user.last_active_at) : '-'}</div>
+                        <div><strong>E-posta Dogrulama:</strong> ${user.email_verified_at ? formatDate(user.email_verified_at) : '-'}</div>
+                        <div><strong>Telefon Dogrulama:</strong> ${user.phone_verified_at ? formatDate(user.phone_verified_at) : '-'}</div>
+                        <div><strong>Guvenilir Kisi:</strong> ${user.trusted_contact_name || '-'}</div>
+                        <div><strong>Guvenilir Kisi Telefon:</strong> ${user.trusted_contact_phone || '-'}</div>
+                    </div>
+                `;
+
+                let footer = '<button class="btn btn-secondary" onclick="closeModal(\'user-modal\')">Kapat</button>';
+                if (user.status === 'active') {
+                    footer += `<button class="btn btn-danger" onclick="closeModal('user-modal'); showSuspendModal('${user.id}');">Asagi Al</button>`;
+                }
+                if (user.status === 'suspended') {
+                    footer += `<button class="btn btn-success" onclick="reinstateUser('${user.id}'); closeModal('user-modal');">Geri Yükle</button>`;
+                }
+                document.getElementById('user-modal-footer').innerHTML = footer;
+
+                showModal('user-modal');
+            } catch (error) {
+                console.error('View user error:', error);
+            }
+        }
+
+        function showSuspendModal(id) {
+            document.getElementById('suspend-user-id').value = id;
+            document.getElementById('suspend-reason').value = '';
+            showModal('suspend-user-modal');
+        }
+
+        async function suspendUser() {
+            const id = document.getElementById('suspend-user-id').value;
+            const reason = document.getElementById('suspend-reason').value;
+
+            try {
+                await api(`/admin/users/${id}/suspend`, {
+                    method: 'POST',
+                    body: JSON.stringify({ reason: reason || null })
+                });
+                showToast('Basarili', 'Kullanici asagi alindi', 'success');
+                closeModal('suspend-user-modal');
+                loadUsers();
+            } catch (error) {
+                console.error('Suspend user error:', error);
+            }
+        }
+
+        async function reinstateUser(id) {
+            try {
+                await api(`/admin/users/${id}/reinstate`, { method: 'POST' });
+                showToast('Basarili', 'Kullanici geri yuklendi', 'success');
+                loadUsers();
+            } catch (error) {
+                console.error('Reinstate user error:', error);
+            }
+        }
+
+        // Books
+        async function loadBooks() {
+            try {
+                const search = document.getElementById('books-search').value;
+                const availableOnly = document.getElementById('books-available-filter').value;
+                const { offset, limit } = paginationState.books;
+
+                const params = new URLSearchParams();
+                if (search) params.set('search', search);
+                if (availableOnly) params.set('available_only', availableOnly);
+                params.set('limit', limit);
+                params.set('offset', offset);
+
+                const data = await api(`/admin/books?${params}`);
+                paginationState.books.total = data.total;
+
+                const tbody = document.getElementById('books-table-body');
+                if (data.items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Kitap bulunamadi</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.items.map(book => `
+                    <tr>
+                        <td><code style="font-size: 0.75rem;">${book.id.substring(0, 8)}...</code></td>
+                        <td>${book.title}</td>
+                        <td>${book.author || '-'}</td>
+                        <td>${book.category}</td>
+                        <td><span class="badge badge-${book.is_available ? 'success' : 'danger'}">${book.is_available ? 'Mevcut' : 'Mevcut Degil'}</span></td>
+                        <td>${book.view_count}</td>
+                        <td>${book.favorite_count}</td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" onclick="viewBook('${book.id}')">Gor</button>
+                            ${book.is_available ? `<button class="btn btn-danger btn-sm" onclick="takedownBook('${book.id}')">Kaldir</button>` : ''}
+                        </td>
+                    </tr>
+                `).join('');
+
+                // Update pagination
+                document.getElementById('books-pagination-info').textContent = 
+                    `${offset + 1}-${Math.min(offset + limit, data.total)} / ${data.total} kitap`;
+                document.getElementById('books-prev-btn').disabled = offset === 0;
+                document.getElementById('books-next-btn').disabled = offset + limit >= data.total;
+            } catch (error) {
+                console.error('Books load error:', error);
+            }
+        }
+
+        async function viewBook(id) {
+            try {
+                const book = await api(`/admin/books/${id}`);
+
+                document.getElementById('book-modal-body').innerHTML = `
+                    <div style="display: grid; gap: 1rem;">
+                        <div><strong>ID:</strong> <code>${book.id}</code></div>
+                        <div><strong>Sahip ID:</strong> <code>${book.owner_id}</code></div>
+                        <div><strong>Baslik:</strong> ${book.title}</div>
+                        <div><strong>Yazar:</strong> ${book.author || '-'}</div>
+                        <div><strong>ISBN:</strong> ${book.isbn || '-'}</div>
+                        <div><strong>Aciklama:</strong> ${book.description || '-'}</div>
+                        <div><strong>Kategori:</strong> ${book.category}</div>
+                        <div><strong>Dil:</strong> ${book.language}</div>
+                        <div><strong>Durum:</strong> ${book.condition}</div>
+                        <div><strong>Mevcut:</strong> ${book.is_available ? 'Evet' : 'Hayir'}</div>
+                        <div><strong>Goruntulenme:</strong> ${book.view_count}</div>
+                        <div><strong>Favori:</strong> ${book.favorite_count}</div>
+                        <div><strong>Olusturma:</strong> ${formatDate(book.created_at)}</div>
+                        <div><strong>Guncelleme:</strong> ${formatDate(book.updated_at)}</div>
+                        <div><strong>Silinme:</strong> ${book.deleted_at ? formatDate(book.deleted_at) : '-'}</div>
+                    </div>
+                `;
+
+                let footer = '<button class="btn btn-secondary" onclick="closeModal(\'book-modal\')">Kapat</button>';
+                if (book.is_available) {
+                    footer += `<button class="btn btn-danger" onclick="takedownBook('${book.id}'); closeModal('book-modal');">Kaldir</button>`;
+                }
+                document.getElementById('book-modal-footer').innerHTML = footer;
+
+                showModal('book-modal');
+            } catch (error) {
+                console.error('View book error:', error);
+            }
+        }
+
+        async function takedownBook(id) {
+            const reason = prompt('Kaldirma nedeni (opsiyonel):');
+            try {
+                await api(`/admin/books/${id}/takedown`, {
+                    method: 'POST',
+                    body: JSON.stringify({ reason: reason || null })
+                });
+                showToast('Basarili', 'Kitap kaldirildi', 'success');
+                loadBooks();
+            } catch (error) {
+                console.error('Takedown book error:', error);
+            }
+        }
+
+        // Exchanges
+        async function loadExchanges() {
+            try {
+                const status = document.getElementById('exchanges-status-filter').value;
+                const { offset, limit } = paginationState.exchanges;
+
+                const params = new URLSearchParams();
+                if (status) params.set('status', status);
+                params.set('limit', limit);
+                params.set('offset', offset);
+
+                const data = await api(`/admin/exchanges?${params}`);
+                paginationState.exchanges.total = data.total;
+
+                const tbody = document.getElementById('exchanges-table-body');
+                if (data.items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Takas bulunamadi</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.items.map(exchange => `
+                    <tr>
+                        <td><code style="font-size: 0.75rem;">${exchange.id.substring(0, 8)}...</code></td>
+                        <td><code style="font-size: 0.75rem;">${exchange.book_id.substring(0, 8)}...</code></td>
+                        <td><code style="font-size: 0.75rem;">${exchange.requested_by.substring(0, 8)}...</code></td>
+                        <td><code style="font-size: 0.75rem;">${exchange.requested_to.substring(0, 8)}...</code></td>
+                        <td><span class="badge badge-${getExchangeStatusBadge(exchange.status)}">${exchange.status}</span></td>
+                        <td>${formatDate(exchange.created_at)}</td>
+                        <td>${formatDate(exchange.expires_at)}</td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" onclick="viewExchange('${exchange.id}')">Gor</button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                // Update pagination
+                document.getElementById('exchanges-pagination-info').textContent = 
+                    `${offset + 1}-${Math.min(offset + limit, data.total)} / ${data.total} takas`;
+                document.getElementById('exchanges-prev-btn').disabled = offset === 0;
+                document.getElementById('exchanges-next-btn').disabled = offset + limit >= data.total;
+            } catch (error) {
+                console.error('Exchanges load error:', error);
+            }
+        }
+
+        function getExchangeStatusBadge(status) {
+            const badges = {
+                pending: 'warning',
+                accepted: 'success',
+                rejected: 'danger',
+                cancelled: 'info',
+                meetup_proposed: 'primary',
+                meetup_confirmed: 'success',
+                completion_pending: 'warning',
+                completed: 'success',
+                expired: 'danger'
+            };
+            return badges[status] || 'primary';
+        }
+
+        async function viewExchange(id) {
+            try {
+                const exchange = await api(`/admin/exchanges/${id}`);
+
+                document.getElementById('exchange-modal-body').innerHTML = `
+                    <div style="display: grid; gap: 1rem;">
+                        <div><strong>ID:</strong> <code>${exchange.id}</code></div>
+                        <div><strong>Kitap ID:</strong> <code>${exchange.book_id}</code></div>
+                        <div><strong>Isteyen:</strong> <code>${exchange.requested_by}</code></div>
+                        <div><strong>Hedef:</strong> <code>${exchange.requested_to}</code></div>
+                        <div><strong>Durum:</strong> <span class="badge badge-${getExchangeStatusBadge(exchange.status)}">${exchange.status}</span></div>
+                        <div><strong>Baslangic Mesaji:</strong> ${exchange.initial_message}</div>
+                        <div><strong>Tamamlayan:</strong> ${exchange.completion_marked_by ? `<code>${exchange.completion_marked_by}</code>` : '-'}</div>
+                        <div><strong>Olusturma:</strong> ${formatDate(exchange.created_at)}</div>
+                        <div><strong>Guncelleme:</strong> ${formatDate(exchange.updated_at)}</div>
+                        <div><strong>Bitis:</strong> ${formatDate(exchange.expires_at)}</div>
+                    </div>
+                `;
+
+                showModal('exchange-modal');
+            } catch (error) {
+                console.error('View exchange error:', error);
+            }
+        }
+
+        // Blocked Places
+        async function loadBlockedPlaces() {
+            try {
+                const data = await api('/admin/blocked-places');
+
+                const tbody = document.getElementById('blocked-places-table-body');
+                if (data.items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Engellenen yer bulunamadi</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.items.map(place => `
+                    <tr>
+                        <td><code style="font-size: 0.75rem;">${place.id.substring(0, 8)}...</code></td>
+                        <td>${place.place_id || '-'}</td>
+                        <td>${place.lat.toFixed(6)}</td>
+                        <td>${place.lng.toFixed(6)}</td>
+                        <td>${place.reason || '-'}</td>
+                        <td>${formatDate(place.created_at)}</td>
+                        <td>
+                            <button class="btn btn-danger btn-sm" onclick="deleteBlockedPlace('${place.id}')">Sil</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Blocked places load error:', error);
+            }
+        }
+
+        async function createBlockedPlace() {
+            const placeId = document.getElementById('place-id').value;
+            const lat = parseFloat(document.getElementById('place-lat').value);
+            const lng = parseFloat(document.getElementById('place-lng').value);
+            const reason = document.getElementById('place-reason').value;
+
+            if (isNaN(lat) || isNaN(lng)) {
+                showToast('Hata', 'Gecerli koordinatlar girin', 'error');
+                return;
+            }
+
+            try {
+                await api('/admin/blocked-places', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        lat,
+                        lng,
+                        place_id: placeId || null,
+                        reason: reason || null
+                    })
+                });
+                showToast('Basarili', 'Yer engellendi', 'success');
+                closeModal('add-place-modal');
+                loadBlockedPlaces();
+            } catch (error) {
+                console.error('Create blocked place error:', error);
+            }
+        }
+
+        async function deleteBlockedPlace(id) {
+            if (!confirm('Bu yeri silmek istediginize emin misiniz?')) return;
+
+            try {
+                await api(`/admin/blocked-places/${id}`, { method: 'DELETE' });
+                showToast('Basarili', 'Yer silindi', 'success');
+                loadBlockedPlaces();
+            } catch (error) {
+                console.error('Delete blocked place error:', error);
+            }
+        }
+
+        // Audit Log
+        async function loadAuditLog() {
+            try {
+                const userId = document.getElementById('audit-user-filter').value;
+                const eventType = document.getElementById('audit-event-filter').value;
+                const { offset, limit } = paginationState.audit;
+
+                const params = new URLSearchParams();
+                if (userId) params.set('user_id', userId);
+                if (eventType) params.set('event_type', eventType);
+                params.set('limit', limit);
+                params.set('offset', offset);
+
+                const data = await api(`/admin/audit-log?${params}`);
+                paginationState.audit.total = data.total;
+
+                const tbody = document.getElementById('audit-table-body');
+                if (data.items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Kayit bulunamadi</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.items.map(log => `
+                    <tr>
+                        <td><code style="font-size: 0.75rem;">${log.id.substring(0, 8)}...</code></td>
+                        <td>${log.user_id ? `<code style="font-size: 0.75rem;">${log.user_id.substring(0, 8)}...</code>` : '-'}</td>
+                        <td><span class="badge badge-primary">${log.event_type}</span></td>
+                        <td>${log.ip_address || '-'}</td>
+                        <td>${formatDate(log.created_at)}</td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" onclick='viewAuditDetails(${JSON.stringify(log.metadata_)})'>Gor</button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                // Update pagination
+                document.getElementById('audit-pagination-info').textContent = 
+                    `${offset + 1}-${Math.min(offset + limit, data.total)} / ${data.total} kayit`;
+                document.getElementById('audit-prev-btn').disabled = offset === 0;
+                document.getElementById('audit-next-btn').disabled = offset + limit >= data.total;
+            } catch (error) {
+                console.error('Audit log load error:', error);
+            }
+        }
+
+        function viewAuditDetails(metadata) {
+            if (!metadata) {
+                showToast('Bilgi', 'Detay bulunamadi', 'info');
+                return;
+            }
+
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay active';
+            modal.innerHTML = `
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Detaylar</h3>
+                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <pre style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.75rem;">${JSON.stringify(metadata, null, 2)}</pre>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // Utility Functions
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('tr-TR', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Navigation
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const page = item.dataset.page;
+                    if (page) showPage(page);
+                });
+            });
+
+            // Menu toggle
+            document.getElementById('menu-toggle').addEventListener('click', () => {
+                document.getElementById('sidebar').classList.toggle('open');
+            });
+
+            // Login form
+            document.getElementById('login-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+
+                try {
+                    const data = await api('/auth/login', {
+                        method: 'POST',
+                        body: JSON.stringify({ email, password })
+                    });
+
+                    authToken = data.access_token;
+                    localStorage.setItem('admin_token', authToken);
+                    showToast('Basarili', 'Giris basarili', 'success');
+                    showPage('dashboard');
+                } catch (error) {
+                    console.error('Login error:', error);
+                }
+            });
+
+            // Filters
+            document.getElementById('reports-status-filter').addEventListener('change', loadReports);
+            document.getElementById('users-search').addEventListener('input', debounce(loadUsers, 300));
+            document.getElementById('users-status-filter').addEventListener('change', loadUsers);
+            document.getElementById('books-search').addEventListener('input', debounce(loadBooks, 300));
+            document.getElementById('books-available-filter').addEventListener('change', loadBooks);
+            document.getElementById('exchanges-status-filter').addEventListener('change', loadExchanges);
+            document.getElementById('audit-user-filter').addEventListener('input', debounce(loadAuditLog, 300));
+            document.getElementById('audit-event-filter').addEventListener('input', debounce(loadAuditLog, 300));
+
+            // Pagination
+            document.getElementById('users-prev-btn').addEventListener('click', () => {
+                paginationState.users.offset = Math.max(0, paginationState.users.offset - paginationState.users.limit);
+                loadUsers();
+            });
+            document.getElementById('users-next-btn').addEventListener('click', () => {
+                paginationState.users.offset += paginationState.users.limit;
+                loadUsers();
+            });
+
+            document.getElementById('books-prev-btn').addEventListener('click', () => {
+                paginationState.books.offset = Math.max(0, paginationState.books.offset - paginationState.books.limit);
+                loadBooks();
+            });
+            document.getElementById('books-next-btn').addEventListener('click', () => {
+                paginationState.books.offset += paginationState.books.limit;
+                loadBooks();
+            });
+
+            document.getElementById('exchanges-prev-btn').addEventListener('click', () => {
+                paginationState.exchanges.offset = Math.max(0, paginationState.exchanges.offset - paginationState.exchanges.limit);
+                loadExchanges();
+            });
+            document.getElementById('exchanges-next-btn').addEventListener('click', () => {
+                paginationState.exchanges.offset += paginationState.exchanges.limit;
+                loadExchanges();
+            });
+
+            document.getElementById('audit-prev-btn').addEventListener('click', () => {
+                paginationState.audit.offset = Math.max(0, paginationState.audit.offset - paginationState.audit.limit);
+                loadAuditLog();
+            });
+            document.getElementById('audit-next-btn').addEventListener('click', () => {
+                paginationState.audit.offset += paginationState.audit.limit;
+                loadAuditLog();
+            });
+
+            // Check if already logged in
+            if (authToken) {
+                showPage('dashboard');
+            } else {
+                showPage('login');
+            }
+        });
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+    </script>
+</body>
+</html>

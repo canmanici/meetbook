@@ -55,6 +55,7 @@
   "scripts": {
     "start": "expo start",
     "start:lan": "bash scripts/detect-api-url.sh -c",
+    "start:prod": "bash scripts/start-prod.sh",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
@@ -63,7 +64,12 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "gen:api": "openapi-typescript http://localhost:8000/api/openapi.json -o src/lib/api/schema.d.ts"
+    "gen:api": "openapi-typescript https://canmanici.com/meetbook/api/openapi.json -o src/lib/api/schema.d.ts",
+    "gen:api:local": "openapi-typescript http://localhost:8000/api/openapi.json -o src/lib/api/schema.d.ts",
+    "build:android-preview": "eas build --platform android --profile preview",
+    "build:android-prod": "eas build --platform android --profile production",
+    "build:android-apk": "eas build --platform android --profile production-apk",
+    "build:android-local": "eas build --platform android --profile preview --local"
   },
   "private": true
 }

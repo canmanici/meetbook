@@ -73,3 +73,128 @@ class MetricsResponse(BaseModel):
     exchanges_by_status: dict[str, int]
     reports_by_reason: dict[str, int]
     open_reports: int
+
+
+# -- User list/detail schemas ------------------------------------------------
+
+class AdminUserListItem(BaseModel):
+    id: uuid.UUID
+    email: str
+    name: str
+    status: str
+    is_admin: bool
+    rating_average: float
+    rating_count: int
+    completed_exchanges: int
+    created_at: datetime
+    last_active_at: datetime | None
+
+
+class AdminUserListResponse(BaseModel):
+    items: list[AdminUserListItem]
+    total: int
+
+
+class AdminUserDetailView(BaseModel):
+    id: uuid.UUID
+    email: str
+    name: str
+    phone: str | None
+    status: str
+    is_admin: bool
+    rating_average: float
+    rating_count: int
+    completed_exchanges: int
+    created_at: datetime
+    updated_at: datetime
+    last_active_at: datetime | None
+    email_verified_at: datetime | None
+    phone_verified_at: datetime | None
+    trusted_contact_name: str | None
+    trusted_contact_phone: str | None
+
+
+# -- Book list/detail schemas ------------------------------------------------
+
+class AdminBookListItem(BaseModel):
+    id: uuid.UUID
+    owner_id: uuid.UUID
+    title: str
+    author: str | None
+    category: str
+    condition: str
+    is_available: bool
+    view_count: int
+    favorite_count: int
+    created_at: datetime
+
+
+class AdminBookListResponse(BaseModel):
+    items: list[AdminBookListItem]
+    total: int
+
+
+class AdminBookDetailView(BaseModel):
+    id: uuid.UUID
+    owner_id: uuid.UUID
+    title: str
+    author: str | None
+    isbn: str | None
+    description: str | None
+    category: str
+    language: str
+    condition: str
+    is_available: bool
+    view_count: int
+    favorite_count: int
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: datetime | None
+
+
+# -- Exchange list/detail schemas --------------------------------------------
+
+class AdminExchangeListItem(BaseModel):
+    id: uuid.UUID
+    book_id: uuid.UUID
+    requested_by: uuid.UUID
+    requested_to: uuid.UUID
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    expires_at: datetime
+
+
+class AdminExchangeListResponse(BaseModel):
+    items: list[AdminExchangeListItem]
+    total: int
+
+
+class AdminExchangeDetailView(BaseModel):
+    id: uuid.UUID
+    book_id: uuid.UUID
+    requested_by: uuid.UUID
+    requested_to: uuid.UUID
+    status: str
+    initial_message: str
+    completion_marked_by: uuid.UUID | None
+    created_at: datetime
+    updated_at: datetime
+    expires_at: datetime
+
+
+# -- Audit log schemas -------------------------------------------------------
+
+class AuditLogEntry(BaseModel):
+    id: uuid.UUID
+    user_id: uuid.UUID | None
+    event_type: str
+    ip_address: str | None
+    user_agent: str | None
+    metadata_: dict | None
+    created_at: datetime
+
+
+class AuditLogListResponse(BaseModel):
+    items: list[AuditLogEntry]
+    total: int
