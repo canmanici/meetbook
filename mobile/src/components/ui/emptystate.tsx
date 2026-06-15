@@ -7,7 +7,8 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
-import { palette, spacing, fontSize } from './tokens';
+import { Ionicons } from '@expo/vector-icons';
+import { palette, spacing, fontSize, radius } from './tokens';
 import { Button } from './button';
 
 export interface EmptyStateProps {
@@ -35,6 +36,11 @@ export interface EmptyStateProps {
    * Optional custom illustration component (overrides default)
    */
   illustration?: React.ReactNode;
+
+  /**
+   * Ionicon name shown inside the default pastel illustration circle.
+   */
+  icon?: React.ComponentProps<typeof Ionicons>['name'];
 
   /**
    * Optional style for the container
@@ -68,18 +74,26 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   actionLabel,
   onAction,
   illustration,
+  icon = 'sparkles',
   style,
 }) => {
   const scheme = useColorScheme();
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
   return (
     <View style={[{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: spacing.xxxl, paddingHorizontal: spacing.xl }, style]} testID="empty-state">
-      {illustration || <View style={{ width: 120, height: 120, borderRadius: 60, backgroundColor: colors.textMuted, opacity: 0.2, marginBottom: spacing.xl }} testID="default-illustration" />}
-      <Text style={{ fontSize: fontSize.title, fontWeight: '600', color: colors.text, textAlign: 'center', marginBottom: spacing.sm }} testID="empty-state-message">
+      {illustration || (
+        <View
+          testID="default-illustration"
+          style={{ width: 116, height: 116, borderRadius: radius.tile + 14, backgroundColor: colors.primarySoft, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.xl }}
+        >
+          <Ionicons name={icon} size={48} color={colors.primary} />
+        </View>
+      )}
+      <Text style={{ fontSize: fontSize.title, fontWeight: '800', color: colors.text, textAlign: 'center', marginBottom: spacing.sm }} testID="empty-state-message">
         {message}
       </Text>
       {description ? (
-        <Text style={{ fontSize: fontSize.body, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.xl }} testID="empty-state-description">
+        <Text style={{ fontSize: fontSize.body, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.xl, lineHeight: 22 }} testID="empty-state-description">
           {description}
         </Text>
       ) : null}

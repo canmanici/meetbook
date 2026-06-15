@@ -249,6 +249,7 @@ export default function SearchScreen() {
                 >
                   <MapBookPin
                     coverUrl={book.photos?.[0]?.url}
+                    thumbnailUrl={book.photos?.[0]?.thumbnail_url}
                     title={book.title}
                   />
                 </Marker>

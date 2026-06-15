@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, router } from 'expo-router';
-import { ScrollView, StyleSheet, View, useColorScheme } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { Button, InlineError, Input, palette, spacing } from '@/components/ui';
+import { Button, InlineError, Input, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
 import { ApiError, login } from '@/lib/api/client';
 import { setTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
@@ -45,26 +46,41 @@ export default function LoginScreen() {
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}>
-      <Input
-        label="E-posta"
-        placeholder="ornek@eposta.com"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-      />
-      <Input
-        label="Şifre"
-        placeholder="Şifreniz"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      {error && <InlineError message={error} />}
-      <Button onPress={onSubmit} disabled={!canSubmit} loading={loading}>
-        Giriş yap
-      </Button>
+      <View style={styles.hero}>
+        <View style={[styles.logo, { backgroundColor: colors.primary }, shadows.float, { shadowColor: colors.primary }]}>
+          <Ionicons name="swap-horizontal" size={38} color="#fff" />
+        </View>
+        <Text style={[styles.brand, { color: colors.text }]}>MeetBook</Text>
+        <Text style={[styles.tagline, { color: colors.textMuted }]}>
+          Yakınındaki kitapseverlerle takas yap
+        </Text>
+      </View>
+
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
+        <Input
+          label="E-posta"
+          placeholder="ornek@eposta.com"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+        />
+        <Input
+          label="Şifre"
+          placeholder="Şifreniz"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+        {error && <InlineError message={error} />}
+        <Button onPress={onSubmit} disabled={!canSubmit} loading={loading}>
+          Giriş yap
+        </Button>
+      </View>
+
       <View style={styles.linkRow}>
-        <Link href="/auth/register">Hesabın yok mu? Kayıt ol</Link>
+        <Link href="/auth/register" style={[styles.link, { color: colors.primary }]}>
+          Hesabın yok mu? Kayıt ol
+        </Link>
       </View>
     </ScrollView>
   );
@@ -76,12 +92,44 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.xl,
-    gap: spacing.md,
     justifyContent: 'center',
     flexGrow: 1,
   },
+  hero: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  logo: {
+    width: 84,
+    height: 84,
+    borderRadius: radius.tile,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  brand: {
+    fontSize: fontSize.display,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  tagline: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '500',
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  card: {
+    borderRadius: radius.card,
+    borderWidth: 1,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
   linkRow: {
     alignItems: 'center',
-    marginTop: spacing.md,
+    marginTop: spacing.xl,
+  },
+  link: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
   },
 });

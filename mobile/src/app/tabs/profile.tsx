@@ -8,36 +8,30 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  Image,
   useColorScheme,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar, Skeleton, palette, spacing, fontSize, radius } from '@/components/ui';
-import { getMe, listMyBooks, getWishlist, logout } from '@/lib/api/client';
+import { Avatar, Skeleton, palette, pastels, spacing, fontSize, radius, shadows } from '@/components/ui';
+import { getMe, getUser, listMyBooks, logout } from '@/lib/api/client';
 import { clearTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
 
-const MENU_SECTIONS = [
-  {
-    items: [
-      { key: 'books', label: 'Kitaplarım', icon: 'library-outline' as const, route: '/book/my-books' as const, badge: 'books' as const },
-      { key: 'wishlist', label: 'İstek Listem', icon: 'heart-outline' as const, route: '/wishlist' as const, badge: 'wishlist' as const },
-    ],
-  },
-  {
-    items: [
-      { key: 'trusted', label: 'Güvendiğim Kişi', icon: 'shield-checkmark-outline' as const, badge: null },
-      { key: 'privacy', label: 'Gizlilik & Güvenlik', icon: 'lock-closed-outline' as const, badge: null },
-      { key: 'settings', label: 'Ayarlar', icon: 'settings-outline' as const, route: '/settings' as const, badge: null },
-    ],
-  },
+type PastelName = keyof typeof pastels.light;
+
+const MENU_ITEMS = [
+  { key: 'trusted', label: 'Güvendiğim Kişi', icon: 'shield-checkmark' as const, tint: 'mint' as PastelName, route: null },
+  { key: 'blocked', label: 'Engellenen Kullanıcılar', icon: 'ban' as const, tint: 'coral' as PastelName, route: '/settings/blocked-users' as const },
+  { key: 'wishlist', label: 'İstek Listem', icon: 'heart' as const, tint: 'blush' as PastelName, route: '/wishlist' as const },
+  { key: 'settings', label: 'Ayarlar', icon: 'settings-sharp' as const, tint: 'sky' as PastelName, route: '/settings' as const },
 ] as const;
 
 export default function ProfileScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = palette[isDark ? 'dark' : 'light'];
+  const pastel = pastels[isDark ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
 
   const user = useAuthStore((s) => s.user);
@@ -55,31 +49,22 @@ export default function ProfileScreen() {
   });
   const books = booksData?.items ?? [];
 
-  const { data: wishlistData } = useQuery({
-    queryKey: ['wishlist'],
-    queryFn: () => getWishlist(),
+  const { data: profile } = useQuery({
+    queryKey: ['user', user?.id],
+    queryFn: () => getUser(user!.id),
+    enabled: !!user?.id,
   });
-  const wishlistCount = wishlistData?.items?.length ?? 0;
 
   const handleLogout = async () => {
-    Alert.alert('Çıkış Yap', 'Hesabınızdan çıkmak istediğinize emin misiniz?', [
-      { text: 'İptal', style: 'cancel' },
-      {
-        text: 'Çıkış Yap',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await logout({ refresh_token: refreshToken ?? '' });
-          } catch { /* best-effort */ }
-          await clearTokens();
-          clearSession();
-          router.replace('/auth/login');
-        },
-      },
-    ]);
+    try {
+      await logout({ refresh_token: refreshToken ?? '' });
+    } catch { /* best-effort */ }
+    await clearTokens();
+    clearSession();
+    router.replace('/auth/login');
   };
 
-  if (meLoading) {
+  if (meLoading && !user) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <View style={styles.loadingContent}>
@@ -94,13 +79,17 @@ export default function ProfileScreen() {
   const displayEmail = user?.email ?? '';
 
   const gradientColors: [string, string] = isDark
-    ? ['#1a3a2f', '#0d2018']
-    : ['#0F6E5D', '#094d41'];
+    ? ['#1C403A', '#10231F']
+    : ['#15917A', '#0C5E50'];
 
-  const statItems = [
-    { value: 0, label: 'Takas', color: colors.primary },
-    { value: books.length, label: 'Kitap', color: colors.accent },
-    { value: 0, label: 'Puan', color: colors.success },
+  const stats = [
+    { value: profile?.completed_exchanges ?? 0, label: 'takas', icon: 'swap-horizontal' as const },
+    { value: books.length, label: 'kitap', icon: 'library' as const },
+    {
+      value: profile && profile.rating_count > 0 ? profile.rating_average.toFixed(1) : '—',
+      label: 'puan',
+      icon: 'star' as const,
+    },
   ];
 
   return (
@@ -113,80 +102,114 @@ export default function ProfileScreen() {
         colors={gradientColors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.heroGradient, { paddingTop: insets.top + spacing.xl }]}
+        style={[styles.hero, { paddingTop: insets.top + spacing.xl }]}
       >
-        <View style={styles.heroContent}>
+        <View style={styles.heroAvatar}>
           <Avatar name={displayName} size="large" verified={false} />
-          <Text style={styles.heroName}>{displayName}</Text>
-          <Text style={styles.heroEmail}>{displayEmail}</Text>
         </View>
+        <Text style={styles.heroName}>{displayName}</Text>
+        <Text style={styles.heroEmail}>{displayEmail}</Text>
       </LinearGradient>
 
+      {/* Stats — overlap the hero for depth */}
       <View style={styles.statsRow}>
-        {statItems.map((stat) => (
-          <View key={stat.label} style={styles.statWrapper}>
-            <View style={[styles.statTopBorder, { backgroundColor: stat.color }]} />
-            <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-              <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
-              <Text style={[styles.statLabel, { color: colors.textMuted }]}>{stat.label}</Text>
-            </View>
+        {stats.map((stat) => (
+          <View key={stat.label} style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
+            <Ionicons name={stat.icon} size={18} color={colors.primary} />
+            <Text style={styles.statText}>
+              <Text style={[styles.statValue, { color: colors.text }]}>{stat.value}</Text>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>{' '}{stat.label}</Text>
+            </Text>
           </View>
         ))}
       </View>
 
-      {MENU_SECTIONS.map((section, sIdx) => (
-        <View
-          key={sIdx}
-          style={[styles.menuSection, { backgroundColor: colors.surface, borderRadius: radius.input }]}
-        >
-          {section.items.map((item, iIdx) => {
-            const badgeCount =
-              item.badge === 'books' ? books.length :
-              item.badge === 'wishlist' ? wishlistCount : 0;
-
-            return (
-              <TouchableOpacity
-                key={item.key}
-                style={[
-                  styles.menuItem,
-                  iIdx < section.items.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.textMuted + '20' },
-                ]}
-                onPress={() => {
-                  if ('route' in item && item.route) {
-                    router.push(item.route as any);
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name={item.icon} size={20} color={colors.textMuted} style={styles.menuIcon} />
-                <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>
-                <View style={styles.menuRight}>
-                  {badgeCount > 0 && (
-                    <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-                      <Text style={styles.badgeText}>{badgeCount}</Text>
-                    </View>
-                  )}
-                  {'route' in item && item.route && (
-                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                  )}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      ))}
-
-      <View style={[styles.menuSection, { backgroundColor: colors.surface, borderRadius: radius.input }]}>
+      {/* My books */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Kitaplarım</Text>
         <TouchableOpacity
-          style={styles.menuItem}
-          onPress={handleLogout}
-          activeOpacity={0.7}
-          testID="logout-button"
+          testID="add-book-button"
+          style={[styles.addBtn, { backgroundColor: colors.primary }, shadows.float, { shadowColor: colors.primary }]}
+          onPress={() => router.push('/book/new')}
+          activeOpacity={0.85}
         >
-          <Ionicons name="log-out-outline" size={20} color={colors.danger} style={styles.menuIcon} />
-          <Text style={[styles.menuLabel, { color: colors.danger }]}>Çıkış Yap</Text>
+          <Ionicons name="add" size={18} color="#fff" />
+          <Text style={styles.addBtnText}>Ekle</Text>
         </TouchableOpacity>
       </View>
+
+      {books.length === 0 ? (
+        <View style={[styles.emptyBooks, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
+            <Ionicons name="book-outline" size={26} color={colors.primary} />
+          </View>
+          <Text style={[styles.emptyText, { color: colors.text }]}>Henüz kitap eklenmedi</Text>
+          <Text style={[styles.emptySub, { color: colors.textMuted }]}>
+            İlk kitabını ekle, takasa başla
+          </Text>
+        </View>
+      ) : (
+        <View style={[styles.booksCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {books.map((book, idx) => (
+            <TouchableOpacity
+              key={book.id}
+              testID={`book-row-${book.id}`}
+              style={[
+                styles.bookRow,
+                idx < books.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+              ]}
+              onPress={() => router.push(`/book/${book.id}`)}
+              activeOpacity={0.7}
+            >
+              {book.photos?.[0]?.url ? (
+                <Image source={{ uri: book.photos[0].url }} style={styles.bookThumb} />
+              ) : (
+                <View style={[styles.bookThumb, styles.bookThumbEmpty, { backgroundColor: colors.surfaceAlt }]}>
+                  <Ionicons name="book-outline" size={20} color={colors.textMuted} />
+                </View>
+              )}
+              <View style={styles.bookInfo}>
+                <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={1}>{book.title}</Text>
+                {book.author ? (
+                  <Text style={[styles.bookAuthor, { color: colors.textMuted }]} numberOfLines={1}>{book.author}</Text>
+                ) : null}
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Menu */}
+      <View style={[styles.menuCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        {MENU_ITEMS.map((item, idx) => (
+          <TouchableOpacity
+            key={item.key}
+            style={[
+              styles.menuItem,
+              idx < MENU_ITEMS.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+            ]}
+            onPress={() => item.route && router.push(item.route as any)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuIconChip, { backgroundColor: pastel[item.tint].bg }]}>
+              <Ionicons name={item.icon} size={17} color={pastel[item.tint].ink} />
+            </View>
+            <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <TouchableOpacity
+        style={[styles.logoutBtn, { backgroundColor: colors.danger + '14' }]}
+        onPress={handleLogout}
+        activeOpacity={0.7}
+        testID="logout-button"
+      >
+        <Ionicons name="log-out-outline" size={19} color={colors.danger} />
+        <Text style={[styles.logoutText, { color: colors.danger }]}>Çıkış Yap</Text>
+      </TouchableOpacity>
 
       <Text style={[styles.footer, { color: colors.textMuted }]}>MeetBook v1.0.0</Text>
     </ScrollView>
@@ -201,95 +224,185 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
   },
-  heroGradient: {
+  hero: {
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xxxl + spacing.md,
     alignItems: 'center',
+    borderBottomLeftRadius: radius.sheet + 8,
+    borderBottomRightRadius: radius.sheet + 8,
   },
-  heroContent: {
-    alignItems: 'center',
-    gap: spacing.xs,
+  heroAvatar: {
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.35)',
+    borderRadius: radius.pill,
+    padding: 3,
   },
   heroName: {
-    fontSize: fontSize.title,
-    fontWeight: '700',
+    fontSize: fontSize.heading,
+    fontWeight: '900',
     color: '#fff',
     marginTop: spacing.md,
+    letterSpacing: -0.3,
   },
   heroEmail: {
     fontSize: fontSize.bodySm,
-    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
   },
   statsRow: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
-    marginTop: -spacing.md,
-    marginBottom: spacing.lg,
-  },
-  statWrapper: {
-    flex: 1,
-    borderRadius: radius.input,
-    overflow: 'hidden',
-  },
-  statTopBorder: {
-    height: 3,
+    marginTop: -spacing.xxl,
+    marginBottom: spacing.xl,
   },
   statCard: {
+    flex: 1,
     alignItems: 'center',
+    gap: spacing.xs,
     paddingVertical: spacing.md,
+    borderRadius: radius.card,
+    borderWidth: 1,
+  },
+  statText: {
+    textAlign: 'center',
   },
   statValue: {
-    fontSize: fontSize.heading,
-    fontWeight: '700',
+    fontSize: fontSize.title,
+    fontWeight: '900',
   },
   statLabel: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    fontSize: fontSize.title,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+  },
+  addBtnText: {
+    color: '#fff',
+    fontSize: fontSize.bodySm,
+    fontWeight: '800',
+  },
+  emptyBooks: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+    paddingVertical: spacing.xl,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.field,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  emptyText: {
+    fontSize: fontSize.body,
+    fontWeight: '800',
+  },
+  emptySub: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  booksCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  bookRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  bookThumb: {
+    width: 40,
+    height: 56,
+    borderRadius: radius.input,
+  },
+  bookThumbEmpty: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bookInfo: {
+    flex: 1,
+  },
+  bookTitle: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+  },
+  bookAuthor: {
     fontSize: fontSize.caption,
     fontWeight: '500',
-    marginTop: spacing.xs,
+    marginTop: 2,
   },
-  menuSection: {
+  menuCard: {
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
+    borderRadius: radius.card,
+    borderWidth: 1,
     overflow: 'hidden',
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
-  menuIcon: {
-    marginRight: spacing.md,
-    width: 24,
-    textAlign: 'center',
+  menuIconChip: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.field,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   menuLabel: {
     flex: 1,
     fontSize: fontSize.body,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  menuRight: {
+  logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-  },
-  badge: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    paddingHorizontal: spacing.xs,
     justifyContent: 'center',
-    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.button,
   },
-  badgeText: {
-    color: '#fff',
-    fontSize: fontSize.caption,
-    fontWeight: '700',
+  logoutText: {
+    fontSize: fontSize.body,
+    fontWeight: '800',
   },
   footer: {
     textAlign: 'center',
     fontSize: fontSize.caption,
-    marginTop: spacing.lg,
+    fontWeight: '500',
+    marginTop: spacing.xl,
   },
 });

@@ -12,10 +12,11 @@ from typing import Any
 
 from geoalchemy2 import Geometry
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import Select, and_, cast, func, or_, select
+from sqlalchemy import Select, and_, cast, delete, exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.books.models import Book, BookPhoto
+from app.modules.books.models import Book, BookFavorite, BookPhoto
+from app.modules.exchanges.models import Block
 
 
 @dataclass
@@ -119,11 +120,31 @@ class BookRepository:
         return [self._to_row(row) for row in result.all()]
 
     async def list_available(
-        self, cursor: str | None, limit: int
+        self,
+        cursor: str | None,
+        limit: int,
+        current_user_id: uuid.UUID | None = None,
     ) -> list[BookRow]:
         stmt = self._select_with_coords().where(
             Book.deleted_at.is_(None), Book.is_available.is_(True)
         )
+        if current_user_id is not None:
+            stmt = stmt.where(
+                ~exists(
+                    select(Block.blocker_id).where(
+                        or_(
+                            and_(
+                                Block.blocker_id == current_user_id,
+                                Block.blocked_id == Book.owner_id,
+                            ),
+                            and_(
+                                Block.blocker_id == Book.owner_id,
+                                Block.blocked_id == current_user_id,
+                            ),
+                        )
+                    )
+                )
+            )
         if cursor:
             cursor_created_at, cursor_id = decode_cursor(cursor)
             stmt = stmt.where(
@@ -150,6 +171,7 @@ class BookRepository:
         q: str | None,
         cursor: str | None,
         limit: int,
+        current_user_id: uuid.UUID | None = None,
     ) -> list[BookSearchRow]:
         pub = cast(Book.public_location, Geometry)
         user_wkt = f"SRID=4326;POINT({user_lng} {user_lat})"
@@ -183,6 +205,24 @@ class BookRepository:
             pattern = f"%{q}%"
             stmt = stmt.where(
                 or_(Book.title.ilike(pattern), Book.author.ilike(pattern))
+            )
+
+        if current_user_id is not None:
+            stmt = stmt.where(
+                ~exists(
+                    select(Block.blocker_id).where(
+                        or_(
+                            and_(
+                                Block.blocker_id == current_user_id,
+                                Block.blocked_id == Book.owner_id,
+                            ),
+                            and_(
+                                Block.blocker_id == Book.owner_id,
+                                Block.blocked_id == current_user_id,
+                            ),
+                        )
+                    )
+                )
             )
 
         if cursor:
@@ -220,6 +260,71 @@ class BookRepository:
         book.deleted_at = datetime.now(UTC)
 
     # -----------------------------------------------------------------------
+    # View count
+    # -----------------------------------------------------------------------
+
+    async def increment_view_count(self, book_id: uuid.UUID) -> None:
+        stmt = (
+            update(Book)
+            .where(Book.id == book_id)
+            .values(view_count=Book.view_count + 1, updated_at=datetime.now(UTC))
+        )
+        await self.session.execute(stmt)
+
+    # -----------------------------------------------------------------------
+    # Favorites
+    # -----------------------------------------------------------------------
+
+    async def add_favorite(self, user_id: uuid.UUID, book_id: uuid.UUID) -> bool:
+        """Add a favorite. Returns False if already exists."""
+        existing = await self.session.execute(
+            select(BookFavorite).where(
+                BookFavorite.user_id == user_id, BookFavorite.book_id == book_id
+            )
+        )
+        if existing.scalar_one_or_none() is not None:
+            return False
+        fav = BookFavorite(user_id=user_id, book_id=book_id)
+        self.session.add(fav)
+        # Increment counter on book
+        stmt = (
+            update(Book)
+            .where(Book.id == book_id)
+            .values(favorite_count=Book.favorite_count + 1, updated_at=datetime.now(UTC))
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()
+        return True
+
+    async def remove_favorite(self, user_id: uuid.UUID, book_id: uuid.UUID) -> bool:
+        """Remove a favorite. Returns False if it didn't exist."""
+        existing = await self.session.execute(
+            select(BookFavorite).where(
+                BookFavorite.user_id == user_id, BookFavorite.book_id == book_id
+            )
+        )
+        fav = existing.scalar_one_or_none()
+        if fav is None:
+            return False
+        await self.session.delete(fav)
+        # Decrement counter on book (floor at 0)
+        stmt = (
+            update(Book)
+            .where(Book.id == book_id, Book.favorite_count > 0)
+            .values(favorite_count=Book.favorite_count - 1, updated_at=datetime.now(UTC))
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()
+        return True
+
+    async def is_favorited(self, user_id: uuid.UUID, book_id: uuid.UUID) -> bool:
+        stmt = select(BookFavorite).where(
+            BookFavorite.user_id == user_id, BookFavorite.book_id == book_id
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
+    # -----------------------------------------------------------------------
     # Photos
     # -----------------------------------------------------------------------
 
@@ -232,8 +337,8 @@ class BookRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def add_photo(self, book_id: uuid.UUID, url: str, position: int) -> BookPhoto:
-        photo = BookPhoto(book_id=book_id, url=url, position=position)
+    async def add_photo(self, book_id: uuid.UUID, url: str, position: int, thumbnail_url: str | None = None) -> BookPhoto:
+        photo = BookPhoto(book_id=book_id, url=url, thumbnail_url=thumbnail_url, position=position)
         self.session.add(photo)
         await self.session.flush()
         return photo

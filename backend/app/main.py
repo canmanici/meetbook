@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -51,6 +52,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             except Exception:
                 pass  # Bucket may already exist or MinIO not ready yet
 
+    # Start Redis pub/sub listener for real-time chat (horizontal scaling).
+    # Listens on ``chat:*`` channels and forwards to local WebSocket connections.
+    chat_listener_task = None
+    if settings.env != "test":
+        from app.modules.chat.service import subscribe_and_listen
+        chat_listener_task = asyncio.create_task(subscribe_and_listen())
+
     # Hourly worker: expire overdue exchange requests. Skipped in tests, where
     # create_app() runs once per test and a real scheduler would never stop.
     scheduler = None
@@ -58,19 +66,31 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
         from app.workers.expire_requests import expire_requests
+        from app.workers.reveal_ratings import reveal_overdue_ratings
 
         async def _run_expire_requests() -> None:
             async with get_session_factory()() as session:
                 await expire_requests(session)
 
+        async def _run_reveal_ratings() -> None:
+            async with get_session_factory()() as session:
+                await reveal_overdue_ratings(session)
+
         scheduler = AsyncIOScheduler()
         scheduler.add_job(_run_expire_requests, "interval", hours=1)
+        scheduler.add_job(_run_reveal_ratings, "interval", hours=1)
         scheduler.start()
 
     yield
 
     if scheduler is not None:
         scheduler.shutdown()
+    if chat_listener_task is not None:
+        chat_listener_task.cancel()
+        try:
+            await chat_listener_task
+        except asyncio.CancelledError:
+            pass
 
 
 def create_app() -> FastAPI:
@@ -122,16 +142,43 @@ def create_app() -> FastAPI:
     from app.modules.places.router import router as places_router
     app.include_router(places_router, prefix="/api/v1")
 
+    # Ratings module
+    from app.modules.ratings.router import router as ratings_router
+    app.include_router(ratings_router, prefix="/api/v1")
+
+    # Reports module
+    from app.modules.reports.router import router as reports_router
+    app.include_router(reports_router, prefix="/api/v1")
+
+    # Notifications module
+    from app.modules.notifications.router import router as notifications_router
+    app.include_router(notifications_router, prefix="/api/v1")
+
+    # Chat module
+    from app.modules.chat.router import router as chat_exchange_router
+    from app.modules.chat.router import chat_router
+    from app.modules.chat.router import ws_router
+    app.include_router(chat_exchange_router, prefix="/api/v1")
+    app.include_router(chat_router, prefix="/api/v1")
+    app.include_router(ws_router)  # WebSocket at /ws/chat (outside /api/v1)
+
+    # Admin module
+    from app.modules.admin.router import router as admin_router
+    app.include_router(admin_router, prefix="/api/v1")
+
     # Rate limiting
     redis_client = aioredis.from_url(get_settings().redis_url)
     rate_config = RateLimitConfig(
-        requests_per_minute=120,
+        requests_per_minute=300,
         route_limits={
-            "/auth/register": (5, 3600),  # 5/hour
-            "/auth/login": (10, 60),  # 10/min
-            "/auth/refresh": (20, 60),  # 20/min
-            "/auth/password-reset": (5, 3600),  # 5/hour
-            "/places": (60, 60),  # 60/min
+            "/api/v1/auth/register": (30, 3600),  # 30/hour
+            "/api/v1/auth/login": (30, 60),  # 30/min
+            "/api/v1/auth/refresh": (60, 60),  # 60/min
+            "/api/v1/auth/password-reset-request": (20, 3600),  # 20/hour
+            "/api/v1/auth/password-reset-confirm": (20, 3600),  # 20/hour
+            "/api/v1/places": (120, 60),  # 120/min
+            "/api/v1/reports": (60, 3600),  # 60/hour — moderation queue abuse guard
+            "/api/v1/admin": (120, 60),  # 120/min — admin tooling
         },
     )
     app.add_middleware(RateLimitMiddleware, redis_client=redis_client, config=rate_config)

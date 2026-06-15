@@ -5,12 +5,14 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import (
+    Boolean,
     Column,
     DateTime,
     Enum,
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -51,6 +53,9 @@ class User(Base):
     completed_exchanges = Column(Integer, nullable=False, default=0)
     trusted_contact_name = Column(String(100), nullable=True)
     trusted_contact_phone = Column(String(20), nullable=True)
+    rating_average = Column(Numeric(3, 2), nullable=False, default=0)
+    rating_count = Column(Integer, nullable=False, default=0)
+    is_admin = Column(Boolean, nullable=False, default=False)
 
     # Relationships
     credential = relationship("UserCredential", back_populates="user", uselist=False)

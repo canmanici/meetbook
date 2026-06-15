@@ -16,6 +16,8 @@ from app.modules.books.schemas import LocationOutput, PhotoView
 from app.modules.exchanges.models import ExchangeRequest, ExchangeStatus, Meetup, MeetupValidationStatus
 from app.modules.exchanges.repository import ExchangeRepository, Role
 from app.modules.exchanges.schemas import (
+    BlockedUserView,
+    BlockListResponse,
     BookSummary,
     CounterpartView,
     ExchangeCreateRequest,
@@ -60,7 +62,7 @@ def _book_summary(book_row: BookRow | None, photos: list | None = None) -> BookS
         public_location=LocationOutput(
             lat=book_row.public_location[0], lng=book_row.public_location[1]
         ),
-        photos=[PhotoView(id=p.id, url=p.url, position=p.position) for p in (photos or [])],
+        photos=[PhotoView(id=p.id, url=p.url, thumbnail_url=p.thumbnail_url, position=p.position) for p in (photos or [])],
     )
 
 
@@ -407,6 +409,24 @@ class ExchangeService:
         self, exchange_id: uuid.UUID, current_user_id: uuid.UUID
     ) -> ExchangeDetail:
         return await self._transition(exchange_id, current_user_id, ExchangeAction.reject_meetup)
+
+    async def block_user(self, blocker_id: uuid.UUID, blocked_id: uuid.UUID) -> None:
+        if blocker_id == blocked_id:
+            raise ExchangeError("SELF_BLOCK", 400)
+        await self.repo.create_block(blocker_id, blocked_id)
+        await self.session.commit()
+
+    async def unblock_user(self, blocker_id: uuid.UUID, blocked_id: uuid.UUID) -> None:
+        await self.repo.delete_block(blocker_id, blocked_id)
+        await self.session.commit()
+
+    async def list_blocked_users(self, blocker_id: uuid.UUID) -> BlockListResponse:
+        blocks = await self.repo.list_blocked_by(blocker_id)
+        return BlockListResponse(
+            items=[
+                BlockedUserView(user_id=b.blocked_id, created_at=b.created_at) for b in blocks
+            ]
+        )
 
     async def suggest_meetup_places(
         self, exchange_id: uuid.UUID, current_user_id: uuid.UUID

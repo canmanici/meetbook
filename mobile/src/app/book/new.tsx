@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, type LatLng, type MapPressEvent } from 'react-native-maps';
@@ -64,6 +64,8 @@ export default function NewBookScreen() {
   // Map state
   const [marker, setMarker] = useState<LatLng | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const mapRef = useRef<MapView>(null);
 
   // Sync picked location from store (if user picks location from separate screen)
   useEffect(() => {
@@ -103,16 +105,27 @@ export default function NewBookScreen() {
 
   const useMyLocation = async () => {
     setLocationError(null);
+    setLocationLoading(true);
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       setLocationError('Konum izni verilmedi.');
+      setLocationLoading(false);
       return;
     }
     try {
-      const position = await Location.getCurrentPositionAsync({});
-      setMarker({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude, longitude } = position.coords;
+      setMarker({ latitude, longitude });
+      mapRef.current?.animateToRegion({
+        latitude,
+        longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
     } catch {
       setLocationError('Konum alınamadı.');
+    } finally {
+      setLocationLoading(false);
     }
   };
 
@@ -277,6 +290,7 @@ export default function NewBookScreen() {
           <View style={styles.stepContent}>
             <View style={styles.mapContainer}>
               <MapView
+                ref={mapRef}
                 style={styles.map}
                 initialRegion={ISTANBUL_REGION}
                 onPress={onMapPress}
@@ -284,9 +298,19 @@ export default function NewBookScreen() {
                 {marker && <Marker coordinate={marker} testID="location-picker-marker" />}
               </MapView>
             </View>
+            {locationLoading && (
+              <Card style={[styles.locationLoadingCard, { backgroundColor: colors.surface }]}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.locationLoadingText, { color: colors.textMuted }]}>Konum yükleniyor...</Text>
+              </Card>
+            )}
             {locationError && <InlineError message={locationError} />}
-            <Button variant="secondary" onPress={useMyLocation} testID="use-my-location-button">
-              Konumum
+            <Button
+              variant="secondary"
+              onPress={useMyLocation}
+              disabled={locationLoading}
+              testID="use-my-location-button">
+              {'Konumum'}
             </Button>
             <Card style={{ ...styles.privacyCard, backgroundColor: colors.surface }}>
               <Text style={[styles.privacyText, { color: colors.textMuted }]}>
@@ -449,6 +473,16 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  locationLoadingCard: {
+    padding: spacing.md,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  locationLoadingText: {
+    fontSize: 13,
   },
   privacyCard: {
     padding: spacing.md,

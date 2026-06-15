@@ -54,6 +54,15 @@ class UserPublic(BaseModel):
     name: str
 
 
+class UserPublicProfile(BaseModel):
+    """Public profile of a user, visible to other users — no PII email."""
+    id: uuid.UUID
+    name: str
+    completed_exchanges: int = 0
+    rating_average: float = 0
+    rating_count: int = 0
+
+
 class AuthTokensResponse(BaseModel):
     user_id: uuid.UUID
     access_token: str

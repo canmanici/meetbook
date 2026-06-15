@@ -77,7 +77,7 @@ async function parse<T>(res: Response): Promise<T> {
   return data as T;
 }
 
-async function authedRequest<T>(
+export async function authedRequest<T>(
   path: string,
   method: string,
   body: unknown,
@@ -163,6 +163,7 @@ export async function searchNearbyBooks(params: {
   items: Array<{
     id: string;
     owner_id: string;
+    owner_name: string;
     title: string;
     author?: string;
     isbn?: string;
@@ -173,7 +174,7 @@ export async function searchNearbyBooks(params: {
     is_available: boolean;
     public_location: { lat: number; lng: number };
     distance_km: number;
-    photos: Array<{ id: string; url: string; position: number }>;
+    photos: Array<{ id: string; url: string; thumbnail_url?: string; position: number }>;
     created_at: string;
     updated_at: string;
   }>;
@@ -190,24 +191,63 @@ export async function updateBook(bookId: string, body: BookUpdateBody): Promise<
   return authedRequest<BookOwnerView>(`/books/${bookId}`, 'PATCH', body);
 }
 
-export async function deleteBook(bookId: string): Promise<void> {
-  return authedRequest<void>(`/books/${bookId}`, 'DELETE', undefined);
+export async function deleteBook(bookId: string, force?: boolean): Promise<void> {
+  return authedRequest<void>(`/books/${bookId}`, 'DELETE', undefined, {
+    query: force ? { force: 'true' } : undefined,
+  });
+}
+
+export async function incrementBookView(bookId: string): Promise<void> {
+  return authedRequest<void>(`/books/${bookId}/view`, 'POST', undefined);
+}
+
+export async function addFavorite(bookId: string): Promise<void> {
+  return authedRequest<void>(`/books/${bookId}/favorite`, 'POST', undefined);
+}
+
+export async function removeFavorite(bookId: string): Promise<void> {
+  return authedRequest<void>(`/books/${bookId}/favorite`, 'DELETE', undefined);
 }
 
 export async function uploadBookPhoto(
   bookId: string,
   uri: string,
   contentType: string,
-): Promise<{ id: string; url: string; position: number }> {
+): Promise<{ id: string; url: string; thumbnail_url?: string; position: number }> {
   const { accessToken } = useAuthStore.getState();
+
+  let thumbUri: string | null = null;
+  try {
+    const ImageManipulator = await import('expo-image-manipulator');
+  const thumbResult = await ImageManipulator.manipulateAsync(
+    uri,
+      [{ resize: { width: 80, height: 220 } }],
+    { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
+  );
+    thumbUri = thumbResult.uri;
+    console.log('[uploadBookPhoto] thumbnail created:', thumbUri);
+  } catch (e) {
+    console.warn('[uploadBookPhoto] thumbnail resize failed, uploading without:', e);
+  }
+
   const formData = new FormData();
 
+  // Original file
   const filename = uri.split('/').pop() || 'photo.jpg';
   formData.append('file', {
     uri,
     name: filename,
     type: contentType,
   } as unknown as Blob);
+
+  // Thumbnail file (if resize succeeded)
+  if (thumbUri) {
+    formData.append('thumbnail', {
+      uri: thumbUri,
+      name: `thumb_${filename}`,
+      type: 'image/jpeg',
+    } as unknown as Blob);
+  }
 
   const url = `${BASE_URL}/books/${bookId}/photos`;
   const res = await fetch(url, {
@@ -229,10 +269,48 @@ export async function deleteBookPhoto(bookId: string, photoId: string): Promise<
   return authedRequest<void>(`/books/${bookId}/photos/${photoId}`, 'DELETE', undefined);
 }
 
+export async function uploadBookPhotoThumbnail(
+  bookId: string,
+  photoId: string,
+  originalUri: string,
+): Promise<{ id: string; url: string; thumbnail_url?: string; position: number }> {
+  const { accessToken } = useAuthStore.getState();
+
+  // Resize to 80×45 on-device
+  const { manipulateAsync, SaveFormat } = await import('expo-image-manipulator');
+  const thumbResult = await manipulateAsync(
+    originalUri,
+    [{ resize: { width: 80, height: 45 } }],
+    { compress: 0.8, format: SaveFormat.JPEG },
+  );
+
+  const formData = new FormData();
+  formData.append('file', {
+    uri: thumbResult.uri,
+    name: `thumb_${photoId}.jpg`,
+    type: 'image/jpeg',
+  } as unknown as Blob);
+
+  const url = `${BASE_URL}/books/${bookId}/photos/${photoId}/thumbnail`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: formData,
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new ApiError(res.status, data);
+  }
+  return data;
+}
+
 export async function reorderBookPhotos(
   bookId: string,
   photoIds: string[],
-): Promise<Array<{ id: string; url: string; position: number }>> {
+): Promise<Array<{ id: string; url: string; thumbnail_url?: string; position: number }>> {
   return authedRequest(`/books/${bookId}/photos/reorder`, 'PATCH', { photo_ids: photoIds });
 }
 
@@ -340,7 +418,7 @@ export async function getWishlistMatches(): Promise<{
     isbn: string;
     condition: string;
     distance_km: number;
-    photos: Array<{ url: string; position: number }>;
+    photos: Array<{ url: string; thumbnail_url?: string; position: number }>;
     created_at: string;
   }>;
 }> {
@@ -389,6 +467,76 @@ export async function getMeetupSuggestions(exchangeId: string): Promise<MeetupSu
 }
 
 // ---------------------------------------------------------------------------
+// Blocks
+// ---------------------------------------------------------------------------
+
+export type BlockCreateBody =
+  paths['/api/v1/exchanges/blocks']['post']['requestBody']['content']['application/json'];
+export type BlockListResponse =
+  paths['/api/v1/exchanges/blocks']['get']['responses'][200]['content']['application/json'];
+
+export async function blockUser(body: BlockCreateBody): Promise<void> {
+  return authedRequest<void>('/exchanges/blocks', 'POST', body);
+}
+
+export async function listBlockedUsers(): Promise<BlockListResponse> {
+  return authedRequest<BlockListResponse>('/exchanges/blocks', 'GET', undefined);
+}
+
+export async function unblockUser(blockedUserId: string): Promise<void> {
+  return authedRequest<void>(`/exchanges/blocks/${blockedUserId}`, 'DELETE', undefined);
+}
+
+// ---------------------------------------------------------------------------
+// Reports
+// ---------------------------------------------------------------------------
+
+export type ReportCreateBody =
+  paths['/api/v1/reports']['post']['requestBody']['content']['application/json'];
+export type ReportView =
+  paths['/api/v1/reports']['post']['responses'][201]['content']['application/json'];
+
+export async function createReport(body: ReportCreateBody): Promise<ReportView> {
+  return authedRequest<ReportView>('/reports', 'POST', body);
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+export type NotificationListResponse =
+  paths['/api/v1/notifications']['get']['responses'][200]['content']['application/json'];
+export type NotificationMarkReadBody =
+  paths['/api/v1/notifications/read']['post']['requestBody']['content']['application/json'];
+
+export async function listNotifications(): Promise<NotificationListResponse> {
+  return authedRequest<NotificationListResponse>('/notifications', 'GET', undefined);
+}
+
+export async function markNotificationsRead(body: NotificationMarkReadBody): Promise<void> {
+  return authedRequest<void>('/notifications/read', 'POST', body);
+}
+
+// ---------------------------------------------------------------------------
+// Ratings
+// ---------------------------------------------------------------------------
+
+export type RatingCreateBody =
+  paths['/api/v1/ratings']['post']['requestBody']['content']['application/json'];
+export type RatingView =
+  paths['/api/v1/ratings']['post']['responses'][201]['content']['application/json'];
+export type RatingListResponse =
+  paths['/api/v1/users/{user_id}/ratings']['get']['responses'][200]['content']['application/json'];
+
+export async function createRating(body: RatingCreateBody): Promise<RatingView> {
+  return authedRequest<RatingView>('/ratings', 'POST', body);
+}
+
+export async function getUserRatings(userId: string): Promise<RatingListResponse> {
+  return authedRequest<RatingListResponse>(`/users/${userId}/ratings`, 'GET', undefined);
+}
+
+// ---------------------------------------------------------------------------
 // Places
 // ---------------------------------------------------------------------------
 
@@ -429,4 +577,20 @@ export async function getMe(): Promise<MeResponse> {
 
 export async function updateMe(body: UpdateMeBody): Promise<MeResponse> {
   return authedRequest<MeResponse>('/auth/me', 'PATCH', body);
+}
+
+// ---------------------------------------------------------------------------
+// User public profile
+// ---------------------------------------------------------------------------
+
+export type UserPublicProfile = {
+  id: string;
+  name: string;
+  completed_exchanges: number;
+  rating_average: number;
+  rating_count: number;
+};
+
+export async function getUser(userId: string): Promise<UserPublicProfile> {
+  return authedRequest<UserPublicProfile>(`/auth/users/${userId}`, 'GET', undefined);
 }

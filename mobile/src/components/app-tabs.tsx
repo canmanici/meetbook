@@ -14,10 +14,20 @@ const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   profile: 'person',
 };
 
-function TabIcon({ name, color, badgeCount }: { name: keyof typeof TAB_ICONS; color: ColorValue; badgeCount?: number }) {
+function TabIcon({ name, color, focused, pillColor, badgeCount }: { name: keyof typeof TAB_ICONS; color: ColorValue; focused?: boolean; pillColor?: string; badgeCount?: number }) {
   const iconName = TAB_ICONS[name];
   return (
-    <View style={{ position: 'relative' }}>
+    <View
+      style={{
+        position: 'relative',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 6,
+        paddingVertical: 5,
+        borderRadius: 999,
+        backgroundColor: focused ? pillColor : 'transparent',
+      }}
+    >
       <Ionicons name={iconName} size={22} color={color as string} />
       {badgeCount !== undefined && badgeCount > 0 && (
         <View
@@ -56,13 +66,26 @@ export function AppTabs() {
   const pendingCount = receivedData?.items?.length ?? 0;
 
   return (
-    <Tabs
+      <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '700',
+          marginTop: 2,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 4,
+        },
         tabBarStyle: {
           backgroundColor: colors.surface,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          height: 88,
+          paddingBottom: 20,
+          paddingTop: 4,
         },
       }}>
       <Tabs.Screen
@@ -70,7 +93,7 @@ export function AppTabs() {
         options={{
           title: 'Ana Sayfa',
           tabBarButtonTestID: 'home-tab',
-          tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="home" color={color} focused={focused} pillColor={colors.primarySoft} />,
         }}
       />
       <Tabs.Screen
@@ -78,7 +101,7 @@ export function AppTabs() {
         options={{
           title: 'Ara',
           tabBarButtonTestID: 'search-tab',
-          tabBarIcon: ({ color }) => <TabIcon name="search" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="search" color={color} focused={focused} pillColor={colors.primarySoft} />,
         }}
       />
       <Tabs.Screen
@@ -86,7 +109,7 @@ export function AppTabs() {
         options={{
           title: 'Talepler',
           tabBarButtonTestID: 'requests-tab',
-          tabBarIcon: ({ color }) => <TabIcon name="requests" color={color} badgeCount={pendingCount > 0 ? pendingCount : undefined} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="requests" color={color} focused={focused} pillColor={colors.primarySoft} badgeCount={pendingCount > 0 ? pendingCount : undefined} />,
         }}
       />
       <Tabs.Screen
@@ -94,7 +117,7 @@ export function AppTabs() {
         options={{
           title: 'Mesajlar',
           tabBarButtonTestID: 'chats-tab',
-          tabBarIcon: ({ color }) => <TabIcon name="chats" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="chats" color={color} focused={focused} pillColor={colors.primarySoft} />,
         }}
       />
       <Tabs.Screen
@@ -102,7 +125,7 @@ export function AppTabs() {
         options={{
           title: 'Profil',
           tabBarButtonTestID: 'profile-tab',
-          tabBarIcon: ({ color }) => <TabIcon name="profile" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="profile" color={color} focused={focused} pillColor={colors.primarySoft} />,
         }}
       />
     </Tabs>

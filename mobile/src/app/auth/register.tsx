@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { Badge, Button, InlineError, Input, palette, spacing } from '@/components/ui';
+import { Badge, Button, InlineError, Input, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
 import { ApiError, register } from '@/lib/api/client';
 import { setTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
@@ -50,41 +51,56 @@ export default function RegisterScreen() {
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}>
-      <Input label="Ad Soyad" placeholder="Adınız" value={name} onChangeText={setName} />
-      <Input
-        label="E-posta"
-        placeholder="ornek@eposta.com"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-      />
-      <Input
-        label="Şifre"
-        placeholder="En az 8 karakter"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <Pressable
-        testID="kvkk-consent-toggle"
-        onPress={() => setKvkkConsent((value) => !value)}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: kvkkConsent }}
-        style={styles.consentRow}>
-        <Badge
-          text={kvkkConsent ? 'Onaylandı' : 'Onayla'}
-          variant={kvkkConsent ? 'success' : 'info'}
-        />
-        <Text style={[styles.consentText, { color: colors.text }]}>
-          KVKK Aydınlatma Metni&apos;ni okudum ve kabul ediyorum.
+      <View style={styles.hero}>
+        <View style={[styles.logo, { backgroundColor: colors.accent }, shadows.float, { shadowColor: colors.accent }]}>
+          <Ionicons name="person-add" size={32} color="#fff" />
+        </View>
+        <Text style={[styles.brand, { color: colors.text }]}>Aramıza katıl</Text>
+        <Text style={[styles.tagline, { color: colors.textMuted }]}>
+          Birkaç saniyede hesabını oluştur
         </Text>
-      </Pressable>
-      {error && <InlineError message={error} />}
-      <Button onPress={onSubmit} disabled={!canSubmit} loading={loading}>
-        Kayıt ol
-      </Button>
+      </View>
+
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
+        <Input label="Ad Soyad" placeholder="Adınız" value={name} onChangeText={setName} />
+        <Input
+          label="E-posta"
+          placeholder="ornek@eposta.com"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+        />
+        <Input
+          label="Şifre"
+          placeholder="En az 8 karakter"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+        <Pressable
+          testID="kvkk-consent-toggle"
+          onPress={() => setKvkkConsent((value) => !value)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: kvkkConsent }}
+          style={[styles.consentRow, { backgroundColor: colors.surfaceAlt }]}>
+          <Badge
+            text={kvkkConsent ? 'Onaylandı' : 'Onayla'}
+            variant={kvkkConsent ? 'success' : 'info'}
+          />
+          <Text style={[styles.consentText, { color: colors.text }]}>
+            KVKK Aydınlatma Metni&apos;ni okudum ve kabul ediyorum.
+          </Text>
+        </Pressable>
+        {error && <InlineError message={error} />}
+        <Button onPress={onSubmit} disabled={!canSubmit} loading={loading}>
+          Kayıt ol
+        </Button>
+      </View>
+
       <View style={styles.linkRow}>
-        <Link href="/auth/login">Hesabın var mı? Giriş yap</Link>
+        <Link href="/auth/login" style={[styles.link, { color: colors.primary }]}>
+          Hesabın var mı? Giriş yap
+        </Link>
       </View>
     </ScrollView>
   );
@@ -96,20 +112,55 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.xl,
-    gap: spacing.md,
     justifyContent: 'center',
     flexGrow: 1,
+  },
+  hero: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  logo: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.tile,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  brand: {
+    fontSize: fontSize.heading,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
+  tagline: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '500',
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  card: {
+    borderRadius: radius.card,
+    borderWidth: 1,
+    padding: spacing.lg,
+    gap: spacing.md,
   },
   consentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.field,
   },
   consentText: {
     flex: 1,
+    fontSize: fontSize.bodySm,
   },
   linkRow: {
     alignItems: 'center',
-    marginTop: spacing.md,
+    marginTop: spacing.xl,
+  },
+  link: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
   },
 });

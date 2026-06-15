@@ -10,15 +10,14 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  PixelRatio,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 import ClusteredMapView from 'react-native-map-clustering';
 
 import { BookCard, EmptyState, Skeleton, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
-import { MapBookPin } from '@/components/ui/map-book-pin';
+import { BookMarker } from '@/components/ui/book-marker';
 
 import { searchNearbyBooks } from '@/lib/api/client';
 
@@ -57,9 +56,26 @@ export default function HomeScreen() {
       if (status === 'granted') {
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+        setMapRegion({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        });
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (viewMode === 'map' && userLocation && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: userLocation.lat,
+        longitude: userLocation.lng,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      });
+    }
+  }, [viewMode, userLocation]);
 
   const toggleViewMode = (mode: 'list' | 'map') => {
     setViewMode(mode);
@@ -259,24 +275,22 @@ export default function HomeScreen() {
             showsUserLocation
             showsMyLocationButton={false}
             onRegionChangeComplete={setMapRegion}
+            clusteringEnabled={false}
             >
             {books.map((book) => {
               if (!book.public_location) return null;
               return (
-                <Marker
+                <BookMarker
                   key={book.id}
                   coordinate={{
                     latitude: book.public_location.lat,
                     longitude: book.public_location.lng,
                   }}
+                  coverUrl={book.photos?.[0]?.url}
+                  thumbnailUrl={book.photos?.[0]?.thumbnail_url}
+                  title={book.title}
                   onPress={() => router.push(`/book/${book.id}`)}
-                  style={{ width: 120 * PixelRatio.get(), height: 178 * PixelRatio.get(), alignItems: 'flex-start' }}
-                >
-                  <MapBookPin
-                    coverUrl={book.photos?.[0]?.url}
-                    title={book.title}
-                  />
-                </Marker>
+                />
               );
             })}
           </ClusteredMapView>
@@ -377,6 +391,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: radius.pill,
     borderWidth: 1,
+     width: 'auto',
+    justifyContent: 'center',
+   
   },
   chipText: {
     fontSize: fontSize.bodySm,

@@ -1,10 +1,10 @@
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, type LatLng, type MapPressEvent } from 'react-native-maps';
 
-import { Button, InlineError, spacing } from '@/components/ui';
+import { Button, InlineError, palette, spacing } from '@/components/ui';
 import { useBookDraftStore } from '@/stores/book-draft-store';
 
 const ISTANBUL_REGION = {
@@ -19,6 +19,8 @@ export default function LocationPickerScreen() {
 
   const [marker, setMarker] = useState<LatLng | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const mapRef = useRef<MapView>(null);
 
   const onMapPress = (event: MapPressEvent) => {
     setMarker(event.nativeEvent.coordinate);
@@ -26,16 +28,27 @@ export default function LocationPickerScreen() {
 
   const useMyLocation = async () => {
     setError(null);
+    setLocationLoading(true);
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       setError('Konum izni verilmedi.');
+      setLocationLoading(false);
       return;
     }
     try {
-      const position = await Location.getCurrentPositionAsync({});
-      setMarker({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude, longitude } = position.coords;
+      setMarker({ latitude, longitude });
+      mapRef.current?.animateToRegion({
+        latitude,
+        longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
     } catch {
       setError('Konum alınamadı.');
+    } finally {
+      setLocationLoading(false);
     }
   };
 
@@ -50,6 +63,7 @@ export default function LocationPickerScreen() {
   return (
     <View style={styles.container}>
       <MapView
+        ref={mapRef}
         style={styles.map}
         initialRegion={ISTANBUL_REGION}
         onPress={onMapPress}
@@ -57,8 +71,14 @@ export default function LocationPickerScreen() {
         {marker && <Marker coordinate={marker} testID="location-picker-marker" />}
       </MapView>
       <View style={styles.controls}>
-        {error && <InlineError message={error} />}
-        <Button variant="secondary" onPress={useMyLocation} testID="use-my-location-button">
+        {locationLoading && (
+          <View style={styles.locationLoadingCard}>
+            <ActivityIndicator size="small" color={palette.light.primary} />
+            <Text style={styles.locationLoadingText}>Konum yükleniyor...</Text>
+          </View>
+        )}
+        {!locationLoading && error && <InlineError message={error} />}
+        <Button variant="secondary" onPress={useMyLocation} disabled={locationLoading} testID="use-my-location-button">
           Konumumu kullan
         </Button>
         <Button onPress={onConfirm} disabled={!marker} testID="confirm-location-button">
@@ -79,5 +99,17 @@ const styles = StyleSheet.create({
   controls: {
     padding: spacing.lg,
     gap: spacing.sm,
+  },
+  locationLoadingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: palette.light.surface,
+    borderRadius: 8,
+  },
+  locationLoadingText: {
+    fontSize: 13,
+    color: palette.light.textMuted,
   },
 });

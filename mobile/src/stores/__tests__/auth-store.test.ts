@@ -30,6 +30,7 @@ describe('auth-store', () => {
     expect(state.status).toBe('authenticated');
     expect(state.accessToken).toBe('access-1');
     expect(state.refreshToken).toBe('refresh-1');
+    expect(state.user).toBeNull(); // user is fetched separately in _layout.tsx
   });
 
   it('bootstrap sets unauthenticated when no tokens are stored', async () => {
@@ -50,6 +51,20 @@ describe('auth-store', () => {
     expect(state.user).toEqual(user);
     expect(state.accessToken).toBe('access-1');
     expect(state.refreshToken).toBe('refresh-1');
+  });
+
+  it('setUser updates the user without changing tokens or status', () => {
+    useAuthStore.getState().setSession(
+      { id: 'old', email: 'old@example.com', name: 'Old' },
+      { accessToken: 'access-1', refreshToken: 'refresh-1' },
+    );
+
+    useAuthStore.getState().setUser({ id: 'new', email: 'new@example.com', name: 'New' });
+
+    const state = useAuthStore.getState();
+    expect(state.user).toEqual({ id: 'new', email: 'new@example.com', name: 'New' });
+    expect(state.accessToken).toBe('access-1');
+    expect(state.status).toBe('authenticated');
   });
 
   it('clearSession resets to unauthenticated with no user or tokens', () => {

@@ -69,7 +69,7 @@ async def test_delete_nonexistent_book_returns_404(
 
 
 @pytest.mark.asyncio
-async def test_delete_with_active_exchange_request_rejected(
+async def test_delete_with_active_exchange_requires_force(
     client: httpx.AsyncClient, register_user
 ) -> None:
     owner = await register_user("delete_active_exchange_owner@example.com", "Owner")
@@ -86,7 +86,22 @@ async def test_delete_with_active_exchange_request_rejected(
         headers=requester["headers"],
     )
     assert exchange_resp.status_code == 201
+    exchange_id = exchange_resp.json()["id"]
 
-    resp = await client.delete(f"/api/v1/books/{book_id}", headers=owner["headers"])
-    assert resp.status_code == 409
-    assert resp.json()["detail"] == "EXCHANGE_ACTIVE"
+    # Normal delete without force -> 409 (active exchange)
+    normal_resp = await client.delete(f"/api/v1/books/{book_id}", headers=owner["headers"])
+    assert normal_resp.status_code == 409
+    assert normal_resp.json()["detail"] == "EXCHANGE_ACTIVE"
+
+    # Force delete -> succeeds, exchange auto-cancelled
+    delete_resp = await client.delete(
+        f"/api/v1/books/{book_id}?force=true", headers=owner["headers"],
+    )
+    assert delete_resp.status_code == 204
+
+    # Verify the exchange request was cancelled
+    get_resp = await client.get(
+        f"/api/v1/exchanges/{exchange_id}", headers=requester["headers"]
+    )
+    assert get_resp.status_code == 200
+    assert get_resp.json()["status"] == "cancelled"

@@ -97,6 +97,11 @@ class Chat(Base):
         nullable=False,
         unique=True,
     )
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+    )
 
 
 class MeetupValidationStatus(str, enum.Enum):

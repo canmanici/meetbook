@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 
 from geoalchemy2 import Geography
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, Text
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.db import Base
@@ -52,9 +52,25 @@ class Book(Base):
     is_available = Column(Boolean, nullable=False, default=True)
     location = Column(Geography(geometry_type="POINT", srid=4326), nullable=False)
     public_location = Column(Geography(geometry_type="POINT", srid=4326), nullable=False)
+    view_count = Column(Integer, nullable=False, default=0)
+    favorite_count = Column(Integer, nullable=False, default=0)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+
+
+class BookFavorite(Base):
+    __tablename__ = "book_favorites"
+    __table_args__ = (
+        UniqueConstraint("user_id", "book_id", name="uq_user_book_favorite"),
+        Index("ix_book_favorites_book_id", "book_id"),
+        Index("ix_book_favorites_user_id", "user_id"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    book_id = Column(UUID(as_uuid=True), ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
 
 
 class BookPhoto(Base):
@@ -66,5 +82,6 @@ class BookPhoto(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     book_id = Column(UUID(as_uuid=True), ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
     url = Column(Text, nullable=False)
+    thumbnail_url = Column(Text, nullable=True)
     position = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))

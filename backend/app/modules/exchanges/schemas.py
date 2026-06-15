@@ -20,6 +20,10 @@ class ExchangeCreateRequest(BaseModel):
     initial_message: str = Field(min_length=1, max_length=1000)
 
 
+class BlockCreateRequest(BaseModel):
+    user_id: uuid.UUID
+
+
 class MeetupOffer(BaseModel):
     place_id: str | None = None
     place_name: str = Field(min_length=1, max_length=255)
@@ -118,3 +122,12 @@ class ExchangeDetail(BaseModel):
 
 class MeetupSuggestionsResponse(BaseModel):
     items: list[PlaceSummary]
+
+
+class BlockedUserView(BaseModel):
+    user_id: uuid.UUID
+    created_at: datetime
+
+
+class BlockListResponse(BaseModel):
+    items: list[BlockedUserView]

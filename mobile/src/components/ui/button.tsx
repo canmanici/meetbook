@@ -8,7 +8,7 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
-import { palette, spacing, radius, fontSize } from './tokens';
+import { palette, spacing, radius, fontSize, shadows } from './tokens';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
@@ -42,19 +42,21 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   const variantStyles: Record<ButtonVariant, { bg: string; text: string }> = {
-    primary: { bg: colors.primary, text: colors.surface },
-    secondary: { bg: colors.surface, text: colors.primary },
+    primary: { bg: colors.primary, text: '#FFFFFF' },
+    secondary: { bg: colors.primarySoft, text: colors.primary },
     ghost: { bg: 'transparent', text: colors.primary },
-    danger: { bg: colors.danger, text: colors.surface },
+    danger: { bg: colors.danger, text: '#FFFFFF' },
   };
   const v = variantStyles[variant];
+  const elevated = variant === 'primary' || variant === 'danger';
 
   return (
     <TouchableOpacity
       style={[
         styles.button,
         { backgroundColor: v.bg },
-        variant === 'secondary' && { borderColor: colors.primary, borderWidth: 1 },
+        elevated && !disabled && !loading && shadows.float,
+        elevated && !disabled && !loading && { shadowColor: v.bg },
         (disabled || loading) && styles.disabled,
         isPressed && styles.pressed,
         style,
@@ -67,7 +69,7 @@ export const Button: React.FC<ButtonProps> = ({
       testID={testID ?? (loading ? "button-loading" : "button")}
     >
       {loading ? (
-        <ActivityIndicator color={colors.surface} size="small" />
+        <ActivityIndicator color={v.text} size="small" />
       ) : (
         <Text style={[styles.text, { color: v.text }]}>{children}</Text>
       )}
@@ -77,21 +79,23 @@ export const Button: React.FC<ButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 44,
-    borderRadius: radius.input,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    minHeight: 52,
+    borderRadius: radius.button,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
     justifyContent: 'center',
     alignItems: 'center',
   },
   disabled: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
   pressed: {
-    transform: [{ scale: 0.97 }],
+    transform: [{ scale: 0.96 }],
+    opacity: 0.92,
   },
   text: {
     fontSize: fontSize.body,
-    fontWeight: '600',
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
 });

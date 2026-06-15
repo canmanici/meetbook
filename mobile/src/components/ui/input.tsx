@@ -49,7 +49,7 @@ export const Input: React.FC<InputProps> = ({
   return (
     <View style={[styles.container, style]}>
       {label ? <Text style={[styles.label, { color: colors.text }, hasError && { color: colors.danger }]}>{label}</Text> : null}
-      <View style={[styles.inputContainer, { borderColor: colors.textMuted }, hasError && { borderColor: colors.danger }]}>
+      <View style={[styles.inputContainer, { borderColor: colors.border, backgroundColor: colors.surfaceAlt }, hasError && { borderColor: colors.danger }]}>
         <TextInput
           style={[styles.input, { color: colors.text }]}
           placeholder={placeholder}
@@ -85,20 +85,22 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: fontSize.bodySm,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
+    fontWeight: '700',
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: radius.input,
+    borderWidth: 1.5,
+    borderRadius: radius.field,
     paddingHorizontal: spacing.md,
-    minHeight: 44,
+    minHeight: 52,
   },
   input: {
     flex: 1,
     fontSize: fontSize.body,
+    fontWeight: '500',
     paddingVertical: spacing.sm,
   },
   eyeIcon: {

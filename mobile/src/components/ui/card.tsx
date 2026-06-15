@@ -90,45 +90,51 @@ export const BookCard: React.FC<BookCardProps> = ({
   const hasCover = coverUrl && !imageError;
   const coverFailed = coverUrl && imageError;
 
-  return (
-    <CardWrapper style={[styles.bookCard, { backgroundColor: colors.surface }, style]} {...wrapperProps}>
-      <View style={styles.bookCardInner}>
-        {hasCover ? (
-          <Image
-            source={{ uri: coverUrl }}
-            style={styles.cover}
-            resizeMode="cover"
-            testID="book-cover"
-            onError={handleImageError}
-          />
-        ) : coverFailed ? (
-          <View style={[styles.cover, { backgroundColor: colors.textMuted + '40' }]} testID="book-cover-error">
-            <Ionicons name="book-outline" size={24} color={colors.textMuted} />
-          </View>
-        ) : (
-          <View style={[styles.cover, { backgroundColor: colors.textMuted + '30' }]} testID="book-cover-placeholder">
-            <Ionicons name="book-outline" size={24} color={colors.textMuted} />
-          </View>
-        )}
+  const conditionTint = conditionColor + '1F';
 
-        {typeof distanceKm === 'number' && (
-          <View style={[styles.distanceBadge, { backgroundColor: colors.success }]} testID="distance-badge">
-            <Text style={styles.distanceBadgeText}>{distanceKm.toFixed(1)} km</Text>
-          </View>
-        )}
+  return (
+    <CardWrapper style={[styles.bookCard, { backgroundColor: colors.surface, borderColor: colors.border }, style]} {...wrapperProps}>
+      <View style={styles.bookCardInner}>
+        <View style={styles.coverWrap}>
+          {hasCover ? (
+            <Image
+              source={{ uri: coverUrl }}
+              style={styles.cover}
+              resizeMode="cover"
+              testID="book-cover"
+              onError={handleImageError}
+            />
+          ) : coverFailed ? (
+            <View style={[styles.cover, styles.coverFallback, { backgroundColor: colors.surfaceAlt }]} testID="book-cover-error">
+              <Ionicons name="book-outline" size={26} color={colors.textMuted} />
+            </View>
+          ) : (
+            <View style={[styles.cover, styles.coverFallback, { backgroundColor: colors.surfaceAlt }]} testID="book-cover-placeholder">
+              <Ionicons name="book-outline" size={26} color={colors.textMuted} />
+            </View>
+          )}
+
+          {typeof distanceKm === 'number' && (
+            <View style={[styles.distanceBadge, { backgroundColor: colors.surface }]} testID="distance-badge">
+              <Ionicons name="location" size={11} color={colors.primary} />
+              <Text style={[styles.distanceBadgeText, { color: colors.text }]}>{distanceKm.toFixed(1)} km</Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.content}>
           <View style={styles.textSection}>
-            <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{title}</Text>
+            <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>{title}</Text>
             <Text style={[styles.author, { color: colors.textMuted }]} numberOfLines={1}>{author}</Text>
           </View>
 
           <View style={styles.tagsRow}>
-            <View style={[styles.tag, { backgroundColor: colors.textMuted + '20' }]} testID="condition-tag">
-              <Text style={[styles.tagText, { color: colors.textMuted }]}>{conditionLabels[condition]}</Text>
+            <View style={[styles.tag, { backgroundColor: conditionTint }]} testID="condition-tag">
+              <View style={[styles.dot, { backgroundColor: conditionColor }]} />
+              <Text style={[styles.tagText, { color: conditionColor }]}>{conditionLabels[condition]}</Text>
             </View>
             {category ? (
-              <View style={[styles.tag, { backgroundColor: colors.textMuted + '20' }]} testID="category-tag">
+              <View style={[styles.tag, { backgroundColor: colors.surfaceAlt }]} testID="category-tag">
                 <Text style={[styles.tagText, { color: colors.textMuted }]} numberOfLines={1}>{category}</Text>
               </View>
             ) : null}
@@ -138,18 +144,19 @@ export const BookCard: React.FC<BookCardProps> = ({
             <TouchableOpacity
               style={[styles.exchangeButton, { backgroundColor: colors.primary }]}
               onPress={onRequestExchange}
-              activeOpacity={0.7}
+              activeOpacity={0.85}
               testID="exchange-button"
             >
-              <Text style={styles.exchangeButtonText}>exchange iste</Text>
+              <Ionicons name="swap-horizontal" size={16} color="#fff" />
+              <Text style={styles.exchangeButtonText}>Takas İste</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.favoriteButton, { borderColor: colors.textMuted }]}
+              style={[styles.favoriteButton, { backgroundColor: colors.surfaceAlt }]}
               onPress={onFavorite}
               activeOpacity={0.7}
               testID="favorite-button"
             >
-              <Ionicons name="heart-outline" size={20} color={colors.textMuted} />
+              <Ionicons name="heart-outline" size={20} color={colors.accent} />
             </TouchableOpacity>
           </View>
         </View>
@@ -160,35 +167,43 @@ export const BookCard: React.FC<BookCardProps> = ({
 
 const styles = StyleSheet.create({
   bookCard: {
-    borderRadius: radius.input,
+    borderRadius: radius.card,
     padding: spacing.md,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+    borderWidth: 1,
     ...shadows.card,
   },
   bookCardInner: {
     flexDirection: 'row',
   },
-  cover: {
-    width: 56,
-    height: 78,
-    borderRadius: radius.input,
+  coverWrap: {
     marginRight: spacing.md,
+  },
+  cover: {
+    width: 68,
+    height: 96,
+    borderRadius: radius.field,
+  },
+  coverFallback: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   distanceBadge: {
     position: 'absolute',
-    top: 0,
-    right: 0,
+    bottom: -8,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: 3,
     borderRadius: radius.pill,
     zIndex: 1,
+    ...shadows.card,
   },
   distanceBadgeText: {
-    color: '#fff',
-    fontSize: fontSize.caption,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '800',
   },
   content: {
     flex: 1,
@@ -198,12 +213,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 2,
+    fontSize: fontSize.body,
+    fontWeight: '800',
+    marginBottom: 3,
+    lineHeight: 21,
   },
   author: {
     fontSize: 13,
+    fontWeight: '500',
   },
   tagsRow: {
     flexDirection: 'row',
@@ -212,13 +229,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: 5,
     borderRadius: radius.pill,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   tagText: {
     fontSize: fontSize.caption,
-    fontWeight: '500',
+    fontWeight: '700',
   },
   actionsRow: {
     flexDirection: 'row',
@@ -227,20 +252,22 @@ const styles = StyleSheet.create({
   },
   exchangeButton: {
     flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.input,
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.button,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   exchangeButtonText: {
     color: '#fff',
     fontSize: fontSize.bodySm,
-    fontWeight: '600',
+    fontWeight: '800',
   },
   favoriteButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
+    width: 42,
+    height: 42,
+    borderRadius: radius.field,
     justifyContent: 'center',
     alignItems: 'center',
   },

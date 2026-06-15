@@ -13,6 +13,8 @@ from app.modules.auth.models import User
 from app.modules.exchanges.models import ExchangeStatus
 from app.modules.exchanges.repository import Role
 from app.modules.exchanges.schemas import (
+    BlockCreateRequest,
+    BlockListResponse,
     ExchangeCreateRequest,
     ExchangeDetail,
     ExchangeListResponse,
@@ -54,6 +56,35 @@ async def list_exchanges(
     service: ExchangeService = Depends(_get_service),
 ) -> ExchangeListResponse:
     return await service.list_exchanges(user.id, role, status, cursor, limit)
+
+
+@router.post("/blocks", status_code=204)
+async def block_user(
+    body: BlockCreateRequest,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> None:
+    try:
+        await service.block_user(user.id, body.user_id)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.get("/blocks", response_model=BlockListResponse)
+async def list_blocked_users(
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> BlockListResponse:
+    return await service.list_blocked_users(user.id)
+
+
+@router.delete("/blocks/{blocked_user_id}", status_code=204)
+async def unblock_user(
+    blocked_user_id: uuid.UUID,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> None:
+    await service.unblock_user(user.id, blocked_user_id)
 
 
 @router.get("/{exchange_id}", response_model=ExchangeDetail)

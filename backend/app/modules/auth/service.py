@@ -25,6 +25,7 @@ from app.modules.auth.schemas import (
     TokenResponse,
     UpdateMeRequest,
     UserPublic,
+    UserPublicProfile,
 )
 
 CURRENT_KVKK_POLICY_VERSION = "1.0"
@@ -255,6 +256,18 @@ class AuthService:
             name=user.name,
             trusted_contact_name=user.trusted_contact_name,
             trusted_contact_phone=user.trusted_contact_phone,
+        )
+
+    async def get_user_profile(self, user_id: uuid.UUID) -> UserPublicProfile:
+        user = await self.repo.get_user_by_id(user_id)
+        if user is None:
+            raise AuthError("Not found", 404)
+        return UserPublicProfile(
+            id=user.id,
+            name=user.name,
+            completed_exchanges=user.completed_exchanges,
+            rating_average=float(user.rating_average),
+            rating_count=user.rating_count,
         )
 
     async def update_me(self, user_id: uuid.UUID, body: UpdateMeRequest) -> MeResponse:

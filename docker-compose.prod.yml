@@ -1,0 +1,101 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: meetbook
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: meetbook
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U meetbook -d meetbook"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      # https://canmanici.com/meetbook/storage/<bucket>/<key> -> minio's path-style S3 API at /<bucket>/<key>
+      - traefik.http.routers.meetbook-storage.rule=Host(`canmanici.com`) && PathPrefix(`/meetbook/storage`)
+      - traefik.http.routers.meetbook-storage.entrypoints=websecure
+      - traefik.http.routers.meetbook-storage.tls.certresolver=letsencrypt
+      - traefik.http.routers.meetbook-storage.priority=20
+      - traefik.http.middlewares.meetbook-storage-strip.stripprefix.prefixes=/meetbook/storage
+      - traefik.http.routers.meetbook-storage.middlewares=meetbook-storage-strip
+      - traefik.http.services.meetbook-storage.loadbalancer.server.port=9000
+
+  backend:
+    build: ./backend
+    environment:
+      ENV: production
+      DATABASE_URL: postgresql+asyncpg://meetbook:${POSTGRES_PASSWORD}@db:5432/meetbook
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      JWT_SECRET: ${JWT_SECRET}
+      S3_ENDPOINT: http://minio:9000
+      S3_EXTERNAL_ENDPOINT: https://canmanici.com/meetbook/storage
+      S3_BUCKET: meetbook-photos
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      CORS_ORIGINS: https://canmanici.com
+      GOOGLE_PLACES_KEY: ${GOOGLE_PLACES_KEY:-}
+      SMS_PROVIDER_KEY: ${SMS_PROVIDER_KEY:-}
+    volumes:
+      - mediadata:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      # https://canmanici.com/meetbook/api/v1/... -> backend's /api/v1/... (also covers /media, /ws/chat, /api/docs)
+      - traefik.http.routers.meetbook-api.rule=Host(`canmanici.com`) && PathPrefix(`/meetbook`)
+      - traefik.http.routers.meetbook-api.entrypoints=websecure
+      - traefik.http.routers.meetbook-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.meetbook-api.priority=10
+      - traefik.http.middlewares.meetbook-api-strip.stripprefix.prefixes=/meetbook
+      - traefik.http.routers.meetbook-api.middlewares=meetbook-api-strip
+      - traefik.http.services.meetbook-api.loadbalancer.server.port=8000
+
+networks:
+  default:
+    name: dokploy-network
+    external: true
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  mediadata:

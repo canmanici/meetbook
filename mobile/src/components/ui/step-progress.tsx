@@ -21,11 +21,12 @@ export function StepProgress({ steps, currentStep }: StepProgressProps) {
         const isDone = index < currentStep;
         const isActive = index === currentStep;
         const isPending = index > currentStep;
+        const isPrevDone = index <= currentStep;
 
         return (
           <View key={step.label} style={styles.step}>
             {index > 0 && (
-              <View style={[styles.line, { backgroundColor: isDone ? colors.primary : colors.textMuted + '30' }]} />
+              <View style={[styles.line, { backgroundColor: isPrevDone ? colors.primary : colors.textMuted + '30' }]} />
             )}
             <View
               style={[

@@ -28,6 +28,7 @@ import {
   spacing,
   fontSize,
   radius,
+  shadows,
 } from '@/components/ui';
 import {
   BOOK_CATEGORIES,
@@ -39,7 +40,8 @@ import {
   type BookCategory,
   type BookCondition,
 } from '@/constants/books';
-import { ApiError, createExchange, deleteBook, getBook, listExchanges, lookupISBN, updateBook } from '@/lib/api/client';
+import { addFavorite, ApiError, createExchange, deleteBook, getBook, incrementBookView, listExchanges, lookupISBN, removeFavorite, updateBook } from '@/lib/api/client';
+import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth-store';
 import { useBookDraftStore } from '@/stores/book-draft-store';
 
@@ -50,6 +52,7 @@ export default function BookDetailScreen() {
   const scheme = useColorScheme();
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
   const queryClient = useQueryClient();
+  const toast = useToast();
   const galleryRef = useRef<ScrollView>(null);
 
   const pickedLocation = useBookDraftStore((state) => state.pickedLocation);
@@ -79,6 +82,34 @@ export default function BookDetailScreen() {
   const [saving, setSaving] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+
+  // Sync favorite state when book data arrives
+  useEffect(() => {
+    if (book) {
+      setIsFavorite(!!(book as any).is_favorited);
+    }
+  }, [book]);
+
+  const favoriteMutation = useMutation({
+    mutationFn: async () => {
+      if (isFavorite) {
+        await removeFavorite(id);
+      } else {
+        await addFavorite(id);
+      }
+    },
+    onSuccess: async () => {
+      setIsFavorite(!isFavorite);
+      await queryClient.invalidateQueries({ queryKey: ['books', id] });
+    },
+  });
+
+  // Increment view count when non-owner views the page
+  useEffect(() => {
+    if (book && !isOwner) {
+      incrementBookView(id).catch(() => {});
+    }
+  }, [book?.id, isOwner]);
 
   const pendingRequests = useQuery({
     queryKey: ['exchanges', 'received', id],
@@ -162,17 +193,38 @@ export default function BookDetailScreen() {
     }
   };
 
+  const doDelete = async (force: boolean = false) => {
+    try {
+      await deleteBook(id, force || undefined);
+      await queryClient.invalidateQueries({ queryKey: ['books', 'me'] });
+      router.back();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409 && !force) {
+        Alert.alert(
+          'Aktif talep bulunuyor',
+          'Bu kitap için aktif talep veya takas bulunuyor. Talepleri iptal edip kitabı silmek istiyor musun?',
+          [
+            { text: 'Vazgeç', style: 'cancel' },
+            {
+              text: 'Zorla Sil',
+              style: 'destructive',
+              onPress: () => doDelete(true),
+            },
+          ],
+        );
+      } else {
+        Alert.alert('Hata', 'Kitap silinirken bir hata oluştu. Lütfen tekrar deneyin.');
+      }
+    }
+  };
+
   const onDelete = () => {
     Alert.alert('Kitabı sil', 'Bu kitabı silmek istediğine emin misin?', [
       { text: 'Vazgeç', style: 'cancel' },
       {
         text: 'Sil',
         style: 'destructive',
-        onPress: async () => {
-          await deleteBook(id);
-          await queryClient.invalidateQueries({ queryKey: ['books', 'me'] });
-          router.back();
-        },
+        onPress: () => doDelete(),
       },
     ]);
   };
@@ -181,12 +233,11 @@ export default function BookDetailScreen() {
   const [requestError, setRequestError] = useState<string | null>(null);
 
   const requestMutation = useMutation({
-    mutationFn: () => createExchange({ book_id: id, initial_message: requestMessage.trim() }),
+    mutationFn: () => createExchange({ book_id: id, initial_message: requestMessage.trim() || 'Merhaba, bu kitapla ilgileniyorum!' }),
     onSuccess: async (exchange) => {
       await queryClient.invalidateQueries({ queryKey: ['exchanges', 'sent'] });
-      Alert.alert('İstek Gönderildi', 'Yanıt bekliyor.', [
-        { text: 'Tamam', onPress: () => router.push(`/exchange/${exchange.id}`) },
-      ]);
+      toast.show('Takas isteği gönderildi! 🎉', { variant: 'success', duration: 4000 });
+      router.push(`/exchange/${exchange.id}`);
     },
     onError: (err) => {
       if (err instanceof ApiError && err.status === 409) {
@@ -356,7 +407,7 @@ export default function BookDetailScreen() {
               ))}
             </ScrollView>
           ) : (
-            <View style={[styles.gallery, styles.galleryPlaceholder, { backgroundColor: colors.surface }]}>
+            <View style={[styles.gallery, styles.galleryPlaceholder, { backgroundColor: colors.surfaceAlt }]}>
               <Ionicons name="book-outline" size={64} color={colors.textMuted} />
             </View>
           )}
@@ -395,7 +446,8 @@ export default function BookDetailScreen() {
                 <>
                   <TouchableOpacity
                     style={styles.glassButton}
-                    onPress={() => setIsFavorite(!isFavorite)}
+                    onPress={() => favoriteMutation.mutate()}
+                    disabled={favoriteMutation.isPending}
                     testID="favorite-button">
                     <Ionicons
                       name={isFavorite ? 'heart' : 'heart-outline'}
@@ -435,40 +487,17 @@ export default function BookDetailScreen() {
             </View>
           )}
 
-          {/* Overlay info */}
-          <View style={styles.galleryOverlayInfo}>
-            <Text style={styles.galleryTitle} numberOfLines={2}>
-              {book.title}
-            </Text>
-            {book.author ? (
-              <Text style={styles.galleryAuthor} numberOfLines={1}>
-                {book.author}
-              </Text>
-            ) : null}
-            <View style={styles.galleryTags}>
-              <View style={styles.galleryTag}>
-                <Text style={styles.galleryTagText}>
-                  {BOOK_CATEGORY_LABELS[book.category]}
-                </Text>
-              </View>
-              <View style={styles.galleryTag}>
-                <Text style={styles.galleryTagText}>
-                  {BOOK_CONDITION_LABELS[book.condition]}
-                </Text>
-              </View>
-            </View>
-            {isOwner && (
-              <View style={[styles.availabilityBadge, { backgroundColor: book.is_available ? colors.success + '20' : colors.danger + '20' }]}>
-                <Text style={[styles.availabilityText, { color: book.is_available ? colors.success : colors.danger }]}>
-                  {book.is_available ? 'Müsait' : 'Müsait Değil'}
-                </Text>
-              </View>
-            )}
-          </View>
         </View>
 
-        {/* Book Info Card */}
-        <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
+        {/* Book Info Card — overlaps the gallery for depth */}
+        <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {isOwner && (
+            <View style={[styles.availabilityBadge, { backgroundColor: book.is_available ? colors.success + '20' : colors.danger + '20' }]}>
+              <Text style={[styles.availabilityText, { color: book.is_available ? colors.success : colors.danger }]}>
+                {book.is_available ? '● Müsait' : '● Müsait Değil'}
+              </Text>
+            </View>
+          )}
           <View style={styles.infoHeader}>
             <View style={styles.infoHeaderLeft}>
               <Text style={[styles.infoTitle, { color: colors.text }]}>{book.title}</Text>
@@ -524,20 +553,21 @@ export default function BookDetailScreen() {
           ) : null}
         </View>
 
-        {/* Owner Stats Card */}
-        {isOwner && (
+          {/* Stats Card — shown to both owner and non-owner now */}
           <View style={[styles.statsCard, { backgroundColor: colors.surface }]}>
             <View style={styles.statsGrid}>
+              {isOwner && (
+                <View style={styles.statItem}>
+                  <Text style={[styles.statNumber, { color: colors.primary }]}>{pendingRequests?.items?.length ?? 0}</Text>
+                  <Text style={[styles.statLabel2, { color: colors.textMuted }]}>Talep</Text>
+                </View>
+              )}
               <View style={styles.statItem}>
-                <Text style={[styles.statNumber, { color: colors.primary }]}>{pendingRequests?.items?.length ?? 0}</Text>
-                <Text style={[styles.statLabel2, { color: colors.textMuted }]}>Talep</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNumber, { color: colors.accent }]}>0</Text>
+                <Text style={[styles.statNumber, { color: colors.accent }]}>{(book as any).view_count ?? 0}</Text>
                 <Text style={[styles.statLabel2, { color: colors.textMuted }]}>Görüntülenme</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={[styles.statNumber, { color: colors.success }]}>0</Text>
+                <Text style={[styles.statNumber, { color: colors.success }]}>{(book as any).favorite_count ?? 0}</Text>
                 <Text style={[styles.statLabel2, { color: colors.textMuted }]}>Favori</Text>
               </View>
               <View style={styles.statItem}>
@@ -548,7 +578,6 @@ export default function BookDetailScreen() {
               </View>
             </View>
           </View>
-        )}
 
         {/* Owner Card */}
         {!isOwner && (
@@ -556,16 +585,19 @@ export default function BookDetailScreen() {
             <View style={styles.ownerInfo}>
               <View style={[styles.ownerAvatar, { backgroundColor: colors.primary }]}>
                 <Text style={styles.ownerAvatarText}>
-                  {book.owner_id.charAt(0).toUpperCase()}
+                  {(book.owner_name || book.owner_id).charAt(0).toUpperCase()}
                 </Text>
               </View>
               <View style={styles.ownerDetails}>
-                <Text style={[styles.ownerName, { color: colors.text }]}>Kitap Sahibi</Text>
+                <Text style={[styles.ownerName, { color: colors.text }]}>
+                  {book.owner_name || 'Kitap Sahibi'}
+                </Text>
+                <Text style={[styles.ownerLabel, { color: colors.textMuted }]}>Kitap Sahibi</Text>
               </View>
             </View>
             <TouchableOpacity
               style={[styles.profileButton, { borderColor: colors.primary }]}
-              onPress={() => {}}
+              onPress={() => router.push(`/user/${book.owner_id}`)}
               testID="profile-button">
               <Text style={[styles.profileButtonText, { color: colors.primary }]}>Profil</Text>
             </TouchableOpacity>
@@ -622,7 +654,7 @@ export default function BookDetailScreen() {
         {/* Request section for non-owners */}
         {!isOwner && book.is_available && (
           <View style={[styles.requestCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.requestTitle, { color: colors.text }]}>Takas Mesajı</Text>
+            <Text style={[styles.requestTitle, { color: colors.text }]}>Takas Mesajı (opsiyonel)</Text>
             <Input
               label="Mesaj"
               value={requestMessage}
@@ -653,7 +685,7 @@ export default function BookDetailScreen() {
           <TouchableOpacity
             style={styles.exchangeButton}
             onPress={() => requestMutation.mutate()}
-            disabled={!requestMessage.trim() || requestMutation.isPending}
+            disabled={requestMutation.isPending}
             testID="request-exchange-button">
             <LinearGradient
               colors={[colors.success, colors.primary]}
@@ -663,8 +695,8 @@ export default function BookDetailScreen() {
               {requestMutation.isPending ? (
                 <ActivityIndicator color={colors.surface} size="small" />
               ) : (
-                <Text style={[styles.exchangeButtonText, { color: colors.surface }]}>
-                  Değişim İste
+                <Text style={[styles.exchangeButtonText, { color: '#fff' }]}>
+                  Takas İste
                 </Text>
               )}
             </LinearGradient>
@@ -758,10 +790,14 @@ function PendingRequestsSection({ bookId, colors, queryClient }: { bookId: strin
               </View>
             )}
             {!isPending && (
-              <View style={[styles.pendingStatusBadge, {
-                backgroundColor: exchange.status === 'accepted' ? colors.success + '20' :
-                  exchange.status === 'rejected' ? colors.danger + '20' : colors.info + '20',
-              }]}>
+              <TouchableOpacity
+                style={[styles.pendingStatusBadge, {
+                  backgroundColor: exchange.status === 'accepted' ? colors.success + '20' :
+                    exchange.status === 'rejected' ? colors.danger + '20' : colors.info + '20',
+                }]}
+                onPress={() => router.push(`/exchange/${exchange.id}`)}
+                testID={`view-exchange-${exchange.id}`}
+              >
                 <Text style={[styles.pendingStatusText, {
                   color: exchange.status === 'accepted' ? colors.success :
                     exchange.status === 'rejected' ? colors.danger : colors.info,
@@ -770,7 +806,11 @@ function PendingRequestsSection({ bookId, colors, queryClient }: { bookId: strin
                     exchange.status === 'rejected' ? 'Reddedildi' :
                     exchange.status === 'completed' ? 'Tamamlandı' : exchange.status}
                 </Text>
-              </View>
+                <Ionicons name="chevron-forward" size={14} color={
+                  exchange.status === 'accepted' ? colors.success :
+                    exchange.status === 'rejected' ? colors.danger : colors.info
+                } />
+              </TouchableOpacity>
             )}
           </View>
         );
@@ -801,15 +841,18 @@ const styles = StyleSheet.create({
 
   // Photo Gallery
   galleryContainer: {
-    height: 240,
+    height: 300,
     position: 'relative',
+    borderBottomLeftRadius: radius.sheet + 8,
+    borderBottomRightRadius: radius.sheet + 8,
+    overflow: 'hidden',
   },
   gallery: {
-    height: 240,
+    height: 300,
   },
   gallerySlide: {
     width: SCREEN_WIDTH,
-    height: 240,
+    height: 300,
   },
   galleryImage: {
     ...StyleSheet.absoluteFillObject,
@@ -915,10 +958,12 @@ const styles = StyleSheet.create({
   // Book Info Card
   infoCard: {
     marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
+    marginTop: -spacing.xl,
     padding: spacing.lg,
-    borderRadius: radius.sheet,
+    borderRadius: radius.card,
+    borderWidth: 1,
     gap: spacing.md,
+    ...shadows.card,
   },
   infoHeader: {
     flexDirection: 'row',
@@ -955,8 +1000,8 @@ const styles = StyleSheet.create({
   },
   statBox: {
     flex: 1,
-    padding: spacing.sm,
-    borderRadius: radius.input,
+    padding: spacing.md,
+    borderRadius: radius.field,
     alignItems: 'center',
   },
   statLabel: {
@@ -1013,6 +1058,10 @@ const styles = StyleSheet.create({
   ownerName: {
     fontSize: fontSize.body,
     fontWeight: '600',
+  },
+  ownerLabel: {
+    fontSize: fontSize.caption,
+    fontWeight: '500',
   },
   ownerMeta: {
     flexDirection: 'row',
@@ -1117,18 +1166,19 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   exchangeButton: {
-    borderRadius: radius.input,
+    borderRadius: radius.button,
     overflow: 'hidden',
   },
   exchangeButtonGradient: {
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.md + 2,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.input,
+    borderRadius: radius.button,
   },
   exchangeButtonText: {
     fontSize: fontSize.body,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
 
   // Availability badge
@@ -1137,7 +1187,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: radius.pill,
     alignSelf: 'flex-start',
-    marginTop: spacing.sm,
   },
   availabilityText: {
     fontSize: fontSize.caption,

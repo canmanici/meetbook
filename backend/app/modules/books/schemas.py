@@ -58,6 +58,7 @@ class BookUpdateRequest(BaseModel):
 class PhotoView(BaseModel):
     id: uuid.UUID
     url: str
+    thumbnail_url: str | None = None
     position: int
 
 
@@ -66,6 +67,7 @@ class BookOwnerView(BaseModel):
 
     id: uuid.UUID
     owner_id: uuid.UUID
+    owner_name: str
     title: str
     author: str | None
     isbn: str | None
@@ -77,6 +79,9 @@ class BookOwnerView(BaseModel):
     location: LocationOutput
     public_location: LocationOutput
     photos: list[PhotoView] = []
+    view_count: int = 0
+    favorite_count: int = 0
+    is_favorited: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -86,6 +91,7 @@ class BookPublicView(BaseModel):
 
     id: uuid.UUID
     owner_id: uuid.UUID
+    owner_name: str
     title: str
     author: str | None
     isbn: str | None
@@ -96,6 +102,9 @@ class BookPublicView(BaseModel):
     is_available: bool
     public_location: LocationOutput
     photos: list[PhotoView] = []
+    view_count: int = 0
+    favorite_count: int = 0
+    is_favorited: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -122,6 +131,7 @@ class BookSearchParams(BaseModel):
 class BookSearchResult(BaseModel):
     id: uuid.UUID
     owner_id: uuid.UUID
+    owner_name: str
     title: str
     author: str | None
     isbn: str | None

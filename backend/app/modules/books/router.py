@@ -3,7 +3,7 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
@@ -58,7 +58,7 @@ async def search_books(
         "Nearby search: lat=%s, lng=%s, radius=%s km, user=%s",
         lat, lng, radius_km, user.id,
     )
-    return await service.search_nearby(params, limit)
+    return await service.search_nearby(params, limit, current_user_id=user.id)
 
 
 @router.get("", response_model=BookListResponse)
@@ -68,7 +68,7 @@ async def list_books(
     user: User = Depends(get_current_user),
     service: BookService = Depends(_get_service),
 ) -> BookListResponse:
-    return await service.list_available_books(cursor, limit)
+    return await service.list_available_books(cursor, limit, current_user_id=user.id)
 
 
 @router.post("", response_model=BookOwnerView, status_code=201)
@@ -121,11 +121,12 @@ async def update_book(
 @router.delete("/{book_id}", status_code=204)
 async def delete_book(
     book_id: uuid.UUID,
+    force: bool = Query(False, description="Cancel active exchanges and force delete"),
     user: User = Depends(get_current_user),
     service: BookService = Depends(_get_service),
 ) -> Response:
     try:
-        await service.delete_book(book_id, user.id)
+        await service.delete_book(book_id, user.id, force=force)
     except BookError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
     return Response(status_code=204)
@@ -134,15 +135,19 @@ async def delete_book(
 @router.post("/{book_id}/photos", response_model=PhotoView, status_code=201)
 async def upload_photo(
     book_id: uuid.UUID,
-    file: UploadFile,
+    file: UploadFile = File(...),
+    thumbnail: UploadFile | None = File(None),
     user: User = Depends(get_verified_user),
     service: BookService = Depends(_get_service),
 ) -> PhotoView:
-    logger.info("Uploading photo for book %s by user %s (type=%s, size=%s)",
-                book_id, user.id, file.content_type, file.size)
+    logger.info("Uploading photo for book %s by user %s (type=%s, size=%s, thumb=%s)",
+                book_id, user.id, file.content_type, file.size, bool(thumbnail))
     contents = await file.read()
+    thumb_contents = await thumbnail.read() if thumbnail else None
     try:
-        result = await service.upload_photo(book_id, user.id, contents, file.content_type or "image/jpeg")
+        result = await service.upload_photo(
+            book_id, user.id, contents, file.content_type or "image/jpeg", thumb_contents
+        )
         logger.info("Photo uploaded successfully: %s -> %s", book_id, result.url)
         return result
     except BookError as e:
@@ -164,6 +169,22 @@ async def delete_photo(
     return Response(status_code=204)
 
 
+@router.patch("/{book_id}/photos/{photo_id}/thumbnail", response_model=PhotoView)
+async def upload_thumbnail(
+    book_id: uuid.UUID,
+    photo_id: uuid.UUID,
+    file: UploadFile,
+    user: User = Depends(get_verified_user),
+    service: BookService = Depends(_get_service),
+) -> PhotoView:
+    """Backfill thumbnail for an existing photo (client-side resized)."""
+    contents = await file.read()
+    try:
+        return await service.upload_photo_thumbnail(book_id, photo_id, user.id, contents)
+    except BookError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
 @router.patch("/{book_id}/photos/reorder", response_model=list[PhotoView])
 async def reorder_photos(
     book_id: uuid.UUID,
@@ -175,6 +196,45 @@ async def reorder_photos(
         return await service.reorder_photos(book_id, body.photo_ids, user.id)
     except BookError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/{book_id}/view", status_code=204)
+async def increment_book_view(
+    book_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    service: BookService = Depends(_get_service),
+) -> Response:
+    try:
+        await service.increment_view(book_id, user.id)
+    except BookError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return Response(status_code=204)
+
+
+@router.post("/{book_id}/favorite", status_code=204)
+async def add_book_favorite(
+    book_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    service: BookService = Depends(_get_service),
+) -> Response:
+    try:
+        await service.add_favorite(book_id, user.id)
+    except BookError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return Response(status_code=204)
+
+
+@router.delete("/{book_id}/favorite", status_code=204)
+async def remove_book_favorite(
+    book_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    service: BookService = Depends(_get_service),
+) -> Response:
+    try:
+        await service.remove_favorite(book_id, user.id)
+    except BookError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return Response(status_code=204)
 
 
 @router.get("/isbn/{isbn_code}", response_model=ISBNLookupResponse)

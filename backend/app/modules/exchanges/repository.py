@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import and_, func, or_, select, text
+from sqlalchemy import and_, func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -107,6 +107,21 @@ class ExchangeRepository:
         result = await self.session.execute(stmt)
         return (result.scalar() or 0) > 0
 
+    async def cancel_active_for_book(self, book_id: uuid.UUID) -> None:
+        """Cancel all active exchange requests for a given book (book-level cascade)."""
+        stmt = (
+            update(ExchangeRequest)
+            .where(
+                ExchangeRequest.book_id == book_id,
+                ExchangeRequest.status.in_(ACTIVE_STATUSES),
+            )
+            .values(
+                status=ExchangeStatus.cancelled,
+                updated_at=datetime.now(UTC),
+            )
+        )
+        await self.session.execute(stmt)
+
     async def count_active_for_requester(self, user_id: uuid.UUID) -> int:
         stmt = select(func.count()).select_from(ExchangeRequest).where(
             ExchangeRequest.requested_by == user_id,
@@ -114,6 +129,23 @@ class ExchangeRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalar() or 0
+
+    async def cancel_all_active_for_book(self, book_id: uuid.UUID) -> int:
+        """Cancel all active exchange requests for a book. Returns count cancelled."""
+        stmt = (
+            select(ExchangeRequest)
+            .where(
+                ExchangeRequest.book_id == book_id,
+                ExchangeRequest.status.in_(ACTIVE_STATUSES),
+            )
+            .with_for_update()
+        )
+        result = await self.session.execute(stmt)
+        requests = list(result.scalars().all())
+        for req in requests:
+            req.status = ExchangeStatus.cancelled
+        await self.session.flush()
+        return len(requests)
 
     async def is_blocked_pair(self, user_a: uuid.UUID, user_b: uuid.UUID) -> bool:
         stmt = select(func.count()).select_from(Block).where(
@@ -124,6 +156,28 @@ class ExchangeRepository:
         )
         result = await self.session.execute(stmt)
         return (result.scalar() or 0) > 0
+
+    async def create_block(self, blocker_id: uuid.UUID, blocked_id: uuid.UUID) -> None:
+        stmt = (
+            pg_insert(Block)
+            .values(blocker_id=blocker_id, blocked_id=blocked_id)
+            .on_conflict_do_nothing(index_elements=["blocker_id", "blocked_id"])
+        )
+        await self.session.execute(stmt)
+
+    async def delete_block(self, blocker_id: uuid.UUID, blocked_id: uuid.UUID) -> None:
+        stmt = select(Block).where(
+            Block.blocker_id == blocker_id, Block.blocked_id == blocked_id
+        )
+        result = await self.session.execute(stmt)
+        block = result.scalar_one_or_none()
+        if block is not None:
+            await self.session.delete(block)
+
+    async def list_blocked_by(self, blocker_id: uuid.UUID) -> list[Block]:
+        stmt = select(Block).where(Block.blocker_id == blocker_id)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def create_chat(self, exchange_request_id: uuid.UUID) -> None:
         stmt = (

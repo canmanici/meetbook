@@ -144,6 +144,23 @@ export interface paths {
         patch: operations["update_me_api_v1_auth_me_patch"];
         trace?: never;
     };
+    "/api/v1/auth/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get User Profile */
+        get: operations["get_user_profile_api_v1_auth_users__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/books/search": {
         parameters: {
             query?: never;
@@ -249,6 +266,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/books/{book_id}/photos/{photo_id}/thumbnail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Upload Thumbnail
+         * @description Backfill thumbnail for an existing photo (client-side resized).
+         */
+        patch: operations["upload_thumbnail_api_v1_books__book_id__photos__photo_id__thumbnail_patch"];
+        trace?: never;
+    };
     "/api/v1/books/{book_id}/photos/reorder": {
         parameters: {
             query?: never;
@@ -264,6 +301,41 @@ export interface paths {
         head?: never;
         /** Reorder Photos */
         patch: operations["reorder_photos_api_v1_books__book_id__photos_reorder_patch"];
+        trace?: never;
+    };
+    "/api/v1/books/{book_id}/view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Increment Book View */
+        post: operations["increment_book_view_api_v1_books__book_id__view_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/books/{book_id}/favorite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Book Favorite */
+        post: operations["add_book_favorite_api_v1_books__book_id__favorite_post"];
+        /** Remove Book Favorite */
+        delete: operations["remove_book_favorite_api_v1_books__book_id__favorite_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/books/isbn/{isbn_code}": {
@@ -348,6 +420,41 @@ export interface paths {
         /** Create Exchange */
         post: operations["create_exchange_api_v1_exchanges_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Blocked Users */
+        get: operations["list_blocked_users_api_v1_exchanges_blocks_get"];
+        put?: never;
+        /** Block User */
+        post: operations["block_user_api_v1_exchanges_blocks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/blocks/{blocked_user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Unblock User */
+        delete: operations["unblock_user_api_v1_exchanges_blocks__blocked_user_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -574,10 +681,404 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ratings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Rating */
+        post: operations["create_rating_api_v1_ratings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/ratings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get User Ratings */
+        get: operations["get_user_ratings_api_v1_users__user_id__ratings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Report */
+        post: operations["create_report_api_v1_reports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Notifications */
+        get: operations["list_notifications_api_v1_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Notifications Read */
+        post: operations["mark_notifications_read_api_v1_notifications_read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/{exchange_id}/chat/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Messages
+         * @description Paginated message history for an exchange.
+         */
+        get: operations["list_messages_api_v1_exchanges__exchange_id__chat_messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/{exchange_id}/chat/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark Messages Read
+         * @description Mark messages up to a given ID as read.
+         */
+        post: operations["mark_messages_read_api_v1_exchanges__exchange_id__chat_read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Chats
+         * @description List all chats the current user participates in.
+         */
+        get: operations["list_chats_api_v1_chat_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chat/ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Chat Ticket
+         * @description Obtain a single-use 30-second WebSocket ticket.
+         *
+         *     Exchange the ticket for a WebSocket connection at ``/ws/chat?ticket=...``.
+         *     Never put a JWT in the query string (server/proxy logs capture them).
+         */
+        post: operations["create_chat_ticket_api_v1_chat_ticket_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Reports */
+        get: operations["list_reports_api_v1_admin_reports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reports/{report_id}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim Report */
+        post: operations["claim_report_api_v1_admin_reports__report_id__claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reports/{report_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Report */
+        post: operations["resolve_report_api_v1_admin_reports__report_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suspend User */
+        post: operations["suspend_user_api_v1_admin_users__user_id__suspend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}/reinstate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reinstate User */
+        post: operations["reinstate_user_api_v1_admin_users__user_id__reinstate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/books/{book_id}/takedown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Takedown Book */
+        post: operations["takedown_book_api_v1_admin_books__book_id__takedown_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/blocked-places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Blocked Places */
+        get: operations["list_blocked_places_api_v1_admin_blocked_places_get"];
+        put?: never;
+        /** Create Blocked Place */
+        post: operations["create_blocked_place_api_v1_admin_blocked_places_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/blocked-places/{blocked_place_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Blocked Place */
+        delete: operations["delete_blocked_place_api_v1_admin_blocked_places__blocked_place_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Metrics */
+        get: operations["get_metrics_api_v1_admin_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AdminReportListResponse */
+        AdminReportListResponse: {
+            /** Items */
+            items: components["schemas"]["AdminReportView"][];
+        };
+        /** AdminReportView */
+        AdminReportView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Reporter Id
+             * Format: uuid
+             */
+            reporter_id: string;
+            target_type: components["schemas"]["ReportTarget"];
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+            /** Reason */
+            reason: string;
+            /** Content Snapshot */
+            content_snapshot: {
+                [key: string]: unknown;
+            };
+            status: components["schemas"]["ReportStatus"];
+            /** Moderator Id */
+            moderator_id: string | null;
+            /** Moderator Notes */
+            moderator_notes: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Resolved At */
+            resolved_at: string | null;
+        };
+        /** AdminUserView */
+        AdminUserView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Email */
+            email: string;
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+            /** Rating Average */
+            rating_average: number;
+            /** Rating Count */
+            rating_count: number;
+            /** Completed Exchanges */
+            completed_exchanges: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** AuthTokensResponse */
         AuthTokensResponse: {
             /**
@@ -596,8 +1097,78 @@ export interface components {
             /** Items */
             items: components["schemas"]["PlaceSuggestion"][];
         };
+        /** BlockCreateRequest */
+        BlockCreateRequest: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /** BlockListResponse */
+        BlockListResponse: {
+            /** Items */
+            items: components["schemas"]["BlockedUserView"][];
+        };
+        /** BlockedPlaceCreateRequest */
+        BlockedPlaceCreateRequest: {
+            /** Lat */
+            lat: number;
+            /** Lng */
+            lng: number;
+            /** Place Id */
+            place_id?: string | null;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** BlockedPlaceListResponse */
+        BlockedPlaceListResponse: {
+            /** Items */
+            items: components["schemas"]["BlockedPlaceView"][];
+        };
+        /** BlockedPlaceView */
+        BlockedPlaceView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Place Id */
+            place_id: string | null;
+            /** Lat */
+            lat: number;
+            /** Lng */
+            lng: number;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** BlockedUserView */
+        BlockedUserView: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** Body_upload_photo_api_v1_books__book_id__photos_post */
         Body_upload_photo_api_v1_books__book_id__photos_post: {
+            /** File */
+            file: string;
+            /** Thumbnail */
+            thumbnail?: string | null;
+        };
+        /** Body_upload_thumbnail_api_v1_books__book_id__photos__photo_id__thumbnail_patch */
+        Body_upload_thumbnail_api_v1_books__book_id__photos__photo_id__thumbnail_patch: {
             /** File */
             file: string;
         };
@@ -652,6 +1223,8 @@ export interface components {
              * Format: uuid
              */
             owner_id: string;
+            /** Owner Name */
+            owner_name: string;
             /** Title */
             title: string;
             /** Author */
@@ -673,6 +1246,21 @@ export interface components {
              * @default []
              */
             photos: components["schemas"]["PhotoView"][];
+            /**
+             * View Count
+             * @default 0
+             */
+            view_count: number;
+            /**
+             * Favorite Count
+             * @default 0
+             */
+            favorite_count: number;
+            /**
+             * Is Favorited
+             * @default false
+             */
+            is_favorited: boolean;
             /**
              * Created At
              * Format: date-time
@@ -699,6 +1287,8 @@ export interface components {
              * Format: uuid
              */
             owner_id: string;
+            /** Owner Name */
+            owner_name: string;
             /** Title */
             title: string;
             /** Author */
@@ -719,6 +1309,21 @@ export interface components {
              * @default []
              */
             photos: components["schemas"]["PhotoView"][];
+            /**
+             * View Count
+             * @default 0
+             */
+            view_count: number;
+            /**
+             * Favorite Count
+             * @default 0
+             */
+            favorite_count: number;
+            /**
+             * Is Favorited
+             * @default false
+             */
+            is_favorited: boolean;
             /**
              * Created At
              * Format: date-time
@@ -749,6 +1354,8 @@ export interface components {
              * Format: uuid
              */
             owner_id: string;
+            /** Owner Name */
+            owner_name: string;
             /** Title */
             title: string;
             /** Author */
@@ -824,6 +1431,61 @@ export interface components {
             /** Is Available */
             is_available?: boolean | null;
             location?: components["schemas"]["LocationInput"] | null;
+        };
+        /** ChatListResponse */
+        ChatListResponse: {
+            /** Items */
+            items: components["schemas"]["ChatSummary"][];
+        };
+        /** ChatMarkReadRequest */
+        ChatMarkReadRequest: {
+            /**
+             * Up To Message Id
+             * Format: uuid
+             */
+            up_to_message_id: string;
+        };
+        /**
+         * ChatSummary
+         * @description Minimal chat view for the chat list screen.
+         */
+        ChatSummary: {
+            /**
+             * Chat Id
+             * Format: uuid
+             */
+            chat_id: string;
+            /**
+             * Exchange Id
+             * Format: uuid
+             */
+            exchange_id: string;
+            /**
+             * Counterpart Id
+             * Format: uuid
+             */
+            counterpart_id: string;
+            /** Counterpart Name */
+            counterpart_name: string;
+            /** Last Message */
+            last_message?: string | null;
+            /** Last Message At */
+            last_message_at?: string | null;
+            /**
+             * Unread Count
+             * @default 0
+             */
+            unread_count: number;
+        };
+        /** ChatTicketResponse */
+        ChatTicketResponse: {
+            /** Ticket */
+            ticket: string;
+            /**
+             * Expires In Seconds
+             * @default 30
+             */
+            expires_in_seconds: number;
         };
         /** CounterpartView */
         CounterpartView: {
@@ -1002,47 +1664,6 @@ export interface components {
              */
             acknowledge_warning: boolean;
         };
-        /** MeetupOffer */
-        MeetupOffer: {
-            /** Place Id */
-            place_id?: string | null;
-            /** Place Name */
-            place_name: string;
-            /** Address */
-            address?: string | null;
-            /** Category */
-            category?: string | null;
-            /** Lat */
-            lat: number;
-            /** Lng */
-            lng: number;
-            /**
-             * Scheduled At
-             * Format: date-time
-             */
-            scheduled_at: string;
-        };
-        /** MeetupOfferView */
-        MeetupOfferView: {
-            /** Place Id */
-            place_id?: string | null;
-            /** Place Name */
-            place_name: string;
-            /** Address */
-            address?: string | null;
-            /** Category */
-            category?: string | null;
-            /** Lat */
-            lat: number;
-            /** Lng */
-            lng: number;
-            /**
-             * Scheduled At
-             * Format: date-time
-             */
-            scheduled_at: string;
-            validation_status: components["schemas"]["MeetupValidationStatus"];
-        };
         /** MeetupDetail */
         MeetupDetail: {
             /**
@@ -1094,13 +1715,50 @@ export interface components {
              */
             updated_at: string;
         };
+        /** MeetupOffer */
+        MeetupOffer: {
+            /** Place Id */
+            place_id?: string | null;
+            /** Place Name */
+            place_name: string;
+            /** Address */
+            address?: string | null;
+            /** Category */
+            category?: string | null;
+            /** Lat */
+            lat: number;
+            /** Lng */
+            lng: number;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+        };
+        /** MeetupOfferView */
+        MeetupOfferView: {
+            /** Place Id */
+            place_id?: string | null;
+            /** Place Name */
+            place_name: string;
+            /** Address */
+            address?: string | null;
+            /** Category */
+            category?: string | null;
+            /** Lat */
+            lat: number;
+            /** Lng */
+            lng: number;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            validation_status: components["schemas"]["MeetupValidationStatus"];
+        };
         /** MeetupProposeRequest */
         MeetupProposeRequest: {
-            /**
-             * Offers
-             * @minItems 1
-             * @maxItems 5
-             */
+            /** Offers */
             offers: components["schemas"]["MeetupOffer"][];
             /**
              * Acknowledge Warning
@@ -1118,15 +1776,97 @@ export interface components {
          * @enum {string}
          */
         MeetupValidationStatus: "auto" | "warning" | "rejected";
+        /** MessageListResponse */
+        MessageListResponse: {
+            /** Items */
+            items: components["schemas"]["MessageView"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
         /** MessageResponse */
         MessageResponse: {
             /** Message */
             message: string;
         };
+        /** MessageView */
+        MessageView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Chat Id
+             * Format: uuid
+             */
+            chat_id: string;
+            /**
+             * Sender Id
+             * Format: uuid
+             */
+            sender_id: string;
+            /** Text */
+            text: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Read At */
+            read_at?: string | null;
+        };
+        /** MetricsResponse */
+        MetricsResponse: {
+            /** Daily Active Users */
+            daily_active_users: number;
+            /** Total Users */
+            total_users: number;
+            /** Exchanges By Status */
+            exchanges_by_status: {
+                [key: string]: number;
+            };
+            /** Reports By Reason */
+            reports_by_reason: {
+                [key: string]: number;
+            };
+            /** Open Reports */
+            open_reports: number;
+        };
         /** NearbyResponse */
         NearbyResponse: {
             /** Items */
             items: components["schemas"]["PlaceSummary"][];
+        };
+        /** NotificationListResponse */
+        NotificationListResponse: {
+            /** Items */
+            items: components["schemas"]["NotificationView"][];
+        };
+        /** NotificationMarkReadRequest */
+        NotificationMarkReadRequest: {
+            /** Notification Ids */
+            notification_ids: string[];
+        };
+        /** NotificationView */
+        NotificationView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Type */
+            type: string;
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** Read At */
+            read_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** PasswordResetConfirmRequest */
         PasswordResetConfirmRequest: {
@@ -1157,6 +1897,8 @@ export interface components {
             id: string;
             /** Url */
             url: string;
+            /** Thumbnail Url */
+            thumbnail_url?: string | null;
             /** Position */
             position: number;
         };
@@ -1185,6 +1927,59 @@ export interface components {
             /** Lng */
             lng: number;
         };
+        /** RatingCreateRequest */
+        RatingCreateRequest: {
+            /**
+             * Exchange Id
+             * Format: uuid
+             */
+            exchange_id: string;
+            /** Score */
+            score: number;
+            /** Comment */
+            comment?: string | null;
+        };
+        /** RatingListResponse */
+        RatingListResponse: {
+            /** Items */
+            items: components["schemas"]["RatingView"][];
+            /** Rating Average */
+            rating_average: number;
+            /** Rating Count */
+            rating_count: number;
+        };
+        /** RatingView */
+        RatingView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Exchange Request Id
+             * Format: uuid
+             */
+            exchange_request_id: string;
+            /**
+             * Rated By
+             * Format: uuid
+             */
+            rated_by: string;
+            /**
+             * Rated User
+             * Format: uuid
+             */
+            rated_user: string;
+            /** Score */
+            score: number;
+            /** Comment */
+            comment: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** RefreshRequest */
         RefreshRequest: {
             /** Refresh Token */
@@ -1204,6 +1999,60 @@ export interface components {
             /** Kvkk Consent */
             kvkk_consent: boolean;
         };
+        /** ReportCreateRequest */
+        ReportCreateRequest: {
+            target_type: components["schemas"]["ReportTarget"];
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+            /** Reason */
+            reason: string;
+        };
+        /** ReportResolveRequest */
+        ReportResolveRequest: {
+            status: components["schemas"]["ReportStatus"];
+            /** Moderator Notes */
+            moderator_notes?: string | null;
+        };
+        /**
+         * ReportStatus
+         * @enum {string}
+         */
+        ReportStatus: "open" | "reviewing" | "resolved" | "dismissed";
+        /**
+         * ReportTarget
+         * @enum {string}
+         */
+        ReportTarget: "user" | "book" | "message" | "place";
+        /** ReportView */
+        ReportView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Reporter Id
+             * Format: uuid
+             */
+            reporter_id: string;
+            target_type: components["schemas"]["ReportTarget"];
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+            /** Reason */
+            reason: string;
+            status: components["schemas"]["ReportStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** TokenResponse */
         TokenResponse: {
             /** Access Token */
@@ -1219,6 +2068,11 @@ export interface components {
             /** Trusted Contact Phone */
             trusted_contact_phone?: string | null;
         };
+        /** UserActionRequest */
+        UserActionRequest: {
+            /** Reason */
+            reason?: string | null;
+        };
         /** UserPublic */
         UserPublic: {
             /**
@@ -1233,6 +2087,34 @@ export interface components {
             email: string;
             /** Name */
             name: string;
+        };
+        /**
+         * UserPublicProfile
+         * @description Public profile of a user, visible to other users — no PII email.
+         */
+        UserPublicProfile: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Completed Exchanges
+             * @default 0
+             */
+            completed_exchanges: number;
+            /**
+             * Rating Average
+             * @default 0
+             */
+            rating_average: number;
+            /**
+             * Rating Count
+             * @default 0
+             */
+            rating_count: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -1599,6 +2481,37 @@ export interface operations {
             };
         };
     };
+    get_user_profile_api_v1_auth_users__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPublicProfile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     search_books_api_v1_books_search_get: {
         parameters: {
             query: {
@@ -1894,6 +2807,42 @@ export interface operations {
             };
         };
     };
+    upload_thumbnail_api_v1_books__book_id__photos__photo_id__thumbnail_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                book_id: string;
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_thumbnail_api_v1_books__book_id__photos__photo_id__thumbnail_patch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhotoView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reorder_photos_api_v1_books__book_id__photos_reorder_patch: {
         parameters: {
             query?: never;
@@ -1917,6 +2866,93 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PhotoView"][];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    increment_book_view_api_v1_books__book_id__view_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                book_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_book_favorite_api_v1_books__book_id__favorite_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                book_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_book_favorite_api_v1_books__book_id__favorite_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                book_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -2117,6 +3153,86 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ExchangeDetail"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_blocked_users_api_v1_exchanges_blocks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockListResponse"];
+                };
+            };
+        };
+    };
+    block_user_api_v1_exchanges_blocks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlockCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unblock_user_api_v1_exchanges_blocks__blocked_user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                blocked_user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -2539,6 +3655,559 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_rating_api_v1_ratings_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatingCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RatingView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_ratings_api_v1_users__user_id__ratings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RatingListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_report_api_v1_reports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_notifications_api_v1_notifications_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationListResponse"];
+                };
+            };
+        };
+    };
+    mark_notifications_read_api_v1_notifications_read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationMarkReadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_messages_api_v1_exchanges__exchange_id__chat_messages_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                exchange_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_messages_read_api_v1_exchanges__exchange_id__chat_read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exchange_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatMarkReadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_chats_api_v1_chat_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatListResponse"];
+                };
+            };
+        };
+    };
+    create_chat_ticket_api_v1_chat_ticket_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatTicketResponse"];
+                };
+            };
+        };
+    };
+    list_reports_api_v1_admin_reports_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["ReportStatus"] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReportListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_report_api_v1_admin_reports__report_id__claim_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReportView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_report_api_v1_admin_reports__report_id__resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportResolveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReportView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suspend_user_api_v1_admin_users__user_id__suspend_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reinstate_user_api_v1_admin_users__user_id__reinstate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    takedown_book_api_v1_admin_books__book_id__takedown_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                book_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_blocked_places_api_v1_admin_blocked_places_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockedPlaceListResponse"];
+                };
+            };
+        };
+    };
+    create_blocked_place_api_v1_admin_blocked_places_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlockedPlaceCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockedPlaceView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_blocked_place_api_v1_admin_blocked_places__blocked_place_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                blocked_place_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_metrics_api_v1_admin_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricsResponse"];
                 };
             };
         };

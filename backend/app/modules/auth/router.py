@@ -1,5 +1,7 @@
 """Auth endpoints."""
 
+import uuid
+
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +23,7 @@ from app.modules.auth.schemas import (
     RegisterRequest,
     TokenResponse,
     UpdateMeRequest,
+    UserPublicProfile,
 )
 from app.modules.auth.service import AuthError, AuthService
 
@@ -119,5 +122,17 @@ async def update_me(
 ) -> MeResponse:
     try:
         return await service.update_me(user.id, body)
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.get("/users/{user_id}", response_model=UserPublicProfile)
+async def get_user_profile(
+    user_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> UserPublicProfile:
+    try:
+        return await service.get_user_profile(user_id)
     except AuthError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

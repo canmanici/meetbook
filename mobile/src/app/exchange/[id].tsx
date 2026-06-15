@@ -3,28 +3,35 @@ import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
+import MapView, { Marker } from 'react-native-maps';
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   ScrollView,
   Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   useColorScheme,
 } from 'react-native';
 
-import { Avatar, Badge, Button, Card, SafetySheet, SuggestedPlace, TimelineStep, palette, spacing, fontSize } from '@/components/ui';
+import { Avatar, Badge, Button, Card, SafetySheet, Sheet, TimelineStep, palette, spacing, fontSize, radius } from '@/components/ui';
 import { BOOK_CATEGORY_LABELS, BOOK_CONDITION_LABELS } from '@/constants/books';
 import { EXCHANGE_STATUS_LABELS, EXCHANGE_STATUS_VARIANTS } from '@/constants/exchanges';
 import { MEETUP_VALIDATION_LABELS } from '@/constants/meetup';
 import {
+  ApiError,
   acceptExchange,
   acceptMeetup,
+  blockUser,
   cancelExchange,
   completeExchange,
   confirmExchangeCompletion,
+  createRating,
+  createReport,
   getExchange,
   getMe,
   rejectExchange,
@@ -33,13 +40,6 @@ import {
 } from '@/lib/api/client';
 import { buildMapLinks } from '@/lib/maps';
 import { useAuthStore } from '@/stores/auth-store';
-
-const SUGGESTED_PLACES = [
-  { id: '1', name: 'Kadıköy Meydanı', category: 'Açık Alan', address: 'Kadıköy, İstanbul', distance: 1.2, rating: 4.5 },
-  { id: '2', name: 'Starbucks Bağdat Caddesi', category: 'Kafe', address: 'Bağdat Caddesi, Kadıköy', distance: 2.1, rating: 4.3 },
-  { id: '3', name: 'Sultanahmet Meydanı', category: 'Tarihi Mekan', address: 'Sultanahmet, Fatih', distance: 5.8, rating: 4.7 },
-  { id: '4', name: 'Taksim Meydanı', category: 'Açık Alan', address: 'Taksim, Beyoğlu', distance: 3.4, rating: 4.2 },
-];
 
 type StepStatus = 'done' | 'active' | 'pending';
 
@@ -115,6 +115,11 @@ export default function ExchangeDetailScreen() {
   });
 
   const [meetupSafetySheetVisible, setMeetupSafetySheetVisible] = useState(false);
+  const [reportSheetVisible, setReportSheetVisible] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [rateSheetVisible, setRateSheetVisible] = useState(false);
+  const [ratingScore, setRatingScore] = useState(5);
+  const [ratingComment, setRatingComment] = useState('');
 
   const invalidate = async (updated: ExchangeDetail) => {
     queryClient.setQueryData(['exchanges', id], updated);
@@ -150,6 +155,50 @@ export default function ExchangeDetailScreen() {
   const rejectMeetupMutation = useMutation({
     mutationFn: () => rejectMeetup(id),
     onSuccess: invalidate,
+  });
+
+  const blockMutation = useMutation({
+    mutationFn: (counterpartId: string) => blockUser({ user_id: counterpartId }),
+    onSuccess: () => {
+      Alert.alert('Kullanıcı engellendi', 'Bu kullanıcıyı bir daha göremeyeceksiniz.');
+      router.back();
+    },
+    onError: () => {
+      Alert.alert('Hata', 'Kullanıcı engellenemedi. Lütfen tekrar deneyin.');
+    },
+  });
+
+  const reportMutation = useMutation({
+    mutationFn: () => createReport({ target_type: 'user', target_id: exchange!.counterpart.id, reason: reportReason }),
+    onSuccess: () => {
+      setReportSheetVisible(false);
+      setReportReason('');
+      Alert.alert('Bildirim alındı', 'Bildiriminiz moderasyon ekibine iletildi.');
+    },
+    onError: () => {
+      Alert.alert('Hata', 'Bildirim gönderilemedi. Lütfen tekrar deneyin.');
+    },
+  });
+
+  const ratingMutation = useMutation({
+    mutationFn: () => createRating({ exchange_id: id, score: ratingScore, comment: ratingComment || undefined }),
+    onSuccess: () => {
+      setRateSheetVisible(false);
+      setRatingComment('');
+      setRatingScore(5);
+      Alert.alert('Teşekkürler', 'Değerlendirmeniz kaydedildi.');
+    },
+    onError: (err: unknown) => {
+      if (err instanceof ApiError && err.status === 409) {
+        const detail = (err.body as { detail?: string })?.detail;
+        if (detail === 'ALREADY_RATED') {
+          setRateSheetVisible(false);
+          Alert.alert('Zaten değerlendirildi', 'Bu takası daha önce değerlendirdiniz.');
+          return;
+        }
+      }
+      Alert.alert('Hata', 'Değerlendirme gönderilemedi. Lütfen tekrar deneyin.');
+    },
   });
 
   if (isLoading) {
@@ -270,6 +319,35 @@ export default function ExchangeDetailScreen() {
               {exchange.counterpart.name}
             </Text>
           </View>
+          <View style={styles.counterpartActions}>
+            <TouchableOpacity
+              onPress={() => setReportSheetVisible(true)}
+              style={styles.counterpartActionButton}
+              testID="report-user-button"
+            >
+              <Ionicons name="flag-outline" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert(
+                  'Kullanıcıyı Engelle',
+                  'Bu kullanıcıyı engellemek istiyor musunuz? Bloklanmış kullanıcılar sizi göremez ve kitapları sizden gizlenir.',
+                  [
+                    { text: 'İptal', style: 'cancel' },
+                    {
+                      text: 'Engelle',
+                      style: 'destructive',
+                      onPress: () => blockMutation.mutate(exchange.counterpart.id),
+                    },
+                  ],
+                );
+              }}
+              style={styles.counterpartActionButton}
+              testID="block-user-button"
+            >
+              <Ionicons name="ban-outline" size={20} color={colors.danger} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {exchange.initial_message ? (
@@ -284,6 +362,23 @@ export default function ExchangeDetailScreen() {
           </>
         ) : null}
       </Card>
+
+      {/* Chat Button (only after exchange is accepted) */}
+      {exchange.status !== 'pending' &&
+        exchange.status !== 'rejected' &&
+        exchange.status !== 'cancelled' &&
+        exchange.status !== 'expired' && (
+        <Card style={styles.chatCard}>
+          <TouchableOpacity
+            style={[styles.chatButton, { backgroundColor: colors.primary }]}
+            onPress={() => router.push(`/chat/${exchange.id}`)}
+            testID="chat-button"
+          >
+            <Ionicons name="chatbubble" size={20} color="#ffffff" />
+            <Text style={styles.chatButtonText}>Mesaj Gönder</Text>
+          </TouchableOpacity>
+        </Card>
+      )}
 
       {/* Visual Timeline */}
       <Card style={styles.timelineCard}>
@@ -375,6 +470,19 @@ export default function ExchangeDetailScreen() {
                             {offer.place_name}
                           </Text>
                         </View>
+                        <MapView
+                          style={styles.placeMap}
+                          pointerEvents="none"
+                          region={{
+                            latitude: offer.lat,
+                            longitude: offer.lng,
+                            latitudeDelta: 0.01,
+                            longitudeDelta: 0.01,
+                          }}
+                          testID={`meetup-offer-map-${index}`}
+                        >
+                          <Marker coordinate={{ latitude: offer.lat, longitude: offer.lng }} />
+                        </MapView>
                         {offer.address ? (
                           <Text style={[styles.placeAddress, { color: colors.textMuted }]}>
                             {offer.address}
@@ -403,6 +511,19 @@ export default function ExchangeDetailScreen() {
                       {meetup.place_name}
                     </Text>
                   </View>
+                  <MapView
+                    style={styles.placeMap}
+                    pointerEvents="none"
+                    region={{
+                      latitude: meetup.lat,
+                      longitude: meetup.lng,
+                      latitudeDelta: 0.01,
+                      longitudeDelta: 0.01,
+                    }}
+                    testID="meetup-place-map"
+                  >
+                    <Marker coordinate={{ latitude: meetup.lat, longitude: meetup.lng }} />
+                  </MapView>
                   {meetup.address ? (
                     <Text style={[styles.placeAddress, { color: colors.textMuted }]}>
                       {meetup.address}
@@ -511,24 +632,27 @@ export default function ExchangeDetailScreen() {
           ) : (
             exchange.status === 'accepted' && (
               <>
-                <Text style={[styles.cardTitle, { color: colors.text }]}>Önerilen Güvenli Mekanlar</Text>
-                {SUGGESTED_PLACES.map((place) => (
-                  <SuggestedPlace
-                    key={place.id}
-                    name={place.name}
-                    category={place.category}
-                    address={place.address}
-                    distanceKm={place.distance}
-                    rating={place.rating}
-                    onSelect={() => router.push({ pathname: '/meetup/select-place', params: { exchangeId: id } })}
-                  />
-                ))}
-                <Button
-                  onPress={() => router.push({ pathname: '/meetup/select-place', params: { exchangeId: id } })}
-                  testID="propose-meetup-link-button"
-                >
-                  Buluşma Öner
-                </Button>
+                {isOwner ? (
+                  <>
+                    <Text style={[styles.cardTitle, { color: colors.text }]}>Buluşma Yeri Öner</Text>
+                    <Text style={[styles.waiting, { color: colors.textMuted }]}>
+                      Takas kabul edildi. Lütfen buluşma yeri ve saati önerin.
+                    </Text>
+                    <Button
+                      onPress={() => router.push({ pathname: '/meetup/select-place', params: { exchangeId: id } })}
+                      testID="propose-meetup-link-button"
+                    >
+                      Buluşma Yeri Öner
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Text style={[styles.cardTitle, { color: colors.text }]}>Buluşma Bekleniyor</Text>
+                    <Text style={[styles.waiting, { color: colors.textMuted }]}>
+                      Karşı taraf buluşma yeri ve saati önerecek.
+                    </Text>
+                  </>
+                )}
               </>
             )
           )}
@@ -574,6 +698,18 @@ export default function ExchangeDetailScreen() {
               <Text style={[styles.acceptButtonText, { color: colors.surface }]}>Takası Tamamla</Text>
             )}
           </TouchableOpacity>
+        </View>
+      )}
+
+      {exchange.status === 'completed' && (
+        <View style={styles.actions}>
+          <Button
+            variant="secondary"
+            onPress={() => setRateSheetVisible(true)}
+            testID="rate-exchange-button"
+          >
+            {`${exchange.counterpart.name} İçin Değerlendirme Yap`}
+          </Button>
         </View>
       )}
 
@@ -634,6 +770,73 @@ export default function ExchangeDetailScreen() {
       <Button variant="ghost" onPress={() => router.back()} testID="back-button">
         Geri
       </Button>
+
+      <Sheet
+        visible={reportSheetVisible}
+        onClose={() => setReportSheetVisible(false)}
+        title="Kullanıcıyı Bildir"
+      >
+        <Text style={[styles.sheetLabel, { color: colors.textMuted }]}>
+          Bu kullanıcıyla ilgili sorununuzu açıklayın.
+        </Text>
+        <TextInput
+          style={[styles.reportInput, { borderColor: colors.textMuted + '40', color: colors.text }]}
+          placeholder="Sebep açıklayın..."
+          placeholderTextColor={colors.textMuted}
+          value={reportReason}
+          onChangeText={setReportReason}
+          multiline
+          numberOfLines={4}
+          testID="report-reason-input"
+        />
+        <Button
+          onPress={() => reportMutation.mutate()}
+          disabled={reportReason.trim().length === 0}
+          loading={reportMutation.isPending}
+          testID="submit-report-button"
+        >
+          Gönder
+        </Button>
+      </Sheet>
+
+      <Sheet
+        visible={rateSheetVisible}
+        onClose={() => setRateSheetVisible(false)}
+        title="Değerlendirme Yap"
+      >
+        <View style={styles.starsRow}>
+          {[1, 2, 3, 4, 5].map((value) => (
+            <TouchableOpacity
+              key={value}
+              onPress={() => setRatingScore(value)}
+              testID={`rating-star-${value}`}
+            >
+              <Ionicons
+                name={value <= ratingScore ? 'star' : 'star-outline'}
+                size={32}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TextInput
+          style={[styles.reportInput, { borderColor: colors.textMuted + '40', color: colors.text }]}
+          placeholder="Yorumunuz (opsiyonel)"
+          placeholderTextColor={colors.textMuted}
+          value={ratingComment}
+          onChangeText={setRatingComment}
+          multiline
+          numberOfLines={4}
+          testID="rating-comment-input"
+        />
+        <Button
+          onPress={() => ratingMutation.mutate()}
+          loading={ratingMutation.isPending}
+          testID="submit-rating-button"
+        >
+          Gönder
+        </Button>
+      </Sheet>
     </ScrollView>
   );
 }
@@ -702,6 +905,32 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  counterpartActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  counterpartActionButton: {
+    padding: spacing.xs,
+  },
+  sheetLabel: {
+    fontSize: fontSize.bodySm,
+    marginBottom: spacing.sm,
+  },
+  reportInput: {
+    borderWidth: 1,
+    borderRadius: radius.input,
+    padding: spacing.sm,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginBottom: spacing.md,
+    fontSize: fontSize.body,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
   counterpartLabel: {
     fontSize: fontSize.caption,
     fontWeight: '600',
@@ -722,6 +951,22 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: fontSize.body,
     lineHeight: 20,
+  },
+  chatCard: {
+    padding: spacing.md,
+  },
+  chatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+    gap: spacing.xs,
+  },
+  chatButtonText: {
+    color: '#ffffff',
+    fontSize: fontSize.body,
+    fontWeight: '700',
   },
   timelineCard: {
     padding: spacing.md,
@@ -789,6 +1034,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.body,
     fontWeight: '700',
     flex: 1,
+  },
+  placeMap: {
+    width: '100%',
+    height: 180,
+    borderRadius: 8,
   },
   placeAddress: {
     fontSize: fontSize.bodySm,

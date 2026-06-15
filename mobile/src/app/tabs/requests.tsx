@@ -115,9 +115,11 @@ function IncomingRequestRow({
 
   const acceptMutation = useMutation({
     mutationFn: acceptExchange,
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['exchanges', 'received'] });
-      Alert.alert('Onaylandı', 'Talep onaylandı.');
+      Alert.alert('Onaylandı', 'Talep onaylandı.', [
+        { text: 'Tamam', onPress: () => router.push(`/exchange/${data.id}`) }
+      ]);
     },
     onError: () => {
       Alert.alert('Hata', 'Talep onaylanamadı.');
@@ -138,7 +140,11 @@ function IncomingRequestRow({
   const isPending = item.status === 'pending';
 
   return (
-    <View style={[styles.row, { backgroundColor: colors.surface }]} testID={`request-row-${item.id}`}>
+    <TouchableOpacity
+      style={[styles.row, { backgroundColor: colors.surface }]}
+      onPress={() => router.push(`/exchange/${item.id}`)}
+      testID={`request-row-${item.id}`}
+    >
       <View style={styles.rowHeader}>
         <LinearGradient
           colors={[colors.primary, colors.success]}
@@ -184,7 +190,7 @@ function IncomingRequestRow({
           </TouchableOpacity>
         </View>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 

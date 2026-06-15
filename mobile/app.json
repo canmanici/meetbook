@@ -43,7 +43,8 @@
         {
           "locationWhenInUsePermission": "MeetBook, kitabının konumunu işaretlemen için konumunu kullanır."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

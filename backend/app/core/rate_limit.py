@@ -15,10 +15,13 @@ class RateLimitConfig:
         self,
         requests_per_minute: int = 120,
         route_limits: dict[str, tuple[int, int]] | None = None,
+        trusted_proxies: set[str] | None = None,
     ) -> None:
         self.requests_per_minute = requests_per_minute
         # route_limits: {path_pattern: (limit, window_seconds)}
         self.route_limits = route_limits or {}
+        # Proxies whose X-Forwarded-For we trust (empty = trust all for now)
+        self.trusted_proxies = trusted_proxies or set()
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -31,6 +34,33 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self._redis = redis_client
         self._config = config or RateLimitConfig()
+
+    @staticmethod
+    def _get_client_ip(request: Request) -> str:
+        """Extract the real client IP, checking proxy headers first.
+
+        Precedence:
+          1. X-Forwarded-For  (leftmost, comma-separated)
+          2. X-Real-IP        (single IP, used by nginx)
+          3. request.client.host (direct connection / fallback)
+        """
+        forwarded = request.headers.get("X-Forwarded-For", "")
+        if forwarded:
+            # Leftmost IP is the original client
+            client_ip = forwarded.split(",")[0].strip()
+            if client_ip:
+                return client_ip
+
+        real_ip = request.headers.get("X-Real-IP", "")
+        if real_ip:
+            return real_ip.strip()
+
+        return request.client.host if request.client else "unknown"
+
+    @staticmethod
+    def _match_route(path: str, pattern: str) -> bool:
+        """Exact match or prefix-with-slash to avoid 'password-reset' catching 'password-reset-request'."""
+        return path == pattern or path.startswith(pattern + "/")
 
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
@@ -45,13 +75,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             except Exception:  # noqa: S110
                 pass
 
-        identifier = user_id or (request.client.host if request.client else "unknown")
+        # Use user_id for authenticated users (per-user buckets),
+        # real client IP for unauthenticated (anti-abuse).
+        if user_id:
+            identifier = user_id
+        else:
+            identifier = self._get_client_ip(request)
+
         key_prefix = f"ratelimit:{identifier}"
 
         # Check route-specific limits
         path = request.url.path
         for pattern, (limit, window) in self._config.route_limits.items():
-            if path.startswith(pattern):
+            if self._match_route(path, pattern):
                 key = f"{key_prefix}:{pattern}"
                 allowed, retry_after = await self._check_limit(key, limit, window)
                 if not allowed:

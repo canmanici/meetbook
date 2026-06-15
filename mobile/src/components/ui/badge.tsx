@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ViewStyle,
+  useColorScheme,
 } from 'react-native';
 import { palette, spacing, radius, fontSize } from './tokens';
 
@@ -22,38 +23,34 @@ export const Badge: React.FC<BadgeProps> = ({
   style,
   testID = 'badge',
 }) => {
-  const variantColors: Record<BadgeVariant, string> = {
-    success: palette.light.success,
-    warning: palette.light.warning,
-    danger: palette.light.danger,
-    info: palette.light.info,
-    primary: palette.light.primary,
-  };
+  const scheme = useColorScheme();
+  const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
+  const tint = colors[variant];
 
   return (
     <View
       style={[
         styles.badge,
-        { backgroundColor: variantColors[variant] },
+        { backgroundColor: tint + '22' },
         style,
       ]}
       testID={testID}
     >
-      <Text style={styles.text}>{text}</Text>
+      <Text style={[styles.text, { color: tint }]}>{text}</Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   badge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
     borderRadius: radius.pill,
     alignSelf: 'flex-start',
   },
   text: {
     fontSize: fontSize.caption,
-    fontWeight: '600',
-    color: palette.light.surface,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
 });

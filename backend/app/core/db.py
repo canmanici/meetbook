@@ -22,7 +22,11 @@ _session_factory: async_sessionmaker[AsyncSession] | None = None
 def get_engine() -> AsyncEngine:
     global _engine, _session_factory
     if _engine is None:
-        _engine = create_async_engine(get_settings().database_url, pool_pre_ping=True)
+        _engine = create_async_engine(
+            get_settings().database_url,
+            pool_pre_ping=True,
+            pool_recycle=300,  # Recycle connections every 5min to avoid stale prepared stmts
+        )
         _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
     return _engine
 

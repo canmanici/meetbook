@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { deleteBook, getBook, updateBook } from '@/lib/api/client';
 import { useBookDraftStore } from '@/stores/book-draft-store';
+import { useAuthStore } from '@/stores/auth-store';
 
 import BookDetailScreen from '../[id]';
 
@@ -24,6 +25,9 @@ jest.mock('@/lib/api/client', () => ({
   getBook: jest.fn(),
   updateBook: jest.fn(),
   deleteBook: jest.fn(),
+  incrementBookView: jest.fn().mockResolvedValue(undefined),
+  addFavorite: jest.fn().mockResolvedValue(undefined),
+  removeFavorite: jest.fn().mockResolvedValue(undefined),
 }));
 
 const OWNER_BOOK = {
@@ -72,6 +76,7 @@ describe('BookDetailScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useBookDraftStore.setState({ pickedLocation: null });
+    useAuthStore.setState({ user: { id: 'user-1', name: 'Me', email: 'me@example.com' } as any });
   });
 
   it('shows edit and delete actions for the owner', async () => {
@@ -140,8 +145,83 @@ describe('BookDetailScreen', () => {
     fireEvent.press(getByTestId('delete-book-button'));
 
     await waitFor(() => {
-      expect(deleteBook).toHaveBeenCalledWith('book-1');
+      expect(deleteBook).toHaveBeenCalledWith('book-1', undefined);
     });
     expect(router.back).toHaveBeenCalled();
+  });
+
+  it('shows force delete popup and retries with force=true on 409', async () => {
+    (getBook as jest.Mock).mockResolvedValue(OWNER_BOOK);
+    const apiError = new (jest.requireMock('@/lib/api/client').ApiError)(409);
+    const deleteMock = deleteBook as jest.Mock;
+    // First call without force fails, second call with force=true succeeds
+    deleteMock.mockRejectedValueOnce(apiError).mockResolvedValueOnce(undefined);
+    const { router } = jest.requireMock('expo-router');
+
+    let alertCall = 0;
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      alertCall++;
+      if (alertCall === 1) {
+        // First alert: delete confirmation, press "Sil"
+        const confirm = buttons?.find((b) => b.text === 'Sil');
+        confirm?.onPress?.(undefined as never);
+      } else if (alertCall === 2) {
+        // Second alert: force delete confirmation, press "Zorla Sil"
+        const forceDelete = buttons?.find((b) => b.text === 'Zorla Sil');
+        forceDelete?.onPress?.(undefined as never);
+      }
+    });
+
+    const { findByText, getByTestId } = renderWithQueryClient(<BookDetailScreen />);
+
+    await findByText('Suç ve Ceza');
+    fireEvent.press(getByTestId('delete-book-button'));
+
+    await waitFor(() => {
+      expect(deleteBook).toHaveBeenCalledWith('book-1', undefined);
+    });
+    await waitFor(() => {
+      expect(deleteBook).toHaveBeenCalledWith('book-1', true);
+    });
+    expect(router.back).toHaveBeenCalled();
+  });
+
+  it('shows generic error when force delete also fails', async () => {
+    (getBook as jest.Mock).mockResolvedValue(OWNER_BOOK);
+    const apiError = new (jest.requireMock('@/lib/api/client').ApiError)(409);
+    const deleteMock = deleteBook as jest.Mock;
+    // Both calls fail
+    deleteMock.mockRejectedValue(apiError);
+    const { router } = jest.requireMock('expo-router');
+
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      // The first alert is always the delete confirmation
+      if (buttons?.find((b) => b.text === 'Sil') && !buttons?.find((b) => b.text === 'Zorla Sil')) {
+        const confirm = buttons.find((b) => b.text === 'Sil');
+        confirm?.onPress?.(undefined as never);
+      }
+      // The second alert has "Zorla Sil" — press it
+      const forceDelete = buttons?.find((b) => b.text === 'Zorla Sil');
+      forceDelete?.onPress?.(undefined as never);
+    });
+
+    const { findByText, getByTestId } = renderWithQueryClient(<BookDetailScreen />);
+
+    await findByText('Suç ve Ceza');
+    fireEvent.press(getByTestId('delete-book-button'));
+
+    await waitFor(() => {
+      expect(deleteBook).toHaveBeenCalledWith('book-1', undefined);
+    });
+    await waitFor(() => {
+      expect(deleteBook).toHaveBeenCalledWith('book-1', true);
+    });
+
+    // Should show the generic error alert (not the force delete popup)
+    expect(alertSpy).toHaveBeenLastCalledWith(
+      'Hata',
+      'Kitap silinirken bir hata oluştu. Lütfen tekrar deneyin.',
+    );
+    expect(router.back).not.toHaveBeenCalled();
   });
 });

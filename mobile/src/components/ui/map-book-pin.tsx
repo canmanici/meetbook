@@ -3,11 +3,15 @@ import { View, Image, StyleSheet, Text } from 'react-native';
 
 interface MapBookPinProps {
   coverUrl?: string;
+  thumbnailUrl?: string;
   title: string;
   isSelected?: boolean;
 }
 
-export function MapBookPin({ coverUrl, title, isSelected = false }: MapBookPinProps) {
+export function MapBookPin({ coverUrl, thumbnailUrl, title, isSelected = false }: MapBookPinProps) {
+  // Prefer thumbnail for map pins (pre-sized)
+  const imageUri = thumbnailUrl || coverUrl;
+
   return (
     <View style={[styles.markerWrapper, isSelected && styles.selected]}>
       <View style={styles.titleContainer}>
@@ -16,9 +20,9 @@ export function MapBookPin({ coverUrl, title, isSelected = false }: MapBookPinPr
         </Text>
       </View>
       <View style={styles.shadowContainer}>
-        {coverUrl ? (
+        {imageUri ? (
           <Image 
-            source={{ uri: coverUrl }} 
+            source={{ uri: imageUri }} 
             style={styles.coverImage} 
             resizeMode="cover" 
           />
@@ -41,13 +45,13 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     backgroundColor: '#FFF',
-    paddingVertical: 3,
+    paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: '#CCC',
     marginBottom: 4,
-    maxWidth: 90,
+    maxWidth: 110,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -56,7 +60,7 @@ const styles = StyleSheet.create({
   },
   titleText: {
     color: '#000',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     textAlign: 'center',
   },
@@ -69,8 +73,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   coverImage: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 132,
     borderRadius: 6,
     borderWidth: 1.5,
     borderColor: '#FFF',

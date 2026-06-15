@@ -12,6 +12,7 @@ import {
 import MapView, { Marker, type LatLng, type MapPressEvent } from 'react-native-maps';
 
 import { Button, Input, SafetySheet, fontSize, palette, radius, spacing } from '@/components/ui';
+import { DatePicker } from '@/components/ui/date-time-picker';
 import { SAFE_MEETUP_CATEGORIES } from '@/constants/meetup';
 import {
   getMeetupSuggestions,
@@ -54,8 +55,7 @@ export default function SelectMeetupPlaceScreen() {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [selected, setSelected] = useState<SelectedPlace | null>(null);
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
+  const [defaultDateTime, setDefaultDateTime] = useState<Date | null>(null);
   const [offers, setOffers] = useState<OfferDraft[]>([]);
   const [safetySheetVisible, setSafetySheetVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,7 +144,12 @@ export default function SelectMeetupPlaceScreen() {
       if (current.some((o) => o.lat === place.lat && o.lng === place.lng)) {
         return current;
       }
-      return [...current, { ...place, date, time }];
+      const dateTime = defaultDateTime || new Date();
+      return [...current, { 
+        ...place, 
+        date: dateTime.toISOString().split('T')[0],
+        time: dateTime.toTimeString().slice(0, 5)
+      }];
     });
   };
 
@@ -313,24 +318,11 @@ export default function SelectMeetupPlaceScreen() {
           </View>
         )}
 
-        <View style={styles.dateRow}>
-          <Input
-            label="Varsayılan Tarih (YYYY-AA-GG)"
-            placeholder="2026-07-01"
-            value={date}
-            onChangeText={setDate}
-            style={styles.dateInput}
-            testID="meetup-date-input"
-          />
-          <Input
-            label="Varsayılan Saat (SS:DD)"
-            placeholder="14:00"
-            value={time}
-            onChangeText={setTime}
-            style={styles.dateInput}
-            testID="meetup-time-input"
-          />
-        </View>
+        <DatePicker
+          value={defaultDateTime}
+          onChange={setDefaultDateTime}
+          label="Varsayılan Tarih ve Saat"
+        />
 
         {offers.length > 0 && (
           <View style={styles.offersList}>
@@ -356,24 +348,14 @@ export default function SelectMeetupPlaceScreen() {
                     {offer.address}
                   </Text>
                 ) : null}
-                <View style={styles.dateRow}>
-                  <Input
-                    label="Tarih (YYYY-AA-GG)"
-                    placeholder="2026-07-01"
-                    value={offer.date}
-                    onChangeText={(value) => updateOffer(index, { date: value })}
-                    style={styles.dateInput}
-                    testID={`offer-date-input-${index}`}
-                  />
-                  <Input
-                    label="Saat (SS:DD)"
-                    placeholder="14:00"
-                    value={offer.time}
-                    onChangeText={(value) => updateOffer(index, { time: value })}
-                    style={styles.dateInput}
-                    testID={`offer-time-input-${index}`}
-                  />
-                </View>
+                <DatePicker
+                  value={new Date(`${offer.date}T${offer.time}`)}
+                  onChange={(date) => updateOffer(index, { 
+                    date: date.toISOString().split('T')[0],
+                    time: date.toTimeString().slice(0, 5)
+                  })}
+                  label="Tarih ve Saat"
+                />
               </View>
             ))}
           </View>
@@ -405,9 +387,6 @@ export default function SelectMeetupPlaceScreen() {
 }
 
 function buildScheduledAt(date: string, time: string): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
-    return null;
-  }
   const isoCandidate = `${date}T${time}:00`;
   const parsed = new Date(isoCandidate);
   if (Number.isNaN(parsed.getTime())) {
