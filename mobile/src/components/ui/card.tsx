@@ -44,7 +44,7 @@ interface BookCardProps {
   testID?: string;
 }
 
-const conditionLabels: Record<BookCondition, string> = {
+export const conditionLabels: Record<BookCondition, string> = {
   'new': 'Yeni',
   'like-new': 'Yeni gibi',
   'good': 'İyi',
