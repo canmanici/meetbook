@@ -184,6 +184,46 @@ class BookService:
             items.append(_to_public_view(row, owner_name, photos))
         return BookListResponse(items=items, next_cursor=next_cursor)
 
+    async def search_bbox(
+        self,
+        min_lat: float,
+        max_lat: float,
+        min_lng: float,
+        max_lng: float,
+        category: str | None,
+        language: str | None,
+        condition: str | None,
+        q: str | None,
+        limit: int,
+        current_user_id: uuid.UUID,
+    ) -> BookSearchResponse:
+        # Area clamp — ~50km × 50km max (0.45 deg lat ≈ 50km)
+        lat_span = max_lat - min_lat
+        lng_span = max_lng - min_lng
+        if lat_span > 0.45 or lng_span > 0.6:
+            raise BookError("Alan çok geniş — yakınlaştırın.", 422)
+
+        rows = await self.repo.search_bbox(
+            min_lat, max_lat, min_lng, max_lng,
+            category, language, condition, q, limit, current_user_id,
+        )
+        items = [
+            BookSearchResult(
+                id=r.book.id, owner_id=r.book.owner_id, owner_name=r.owner.name,
+                title=r.book.title, author=r.book.author, isbn=r.book.isbn,
+                description=r.book.description, category=r.book.category,
+                language=r.book.language, condition=r.book.condition,
+                is_available=r.book.is_available,
+                public_location=LocationOutput(lat=r.public_location[0], lng=r.public_location[1]),
+                distance_km=round(r.distance_m / 1000.0, 1),
+                photos=[],
+                created_at=r.book.created_at, updated_at=r.book.updated_at,
+                owner=r.owner,
+            )
+            for r in rows
+        ]
+        return BookSearchResponse(items=items)
+
     async def search_nearby(
         self, params: BookSearchParams, limit: int = 20, current_user_id: uuid.UUID | None = None
     ) -> BookSearchResponse:

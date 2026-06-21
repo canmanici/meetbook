@@ -291,6 +291,123 @@ class BookRepository:
             )
         return rows
 
+    async def search_bbox(
+        self,
+        min_lat: float,
+        max_lat: float,
+        min_lng: float,
+        max_lng: float,
+        category: str | None,
+        language: str | None,
+        condition: str | None,
+        q: str | None,
+        limit: int,
+        current_user_id: uuid.UUID | None = None,
+    ) -> list[BookSearchRow]:
+        pub = cast(Book.public_location, Geometry)
+        envelope = func.ST_MakeEnvelope(min_lng, min_lat, max_lng, max_lat, 4326)
+        center_lat = (min_lat + max_lat) / 2
+        center_lng = (min_lng + max_lng) / 2
+        center_wkt = f"SRID=4326;POINT({center_lng} {center_lat})"
+
+        distance_col = func.ST_Distance(
+            Book.public_location, func.ST_GeogFromText(center_wkt)
+        ).label("distance_m")
+
+        owner_book_count = (
+            select(func.count())
+            .select_from(Book)
+            .where(
+                Book.owner_id == User.id,
+                Book.deleted_at.is_(None),
+            )
+            .correlate(User)
+            .label("owner_book_count")
+        )
+        owner_rating_avg = (
+            select(func.avg(Rating.score))
+            .where(Rating.rated_user == User.id)
+            .correlate(User)
+            .label("owner_rating_avg")
+        )
+        owner_rating_count = (
+            select(func.count())
+            .select_from(Rating)
+            .where(Rating.rated_user == User.id)
+            .correlate(User)
+            .label("owner_rating_count")
+        )
+
+        stmt = (
+            select(
+                Book,
+                func.ST_Y(pub).label("public_lat"),
+                func.ST_X(pub).label("public_lng"),
+                distance_col,
+                User.id.label("owner_id"),
+                User.name.label("owner_name"),
+                owner_book_count,
+                owner_rating_avg,
+                owner_rating_count,
+            )
+            .join(User, User.id == Book.owner_id)
+            .where(
+                Book.deleted_at.is_(None),
+                Book.is_available.is_(True),
+                func.ST_Within(cast(Book.public_location, Geometry), envelope),
+            )
+        )
+        if category:
+            stmt = stmt.where(Book.category == category)
+        if language:
+            stmt = stmt.where(Book.language == language)
+        if condition:
+            stmt = stmt.where(Book.condition == condition)
+        if q:
+            pattern = f"%{q}%"
+            stmt = stmt.where(
+                or_(Book.title.ilike(pattern), Book.author.ilike(pattern))
+            )
+
+        if current_user_id is not None:
+            stmt = stmt.where(
+                ~exists(
+                    select(Block.blocker_id).where(
+                        or_(
+                            and_(
+                                Block.blocker_id == current_user_id,
+                                Block.blocked_id == Book.owner_id,
+                            ),
+                            and_(
+                                Block.blocker_id == Book.owner_id,
+                                Block.blocked_id == current_user_id,
+                            ),
+                        )
+                    )
+                )
+            )
+
+        stmt = stmt.order_by(distance_col, Book.created_at.desc(), Book.id.desc()).limit(limit)
+        result = await self.session.execute(stmt)
+
+        rows = []
+        for row in result.all():
+            rows.append(
+                BookSearchRow(
+                    book=row[0],
+                    public_location=(row.public_lat, row.public_lng),
+                    distance_m=row.distance_m,
+                    owner=OwnerSummary(
+                        id=row.owner_id,
+                        name=row.owner_name,
+                        book_count=row.owner_book_count or 0,
+                        rating_avg=float(row.owner_rating_avg) if row.owner_rating_avg else None,
+                        rating_count=row.owner_rating_count or 0,
+                    ),
+                )
+            )
+        return rows
+
     async def update(self, book: Book, fields: dict[str, Any]) -> None:
         for key, value in fields.items():
             setattr(book, key, value)
