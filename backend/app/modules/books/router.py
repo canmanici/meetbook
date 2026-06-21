@@ -17,6 +17,7 @@ from app.modules.books.schemas import (
     BookSearchResponse,
     BookSearchParams,
     BookUpdateRequest,
+    ClusterResponse,
     ISBNLookupResponse,
     PhotoReorderRequest,
     PhotoView,
@@ -77,6 +78,29 @@ async def search_books_bbox(
 ) -> BookSearchResponse:
     try:
         return await service.search_bbox(
+            min_lat, max_lat, min_lng, max_lng,
+            category, language, condition, q, limit, current_user_id=user.id,
+        )
+    except BookError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.get("/clusters", response_model=ClusterResponse)
+async def search_clusters(
+    min_lat: float = Query(..., ge=-90, le=90),
+    max_lat: float = Query(..., ge=-90, le=90),
+    min_lng: float = Query(..., ge=-180, le=180),
+    max_lng: float = Query(..., ge=-180, le=180),
+    category: str | None = Query(default=None),
+    language: str | None = Query(default=None),
+    condition: str | None = Query(default=None),
+    q: str | None = Query(default=None, max_length=100),
+    limit: int = Query(default=50, ge=1, le=500),
+    user: User = Depends(get_current_user),
+    service: BookService = Depends(_get_service),
+) -> ClusterResponse:
+    try:
+        return await service.search_clusters(
             min_lat, max_lat, min_lng, max_lng,
             category, language, condition, q, limit, current_user_id=user.id,
         )

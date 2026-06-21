@@ -156,6 +156,21 @@ class BookSearchResult(BaseModel):
     updated_at: datetime
 
 
+class ClusterPoint(BaseModel):
+    centroid: LocationOutput
+    book_ids: list[uuid.UUID]
+    count: int
+    front_cover_url: str | None = None
+    front_thumbnail_url: str | None = None
+    front_title: str
+    categories: list[str]
+
+
+class ClusterResponse(BaseModel):
+    clusters: list[ClusterPoint]
+    singletons: list[BookSearchResult]
+
+
 class BookSearchResponse(BaseModel):
     items: list[BookSearchResult]
     next_cursor: str | None = None

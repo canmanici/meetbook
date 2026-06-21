@@ -27,6 +27,8 @@ from app.modules.books.schemas import (
     BookSearchResponse,
     BookSearchResult,
     BookUpdateRequest,
+    ClusterPoint,
+    ClusterResponse,
     ISBNLookupResponse,
     LocationInput,
     LocationOutput,
@@ -226,6 +228,73 @@ class BookService:
             for r in rows
         ]
         return BookSearchResponse(items=items)
+
+    async def search_clusters(
+        self,
+        min_lat: float,
+        max_lat: float,
+        min_lng: float,
+        max_lng: float,
+        category: str | None,
+        language: str | None,
+        condition: str | None,
+        q: str | None,
+        limit: int,
+        current_user_id: uuid.UUID,
+    ) -> ClusterResponse:
+        lat_span = max_lat - min_lat
+        lng_span = max_lng - min_lng
+        if min_lat >= max_lat or min_lng >= max_lng:
+            raise BookError("min must be less than max", 422)
+        if lat_span > 0.45 or lng_span > 0.6:
+            raise BookError("Alan çok geniş — yakınlaştırın.", 422)
+
+        cluster_dicts, singleton_rows = await self.repo.search_clusters(
+            min_lat, max_lat, min_lng, max_lng,
+            category, language, condition, q, limit, current_user_id,
+        )
+
+        clusters = []
+        for cd in cluster_dicts:
+            photos = await self.repo.get_photos(cd["front_book_id"])
+            front_photo = photos[0] if photos else None
+            clusters.append(
+                ClusterPoint(
+                    centroid=LocationOutput(lat=cd["centroid"][0], lng=cd["centroid"][1]),
+                    book_ids=cd["book_ids"],
+                    count=cd["count"],
+                    front_cover_url=front_photo.url if front_photo else None,
+                    front_thumbnail_url=front_photo.thumbnail_url if front_photo else None,
+                    front_title=cd["front_title"],
+                    categories=cd["categories"],
+                )
+            )
+
+        singletons = [
+            BookSearchResult(
+                id=r.book.id,
+                owner_id=r.book.owner_id,
+                owner_name=r.owner.name,
+                title=r.book.title,
+                author=r.book.author,
+                isbn=r.book.isbn,
+                description=r.book.description,
+                category=r.book.category,
+                language=r.book.language,
+                condition=r.book.condition,
+                is_available=r.book.is_available,
+                public_location=LocationOutput(
+                    lat=r.public_location[0], lng=r.public_location[1]
+                ),
+                distance_km=r.distance_m / 1000.0,
+                photos=[],
+                created_at=r.book.created_at,
+                updated_at=r.book.updated_at,
+                owner=r.owner,
+            )
+            for r in singleton_rows
+        ]
+        return ClusterResponse(clusters=clusters, singletons=singletons)
 
     async def search_nearby(
         self, params: BookSearchParams, limit: int = 20, current_user_id: uuid.UUID | None = None

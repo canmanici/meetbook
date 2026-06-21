@@ -408,6 +408,120 @@ class BookRepository:
             )
         return rows
 
+    async def search_clusters(
+        self,
+        min_lat: float,
+        max_lat: float,
+        min_lng: float,
+        max_lng: float,
+        category: str | None,
+        language: str | None,
+        condition: str | None,
+        q: str | None,
+        limit: int,
+        current_user_id: uuid.UUID | None = None,
+    ) -> tuple[list[dict], list[BookSearchRow]]:
+        """Return (clusters, singletons)."""
+        pub = cast(Book.public_location, Geometry)
+        envelope = func.ST_MakeEnvelope(min_lng, min_lat, max_lng, max_lat, 4326)
+
+        base_filters = [
+            Book.deleted_at.is_(None),
+            Book.is_available.is_(True),
+            func.ST_Within(pub, envelope),
+        ]
+        if category:
+            base_filters.append(Book.category == category)
+        if language:
+            base_filters.append(Book.language == language)
+        if condition:
+            base_filters.append(Book.condition == condition)
+        if q:
+            pattern = f"%{q}%"
+            base_filters.append(or_(Book.title.ilike(pattern), Book.author.ilike(pattern)))
+
+        block_filter = None
+        if current_user_id is not None:
+            block_filter = ~exists(
+                select(Block.blocker_id).where(
+                    or_(
+                        and_(
+                            Block.blocker_id == current_user_id,
+                            Block.blocked_id == Book.owner_id,
+                        ),
+                        and_(
+                            Block.blocker_id == Book.owner_id,
+                            Block.blocked_id == current_user_id,
+                        ),
+                    )
+                )
+            )
+
+        # Use ST_ClusterDBSCAN to assign cluster IDs (30m epsilon, 2 min points)
+        cluster_expr = func.ST_ClusterDBSCAN(pub, 30, 1).over().label("cluster_id")
+        stmt = (
+            select(Book, cluster_expr, func.ST_Y(pub).label("lat"), func.ST_X(pub).label("lng"))
+            .where(*base_filters)
+        )
+        if block_filter is not None:
+            stmt = stmt.where(block_filter)
+        result = await self.session.execute(stmt)
+
+        groups: dict[int, list] = {}
+        for row in result.all():
+            cid = row.cluster_id
+            groups.setdefault(cid, []).append((row[0], (row.lat, row.lng)))
+
+        clusters = []
+        singletons = []
+        for cid, items in groups.items():
+            if len(items) == 1:
+                book, loc = items[0]
+                owner_row = await self.session.execute(
+                    select(User.id, User.name).where(User.id == book.owner_id)
+                )
+                u = owner_row.one()
+                singletons.append(
+                    BookSearchRow(
+                        book=book,
+                        public_location=loc,
+                        distance_m=0.0,
+                        owner=OwnerSummary(
+                            id=u.id,
+                            name=u.name,
+                            book_count=0,
+                            rating_avg=None,
+                            rating_count=0,
+                        ),
+                    )
+                )
+            else:
+                lats = [loc[0] for _, loc in items]
+                lngs = [loc[1] for _, loc in items]
+                centroid = (sum(lats) / len(lats), sum(lngs) / len(lngs))
+                book_ids = [b.id for b, _ in items]
+                categories = list(
+                    set(
+                        b.category.value if hasattr(b.category, "value") else b.category
+                        for b, _ in items
+                    )
+                )
+                front_book = items[0][0]
+                clusters.append(
+                    {
+                        "centroid": centroid,
+                        "book_ids": book_ids,
+                        "count": len(items),
+                        "front_cover_url": None,
+                        "front_thumbnail_url": None,
+                        "front_title": front_book.title,
+                        "categories": categories,
+                        "front_book_id": front_book.id,
+                    }
+                )
+
+        return clusters[:limit], singletons[:limit]
+
     async def update(self, book: Book, fields: dict[str, Any]) -> None:
         for key, value in fields.items():
             setattr(book, key, value)
