@@ -1,4 +1,4 @@
-import { conditionLabels } from '@/components/ui/card';
+import { conditionLabels, BookCondition } from '@/components/ui/card';
 
 const CATEGORIES: Record<string, string> = {
   fiction: 'Roman',
@@ -11,22 +11,20 @@ const CATEGORIES: Record<string, string> = {
 };
 
 const TIME_SEGMENTS = [
-  { label: 'yıl', seconds: 31536000 },
-  { label: 'ay', seconds: 2592000 },
-  { label: 'hafta', seconds: 604800 },
-  { label: 'gün', seconds: 86400 },
-  { label: 'saat', seconds: 3600 },
   { label: 'dakika', seconds: 60 },
+  { label: 'saat', seconds: 3600 },
+  { label: 'gün', seconds: 86400 },
+  { label: 'hafta', seconds: 604800 },
+  { label: 'ay', seconds: 2592000 },
+  { label: 'yıl', seconds: 31536000 },
 ] as const;
+
+export function conditionLabel(condition: string): string {
+  return conditionLabels[condition as BookCondition] ?? condition;
+}
 
 export function categoryLabel(cat: string): string {
   return CATEGORIES[cat] ?? cat;
-}
-
-export { conditionLabels };
-
-export function conditionLabel(cond: string): string {
-  return conditionLabels[cond as keyof typeof conditionLabels] ?? cond;
 }
 
 export function timeAgo(dateStr: string): string {
@@ -34,7 +32,6 @@ export function timeAgo(dateStr: string): string {
   const then = new Date(dateStr).getTime();
   const diffSec = Math.floor((now - then) / 1000);
   if (diffSec < 0) return 'az önce';
-  if (diffSec < 60) return 'az önce';
   for (const seg of TIME_SEGMENTS) {
     const count = Math.floor(diffSec / seg.seconds);
     if (count >= 1) return `${count} ${seg.label} önce`;
