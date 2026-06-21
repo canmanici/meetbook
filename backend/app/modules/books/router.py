@@ -21,6 +21,7 @@ from app.modules.books.schemas import (
     ISBNLookupResponse,
     PhotoReorderRequest,
     PhotoView,
+    ReorderBody,
 )
 from app.modules.books.service import BookError, BookService
 
@@ -282,6 +283,22 @@ async def remove_book_favorite(
     except BookError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
     return Response(status_code=204)
+
+
+@router.patch("/reorder", response_model=BookListResponse)
+async def reorder_books(
+    body: ReorderBody,
+    service: BookService = Depends(_get_service),
+    current_user: User = Depends(get_current_user),
+) -> BookListResponse:
+    """Batch-reorder books for the current user.
+
+    Accepts a list of (book_id, sort_order) pairs and updates them
+    atomically. Returns the user's complete book list sorted by the
+    new sort_order values.
+    """
+    items = await service.reorder_books(current_user.id, body.reorders)
+    return BookListResponse(items=items, next_cursor=None)
 
 
 @router.get("/isbn/{isbn_code}", response_model=ISBNLookupResponse)
