@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,6 +41,7 @@ export default function NewBookScreen() {
   const scheme = useColorScheme();
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
   const queryClient = useQueryClient();
+  const params = useLocalSearchParams<{ lat?: string; lng?: string }>();
 
   const pickedLocation = useBookDraftStore((state) => state.pickedLocation);
   const clearPickedLocation = useBookDraftStore((state) => state.clearPickedLocation);
@@ -74,6 +75,17 @@ export default function NewBookScreen() {
       clearPickedLocation();
     }
   }, [pickedLocation, clearPickedLocation]);
+
+  // Pre-fill location from query params (long-press on map)
+  useEffect(() => {
+    if (params.lat && params.lng) {
+      const lat = parseFloat(params.lat);
+      const lng = parseFloat(params.lng);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        setMarker({ latitude: lat, longitude: lng });
+      }
+    }
+  }, [params.lat, params.lng]);
 
   // Sync scanned ISBN from store
   useEffect(() => {

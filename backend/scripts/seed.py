@@ -19,6 +19,8 @@ import os
 import sys
 from datetime import datetime, timezone
 
+from sqlalchemy import select
+
 from app.core.config import get_settings
 from app.core.db import Base, get_engine, get_session_factory
 
@@ -118,9 +120,11 @@ async def seed() -> int:
             from app.core.security import hash_password
 
             for user_data in users_to_seed:
-                # Check if user exists
+                # Check if user exists (select only id to avoid missing-column errors
+                # when model has columns the DB doesn't have yet, e.g. during
+                # partial migrations — the ORM selects ALL mapped columns.)
                 existing = await session.execute(
-                    User.__table__.select().where(
+                    select(User.__table__.c.id).where(
                         User.__table__.c.email == user_data["email"]
                     )
                 )
@@ -161,7 +165,7 @@ async def seed() -> int:
                 from app.modules.books.models import Book
 
                 result = await session.execute(
-                    User.__table__.select().where(User.__table__.c.email == "demo@meetbook.app")
+                    select(User.__table__.c.id).where(User.__table__.c.email == "demo@meetbook.app")
                 )
                 demo_user = result.first()
                 if not demo_user:
@@ -171,7 +175,7 @@ async def seed() -> int:
 
                     for book_data in DEMO_BOOKS:
                         existing = await session.execute(
-                            Book.__table__.select().where(
+                            select(Book.__table__.c.id).where(
                                 Book.__table__.c.isbn == book_data["isbn"]
                             )
                         )

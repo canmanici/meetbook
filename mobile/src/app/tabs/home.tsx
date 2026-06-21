@@ -100,6 +100,7 @@ export default function HomeScreen() {
     language: null,
     radiusKm: 10,
   });
+  const filterCount = [activeFilters.category, activeFilters.condition, activeFilters.language].filter(Boolean).length;
   const [mapRegion, setMapRegion] = useState({
     latitude: 41.0082,
     longitude: 28.9784,
@@ -480,6 +481,8 @@ export default function HomeScreen() {
         onFilter={handleFilterPress}
         onFitAll={fitAllMarkers}
         onCycleMapType={cycleMapType}
+        filterCount={filterCount}
+        isDark={isDark}
         insets={insets}
         colors={colors}
       />
