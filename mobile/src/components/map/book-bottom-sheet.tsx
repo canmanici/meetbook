@@ -1,64 +1,88 @@
-import React, { useCallback, useMemo, useRef } from "react";
+/**
+ * BookBottomSheet — spec §3.3 draggable bottom sheet.
+ *
+ * Four snap points: collapsed (~8%), peek (~18% DEFAULT), half (~45%), full (~92%).
+ * - enableDynamicSizing = false (fixed snaps, no auto-grow)
+ * - keyboardBehavior = "interactive" + keyboardBlurBehavior = "restore"
+ * - enablePanDownToClose = false (sheet never fully closes)
+ * - Backdrop: none (map stays visible above the sheet)
+ *
+ * Content mode switches by snap index:
+ *   collapsed (0): handle only
+ *   peek (1):     header + 2 horizontal mini-cards
+ *   half (2):     header + vertical list cards (BottomSheetFlatList)
+ *   full (3):     header + full scrollable list (BottomSheetFlatList)
+ *
+ * Theming: backgroundStyle + indicator switch on isDark (no white sheet in dark mode).
+ */
+import React, { useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
+  ScrollView,
   StyleSheet,
   type ViewStyle,
-} from "react-native";
+} from 'react-native';
 import BottomSheet, {
   BottomSheetFlatList,
-} from "@gorhom/bottom-sheet";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { palette, spacing, fontSize, radius, shadows } from "../ui/tokens";
+  type BottomSheetProps,
+} from '@gorhom/bottom-sheet';
+import { palette, spacing, fontSize, radius } from '../ui/tokens';
 
-export type SnapPoint = "collapsed" | "peek" | "half" | "full";
+export type SnapPoint = 'collapsed' | 'peek' | 'half' | 'full';
 
-const SNAP_POINTS: Record<SnapPoint, string> = {
-  collapsed: "8%",
-  peek: "18%",
-  half: "50%",
-  full: "90%",
-};
+// Snap point percentages (spec §3.3)
+export const SNAP_PERCENTAGES = {
+  collapsed: '8%',
+  peek: '18%',
+  half: '45%',
+  full: '92%',
+} as const;
+
+// Default snap index = 1 (peek)
+export const DEFAULT_SNAP_INDEX = 1;
 
 interface BookBottomSheetProps<T> {
   snapIndex: number;
   onSnapChange: (index: number) => void;
   data: T[];
-  renderItem: ({ item }: { item: T }) => React.ReactElement;
+  /** Render compact mini-card for peek mode (horizontal scroll, 2 items). */
+  renderMiniCard: ({ item }: { item: T }) => React.ReactElement;
+  /** Render full list card for half/full mode (vertical list). */
+  renderListCard: ({ item }: { item: T }) => React.ReactElement;
   header?: React.ReactElement;
   emptyComponent?: React.ReactElement;
   keyExtractor: (item: T) => string;
+  isDark?: boolean;
   style?: ViewStyle;
+  testID?: string;
 }
 
 function BookBottomSheet<T>({
   snapIndex,
   onSnapChange,
   data,
-  renderItem,
+  renderMiniCard,
+  renderListCard,
   header,
   emptyComponent,
   keyExtractor,
+  isDark = false,
   style,
+  testID,
 }: BookBottomSheetProps<T>) {
   const sheetRef = useRef<React.ComponentRef<typeof BottomSheet>>(null);
-  const insets = useSafeAreaInsets();
 
   const snapPoints = useMemo(
-    () => [
-      SNAP_POINTS.collapsed,
-      SNAP_POINTS.peek,
-      SNAP_POINTS.half,
-      SNAP_POINTS.full,
-    ],
-    []
+    () => [SNAP_PERCENTAGES.collapsed, SNAP_PERCENTAGES.peek, SNAP_PERCENTAGES.half, SNAP_PERCENTAGES.full],
+    [],
   );
 
   const handleChange = useCallback(
     (index: number) => {
       onSnapChange(index);
     },
-    [onSnapChange]
+    [onSnapChange],
   );
 
   const renderHeader = useCallback(() => {
@@ -70,10 +94,51 @@ function BookBottomSheet<T>({
     if (emptyComponent) return emptyComponent;
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Henüz kitap bulunamadı.</Text>
+        <Text style={[styles.emptyText, { color: palette[isDark ? 'dark' : 'light'].textMuted }]}>
+          Henüz kitap bulunamadı.
+        </Text>
       </View>
     );
-  }, [emptyComponent]);
+  }, [emptyComponent, isDark]);
+
+  const theme = isDark ? 'dark' : 'light';
+  const bgColor = palette[theme].surface;
+  const indicatorColor = palette[theme].textMuted;
+
+  // Peek mode: 2 horizontal mini-cards
+  const renderPeekContent = useCallback(() => {
+    const items = data.slice(0, 2);
+    if (items.length === 0) return renderEmpty();
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.miniCardsContent}
+        testID="sheet-peek-scroll"
+      >
+        {items.map((item) => (
+          <React.Fragment key={keyExtractor(item)}>
+            {renderMiniCard({ item })}
+          </React.Fragment>
+        ))}
+      </ScrollView>
+    );
+  }, [data, keyExtractor, renderMiniCard, renderEmpty]);
+
+  // Half/full mode: vertical list
+  const renderListContent = useCallback(() => {
+    return (
+      <BottomSheetFlatList
+        data={data}
+        renderItem={renderListCard}
+        keyExtractor={keyExtractor}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={renderEmpty}
+        showsVerticalScrollIndicator={false}
+        testID="sheet-list"
+      />
+    );
+  }, [data, renderListCard, keyExtractor, renderEmpty]);
 
   return (
     <BottomSheet
@@ -83,42 +148,32 @@ function BookBottomSheet<T>({
       onChange={handleChange}
       enablePanDownToClose={false}
       enableOverDrag={false}
-      backgroundStyle={styles.background}
-      handleIndicatorStyle={styles.indicator}
+      enableDynamicSizing={false}
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
+      backgroundStyle={{ backgroundColor: bgColor, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet }}
+      handleIndicatorStyle={{ backgroundColor: indicatorColor, width: 36, height: 4, borderRadius: 2, marginTop: spacing.xs }}
       style={[styles.sheet, style]}
+      testID={testID ?? 'book-bottom-sheet'}
     >
       {renderHeader()}
-      <BottomSheetFlatList
-        data={data}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={renderEmpty}
-        showsVerticalScrollIndicator={false}
-      />
+      {snapIndex <= 1 ? renderPeekContent() : renderListContent()}
     </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
   sheet: {
-    ...shadows.sheet,
-  },
-  background: {
-    backgroundColor: palette.light.surface,
-    borderTopLeftRadius: radius.sheet,
-    borderTopRightRadius: radius.sheet,
-  },
-  indicator: {
-    backgroundColor: palette.light.textMuted,
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    marginTop: spacing.xs,
+    // Shadow applied via backgroundStyle; keep sheet style minimal
   },
   headerContainer: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
+  },
+  miniCardsContent: {
+    paddingHorizontal: spacing.md,
+    gap: spacing.md,
+    paddingBottom: spacing.lg,
   },
   listContent: {
     paddingHorizontal: spacing.md,
@@ -126,11 +181,10 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     paddingVertical: spacing.xl * 2,
-    alignItems: "center",
+    alignItems: 'center',
   },
   emptyText: {
     fontSize: fontSize.body,
-    color: palette.light.textMuted,
   },
 });
 

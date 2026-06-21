@@ -1,26 +1,51 @@
-import React, { useState, useRef, useEffect } from 'react';
+/**
+ * BookMarker — restored to old 80×220 book-shaped style.
+ *
+ * Simple cover image with white border, shadow, and Callout tooltip.
+ * Children rendering on both platforms (no Android icon prop — causes
+ * "error while updating property icon" when tracksViewChanges is true).
+ * Image error fallback shows first letter of title.
+ */
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Image, StyleSheet, Text, Platform } from 'react-native';
 import { Marker, Callout } from 'react-native-maps';
 import { moderateScale } from 'react-native-size-matters';
-import { pastels, type PastelName } from '@/components/ui/tokens';
 
-interface BookMarkerProps {
+// ── Types ──────────────────────────────────────────────────────────────────
+
+export type BookCategory =
+  | 'fiction'
+  | 'non_fiction'
+  | 'textbook'
+  | 'comics'
+  | 'children'
+  | 'poetry'
+  | 'other';
+
+export interface BookMarkerProps {
   coordinate: { latitude: number; longitude: number };
-  coverUrl?: string;
-  thumbnailUrl?: string;
+  coverUrl?: string | null;
+  thumbnailUrl?: string | null;
   title: string;
   onPress?: () => void;
-  variant?: 'standard' | 'fresh' | 'shelf' | 'unavailable';
+  variant?: 'standard' | 'shelf' | 'cluster' | 'fresh' | 'unavailable' | 'textbook';
   selected?: boolean;
-  category?: PastelName;
+  category?: BookCategory;
   stackCount?: number;
+  clusterCount?: number;
   distance?: string;
+  freshAgeHours?: number;
+  latitudeDelta?: number;
+  isDark?: boolean;
+  testID?: string;
 }
 
-const MARKER_WIDTH = moderateScale(46);
-const MARKER_HEIGHT = moderateScale(62);
-const RING_WIDTH = moderateScale(3);
-const SHELF_OFFSET = moderateScale(4);
+// ── Dimensions (old style: 80×220) ────────────────────────────────────────
+
+const MARKER_WIDTH = moderateScale(80);
+const MARKER_HEIGHT = moderateScale(220);
+
+// ── Component ──────────────────────────────────────────────────────────────
 
 export function BookMarker({
   coordinate,
@@ -30,56 +55,44 @@ export function BookMarker({
   onPress,
   variant = 'standard',
   selected = false,
-  category = 'mint',
-  stackCount = 0,
-  distance,
+  category = 'fiction',
+  clusterCount = 0,
+  testID,
 }: BookMarkerProps) {
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
+  const [imageError, setImageError] = useState(false);
   const tracksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Prefer thumbnail (pre-sized), fall back to full cover
   const markerUri = thumbnailUrl || coverUrl;
 
   useEffect(() => {
     setTracksViewChanges(true);
+    setImageError(false);
     if (tracksTimerRef.current) clearTimeout(tracksTimerRef.current);
-    const timer = setTimeout(() => setTracksViewChanges(false), 2000);
+    const timer = setTimeout(() => setTracksViewChanges(false), 5000);
     tracksTimerRef.current = timer;
     return () => {
       if (tracksTimerRef.current) clearTimeout(tracksTimerRef.current);
     };
   }, [markerUri]);
 
-  const scale = selected ? 1.3 : 1;
-  const isFresh = variant === 'fresh';
-  const isShelf = variant === 'shelf';
-  const isUnavailable = variant === 'unavailable';
-
-  const ringColor = isUnavailable
-    ? '#666666'
-    : isFresh
-      ? pastels.light.coral.ink
-      : pastels.light[category].ink;
-
-  const calloutTitle = isFresh ? `Yeni · ${title}` : title;
-
-  const markerIcon = markerUri && !isShelf
-    ? { uri: markerUri, width: MARKER_WIDTH, height: MARKER_HEIGHT }
-    : undefined;
-
-  const onLoadEnd = () => setTracksViewChanges(false);
-
-  const coverImage = markerUri ? (
-    <Image
-      source={{ uri: markerUri }}
-      style={[styles.cover, isUnavailable && styles.unavailableCover]}
-      resizeMode="cover"
-      onLoad={onLoadEnd}
-      onError={onLoadEnd}
-    />
-  ) : (
-    <View style={[styles.cover, styles.placeholder]} onLayout={onLoadEnd} />
-  );
-
-  const showChildren = Platform.OS === 'ios' || !markerIcon;
+  // ── Cluster variant (count bubble) ────────────────────────────────────────
+  if (variant === 'cluster') {
+    return (
+      <Marker
+        coordinate={coordinate}
+        anchor={{ x: 0.5, y: 0.5 }}
+        tracksViewChanges={tracksViewChanges}
+        onPress={onPress}
+        testID={testID}
+      >
+        <View style={styles.clusterBubble}>
+          <Text style={styles.clusterText}>{clusterCount > 0 ? clusterCount : '·'}</Text>
+        </View>
+      </Marker>
+    );
+  }
 
   return (
     <Marker
@@ -87,47 +100,39 @@ export function BookMarker({
       anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges={tracksViewChanges}
       onPress={onPress}
-      {...(Platform.OS === 'android' && markerIcon ? { icon: markerIcon } : {})}
+      testID={testID}
     >
-      {showChildren && (
-        <View style={[styles.wrapper, { transform: [{ scale }] }]}>
-          {isShelf ? (
-            <View style={styles.shelfStack}>
-              <View style={styles.shelfBack}>
-                {markerUri && (
-                  <Image
-                    source={{ uri: markerUri }}
-                    style={styles.shelfBackImage}
-                    resizeMode="cover"
-                  />
-                )}
-              </View>
-              <View style={[styles.box, { borderColor: ringColor, borderWidth: RING_WIDTH }]}>
-                {coverImage}
-              </View>
-              {stackCount > 0 && (
-                <View style={styles.stackBadge}>
-                  <Text style={styles.stackBadgeText}>+{stackCount}</Text>
-                </View>
-              )}
-            </View>
+      {/* Render children on both iOS and Android — no icon prop */}
+      <View style={[styles.wrapper, selected && styles.selected]}>
+        <View style={styles.box}>
+          {markerUri && !imageError ? (
+            <Image
+              source={{ uri: markerUri }}
+              style={styles.cover}
+              resizeMode="cover"
+              onLoad={() => setTracksViewChanges(false)}
+              onError={() => {
+                setImageError(true);
+                setTracksViewChanges(false);
+              }}
+            />
           ) : (
-            <View style={[styles.box, { borderColor: ringColor, borderWidth: RING_WIDTH }]}>
-              {coverImage}
+            <View style={[styles.cover, styles.placeholder]}>
+              <Text style={styles.placeholderText}>
+                {title.charAt(0).toUpperCase()}
+              </Text>
             </View>
           )}
         </View>
-      )}
+      </View>
 
+      {/* Callout tooltip — shows on tap */}
       <Callout tooltip onPress={onPress}>
         <View style={styles.calloutContainer}>
           <View style={styles.calloutBubble}>
             <Text style={styles.calloutText} numberOfLines={1} ellipsizeMode="tail">
-              {calloutTitle}
+              {title || 'Untitled'}
             </Text>
-            {distance && variant !== 'standard' && (
-              <Text style={styles.calloutDistance}>{distance}</Text>
-            )}
           </View>
           <View style={styles.calloutArrow} />
         </View>
@@ -136,9 +141,14 @@ export function BookMarker({
   );
 }
 
+// ── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   wrapper: {
     alignItems: 'center',
+  },
+  selected: {
+    // glow effect when selected
   },
   box: {
     width: MARKER_WIDTH,
@@ -146,11 +156,15 @@ const styles = StyleSheet.create({
     borderRadius: moderateScale(16),
     backgroundColor: '#FFF',
     padding: moderateScale(3),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: { elevation: 5 },
+    }),
   },
   cover: {
     flex: 1,
@@ -160,92 +174,93 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   placeholder: {
-    backgroundColor: '#333',
-  },
-  unavailableCover: {
-    opacity: 0.35,
-  },
-  shelfStack: {
-    width: MARKER_WIDTH + SHELF_OFFSET,
-    height: MARKER_HEIGHT + SHELF_OFFSET,
-  },
-  shelfBack: {
-    position: 'absolute',
-    top: SHELF_OFFSET,
-    left: SHELF_OFFSET,
-    width: MARKER_WIDTH,
-    height: MARKER_HEIGHT,
-    borderRadius: moderateScale(16),
-    overflow: 'hidden',
-    backgroundColor: '#FFF',
-    borderWidth: moderateScale(1),
-    borderColor: '#DDD',
-  },
-  shelfBackImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: moderateScale(13),
-  },
-  stackBadge: {
-    position: 'absolute',
-    top: -moderateScale(4),
-    right: -moderateScale(4),
-    backgroundColor: '#F2766B',
-    borderRadius: moderateScale(10),
-    minWidth: moderateScale(20),
-    height: moderateScale(20),
-    alignItems: 'center',
+    backgroundColor: '#333333',
     justifyContent: 'center',
-    paddingHorizontal: moderateScale(4),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
+    alignItems: 'center',
   },
-  stackBadgeText: {
-    color: '#FFF',
-    fontSize: moderateScale(11),
+  placeholderText: {
+    color: '#FFFFFF',
+    fontSize: moderateScale(24),
     fontWeight: '800',
   },
+  // ── Callout ──────────────────────────────────────────────────────────────
   calloutContainer: {
     alignItems: 'center',
-    width: moderateScale(140),
+    marginTop: -moderateScale(8),
   },
   calloutBubble: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#2A2722',
+    paddingHorizontal: moderateScale(12),
     paddingVertical: moderateScale(6),
-    paddingHorizontal: moderateScale(10),
-    borderRadius: moderateScale(8),
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
+    borderRadius: moderateScale(10),
+    maxWidth: moderateScale(180),
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.3, shadowRadius: 3 },
+      android: { elevation: 3 },
+    }),
   },
   calloutText: {
-    color: '#1A1A1A',
-    fontSize: moderateScale(13),
-    fontWeight: '700',
+    color: '#FFFFFF',
+    fontSize: moderateScale(12),
+    fontWeight: '600',
     textAlign: 'center',
-  },
-  calloutDistance: {
-    color: '#8A8378',
-    fontSize: moderateScale(11),
-    textAlign: 'center',
-    marginTop: moderateScale(2),
   },
   calloutArrow: {
-    marginTop: -1,
     width: 0,
     height: 0,
     borderLeftWidth: moderateScale(6),
     borderRightWidth: moderateScale(6),
-    borderTopWidth: moderateScale(8),
+    borderTopWidth: moderateScale(6),
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderTopColor: '#FFF',
+    borderTopColor: '#2A2722',
+  },
+  // ── Cluster ──────────────────────────────────────────────────────────────
+  clusterBubble: {
+    width: moderateScale(44),
+    height: moderateScale(44),
+    borderRadius: moderateScale(22),
+    backgroundColor: '#2A9D8F',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 6 },
+      android: { elevation: 8 },
+    }),
+  },
+  clusterText: {
+    color: '#FFFFFF',
+    fontSize: moderateScale(16),
+    fontWeight: '800',
   },
 });
+
+// ── Helper exports (kept for compatibility) ────────────────────────────────
+
+const CATEGORY_PASTEL: Record<BookCategory, string> = {
+  fiction: '#A8D5BA',
+  non_fiction: '#B8D4E3',
+  textbook: '#B8D4E3',
+  comics: '#F5E6A3',
+  children: '#F5C6C6',
+  poetry: '#F5B8A3',
+  other: '#D4D4D4',
+};
+
+export function categoryColor(category: BookCategory, isDark: boolean): string {
+  return CATEGORY_PASTEL[category] ?? (isDark ? '#555' : '#CCC');
+}
+
+export function dominantCategoryColor(categories: BookCategory[], isDark: boolean): string {
+  if (categories.length === 0) return isDark ? '#555' : '#CCC';
+  const counts: Record<string, number> = {};
+  for (const c of categories) counts[c] = (counts[c] ?? 0) + 1;
+  const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0] as BookCategory;
+  return categoryColor(dominant, isDark);
+}
+
+export type MarkerVariant = 'standard' | 'shelf' | 'cluster' | 'fresh' | 'unavailable' | 'textbook';
+
+export default BookMarker;

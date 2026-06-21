@@ -30,13 +30,22 @@ DEV_USERS = [
     {
         "email": "admin@meetbook.app",
         "name": "Admin",
+        "password": "changeme123",
         "is_admin": True,
         "status": "active",
     },
     {
         "email": "demo@meetbook.app",
         "name": "Demo User",
+        "password": "changeme123",
         "is_admin": False,
+        "status": "active",
+    },
+    {
+        "email": "canmanici@gmail.com",
+        "name": "Can Manici",
+        "password": "***REMOVED***",
+        "is_admin": True,
         "status": "active",
     },
 ]
@@ -144,10 +153,11 @@ async def seed() -> int:
                 session.add(user)
                 await session.flush()
 
-                # Create credential with password
+                # Create credential with password (per-user or default)
+                pw = user_data.get("password", "changeme123")
                 credential = UserCredential(
                     user_id=user.id,
-                    password_hash=hash_password("changeme123"),
+                    password_hash=hash_password(pw),
                     created_at=now,
                     updated_at=now,
                 )

@@ -62,6 +62,7 @@ export interface ClusterPoint {
   front_cover_url: string | null;
   front_thumbnail_url: string | null;
   front_title: string;
+  front_book_id: string;
   categories: string[];
 }
 
@@ -742,4 +743,10 @@ export async function markGeofenceAlertRead(alertId: string): Promise<void> {
 
 export async function updateGeofenceRadius(radiusKm: number): Promise<MeResponse> {
   return authedRequest<MeResponse>('/auth/me', 'PATCH', { geofence_radius_km: radiusKm });
+}
+
+/** Persist the user's home position so geofence matching uses a real anchor
+ *  (not the proxy of "their most recently listed book"). */
+export async function updateHomeLocation(lat: number, lng: number): Promise<MeResponse> {
+  return authedRequest<MeResponse>('/auth/me', 'PATCH', { home_lat: lat, home_lng: lng });
 }

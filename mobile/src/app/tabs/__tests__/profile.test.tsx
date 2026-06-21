@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { getMe, listMyBooks, logout, updateMe } from '@/lib/api/client';
 import { clearTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
+import { ToastProvider } from '@/components/ui/toast-provider';
 
 import ProfileScreen from '../profile';
 
@@ -12,15 +13,26 @@ jest.mock('expo-router', () => ({
   router: { replace: jest.fn(), push: jest.fn() },
 }));
 
+jest.mock('expo-haptics', () => ({
+  __esModule: true,
+  impactAsync: jest.fn(),
+  notificationAsync: jest.fn(),
+  ImpactFeedbackStyle: { Light: 'L', Medium: 'M', Heavy: 'H' },
+  NotificationFeedbackType: { Warning: 'W', Success: 'S', Error: 'E' },
+}));
+
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 jest.mock('@/lib/api/client', () => ({
+  __esModule: true,
   logout: jest.fn(),
   listMyBooks: jest.fn(),
   getMe: jest.fn(),
   updateMe: jest.fn(),
+  getUser: jest.fn().mockResolvedValue({ id: '1', name: 'Test User', email: 'test@example.com' }),
+  updateGeofenceRadius: jest.fn().mockResolvedValue({}),
 }));
 
 jest.mock('@/lib/secure-store', () => ({
@@ -45,7 +57,9 @@ function renderWithQueryClient(ui: React.ReactElement) {
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>{ui}</ToastProvider>
+    </QueryClientProvider>,
   );
 }
 

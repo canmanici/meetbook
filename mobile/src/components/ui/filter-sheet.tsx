@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, useColorScheme, Modal, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, useColorScheme, Modal, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Slider from '@react-native-community/slider';
 import { palette, spacing, fontSize, radius } from './tokens';
 
 export interface FilterState {
@@ -16,6 +17,7 @@ interface FilterSheetProps {
   onClose: () => void;
   onApply: (filters: FilterState) => void;
   resultCount: number;
+  initialFilters?: FilterState;
 }
 
 const CATEGORIES = [
@@ -37,17 +39,15 @@ const LANGUAGES = [
   { value: 'tr', label: 'Türkçe' },
   { value: 'en', label: 'English' },
 ];
+const RADIUS_PRESETS = [1, 5, 10, 25, 50, 100];
 
-export function FilterSheet({ visible, onClose, onApply, resultCount }: FilterSheetProps) {
+export function FilterSheet({ visible, onClose, onApply, resultCount, initialFilters }: FilterSheetProps) {
   const scheme = useColorScheme();
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
 
-  const [filters, setFilters] = useState<FilterState>({
-    category: null,
-    condition: null,
-    language: null,
-    radiusKm: 10,
-  });
+  const [filters, setFilters] = useState<FilterState>(
+    initialFilters ?? { category: null, condition: null, language: null, radiusKm: 10 },
+  );
 
   const toggleFilter = useCallback(
     (key: keyof FilterState, value: string) => {
@@ -56,7 +56,7 @@ export function FilterSheet({ visible, onClose, onApply, resultCount }: FilterSh
         [key]: prev[key] === value ? null : value,
       }));
     },
-    []
+    [],
   );
 
   const resetFilters = useCallback(() => {
@@ -94,9 +94,23 @@ export function FilterSheet({ visible, onClose, onApply, resultCount }: FilterSh
 
           {/* Content */}
           <View style={styles.content}>
-            {/* Category */}
+            {/* Category — with Tümü (All) button */}
             <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Kategori</Text>
             <View style={styles.chipRow}>
+              {/* Tümü button — clears category filter */}
+              <TouchableOpacity
+                style={[
+                  styles.chip,
+                  { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
+                  filters.category === null && { backgroundColor: colors.primary, borderColor: colors.primary },
+                ]}
+                onPress={() => setFilters((prev) => ({ ...prev, category: null }))}
+              >
+                {filters.category === null && <Ionicons name="checkmark" size={14} color="#fff" style={{ marginRight: 4 }} />}
+                <Text style={[styles.chipText, { color: colors.text }, filters.category === null && { color: '#fff' }]}>
+                  Tümü
+                </Text>
+              </TouchableOpacity>
               {CATEGORIES.map((cat) => {
                 const isActive = filters.category === cat.value;
                 return (
@@ -118,9 +132,22 @@ export function FilterSheet({ visible, onClose, onApply, resultCount }: FilterSh
               })}
             </View>
 
-            {/* Condition */}
+            {/* Condition — with Tümü button */}
             <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Durum</Text>
             <View style={styles.chipRow}>
+              <TouchableOpacity
+                style={[
+                  styles.chip,
+                  { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
+                  filters.condition === null && { backgroundColor: colors.primary, borderColor: colors.primary },
+                ]}
+                onPress={() => setFilters((prev) => ({ ...prev, condition: null }))}
+              >
+                {filters.condition === null && <Ionicons name="checkmark" size={14} color="#fff" style={{ marginRight: 4 }} />}
+                <Text style={[styles.chipText, { color: colors.text }, filters.condition === null && { color: '#fff' }]}>
+                  Tümü
+                </Text>
+              </TouchableOpacity>
               {CONDITIONS.map((cond) => {
                 const isActive = filters.condition === cond.value;
                 return (
@@ -142,9 +169,22 @@ export function FilterSheet({ visible, onClose, onApply, resultCount }: FilterSh
               })}
             </View>
 
-            {/* Language */}
+            {/* Language — with Tümü button */}
             <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Dil</Text>
             <View style={styles.chipRow}>
+              <TouchableOpacity
+                style={[
+                  styles.chip,
+                  { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
+                  filters.language === null && { backgroundColor: colors.primary, borderColor: colors.primary },
+                ]}
+                onPress={() => setFilters((prev) => ({ ...prev, language: null }))}
+              >
+                {filters.language === null && <Ionicons name="checkmark" size={14} color="#fff" style={{ marginRight: 4 }} />}
+                <Text style={[styles.chipText, { color: colors.text }, filters.language === null && { color: '#fff' }]}>
+                  Tümü
+                </Text>
+              </TouchableOpacity>
               {LANGUAGES.map((lang) => {
                 const isActive = filters.language === lang.value;
                 return (
@@ -164,6 +204,42 @@ export function FilterSheet({ visible, onClose, onApply, resultCount }: FilterSh
                   </TouchableOpacity>
                 );
               })}
+            </View>
+
+            {/* Radius selector — slider + preset buttons */}
+            <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Arama Yarıçapı</Text>
+            <View style={styles.radiusContainer}>
+              <Text style={[styles.radiusValue, { color: colors.primary }]}>{filters.radiusKm} km</Text>
+              <Slider
+                style={styles.slider}
+                minimumValue={1}
+                maximumValue={100}
+                step={1}
+                value={filters.radiusKm}
+                onValueChange={(val) => setFilters((prev) => ({ ...prev, radiusKm: Math.round(val) }))}
+                minimumTrackTintColor={colors.primary}
+                maximumTrackTintColor={colors.textMuted}
+                thumbTintColor={colors.primary}
+              />
+              <View style={styles.radiusPresets}>
+                {RADIUS_PRESETS.map((r) => {
+                  const isActive = filters.radiusKm === r;
+                  return (
+                    <TouchableOpacity
+                      key={r}
+                      style={[
+                        styles.presetBtn,
+                        { backgroundColor: isActive ? colors.primary : colors.surfaceAlt, borderColor: isActive ? colors.primary : colors.border },
+                      ]}
+                      onPress={() => setFilters((prev) => ({ ...prev, radiusKm: r }))}
+                    >
+                      <Text style={[styles.presetText, { color: isActive ? '#fff' : colors.text }]}>
+                        {r} km
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
           </View>
 
@@ -205,7 +281,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingBottom: 34,
-    maxHeight: '80%',
+    maxHeight: '85%',
   },
   handle: {
     width: 40,
@@ -273,6 +349,36 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  // Radius selector
+  radiusContainer: {
+    marginTop: 4,
+  },
+  radiusValue: {
+    fontSize: fontSize.heading,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  radiusPresets: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: spacing.sm,
+  },
+  presetBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  presetText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   footer: {
     flexDirection: 'row',

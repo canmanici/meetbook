@@ -30,15 +30,6 @@ logger = logging.getLogger(__name__)
 DENIZLI_LAT = 37.1678319
 DENIZLI_LNG = 29.5280428
 
-USERS = [
-    "30217149-0ca8-482c-8e16-0af8c55119a3",  # Arif
-    "65d5f1c6-610c-4b84-b2b6-779aa9061262",  # Habib Doğan
-    "7ed9e0d7-f21c-40a5-8c84-58b2e3865240",  # Emir
-    "9130ac1e-b945-4cba-ae82-301577e7a3f9",  # Admin
-    "2ce5e764-7d2b-4ba7-b26f-6a3228e6c5f6",  # Demo User
-    "4998a113-ca1e-4dba-a19d-f8f86d95bdf4",  # Test User 1
-]
-
 CONDITIONS = ["new", "like_new", "good", "worn"]
 
 # ── Türkiye'de En Çok Okunan 100 Kitap ──────────────────────────────────────
@@ -288,36 +279,39 @@ async def seed() -> int:
             await asyncio.sleep(0.2)
         logger.info(f"  Found covers for {len(cover_map)} books")
 
-    # ── 2. Delete old seed books ──
-    print("\n── Cleaning up old seed books ────────────────────────────────────")
+    # ── 2. Connect & fetch real users ──
+    print("\n── Connecting to database ─────────────────────────────────────────")
     try:
         import asyncpg
         conn = await asyncpg.connect(
             user="meetbook", password="meetbook_dev", host="db", port=5432, database="meetbook"
         )
 
-        # Delete books that don't match the old demo books (keep only 6 originals)
-        old_ids_res = await conn.fetch("""
-            SELECT id FROM books WHERE deleted_at IS NULL 
-            AND title IN ('A', 'D', 'Test4', 'The Hobbit', '1984', 'Hayvan Çiftliği')
-        """)
-        keep_ids = [r['id'] for r in old_ids_res]
+        # Fetch real user IDs from database (not hardcoded)
+        user_rows = await conn.fetch("SELECT id FROM users WHERE deleted_at IS NULL")
+        user_ids = [r['id'] for r in user_rows]
+        if not user_ids:
+            logger.error("  ✗ No users found in database!")
+            return 1
+        logger.info(f"  ✓ Found {len(user_ids)} users for book ownership")
 
-        # Soft-delete all other non-deleted books
+        # Delete old seed books
+        print("\n── Cleaning up old seed books ────────────────────────────────────")
+        # Soft-delete ALL existing non-deleted books
         result = await conn.execute("""
             UPDATE books SET deleted_at = NOW() 
-            WHERE deleted_at IS NULL AND id != ALL($1::uuid[])
-        """, keep_ids)
-        logger.info(f"  ✓ Old seed books removed")
+            WHERE deleted_at IS NULL
+        """)
+        logger.info(f"  ✓ Old books soft-deleted")
 
-        # Also delete their photos
+        # Delete orphaned photos
         await conn.execute("""
             DELETE FROM book_photos WHERE book_id NOT IN (SELECT id FROM books WHERE deleted_at IS NULL)
         """)
         logger.info(f"  ✓ Orphaned photos cleaned")
 
     except Exception as e:
-        logger.error(f"  ✗ Cleanup failed: {e}")
+        logger.error(f"  ✗ Setup failed: {e}")
         return 1
 
     # ── 3. Insert new books ──
@@ -328,7 +322,7 @@ async def seed() -> int:
 
         for idx, (title, author, category, lang, description) in enumerate(TOP_100_BOOKS, 1):
             book_id = uuid.uuid4()
-            owner_id = uuid.UUID(random.choice(USERS))
+            owner_id = random.choice(user_ids)
             condition = random.choice(CONDITIONS)
 
             # Location near Denizli

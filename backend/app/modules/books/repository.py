@@ -457,12 +457,55 @@ class BookRepository:
                 )
             )
 
-        # Use ST_ClusterDBSCAN to assign cluster IDs (30m epsilon, 2 min points)
+        # Owner summary aggregates (same correlated-subquery pattern as search/search_bbox)
+        owner_book_count = (
+            select(func.count())
+            .select_from(Book)
+            .where(Book.owner_id == User.id, Book.deleted_at.is_(None))
+            .correlate(User)
+            .label("owner_book_count")
+        )
+        owner_rating_avg = (
+            select(func.avg(Rating.score))
+            .where(Rating.rated_user == User.id)
+            .correlate(User)
+            .label("owner_rating_avg")
+        )
+        owner_rating_count = (
+            select(func.count())
+            .select_from(Rating)
+            .where(Rating.rated_user == User.id)
+            .correlate(User)
+            .label("owner_rating_count")
+        )
+
+        # Distance from the viewport center (consistent with search_bbox).
+        center_lat = (min_lat + max_lat) / 2
+        center_lng = (min_lng + max_lng) / 2
+        center_wkt = f"SRID=4326;POINT({center_lng} {center_lat})"
+        distance_col = func.ST_Distance(
+            Book.public_location, func.ST_GeogFromText(center_wkt)
+        ).label("distance_m")
+
+        # Use ST_ClusterDBSCAN to assign cluster IDs (30m epsilon, min 1 point so
+        # isolated books each get their own id and are emitted as singletons).
         # Project to 3857 (Web Mercator, meters) so eps=30 is 30 meters, not 30 degrees
         pub_merc = func.ST_Transform(pub, 3857)
         cluster_expr = func.ST_ClusterDBSCAN(pub_merc, 30, 1).over().label("cluster_id")
         stmt = (
-            select(Book, cluster_expr, func.ST_Y(pub).label("lat"), func.ST_X(pub).label("lng"))
+            select(
+                Book,
+                cluster_expr,
+                func.ST_Y(pub).label("lat"),
+                func.ST_X(pub).label("lng"),
+                distance_col,
+                User.id.label("owner_id"),
+                User.name.label("owner_name"),
+                owner_book_count,
+                owner_rating_avg,
+                owner_rating_count,
+            )
+            .join(User, User.id == Book.owner_id)
             .where(*base_filters)
         )
         if block_filter is not None:
@@ -472,40 +515,39 @@ class BookRepository:
         groups: dict[int, list] = {}
         for row in result.all():
             cid = row.cluster_id
-            groups.setdefault(cid, []).append((row[0], (row.lat, row.lng)))
+            owner = OwnerSummary(
+                id=row.owner_id,
+                name=row.owner_name,
+                book_count=row.owner_book_count or 0,
+                rating_avg=float(row.owner_rating_avg) if row.owner_rating_avg else None,
+                rating_count=row.owner_rating_count or 0,
+            )
+            groups.setdefault(cid, []).append(
+                (row[0], (row.lat, row.lng), row.distance_m, owner)
+            )
 
         clusters = []
         singletons = []
         for cid, items in groups.items():
             if len(items) == 1:
-                book, loc = items[0]
-                owner_row = await self.session.execute(
-                    select(User.id, User.name).where(User.id == book.owner_id)
-                )
-                u = owner_row.one()
+                book, loc, distance_m, owner = items[0]
                 singletons.append(
                     BookSearchRow(
                         book=book,
                         public_location=loc,
-                        distance_m=0.0,
-                        owner=OwnerSummary(
-                            id=u.id,
-                            name=u.name,
-                            book_count=0,
-                            rating_avg=None,
-                            rating_count=0,
-                        ),
+                        distance_m=distance_m,
+                        owner=owner,
                     )
                 )
             else:
-                lats = [loc[0] for _, loc in items]
-                lngs = [loc[1] for _, loc in items]
+                lats = [loc[0] for _, loc, _, _ in items]
+                lngs = [loc[1] for _, loc, _, _ in items]
                 centroid = (sum(lats) / len(lats), sum(lngs) / len(lngs))
-                book_ids = [b.id for b, _ in items]
+                book_ids = [b.id for b, _, _, _ in items]
                 categories = list(
                     set(
                         b.category.value if hasattr(b.category, "value") else b.category
-                        for b, _ in items
+                        for b, _, _, _ in items
                     )
                 )
                 front_book = items[0][0]

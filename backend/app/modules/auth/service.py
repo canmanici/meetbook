@@ -292,9 +292,15 @@ class AuthService:
         user = await self.repo.get_user_by_id(user_id)
         if user is None:
             raise AuthError("Not found", 404)
-        user.trusted_contact_name = body.trusted_contact_name
-        user.trusted_contact_phone = body.trusted_contact_phone
-        if body.geofence_radius_km is not None:
+        # Partial update: only touch fields the caller actually sent. A PATCH that
+        # omits trusted_contact_* (e.g. the radius-only updateGeofenceRadius call)
+        # must NOT null out the user's saved trusted contact.
+        sent = body.model_fields_set
+        if "trusted_contact_name" in sent:
+            user.trusted_contact_name = body.trusted_contact_name
+        if "trusted_contact_phone" in sent:
+            user.trusted_contact_phone = body.trusted_contact_phone
+        if "geofence_radius_km" in sent and body.geofence_radius_km is not None:
             user.geofence_radius_km = body.geofence_radius_km
         await self.session.commit()
         return await self.get_me(user_id)

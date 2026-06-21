@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import {
   View,
   Text,
@@ -20,6 +21,7 @@ import { getMe, getUser, listMyBooks, logout, updateGeofenceRadius } from '@/lib
 import QuickRadiusSheet from '@/components/map/quick-radius-sheet';
 import { clearTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
+import { useToast } from '@/hooks/use-toast';
 
 type PastelName = keyof typeof pastels.light;
 
@@ -43,11 +45,21 @@ export default function ProfileScreen() {
 
   const [radiusKm, setRadiusKm] = useState(10);
   const [showRadiusSheet, setShowRadiusSheet] = useState(false);
+  const toast = useToast();
+  const queryClient = useQueryClient();
 
-  const { isLoading: meLoading } = useQuery({
+  const { isLoading: meLoading, data: meData } = useQuery({
     queryKey: ['me'],
     queryFn: () => getMe(),
   });
+
+  // Sync geofence radius from server
+  useEffect(() => {
+    const r = (meData as any)?.geofence_radius_km;
+    if (typeof r === 'number' && r >= 1 && r <= 100) {
+      setRadiusKm(r);
+    }
+  }, [meData]);
 
   const { data: booksData } = useQuery({
     queryKey: ['books', 'me'],
@@ -233,10 +245,17 @@ export default function ProfileScreen() {
             <QuickRadiusSheet
               currentRadiusKm={radiusKm}
               onRadiusChange={async (km) => {
-                setRadiusKm(km);
+                const prev = radiusKm;
+                setRadiusKm(km); // optimistic
                 try {
                   await updateGeofenceRadius(km);
-                } catch {}
+                  toast.show('Bildirim alanı güncellendi', { variant: 'success' });
+                  queryClient.invalidateQueries({ queryKey: ['me'] });
+                } catch {
+                  setRadiusKm(prev); // revert optimistic update
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                  toast.show('Güncelleme başarısız', { variant: 'error' });
+                }
               }}
               onClose={() => setShowRadiusSheet(false)}
             />

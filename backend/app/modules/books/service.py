@@ -212,21 +212,23 @@ class BookService:
             min_lat, max_lat, min_lng, max_lng,
             category, language, condition, q, limit, current_user_id,
         )
-        items = [
-            BookSearchResult(
-                id=r.book.id, owner_id=r.book.owner_id, owner_name=r.owner.name,
-                title=r.book.title, author=r.book.author, isbn=r.book.isbn,
-                description=r.book.description, category=r.book.category,
-                language=r.book.language, condition=r.book.condition,
-                is_available=r.book.is_available,
-                public_location=LocationOutput(lat=r.public_location[0], lng=r.public_location[1]),
-                distance_km=round(r.distance_m / 1000.0, 1),
-                photos=[],
-                created_at=r.book.created_at, updated_at=r.book.updated_at,
-                owner=r.owner,
+        items = []
+        for r in rows:
+            photos = await self.repo.get_photos(r.book.id)
+            items.append(
+                BookSearchResult(
+                    id=r.book.id, owner_id=r.book.owner_id, owner_name=r.owner.name,
+                    title=r.book.title, author=r.book.author, isbn=r.book.isbn,
+                    description=r.book.description, category=r.book.category,
+                    language=r.book.language, condition=r.book.condition,
+                    is_available=r.book.is_available,
+                    public_location=LocationOutput(lat=r.public_location[0], lng=r.public_location[1]),
+                    distance_km=round(r.distance_m / 1000.0, 1),
+                    photos=[PhotoView(id=p.id, url=p.url, thumbnail_url=p.thumbnail_url, position=p.position) for p in photos],
+                    created_at=r.book.created_at, updated_at=r.book.updated_at,
+                    owner=r.owner,
+                )
             )
-            for r in rows
-        ]
         return BookSearchResponse(items=items)
 
     async def search_clusters(
@@ -270,30 +272,32 @@ class BookService:
                 )
             )
 
-        singletons = [
-            BookSearchResult(
-                id=r.book.id,
-                owner_id=r.book.owner_id,
-                owner_name=r.owner.name,
-                title=r.book.title,
-                author=r.book.author,
-                isbn=r.book.isbn,
-                description=r.book.description,
-                category=r.book.category,
-                language=r.book.language,
-                condition=r.book.condition,
-                is_available=r.book.is_available,
-                public_location=LocationOutput(
-                    lat=r.public_location[0], lng=r.public_location[1]
-                ),
-                distance_km=r.distance_m / 1000.0,
-                photos=[],
-                created_at=r.book.created_at,
-                updated_at=r.book.updated_at,
-                owner=r.owner,
+        singletons = []
+        for r in singleton_rows:
+            photos = await self.repo.get_photos(r.book.id)
+            singletons.append(
+                BookSearchResult(
+                    id=r.book.id,
+                    owner_id=r.book.owner_id,
+                    owner_name=r.owner.name,
+                    title=r.book.title,
+                    author=r.book.author,
+                    isbn=r.book.isbn,
+                    description=r.book.description,
+                    category=r.book.category,
+                    language=r.book.language,
+                    condition=r.book.condition,
+                    is_available=r.book.is_available,
+                    public_location=LocationOutput(
+                        lat=r.public_location[0], lng=r.public_location[1]
+                    ),
+                    distance_km=round(r.distance_m / 1000.0, 1),
+                    photos=[PhotoView(id=p.id, url=p.url, thumbnail_url=p.thumbnail_url, position=p.position) for p in photos],
+                    created_at=r.book.created_at,
+                    updated_at=r.book.updated_at,
+                    owner=r.owner,
+                )
             )
-            for r in singleton_rows
-        ]
         return ClusterResponse(clusters=clusters, singletons=singletons)
 
     async def search_nearby(

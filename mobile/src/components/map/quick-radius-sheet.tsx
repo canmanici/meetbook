@@ -68,6 +68,10 @@ export default function QuickRadiusSheet({
         </View>
       </View>
 
+      <Text style={[styles.note, { color: colors.textMuted }]}>
+        Değişiklik bir sonraki kontrol döngüsünde etkili olur.
+      </Text>
+
       <TouchableOpacity
         style={[styles.saveButton, { backgroundColor: colors.primary }]}
         onPress={handleSave}
@@ -120,6 +124,12 @@ const styles = StyleSheet.create({
   },
   rangeLabel: {
     fontSize: fontSize.caption,
+  },
+  note: {
+    fontSize: fontSize.caption,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: spacing.md,
   },
   saveButton: {
     paddingVertical: spacing.sm,
