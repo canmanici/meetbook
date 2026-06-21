@@ -41,6 +41,7 @@ class PasswordResetConfirmRequest(BaseModel):
 class UpdateMeRequest(BaseModel):
     trusted_contact_name: str | None = Field(default=None, max_length=100)
     trusted_contact_phone: str | None = Field(default=None, max_length=20)
+    geofence_radius_km: int | None = Field(default=None, ge=1, le=100)
 
 
 # ---------------------------------------------------------------------------
@@ -90,3 +91,4 @@ class MeResponse(BaseModel):
     name: str
     trusted_contact_name: str | None
     trusted_contact_phone: str | None
+    geofence_radius_km: int = 10

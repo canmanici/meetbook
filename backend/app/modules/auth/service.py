@@ -256,6 +256,7 @@ class AuthService:
             name=user.name,
             trusted_contact_name=user.trusted_contact_name,
             trusted_contact_phone=user.trusted_contact_phone,
+            geofence_radius_km=user.geofence_radius_km,
         )
 
     async def get_user_profile(self, user_id: uuid.UUID) -> UserPublicProfile:
@@ -293,5 +294,7 @@ class AuthService:
             raise AuthError("Not found", 404)
         user.trusted_contact_name = body.trusted_contact_name
         user.trusted_contact_phone = body.trusted_contact_phone
+        if body.geofence_radius_km is not None:
+            user.geofence_radius_km = body.geofence_radius_km
         await self.session.commit()
         return await self.get_me(user_id)
