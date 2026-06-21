@@ -243,6 +243,10 @@ export async function deleteBook(bookId: string, force?: boolean): Promise<void>
   });
 }
 
+export async function reorderBooks(reorders: { book_id: string; sort_order: number }[]): Promise<BookListResponse> {
+  return authedRequest<BookListResponse>('/books/reorder', 'PATCH', { reorders });
+}
+
 export async function incrementBookView(bookId: string): Promise<void> {
   return authedRequest<void>(`/books/${bookId}/view`, 'POST', undefined);
 }
