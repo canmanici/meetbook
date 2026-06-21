@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Image, StyleSheet, Text, Platform } from 'react-native';
 import { Marker, Callout } from 'react-native-maps';
 import { moderateScale } from 'react-native-size-matters';
+import { pastels, type PastelName } from '@/components/ui/tokens';
 
 interface BookMarkerProps {
   coordinate: { latitude: number; longitude: number };
@@ -9,36 +10,76 @@ interface BookMarkerProps {
   thumbnailUrl?: string;
   title: string;
   onPress?: () => void;
+  variant?: 'standard' | 'fresh' | 'shelf' | 'unavailable';
+  selected?: boolean;
+  category?: PastelName;
+  stackCount?: number;
+  distance?: string;
 }
 
 const MARKER_WIDTH = moderateScale(46);
 const MARKER_HEIGHT = moderateScale(62);
+const RING_WIDTH = moderateScale(3);
+const SHELF_OFFSET = moderateScale(4);
 
-/**
- * Custom marker using the `icon` prop on Android to bypass the 40px bitmap
- * clipping issue. `scaledSize` tells the native renderer the exact pixel
- * dimensions to allocate for the marker bitmap.
- *
- * Title is rendered inside a tooltip Callout (tap to reveal).
- */
-export function BookMarker({ coordinate, coverUrl, thumbnailUrl, title, onPress }: BookMarkerProps) {
+export function BookMarker({
+  coordinate,
+  coverUrl,
+  thumbnailUrl,
+  title,
+  onPress,
+  variant = 'standard',
+  selected = false,
+  category = 'mint',
+  stackCount = 0,
+  distance,
+}: BookMarkerProps) {
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
   const tracksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const markerUri = thumbnailUrl || coverUrl;
 
   useEffect(() => {
+    setTracksViewChanges(true);
     if (tracksTimerRef.current) clearTimeout(tracksTimerRef.current);
-    tracksTimerRef.current = setTimeout(() => setTracksViewChanges(false), 2000);
+    const timer = setTimeout(() => setTracksViewChanges(false), 2000);
+    tracksTimerRef.current = timer;
     return () => {
       if (tracksTimerRef.current) clearTimeout(tracksTimerRef.current);
     };
-  }, []);
+  }, [markerUri]);
 
-  // Prefer thumbnail for markers (pre-sized 80×45), fall back to full cover
-  const markerUri = thumbnailUrl || coverUrl;
+  const scale = selected ? 1.3 : 1;
+  const isFresh = variant === 'fresh';
+  const isShelf = variant === 'shelf';
+  const isUnavailable = variant === 'unavailable';
 
-  const markerIcon = markerUri
-    ? { uri: markerUri, width: MARKER_WIDTH, height: MARKER_HEIGHT, scale: 1 }
+  const ringColor = isUnavailable
+    ? '#666666'
+    : isFresh
+      ? pastels.light.coral.ink
+      : pastels.light[category].ink;
+
+  const calloutTitle = isFresh ? `Yeni · ${title}` : title;
+
+  const markerIcon = markerUri && !isShelf
+    ? { uri: markerUri, width: MARKER_WIDTH, height: MARKER_HEIGHT }
     : undefined;
+
+  const onLoadEnd = () => setTracksViewChanges(false);
+
+  const coverImage = markerUri ? (
+    <Image
+      source={{ uri: markerUri }}
+      style={[styles.cover, isUnavailable && styles.unavailableCover]}
+      resizeMode="cover"
+      onLoad={onLoadEnd}
+      onError={onLoadEnd}
+    />
+  ) : (
+    <View style={[styles.cover, styles.placeholder]} onLayout={onLoadEnd} />
+  );
+
+  const showChildren = Platform.OS === 'ios' || !markerIcon;
 
   return (
     <Marker
@@ -48,25 +89,33 @@ export function BookMarker({ coordinate, coverUrl, thumbnailUrl, title, onPress 
       onPress={onPress}
       {...(Platform.OS === 'android' && markerIcon ? { icon: markerIcon } : {})}
     >
-      {/* iOS: render children as before. Android: icon prop wins, children ignored. */}
-      {Platform.OS === 'ios' && (
-        <View style={styles.wrapper}>
-          <View style={styles.box}>
-            {markerUri ? (
-              <Image
-                source={{ uri: markerUri }}
-                style={styles.cover}
-                resizeMode="cover"
-                onLoad={() => setTracksViewChanges(false)}
-                onError={() => setTracksViewChanges(false)}
-              />
-            ) : (
-              <View
-                style={[styles.cover, styles.placeholder]}
-                onLayout={() => setTracksViewChanges(false)}
-              />
-            )}
-          </View>
+      {showChildren && (
+        <View style={[styles.wrapper, { transform: [{ scale }] }]}>
+          {isShelf ? (
+            <View style={styles.shelfStack}>
+              <View style={styles.shelfBack}>
+                {markerUri && (
+                  <Image
+                    source={{ uri: markerUri }}
+                    style={styles.shelfBackImage}
+                    resizeMode="cover"
+                  />
+                )}
+              </View>
+              <View style={[styles.box, { borderColor: ringColor, borderWidth: RING_WIDTH }]}>
+                {coverImage}
+              </View>
+              {stackCount > 0 && (
+                <View style={styles.stackBadge}>
+                  <Text style={styles.stackBadgeText}>+{stackCount}</Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View style={[styles.box, { borderColor: ringColor, borderWidth: RING_WIDTH }]}>
+              {coverImage}
+            </View>
+          )}
         </View>
       )}
 
@@ -74,8 +123,11 @@ export function BookMarker({ coordinate, coverUrl, thumbnailUrl, title, onPress 
         <View style={styles.calloutContainer}>
           <View style={styles.calloutBubble}>
             <Text style={styles.calloutText} numberOfLines={1} ellipsizeMode="tail">
-              {title || 'Untitled'}
+              {calloutTitle}
             </Text>
+            {distance && variant !== 'standard' && (
+              <Text style={styles.calloutDistance}>{distance}</Text>
+            )}
           </View>
           <View style={styles.calloutArrow} />
         </View>
@@ -85,7 +137,6 @@ export function BookMarker({ coordinate, coverUrl, thumbnailUrl, title, onPress 
 }
 
 const styles = StyleSheet.create({
-  /* iOS children fallback */
   wrapper: {
     alignItems: 'center',
   },
@@ -111,7 +162,52 @@ const styles = StyleSheet.create({
   placeholder: {
     backgroundColor: '#333',
   },
-  /* Callout tooltip */
+  unavailableCover: {
+    opacity: 0.35,
+  },
+  shelfStack: {
+    width: MARKER_WIDTH + SHELF_OFFSET,
+    height: MARKER_HEIGHT + SHELF_OFFSET,
+  },
+  shelfBack: {
+    position: 'absolute',
+    top: SHELF_OFFSET,
+    left: SHELF_OFFSET,
+    width: MARKER_WIDTH,
+    height: MARKER_HEIGHT,
+    borderRadius: moderateScale(16),
+    overflow: 'hidden',
+    backgroundColor: '#FFF',
+    borderWidth: moderateScale(1),
+    borderColor: '#DDD',
+  },
+  shelfBackImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: moderateScale(13),
+  },
+  stackBadge: {
+    position: 'absolute',
+    top: -moderateScale(4),
+    right: -moderateScale(4),
+    backgroundColor: '#F2766B',
+    borderRadius: moderateScale(10),
+    minWidth: moderateScale(20),
+    height: moderateScale(20),
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: moderateScale(4),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  stackBadgeText: {
+    color: '#FFF',
+    fontSize: moderateScale(11),
+    fontWeight: '800',
+  },
   calloutContainer: {
     alignItems: 'center',
     width: moderateScale(140),
@@ -134,6 +230,12 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(13),
     fontWeight: '700',
     textAlign: 'center',
+  },
+  calloutDistance: {
+    color: '#8A8378',
+    fontSize: moderateScale(11),
+    textAlign: 'center',
+    marginTop: moderateScale(2),
   },
   calloutArrow: {
     marginTop: -1,
