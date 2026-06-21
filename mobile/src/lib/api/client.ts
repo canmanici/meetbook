@@ -40,6 +40,36 @@ export type BookListResponse =
 export type BookView =
   paths['/api/v1/books/{book_id}']['get']['responses'][200]['content']['application/json'];
 
+export type BookSearchResponse = components['schemas']['BookSearchResponse'];
+export type BookSearchResult = components['schemas']['BookSearchResult'];
+
+export interface BBoxParams {
+  min_lat: number;
+  max_lat: number;
+  min_lng: number;
+  max_lng: number;
+  category?: string;
+  language?: string;
+  condition?: string;
+  q?: string;
+  limit?: number;
+}
+
+export interface ClusterPoint {
+  centroid: { lat: number; lng: number };
+  book_ids: string[];
+  count: number;
+  front_cover_url: string | null;
+  front_thumbnail_url: string | null;
+  front_title: string;
+  categories: string[];
+}
+
+export interface ClusterResponse {
+  clusters: ClusterPoint[];
+  singletons: BookSearchResult[];
+}
+
 async function rawRequest(
   path: string,
   method: string,
@@ -181,6 +211,22 @@ export async function searchNearbyBooks(params: {
   next_cursor?: string;
 }> {
   return authedRequest('/books/search', 'GET', undefined, { query: params });
+}
+
+export async function searchBboxBooks(
+  params: BBoxParams,
+): Promise<BookSearchResponse> {
+  return authedRequest<BookSearchResponse>('/books/search-bbox', 'GET', undefined, {
+    query: params as any,
+  });
+}
+
+export async function getBookClusters(
+  params: BBoxParams,
+): Promise<ClusterResponse> {
+  return authedRequest<ClusterResponse>('/books/clusters', 'GET', undefined, {
+    query: params as any,
+  });
 }
 
 export async function getBook(bookId: string): Promise<BookView> {
@@ -668,4 +714,32 @@ export type UserPublicProfile = {
 
 export async function getUser(userId: string): Promise<UserPublicProfile> {
   return authedRequest<UserPublicProfile>(`/auth/users/${userId}`, 'GET', undefined);
+}
+
+// ---------------------------------------------------------------------------
+// Geofence
+// ---------------------------------------------------------------------------
+
+export interface GeofenceAlertView {
+  id: string;
+  wishlist_item_id: string;
+  book_id: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+export interface GeofenceAlertListResponse {
+  items: GeofenceAlertView[];
+}
+
+export async function getGeofenceAlerts(): Promise<GeofenceAlertListResponse> {
+  return authedRequest<GeofenceAlertListResponse>('/geofence/alerts', 'GET', undefined);
+}
+
+export async function markGeofenceAlertRead(alertId: string): Promise<void> {
+  return authedRequest<void>(`/geofence/alerts/${alertId}/read`, 'PATCH', undefined);
+}
+
+export async function updateGeofenceRadius(radiusKm: number): Promise<MeResponse> {
+  return authedRequest<MeResponse>('/auth/me', 'PATCH', { geofence_radius_km: radiusKm });
 }

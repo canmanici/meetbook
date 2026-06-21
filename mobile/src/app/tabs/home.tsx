@@ -42,6 +42,7 @@ export default function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [searchText, setSearchText] = useState('');
+  // TODO Task 8: migrate to zustand favorites store
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<'distance' | 'newest'>('distance');
   const [filterVisible, setFilterVisible] = useState(false);
@@ -117,6 +118,8 @@ export default function HomeScreen() {
 
   const sortedBooks = [...books].sort((a, b) => {
     if (sortBy === 'distance') return (a.distance_km ?? Infinity) - (b.distance_km ?? Infinity);
+    // TODO: "En Yeni" sort requires backend ordering support — the API
+    // doesn't currently accept a sort param, so results come in default order.
     return 0;
   });
 
@@ -311,11 +314,10 @@ export default function HomeScreen() {
             ref={mapRef as any}
             style={styles.map}
             provider={PROVIDER_GOOGLE}
-            initialRegion={mapRegion}
+            region={mapRegion}
             showsUserLocation
             showsMyLocationButton={false}
             onRegionChangeComplete={setMapRegion}
-            clusteringEnabled={false}
             >
             {books.map((book) => {
               if (!book.public_location) return null;
@@ -335,7 +337,7 @@ export default function HomeScreen() {
             })}
           </ClusteredMapView>
 
-          <View style={[styles.floatingSearchContainer, { paddingTop: insets.top }]}>
+          <View style={styles.floatingSearchContainer}>
             {renderSearchAndChips()}
           </View>
 
@@ -350,7 +352,7 @@ export default function HomeScreen() {
 
           <View style={[styles.mapBottomBar, { backgroundColor: colors.surface }]}>
             <Text style={[styles.resultCountText, { color: colors.text }]}>
-              {books.length} kitap bulundu
+              {books.filter((b) => b.public_location).length} kitap bulundu
             </Text>
             <View style={styles.mapBottomActions}>
               <TouchableOpacity

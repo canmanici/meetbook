@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,12 +10,14 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
+  Modal,
   useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, Skeleton, palette, pastels, spacing, fontSize, radius, shadows } from '@/components/ui';
-import { getMe, getUser, listMyBooks, logout } from '@/lib/api/client';
+import { getMe, getUser, listMyBooks, logout, updateGeofenceRadius } from '@/lib/api/client';
+import QuickRadiusSheet from '@/components/map/quick-radius-sheet';
 import { clearTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -37,6 +40,9 @@ export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const refreshToken = useAuthStore((s) => s.refreshToken);
   const clearSession = useAuthStore((s) => s.clearSession);
+
+  const [radiusKm, setRadiusKm] = useState(10);
+  const [showRadiusSheet, setShowRadiusSheet] = useState(false);
 
   const { isLoading: meLoading } = useQuery({
     queryKey: ['me'],
@@ -200,6 +206,43 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Geofence radius */}
+      <TouchableOpacity
+        style={[styles.geofenceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        onPress={() => setShowRadiusSheet(true)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.geofenceIconChip, { backgroundColor: colors.primarySoft }]}>
+          <Ionicons name="location-outline" size={17} color={colors.primary} />
+        </View>
+        <Text style={[styles.geofenceLabel, { color: colors.text }]}>Bildirim Alanı</Text>
+        <Text style={[styles.geofenceValue, { color: colors.primary }]}>{radiusKm} km</Text>
+        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+      </TouchableOpacity>
+
+      {/* Radius sheet modal */}
+      <Modal
+        visible={showRadiusSheet}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowRadiusSheet(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <QuickRadiusSheet
+              currentRadiusKm={radiusKm}
+              onRadiusChange={async (km) => {
+                setRadiusKm(km);
+                try {
+                  await updateGeofenceRadius(km);
+                } catch {}
+              }}
+              onClose={() => setShowRadiusSheet(false)}
+            />
+          </View>
+        </View>
+      </Modal>
 
       <TouchableOpacity
         style={[styles.logoutBtn, { backgroundColor: colors.danger + '14' }]}
@@ -404,5 +447,43 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     fontWeight: '500',
     marginTop: spacing.xl,
+  },
+  geofenceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    borderRadius: radius.card,
+    borderWidth: 1,
+  },
+  geofenceIconChip: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.field,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  geofenceLabel: {
+    flex: 1,
+    fontSize: fontSize.body,
+    fontWeight: '600',
+  },
+  geofenceValue: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+    marginRight: spacing.xs,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    overflow: 'hidden',
   },
 });

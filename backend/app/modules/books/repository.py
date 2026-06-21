@@ -458,7 +458,9 @@ class BookRepository:
             )
 
         # Use ST_ClusterDBSCAN to assign cluster IDs (30m epsilon, 2 min points)
-        cluster_expr = func.ST_ClusterDBSCAN(pub, 30, 1).over().label("cluster_id")
+        # Project to 3857 (Web Mercator, meters) so eps=30 is 30 meters, not 30 degrees
+        pub_merc = func.ST_Transform(pub, 3857)
+        cluster_expr = func.ST_ClusterDBSCAN(pub_merc, 30, 1).over().label("cluster_id")
         stmt = (
             select(Book, cluster_expr, func.ST_Y(pub).label("lat"), func.ST_X(pub).label("lng"))
             .where(*base_filters)

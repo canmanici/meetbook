@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Image, StyleSheet, Text, Platform } from 'react-native';
 import { Marker, Callout } from 'react-native-maps';
 import { moderateScale } from 'react-native-size-matters';
@@ -11,8 +11,8 @@ interface BookMarkerProps {
   onPress?: () => void;
 }
 
-const MARKER_WIDTH = moderateScale(80);
-const MARKER_HEIGHT = moderateScale(220);
+const MARKER_WIDTH = moderateScale(46);
+const MARKER_HEIGHT = moderateScale(62);
 
 /**
  * Custom marker using the `icon` prop on Android to bypass the 40px bitmap
@@ -23,6 +23,15 @@ const MARKER_HEIGHT = moderateScale(220);
  */
 export function BookMarker({ coordinate, coverUrl, thumbnailUrl, title, onPress }: BookMarkerProps) {
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
+  const tracksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (tracksTimerRef.current) clearTimeout(tracksTimerRef.current);
+    tracksTimerRef.current = setTimeout(() => setTracksViewChanges(false), 2000);
+    return () => {
+      if (tracksTimerRef.current) clearTimeout(tracksTimerRef.current);
+    };
+  }, []);
 
   // Prefer thumbnail for markers (pre-sized 80×45), fall back to full cover
   const markerUri = thumbnailUrl || coverUrl;

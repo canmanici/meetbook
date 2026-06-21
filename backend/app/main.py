@@ -66,6 +66,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
         from app.workers.expire_requests import expire_requests
+        from app.workers.geofence_matcher import run_geofence_matcher
         from app.workers.loan_reminders import run_loan_reminders
         from app.workers.reveal_ratings import reveal_overdue_ratings
 
@@ -81,10 +82,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             async with get_session_factory()() as session:
                 await run_loan_reminders(session)
 
+        async def _run_geofence_matcher() -> None:
+            async with get_session_factory()() as session:
+                await run_geofence_matcher(session)
+
         scheduler = AsyncIOScheduler()
         scheduler.add_job(_run_expire_requests, "interval", hours=1)
         scheduler.add_job(_run_reveal_ratings, "interval", hours=1)
         scheduler.add_job(_run_loan_reminders, "interval", hours=1)
+        scheduler.add_job(_run_geofence_matcher, "interval", minutes=15)
         scheduler.start()
 
     yield
@@ -162,6 +168,10 @@ def create_app() -> FastAPI:
     # Notifications module
     from app.modules.notifications.router import router as notifications_router
     app.include_router(notifications_router, prefix="/api/v1")
+
+    # Geofence module
+    from app.modules.geofence.router import router as geofence_router
+    app.include_router(geofence_router, prefix="/api/v1")
 
     # Chat module
     from app.modules.chat.router import router as chat_exchange_router
