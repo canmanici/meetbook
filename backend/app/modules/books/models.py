@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 
 from geoalchemy2 import Geography
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.db import Base
@@ -54,6 +54,7 @@ class Book(Base):
     public_location = Column(Geography(geometry_type="POINT", srid=4326), nullable=False)
     view_count = Column(Integer, nullable=False, default=0)
     favorite_count = Column(Integer, nullable=False, default=0)
+    sort_order = Column(Integer, nullable=False, default=0, server_default=text("0"))
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
