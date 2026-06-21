@@ -142,7 +142,7 @@ Appears at the top of the sheet when the map viewport drifts more than ~20% off 
 
 ### 3.8 Radius circle
 
-When `activeFilters.radiusKm` is set (default 10), render a `Circle` overlay (react-native-maps) centered on `userLocation` with `radius = radiusKm * 1000` (meters), stroke `palette.primary` 40% alpha dashed, fill `palette.primary` 5% alpha, plus a small "10 km" label chip at the north edge. User sees exactly what area they're searching.
+When `activeFilters.radiusKm` is set (default 10, user-adjustable 1–100 via profile settings — see section 4.5), render a `Circle` overlay (react-native-maps) centered on `userLocation` with `radius = radiusKm * 1000` (meters), stroke `palette.primary` 40% alpha dashed, fill `palette.primary` 5% alpha, plus a small label chip (e.g. "10 km") at the north edge. User sees exactly what area they're searching. The chip is tappable → opens a slider sheet for quick radius adjustment (debounced 300ms, fires `PATCH /auth/me` on release).
 
 ### 3.9 Long-press → "Add book here"
 
@@ -265,7 +265,7 @@ class BookSearchResult(BaseModel):
 - Worker wraps each user's scan in a try/except — one user's failure doesn't abort the batch.
 - Worker logs count + duration; does not log PII (no coords, no book titles).
 - If `user.last_known_location` is null (user never granted location), skip that user — no alert.
-- Radius defaults to 10km, configurable per-user in a future iteration (out of scope here).
+- Radius is per-user: `User.geofence_radius_km` (Integer, nullable, default 10, validated 1–100). The worker reads this column per user. See section 4.5 for the settings endpoint + UI.
 - Worker is scheduled via APScheduler in `app/main.py` lifespan (same mechanism as `expire_requests` / `loan_reminders` / `reveal_ratings`): `scheduler.add_job(_run_geofence_matcher, "interval", minutes=15)`. No new infra.
 - Push notification delivery (Expo push tokens, FCM/APNs) is **out of scope** for this redesign. The worker creates in-app notifications only. Push is a separate spec.
 
@@ -273,6 +273,26 @@ class BookSearchResult(BaseModel):
 - Same anti-stalker posture as the rest of the app: the worker uses `public_location` (already blurred to ~1km grid), never the true `location`.
 - The `GET /geofence/alerts` endpoint requires `get_current_user` and filters by `user_id` — object-level auth, same pattern as `GET /notifications`.
 - Rate-limit the worker itself: cap at 1000 users per run, sleep 100ms between users to avoid DB saturation.
+
+### 4.5 Per-user geofence radius setting
+
+**Concept:** users can adjust the radius of their wishlist-match geofence. Default 10 km, range 1–100 km. Exposed via the existing `PATCH /auth/me` endpoint + a slider on the profile screen + a quick-adjust sheet from the radius circle chip on the map.
+
+**Backend:**
+- New column on `users`: `geofence_radius_km = Column(Integer, nullable=False, default=10)`. Migration adds the column with `server_default="10"` so existing rows backfill.
+- `MeResponse` schema extended with `geofence_radius_km: int`.
+- `PATCH /auth/me` accepts optional `geofence_radius_km: int = Field(default=None, ge=1, le=100)`. On `None`, no-op. On value, update the column.
+- Validation: `422` if outside 1–100. Server-side clamp is the source of truth — never trust client slider value.
+
+**Mobile:**
+- `ProfileScreen` (existing `tabs/profile.tsx`) gets a new row "Wishlist Geofence" showing the current value (e.g. "10 km") with a chevron. Tap → opens a bottom sheet with a slider (1–100, step 1), live label, and "Kaydet" button. On save → `PATCH /auth/me` with the new value → optimistic update + toast.
+- Quick-adjust from the map: tapping the radius-circle label chip (section 3.8) opens the same slider sheet. Saves on release (debounced 300ms) so users don't spam the API while dragging.
+
+**Failsafes:**
+- Slider is debounced 300ms on the map quick-adjust to avoid a request per pixel drag.
+- Profile save is explicit (button) — no debounce needed.
+- If the PATCH fails, revert the optimistic update + error toast. The radius circle on the map snaps back.
+- Worker reads the column fresh each run — no caching of per-user radius, so a settings change takes effect on the next 15-min worker tick. Document this in the UI: "Değişiklik bir sonraki kontrol döngüsünde etkili olur."
 
 ---
 
@@ -399,7 +419,15 @@ CREATE TABLE geofence_alerts (
 CREATE INDEX idx_geofence_alerts_user_unread ON geofence_alerts (user_id) WHERE read_at IS NULL;
 ```
 
-Alembic migration in `backend/alembic/versions/`.
+### 6.2 New column on `users`
+
+```sql
+ALTER TABLE users
+  ADD COLUMN geofence_radius_km INTEGER NOT NULL DEFAULT 10
+  CHECK (geofence_radius_km BETWEEN 1 AND 100);
+```
+
+Both changes ship in one Alembic migration in `backend/alembic/versions/`.
 
 ### 6.2 Extended schema: `BookSearchResult.owner`
 
@@ -433,6 +461,7 @@ app.include_router(geofence_router, prefix="/api/v1")  # NEW
 - `test_owner_summary.py` — search result includes `owner.book_count` + `owner.rating_avg` with correct aggregation.
 - `test_geofence_worker.py` — happy path (wishlist item + new nearby book → alert created), idempotency (run twice → 1 alert), user without location skipped, worker crash mid-batch (mock DB drop → first N committed, rest rolled back).
 - `test_geofence_router.py` — `GET /alerts` requires auth + filters by user, `POST /alerts/{id}/read` marks read.
+- `test_geofence_settings.py` — `PATCH /auth/me` with `geofence_radius_km` in range updates column; out-of-range (0, 101) → 422; worker uses the per-user value (user A with 5km + book at 7km → no alert; user B with 10km + same book → alert).
 
 ### 7.3 Manual QA checklist
 
@@ -443,7 +472,8 @@ app.include_router(geofence_router, prefix="/api/v1")  # NEW
 - [ ] Marker tap on shelf: sheet shows the shelf's books.
 - [ ] Long-press map: "add book here" sheet appears, navigates to `/book/new` with location pre-filled.
 - [ ] "Search this area" pill: appears on pan, hides on tap, re-queries bbox.
-- [ ] Radius circle: visible when `radiusKm` filter set, hidden when cleared.
+- [ ] Radius circle: visible when `radiusKm` filter set, hidden when cleared. Label chip tappable → opens quick-adjust slider sheet.
+- [ ] Geofence radius setting: profile screen row shows current value, slider sheet saves via `PATCH /auth/me`, value persists across sessions, map quick-adjust updates the circle live.
 - [ ] Haptics: fire on all interactions listed in section 3.10.
 - [ ] Geofence worker: add wishlist item, add a nearby book as a different user, wait for worker run, verify notification appears.
 - [ ] Worst case: kill Redis, verify places + clusters degrade gracefully (slow but functional).
@@ -470,7 +500,7 @@ These came up during design but are explicitly deferred:
 - **"Books near my route"** (draw a path, find books along it) — needs a route API + backend `ST_LineLocatePoint` query. Future spec.
 - **Heatmap layer** — needs backend density endpoint + `react-native-maps` `Heatmap` (Google provider only). Future spec.
 - **Owner-avatar markers as a toggle** — the data is there (section 4.3) but the marker variant is not built. Future.
-- **Saved areas / geofence circles drawn on the map** — the worker uses last-known location, not user-defined areas. User-defined areas are a future iteration.
+- **Multiple saved geofence areas** — in-scope is a single per-user radius around the user's last-known location (section 4.5). Drawing multiple user-defined circles on the map with independent radii is a future iteration.
 - **Shareable deep-link locations** — separate spec.
 
 ---
