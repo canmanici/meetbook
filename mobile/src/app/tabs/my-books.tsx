@@ -1,25 +1,35 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import * as Sharing from 'expo-sharing';
+import { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Image,
-  Alert,
+  TextInput,
   RefreshControl,
+  useColorScheme,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import { EmptyState, Skeleton, palette, spacing, fontSize, radius, BookCard } from '@/components/ui';
-import { listMyBooks, deleteBook, type BookOwnerView } from '@/lib/api/client';
+import { EmptyState, Skeleton, palette, spacing, fontSize, radius } from '@/components/ui';
+import { listMyBooks, deleteBook, updateBook, type BookOwnerView } from '@/lib/api/client';
+import { CollapsingHeader } from '@/components/my-books/CollapsingHeader';
+import { MyBookCard } from '@/components/my-books/MyBookCard';
+import { MyBookGridTile } from '@/components/my-books/MyBookGridTile';
+import { BookActionSheet } from '@/components/my-books/BookActionSheet';
+import { BookQRModal } from '@/components/my-books/BookQRModal';
+import { SortMenu, type SortMode } from '@/components/my-books/SortMenu';
+import { BulkSelectHeader, BulkSelectFab, useBulkSelect } from '@/components/my-books/BulkSelectManager';
+import { useUndoDelete } from '@/hooks/use-undo-delete';
 
-type BookTab = 'active' | 'completed';
+type ViewMode = 'list' | 'grid';
+type TabKey = 'active' | 'completed';
 
 export default function MyBooksTab() {
   const scheme = useColorScheme();
@@ -27,18 +37,114 @@ export default function MyBooksTab() {
   const colors = palette[isDark ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<BookTab>('active');
+
+  const [activeTab, setActiveTab] = useState<TabKey>('active');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortMode, setSortMode] = useState<SortMode>('newest');
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data, isLoading, refetch } = useQuery({
+  const bulk = useBulkSelect();
+
+  const [actionSheetBook, setActionSheetBook] = useState<BookOwnerView | null>(null);
+  const [qrBook, setQrBook] = useState<BookOwnerView | null>(null);
+
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['books', 'me'],
-    queryFn: () => listMyBooks(),
+    queryFn: ({ pageParam }) => listMyBooks({ cursor: pageParam, limit: 20 }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
   });
 
-  const allBooks = data?.items ?? [];
-  const activeBooks = allBooks.filter((b) => b.is_available);
-  const completedBooks = allBooks.filter((b) => !b.is_available);
-  const books = activeTab === 'active' ? activeBooks : completedBooks;
+  const allBooks = useMemo(() => (data?.pages.flatMap((p) => p.items) ?? []) as BookOwnerView[], [data]);
+
+  const filteredBooks = useMemo(() => {
+    let books = allBooks;
+    books = books.filter((b) => activeTab === 'active' ? b.is_available : !b.is_available);
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      books = books.filter(
+        (b) =>
+          b.title.toLowerCase().includes(q) ||
+          (b.author ?? '').toLowerCase().includes(q) ||
+          (b.isbn ?? '').toLowerCase().includes(q),
+      );
+    }
+    const sorted = [...books];
+    switch (sortMode) {
+      case 'title':
+        sorted.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case 'author':
+        sorted.sort((a, b) => (a.author ?? '').localeCompare(b.author ?? ''));
+        break;
+      case 'views':
+        sorted.sort((a, b) => b.view_count - a.view_count);
+        break;
+    }
+    return sorted;
+  }, [allBooks, activeTab, searchQuery, sortMode]);
+
+  const activeBooks = useMemo(() => allBooks.filter((b) => b.is_available), [allBooks]);
+  const completedBooks = useMemo(() => allBooks.filter((b) => !b.is_available), [allBooks]);
+
+  const undoDelete = useUndoDelete<BookOwnerView>();
+  undoDelete.setCallbacks(
+    async (book) => {
+      await deleteBook(book.id);
+      queryClient.invalidateQueries({ queryKey: ['books', 'me'] });
+    },
+    (book) => {
+      queryClient.invalidateQueries({ queryKey: ['books', 'me'] });
+    },
+  );
+
+  const toggleMutation = useMutation({
+    mutationFn: (book: BookOwnerView) =>
+      updateBook(book.id, { is_available: !book.is_available }),
+    onMutate: async (book) => {
+      await queryClient.cancelQueries({ queryKey: ['books', 'me'] });
+      const prev = queryClient.getQueryData(['books', 'me']);
+      updateBookInCache(queryClient, book.id, { is_available: !book.is_available });
+      return { prev };
+    },
+    onError: (_err, _book, context) => {
+      if (context?.prev) {
+        queryClient.setQueryData(['books', 'me'], context.prev);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['books', 'me'] });
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const results = await Promise.allSettled(ids.map((id) => deleteBook(id)));
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      return { total: ids.length, failed };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['books', 'me'] }),
+  });
+
+  const bulkToggleMutation = useMutation({
+    mutationFn: async ({ ids, setAvailable }: { ids: string[]; setAvailable: boolean }) => {
+      const results = await Promise.allSettled(
+        ids.map((id) => updateBook(id, { is_available: setAvailable })),
+      );
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      return { total: ids.length, failed };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['books', 'me'] }),
+  });
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -46,93 +152,148 @@ export default function MyBooksTab() {
     setRefreshing(false);
   };
 
-  const tabs: { key: BookTab; label: string; icon: keyof typeof Ionicons.glyphMap; count: number }[] = [
-    { key: 'active', label: 'Aktif', icon: 'checkmark-circle', count: activeBooks.length },
-    { key: 'completed', label: 'Takas Edilen', icon: 'swap-horizontal', count: completedBooks.length },
-  ];
+  const handleLongPress = useCallback(
+    (book: BookOwnerView) => {
+      if (bulk.isSelectMode) {
+        bulk.toggle(book.id);
+      } else {
+        setActionSheetBook(book);
+      }
+    },
+    [bulk],
+  );
+
+  const handleActionSheetAction = useCallback(
+    (key: string) => {
+      if (!actionSheetBook) return;
+      const book = actionSheetBook;
+      setActionSheetBook(null);
+
+      switch (key) {
+        case 'toggle':
+          toggleMutation.mutate(book);
+          break;
+        case 'edit':
+          router.push(`/book/${book.id}?edit=1`);
+          break;
+        case 'share':
+          Sharing.shareAsync(`https://meetbook.app/book/${book.id}`, {
+            dialogTitle: `${book.title} — Meetbook`,
+          }).catch(() => {});
+          break;
+        case 'qr':
+          setQrBook(book);
+          break;
+        case 'delete':
+          undoDelete.deleteItem(book);
+          break;
+      }
+    },
+    [actionSheetBook, toggleMutation, undoDelete],
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      {/* Segmented Tabs */}
-      <View style={styles.tabContainer}>
-        <View style={[styles.tabRow, { backgroundColor: colors.surfaceAlt }]}>
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.key;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                onPress={() => setActiveTab(tab.key)}
-                style={[styles.tab, isActive && styles.tabActive]}
-                testID={`my-books-tab-${tab.key}`}
-              >
-                {isActive && (
-                  <LinearGradient
-                    colors={[colors.primary, colors.primary + 'DD']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.tabGradient}
-                  />
-                )}
-                <Ionicons
-                  name={tab.icon}
-                  size={15}
-                  color={isActive ? '#fff' : colors.textMuted}
-                  style={{ marginRight: 5 }}
-                />
-                <Text style={[styles.tabText, { color: isActive ? '#fff' : colors.textMuted }]}>
-                  {tab.label}
-                </Text>
-                {isActive && (
-                  <View style={[styles.tabBadge, { backgroundColor: '#fff' }]}>
-                    <Text style={[styles.tabBadgeText, { color: colors.primary }]}>{tab.count}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
+      {bulk.isSelectMode ? (
+        <BulkSelectHeader
+          count={bulk.count}
+          onClose={bulk.exit}
+          onSelectAll={() => bulk.selectAll(filteredBooks.map((b) => b.id))}
+        />
+      ) : null}
 
-      {/* Stats Row */}
-      <View style={styles.statsRow}>
-        <StatCard
-          label="Toplam"
-          value={allBooks.length}
-          icon="library"
-          colors={colors}
-          gradient={[colors.primary, colors.primary + 'BB']}
-        />
-        <StatCard
-          label="Aktif"
-          value={activeBooks.length}
-          icon="checkmark-circle"
-          colors={colors}
-          gradient={[colors.success, colors.success + 'BB']}
-        />
-        <StatCard
-          label="Takas"
-          value={completedBooks.length}
-          icon="swap-horizontal"
-          colors={colors}
-          gradient={[colors.warning, colors.warning + 'BB']}
-        />
-      </View>
+      {!bulk.isSelectMode && (
+        <>
+          <CollapsingHeader
+            activeCount={activeBooks.length}
+            completedCount={completedBooks.length}
+            totalCount={allBooks.length}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
 
-      {/* Book List */}
+          <View style={[styles.toolbar, { paddingHorizontal: spacing.lg }]}>
+            <View style={[styles.searchWrap, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="search" size={14} color={colors.textMuted} />
+              <TextInput
+                style={[styles.searchInput, { color: colors.text }]}
+                placeholder="Kitap, yazar veya ISBN ara"
+                placeholderTextColor={colors.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                accessibilityLabel="Ara"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+            <SortMenu current={sortMode} onChange={setSortMode} />
+            <TouchableOpacity
+              onPress={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
+              style={[styles.viewToggle, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              accessibilityLabel={viewMode === 'list' ? 'Grid görünüm' : 'Liste görünüm'}
+            >
+              <Ionicons
+                name={viewMode === 'list' ? 'grid-outline' : 'list-outline'}
+                size={16}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingHorizontal: spacing.lg },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
+        onScroll={({ nativeEvent }) => {
+          const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
+          if (contentOffset.y + layoutMeasurement.height > contentSize.height - 200) {
+            if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+          }
+        }}
+        scrollEventThrottle={200}
       >
-        {isLoading ? (
-          <>
-            <Skeleton variant="card" />
-            <Skeleton variant="card" />
-            <Skeleton variant="card" />
-          </>
-        ) : books.length === 0 ? (
+        {searchQuery.trim() && filteredBooks.length === 0 ? (
+          <EmptyState
+            message="Arama için sonuç yok"
+            description="Farklı bir kelime deneyin"
+            icon="search-outline"
+          />
+        ) : isLoading ? (
+          viewMode === 'list' ? (
+            <>
+              <Skeleton variant="card" />
+              <Skeleton variant="card" />
+              <Skeleton variant="card" />
+            </>
+          ) : (
+            <View style={styles.gridRow}>
+              {[1, 2, 3, 4].map((i) => (
+                <View key={i} style={[styles.gridSkeleton, { backgroundColor: colors.surfaceAlt }]} />
+              ))}
+            </View>
+          )
+        ) : isError ? (
+          <View style={[styles.errorBanner, { backgroundColor: colors.danger + '12', borderColor: colors.danger + '30' }]}>
+            <Ionicons name="cloud-offline-outline" size={24} color={colors.danger} />
+            <EmptyState
+              message="Kitaplar yüklenemedi"
+              description="İnternet bağlantınızı kontrol edin"
+              icon="cloud-offline-outline"
+              actionLabel="Tekrar dene"
+              onAction={() => refetch()}
+            />
+          </View>
+        ) : filteredBooks.length === 0 ? (
           activeTab === 'active' ? (
             <EmptyState
               message="Henüz kitap eklenmedi"
@@ -149,390 +310,271 @@ export default function MyBooksTab() {
             />
           )
         ) : (
-          books.map((book) => (
-            <MyBookCard
-              key={book.id}
-              book={book}
-              colors={colors}
-              queryClient={queryClient}
-            />
-          ))
+          viewMode === 'list' ? (
+            filteredBooks.map((book, index) => (
+              <Animated.View
+                key={book.id}
+                entering={FadeInDown.delay(index * 80).duration(300)}
+              >
+                <MyBookCard
+                  id={book.id}
+                  title={book.title}
+                  author={book.author}
+                  coverUrl={book.photos?.[0]?.url}
+                  category={book.category as string}
+                  condition={book.condition as string}
+                  language={book.language}
+                  description={book.description}
+                  viewCount={book.view_count}
+                  favoriteCount={book.favorite_count}
+                  createdAt={book.created_at}
+                  isAvailable={book.is_available}
+                  onPress={() => router.push(`/book/${book.id}`)}
+                  onLongPress={() => handleLongPress(book)}
+                />
+              </Animated.View>
+            ))
+          ) : (
+            <View style={styles.gridRow}>
+              {filteredBooks.length === 0 ? null : (
+                filteredBooks.map((book, index) => (
+                  <Animated.View
+                    key={book.id}
+                    entering={FadeInDown.delay(index * 80).duration(300)}
+                    style={styles.gridItem}
+                  >
+                    <MyBookGridTile
+                      id={book.id}
+                      title={book.title}
+                      author={book.author}
+                      coverUrl={book.photos?.[0]?.url}
+                      condition={book.condition as string}
+                      onPress={() => router.push(`/book/${book.id}`)}
+                      onLongPress={() => handleLongPress(book)}
+                    />
+                  </Animated.View>
+                ))
+              )}
+            </View>
+          )
+        )}
+
+        {isFetchingNextPage && (
+          viewMode === 'list' ? (
+            <Skeleton variant="card" />
+          ) : (
+            <View style={styles.gridRow}>
+              <Skeleton variant="card" />
+              <Skeleton variant="card" />
+            </View>
+          )
         )}
       </ScrollView>
 
-      {/* Floating Add Button */}
-      <TouchableOpacity
-        style={[styles.fab, { shadowColor: colors.primary }]}
-        onPress={() => router.push('/book/new')}
-        activeOpacity={0.85}
-        testID="add-book-fab"
-      >
-        <LinearGradient
-          colors={[colors.primary, colors.primary + 'CC']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.fabGradient}
+      {bulk.isSelectMode ? (
+        <BulkSelectFab
+          count={bulk.count}
+          onDelete={() => {
+            bulkDeleteMutation.mutate(Array.from(bulk.selectedIds));
+            bulk.exit();
+          }}
+          onToggleAvailability={(setAvailable) => {
+            bulkToggleMutation.mutate({ ids: Array.from(bulk.selectedIds), setAvailable });
+            bulk.exit();
+          }}
+        />
+      ) : (
+        <TouchableOpacity
+          style={[styles.fab, { shadowColor: colors.primary }]}
+          onPress={() => router.push('/book/new')}
+          activeOpacity={0.85}
+          accessibilityLabel="Yeni kitap ekle"
         >
-          <Ionicons name="add" size={28} color="#fff" />
-        </LinearGradient>
-      </TouchableOpacity>
-    </View>
-  );
-}
+          <LinearGradient
+            colors={[colors.primary, colors.primary + 'CC']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.fabGradient}
+          >
+            <Ionicons name="add" size={28} color="#fff" />
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
 
-function StatCard({
-  label,
-  value,
-  icon,
-  colors,
-  gradient,
-}: {
-  label: string;
-  value: number;
-  icon: keyof typeof Ionicons.glyphMap;
-  colors: typeof palette.light;
-  gradient: string[];
-}) {
-  return (
-    <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <LinearGradient
-        colors={gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.statIconWrap}
-      >
-        <Ionicons name={icon} size={18} color="#fff" />
-      </LinearGradient>
-      <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: colors.textMuted }]}>{label}</Text>
-    </View>
-  );
-}
+      <BookActionSheet
+        visible={!!actionSheetBook}
+        onClose={() => setActionSheetBook(null)}
+        onAction={handleActionSheetAction}
+        bookTitle={actionSheetBook?.title ?? ''}
+        isAvailable={actionSheetBook?.is_available ?? true}
+      />
 
-function MyBookCard({
-  book,
-  colors,
-  queryClient,
-}: {
-  book: BookOwnerView;
-  colors: typeof palette.light;
-  queryClient: ReturnType<typeof useQueryClient>;
-}) {
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteBook(book.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['books', 'me'] });
-    },
-    onError: () => {
-      Alert.alert('Hata', 'Kitap silinemedi.');
-    },
-  });
+      <BookQRModal
+        visible={!!qrBook}
+        onClose={() => setQrBook(null)}
+        bookId={qrBook?.id ?? ''}
+        title={qrBook?.title ?? ''}
+        author={qrBook?.author ?? null}
+        coverUrl={qrBook?.photos?.[0]?.url}
+      />
 
-  const handleDelete = () => {
-    Alert.alert(
-      'Kitabı Sil',
-      `"${book.title}" silinecek. Emin misiniz?`,
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Sil',
-          style: 'destructive',
-          onPress: () => deleteMutation.mutate(),
-        },
-      ]
-    );
-  };
-
-  return (
-    <View style={[styles.myBookCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <TouchableOpacity
-        onPress={() => router.push(`/book/${book.id}`)}
-        activeOpacity={0.7}
-        style={styles.myBookCardInner}
-      >
-        {/* Cover */}
-        <View style={styles.myBookCoverWrap}>
-          {book.photos?.[0]?.url ? (
-            <Image source={{ uri: book.photos[0].url }} style={styles.myBookCover} resizeMode="cover" />
-          ) : (
-            <View style={[styles.myBookCover, styles.myBookCoverFallback, { backgroundColor: colors.surfaceAlt }]}>
-              <Ionicons name="book-outline" size={28} color={colors.textMuted} />
-            </View>
-          )}
-          {/* Status dot */}
-          <View style={[styles.statusDot, { backgroundColor: book.is_available ? colors.success : colors.textMuted }]} />
-        </View>
-
-        {/* Info */}
-        <View style={styles.myBookInfo}>
-          <Text style={[styles.myBookTitle, { color: colors.text }]} numberOfLines={1}>{book.title}</Text>
-          <Text style={[styles.myBookAuthor, { color: colors.textMuted }]} numberOfLines={1}>{book.author ?? 'Bilinmeyen yazar'}</Text>
-
-          <View style={styles.myBookMeta}>
-            <View style={[styles.metaPill, { backgroundColor: colors.primary + '15' }]}>
-              <View style={[styles.metaDot, { backgroundColor: colors.primary }]} />
-              <Text style={[styles.metaPillText, { color: colors.primary }]}>
-                {book.condition === 'new' ? 'Yeni' : book.condition === 'like-new' ? 'Yeni gibi' : book.condition === 'good' ? 'İyi' : book.condition === 'fair' ? 'İdare eder' : 'Kötü'}
-              </Text>
-            </View>
-            {book.category && (
-              <View style={[styles.metaPill, { backgroundColor: colors.surfaceAlt }]}>
-                <Text style={[styles.metaPillText, { color: colors.textMuted }]} numberOfLines={1}>{book.category}</Text>
-              </View>
-            )}
+      {undoDelete.toast && (
+        <View style={[styles.toast, { backgroundColor: '#2A2722' }]}>
+          <View style={styles.toastContent}>
+            <Text style={styles.toastMsg} numberOfLines={1}>
+              {undoDelete.toast.message}
+            </Text>
+            <TouchableOpacity
+              onPress={() => undoDelete.undoAll()}
+              style={styles.undoBtn}
+              accessibilityLabel="Geri al"
+            >
+              <Text style={styles.undoText}>Geri Al</Text>
+            </TouchableOpacity>
           </View>
+          <View style={[styles.progressBar, { width: `${undoDelete.toast.progress}%` }]} />
         </View>
-      </TouchableOpacity>
-
-      {/* Actions */}
-      <View style={[styles.myBookActions, { borderTopColor: colors.border }]}>
-        <TouchableOpacity
-          style={styles.myBookActionBtn}
-          onPress={() => router.push(`/book/${book.id}`)}
-          activeOpacity={0.6}
-        >
-          <Ionicons name="eye-outline" size={18} color={colors.primary} />
-          <Text style={[styles.myBookActionText, { color: colors.primary }]}>Görüntüle</Text>
-        </TouchableOpacity>
-        <View style={[styles.myBookActionDivider, { backgroundColor: colors.border }]} />
-        <TouchableOpacity
-          style={styles.myBookActionBtn}
-          onPress={() => router.push(`/book/${book.id}`)}
-          activeOpacity={0.6}
-        >
-          <Ionicons name="create-outline" size={18} color={colors.info} />
-          <Text style={[styles.myBookActionText, { color: colors.info }]}>Düzenle</Text>
-        </TouchableOpacity>
-        <View style={[styles.myBookActionDivider, { backgroundColor: colors.border }]} />
-        <TouchableOpacity
-          style={styles.myBookActionBtn}
-          onPress={handleDelete}
-          disabled={deleteMutation.isPending}
-          activeOpacity={0.6}
-        >
-          <Ionicons name="trash-outline" size={18} color={colors.danger} />
-          <Text style={[styles.myBookActionText, { color: colors.danger }]}>Sil</Text>
-        </TouchableOpacity>
-      </View>
+      )}
     </View>
   );
+}
+
+function updateBookInCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  bookId: string,
+  partial: Partial<Pick<BookOwnerView, 'is_available'>>,
+) {
+  queryClient.setQueryData(['books', 'me'], (old: any) => {
+    if (!old?.pages) return old;
+    return {
+      ...old,
+      pages: old.pages.map((page: any) => ({
+        ...page,
+        items: page.items.map((item: BookOwnerView) =>
+          item.id === bookId ? { ...item, ...partial } : item,
+        ),
+      })),
+    };
+  });
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  // Tabs
-  tabContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
-  },
-  tabRow: {
+  container: { flex: 1 },
+  toolbar: {
     flexDirection: 'row',
-    borderRadius: radius.button,
-    padding: 3,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm + 1,
-    borderRadius: radius.button - 2,
-    overflow: 'hidden',
-  },
-  tabActive: {
-    shadowColor: '#11806B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  tabGradient: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: radius.button - 2,
-  },
-  tabText: {
-    fontSize: fontSize.bodySm,
-    fontWeight: '700',
-  },
-  tabBadge: {
-    marginLeft: 5,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 10,
-    minWidth: 20,
-    alignItems: 'center',
-  },
-  tabBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  // Stats
-  statsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
     gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  statCard: {
-    flex: 1,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    shadowColor: '#2A1F10',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
   },
-  statIconWrap: {
+  searchWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 36,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: fontSize.caption,
+    fontWeight: '500',
+    padding: 0,
+  },
+  viewToggle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.xs,
-  },
-  statValue: {
-    fontSize: fontSize.title,
-    fontWeight: '800',
-  },
-  statLabel: {
-    fontSize: fontSize.caption,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  // Scroll
-  scrollContent: {
-    padding: spacing.lg,
-    paddingTop: spacing.xs,
-    paddingBottom: 100,
-  },
-  // Book Card
-  myBookCard: {
-    borderRadius: radius.card,
+    borderRadius: 999,
     borderWidth: 1,
-    marginBottom: spacing.md,
-    overflow: 'hidden',
-    shadowColor: '#2A1F10',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  myBookCardInner: {
-    flexDirection: 'row',
-    padding: spacing.md,
-  },
-  myBookCoverWrap: {
-    position: 'relative',
-    marginRight: spacing.md,
-  },
-  myBookCover: {
-    width: 72,
-    height: 102,
-    borderRadius: radius.field,
-    shadowColor: '#000',
-    shadowOffset: { width: 3, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  myBookCoverFallback: {
     justifyContent: 'center',
     alignItems: 'center',
-    shadowOpacity: 0,
   },
-  statusDot: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: '#fff',
+  scrollContent: {
+    paddingVertical: spacing.sm,
+    paddingBottom: 120,
   },
-  myBookInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  myBookTitle: {
-    fontSize: fontSize.body,
-    fontWeight: '800',
-    lineHeight: 20,
-    marginBottom: 2,
-  },
-  myBookAuthor: {
-    fontSize: fontSize.bodySm,
-    fontWeight: '500',
-    marginBottom: spacing.xs,
-  },
-  myBookMeta: {
+  gridRow: {
     flexDirection: 'row',
-    gap: spacing.xs,
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
-  metaPill: {
-    flexDirection: 'row',
+  gridItem: {
+    width: '48%',
+  },
+  gridSkeleton: {
+    width: '48%',
+    aspectRatio: 0.65,
+    borderRadius: 22,
+    marginBottom: 12,
+  },
+  errorBanner: {
+    borderRadius: 22,
+    padding: spacing.lg,
+    borderWidth: 1,
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
   },
-  metaDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  metaPillText: {
-    fontSize: fontSize.caption,
-    fontWeight: '600',
-  },
-  // Actions
-  myBookActions: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-  },
-  myBookActionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    paddingVertical: spacing.sm + 2,
-  },
-  myBookActionDivider: {
-    width: 1,
-    height: '60%',
-    alignSelf: 'center',
-  },
-  myBookActionText: {
-    fontSize: fontSize.caption,
-    fontWeight: '700',
-  },
-  // FAB
   fab: {
     position: 'absolute',
-    bottom: spacing.xxl + 80,
+    bottom: spacing.xl,
     right: spacing.lg,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45,
     shadowRadius: 12,
     elevation: 8,
+    zIndex: 5,
   },
   fabGradient: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  toast: {
+    position: 'absolute',
+    bottom: 100,
+    left: spacing.lg,
+    right: spacing.lg,
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  toastContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  toastMsg: {
+    color: '#fff',
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+    flex: 1,
+  },
+  undoBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+    backgroundColor: 'rgba(79,194,171,0.18)',
+    marginLeft: spacing.sm,
+  },
+  undoText: {
+    color: '#4FC2AB',
+    fontSize: fontSize.caption,
+    fontWeight: '800',
+  },
+  progressBar: {
+    height: 3,
+    backgroundColor: '#4FC2AB',
   },
 });
