@@ -39,12 +39,6 @@ import { palette, spacing, fontSize, radius, type ThemeColors } from '../ui/toke
 import { useToast } from '@/hooks/use-toast';
 import { useFavoritesStore } from '@/stores/favorites';
 import { addFavorite, removeFavorite, createExchange } from '@/lib/api/client';
-import {
-  BOOK_CATEGORY_LABELS,
-  BOOK_CONDITION_LABELS,
-  type BookCategory,
-  type BookCondition,
-} from '@/constants/books';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -77,9 +71,25 @@ interface MarkerPreviewCardProps {
   testID?: string;
 }
 
-// ── Labels: reuse the single source of truth in constants/books.ts ───────────
-// (Local maps had drifted — wrong condition keys like `fair`/`poor` and a
-//  missing `worn`, which rendered worn books as raw English.)
+// ── Label maps ──────────────────────────────────────────────────────────────
+
+const CATEGORY_LABELS: Record<string, string> = {
+  fiction: 'Roman',
+  non_fiction: 'Popüler Bilim',
+  textbook: 'Ders Kitabı',
+  comics: 'Çizgi Roman',
+  children: 'Çocuk',
+  poetry: 'Şiir',
+  other: 'Diğer',
+};
+
+const CONDITION_LABELS: Record<string, string> = {
+  new: 'Yeni',
+  like_new: 'Çok İyi',
+  good: 'İyi',
+  fair: 'Kabul Edilebilir',
+  poor: 'Kötü',
+};
 
 const FRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
 const SWIPE_THRESHOLD = 80;
@@ -205,12 +215,8 @@ function MarkerPreviewCardImpl({
   }, [book, exchangeLoading, toast, translateY, opacity, onClose]);
 
   // ── Derived display values ────────────────────────────────────────────────
-  const categoryLabel = book.category
-    ? BOOK_CATEGORY_LABELS[book.category as BookCategory] ?? book.category
-    : null;
-  const conditionLabel = book.condition
-    ? BOOK_CONDITION_LABELS[book.condition as BookCondition] ?? book.condition
-    : null;
+  const categoryLabel = book.category ? CATEGORY_LABELS[book.category] ?? book.category : null;
+  const conditionLabel = book.condition ? CONDITION_LABELS[book.condition] ?? book.condition : null;
   const isFresh = book.createdAt
     ? Date.now() - new Date(book.createdAt).getTime() < FRESH_WINDOW_MS
     : false;
@@ -352,17 +358,6 @@ function MarkerPreviewCardImpl({
                     </Text>
                   </>
                 )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.goToBookBtn, { borderColor: colors.primary }]}
-                onPress={() => onNavigateToDetail(book.id)}
-                testID="preview-go-to-book"
-              >
-                <Ionicons name="book-outline" size={18} color={colors.primary} />
-                <Text style={[styles.goToBookBtnText, { color: colors.primary }]}>
-                  Kitaba Git
-                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -519,21 +514,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   favBtnText: {
-    fontSize: fontSize.bodySm,
-    fontWeight: '600',
-  },
-  goToBookBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.button,
-    borderWidth: 2,
-    flex: 1,
-  },
-  goToBookBtnText: {
     fontSize: fontSize.bodySm,
     fontWeight: '600',
   },

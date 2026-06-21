@@ -43,20 +43,16 @@ import ClusteredMapView from 'react-native-map-clustering';
 
 import { palette, spacing, fontSize, radius, shadows, type ThemeColors } from '@/components/ui/tokens';
 import { BookCard, FilterSheet, type FilterState } from '@/components/ui';
-import { BookMarker, categoryColor, type BookCategory, type MarkerVariant } from '@/components/ui/book-marker';
+import { BookMarker, categoryColor, dominantCategoryColor, type BookCategory, type MarkerVariant } from '@/components/ui/book-marker';
 import {
   searchBboxBooks,
   getBookClusters,
   getMe,
   updateGeofenceRadius,
-  updateHomeLocation,
-  addFavorite,
-  removeFavorite,
   type BBoxParams,
   type BookSearchResult,
   type ClusterPoint,
 } from '@/lib/api/client';
-import { formatDistance, freshAgeHours, isFresh } from '@/lib/format';
 import { useFavoritesStore } from '@/stores/favorites';
 import { useToast } from '@/hooks/use-toast';
 import BookBottomSheet, { DEFAULT_SNAP_INDEX } from '@/components/map/book-bottom-sheet';
@@ -85,17 +81,10 @@ const CATEGORIES: Array<{ value: BookCategory | null; label: string }> = [
 ];
 
 const MAP_TYPES: Array<'standard' | 'satellite' | 'hybrid'> = ['standard', 'satellite', 'hybrid'];
-const DEFAULT_DELTA = 0.15;
+const FRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
 const REGION_DEBOUNCE_MS = 300;
 const PILL_DEBOUNCE_MS = 500;
 const DRIFT_THRESHOLD = 0.2; // 20% of viewport
-
-const INITIAL_REGION: Region = {
-  latitude: 41.0082,
-  longitude: 28.9784,
-  latitudeDelta: DEFAULT_DELTA,
-  longitudeDelta: DEFAULT_DELTA,
-};
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -108,11 +97,24 @@ function regionToBbox(region: Region): BBoxParams {
   };
 }
 
+function formatDistance(km: number): string {
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  return `${km.toFixed(1)} km`;
+}
+
 function getSingletonVariant(book: BookSearchResult): MarkerVariant {
   if (!book.is_available) return 'unavailable';
-  if (isFresh(book.created_at)) return 'fresh';
+  if (Date.now() - new Date(book.created_at).getTime() < FRESH_WINDOW_MS) return 'fresh';
   if (book.category === 'textbook') return 'textbook';
   return 'standard';
+}
+
+function getFreshAgeHours(book: BookSearchResult): number | undefined {
+  const ageMs = Date.now() - new Date(book.created_at).getTime();
+  if (ageMs < FRESH_WINDOW_MS) {
+    return Math.max(1, Math.floor(ageMs / (60 * 60 * 1000)));
+  }
+  return undefined;
 }
 
 function buildPreviewBook(book: BookSearchResult, isFavorited: boolean): PreviewBook {
@@ -145,11 +147,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const queryClient = useQueryClient();
-  // Select individual actions (stable refs) instead of the whole store, so a
-  // favorite toggle anywhere doesn't re-render HomeScreen + its whole marker list.
-  const favIsFavorited = useFavoritesStore((s) => s.isFavorited);
-  const favAdd = useFavoritesStore((s) => s.addFavorite);
-  const favRemove = useFavoritesStore((s) => s.removeFavorite);
+  const favoritesStore = useFavoritesStore();
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -168,10 +166,12 @@ export default function HomeScreen() {
     language: null,
     radiusKm: 10,
   });
-  // Tracks the current viewport for bbox/zoom reads. The map itself is
-  // UNCONTROLLED (initialRegion) — we never feed this back into a `region` prop,
-  // which previously fought the user's gestures via the 300ms debounce.
-  const [mapRegion, setMapRegion] = useState<Region>(INITIAL_REGION);
+  const [mapRegion, setMapRegion] = useState<Region>({
+    latitude: 41.0082,
+    longitude: 28.9784,
+    latitudeDelta: 0.15,
+    longitudeDelta: 0.15,
+  });
   const [showRadiusSheet, setShowRadiusSheet] = useState(false);
   const [geofenceRadiusKm, setGeofenceRadiusKm] = useState(10);
 
@@ -186,11 +186,9 @@ export default function HomeScreen() {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       let userLoc: { lat: number; lng: number };
-      let realFix = false;
       if (status === 'granted') {
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         userLoc = { lat: loc.coords.latitude, lng: loc.coords.longitude };
-        realFix = true;
       } else {
         // Fallback: Istanbul center
         userLoc = { lat: 41.0082, lng: 28.9784 };
@@ -199,19 +197,12 @@ export default function HomeScreen() {
       const initialRegion: Region = {
         latitude: userLoc.lat,
         longitude: userLoc.lng,
-        latitudeDelta: DEFAULT_DELTA,
-        longitudeDelta: DEFAULT_DELTA,
+        latitudeDelta: 0.15,
+        longitudeDelta: 0.15,
       };
-      // Map is uncontrolled — move it imperatively.
-      mapRef.current?.animateToRegion(initialRegion, 600);
       setMapRegion(initialRegion);
       setQueryBbox(regionToBbox(initialRegion));
       lastQueriedCenterRef.current = userLoc;
-      // Persist a real home position so geofence matching has a true anchor
-      // (not the "most recently listed book" proxy).
-      if (realFix) {
-        updateHomeLocation(userLoc.lat, userLoc.lng).catch(() => {});
-      }
     })();
   }, []);
 
@@ -276,7 +267,7 @@ export default function HomeScreen() {
   });
   const clusters = useMemo(() => clustersQuery.data?.clusters ?? [], [clustersQuery.data]);
   const clustersSingletons = useMemo(() => clustersQuery.data?.singletons ?? [], [clustersQuery.data]);
-  const clustersSucceeded = clustersQuery.isSuccess;
+  const clustersSucceeded = clustersQuery.isSuccess && clustersQuery.data !== undefined;
 
   // Markers: use clusters singletons if available, otherwise fall back to ALL bbox books
   // This ensures markers always render when books exist, even if clusters endpoint fails
@@ -303,31 +294,24 @@ export default function HomeScreen() {
   const handleMarkerPress = useCallback(
     (book: BookSearchResult) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setSelectedBook(buildPreviewBook(book, favIsFavorited(book.id)));
+      setSelectedBook(buildPreviewBook(book, favoritesStore.isFavorited(book.id)));
       // Snap sheet to peek
       setSheetSnapIndex(DEFAULT_SNAP_INDEX);
     },
-    [favIsFavorited],
+    [favoritesStore],
   );
 
   const handleClusterPress = useCallback(
     (cluster: ClusterPoint) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      // Prefer the backend's designated front book; fall back to any cluster
-      // member present in the loaded list.
-      const front =
-        books.find((b) => b.id === cluster.front_book_id) ??
-        books.find((b) => cluster.book_ids.includes(b.id));
-      if (front) {
-        setSelectedBook(buildPreviewBook(front, favIsFavorited(front.id)));
-        setSheetSnapIndex(DEFAULT_SNAP_INDEX);
-      } else {
-        // Cluster members aren't in the current page (bbox limit) — open the
-        // front book's detail directly instead of silently doing nothing.
-        router.push(`/book/${cluster.front_book_id}`);
+      // Find the first book in the cluster from the sheet data
+      const firstBook = books.find((b) => cluster.book_ids.includes(b.id));
+      if (firstBook) {
+        setSelectedBook(buildPreviewBook(firstBook, favoritesStore.isFavorited(firstBook.id)));
       }
+      setSheetSnapIndex(DEFAULT_SNAP_INDEX);
     },
-    [books, favIsFavorited],
+    [books, favoritesStore],
   );
 
   const handleClosePreview = useCallback(() => {
@@ -543,7 +527,7 @@ export default function HomeScreen() {
           selected={selectedBook?.id === book.id}
           category={book.category as BookCategory}
           distance={formatDistance(book.distance_km)}
-          freshAgeHours={freshAgeHours(book.created_at)}
+          freshAgeHours={getFreshAgeHours(book)}
           latitudeDelta={mapRegion.latitudeDelta}
           isDark={isDark}
           testID={`marker-${book.id}`}
@@ -619,39 +603,6 @@ export default function HomeScreen() {
     [colors, handleMarkerPress],
   );
 
-  // ── Favorite toggle (optimistic store + backend API, mirrors preview card) ──
-  const handleToggleFavorite = useCallback(
-    (item: BookSearchResult) => {
-      const wasFavorited = favIsFavorited(item.id);
-      if (wasFavorited) {
-        favRemove(item.id); // optimistic
-        removeFavorite(item.id).catch(() => {
-          favAdd({
-            bookId: item.id,
-            title: item.title,
-            coverUrl: item.photos?.[0]?.url,
-            ownerId: item.owner_id,
-            addedAt: new Date().toISOString(),
-          });
-          toast.show('Favori işlemi başarısız', { variant: 'error' });
-        });
-      } else {
-        favAdd({
-          bookId: item.id,
-          title: item.title,
-          coverUrl: item.photos?.[0]?.url,
-          ownerId: item.owner_id,
-          addedAt: new Date().toISOString(),
-        }); // optimistic
-        addFavorite(item.id).catch(() => {
-          favRemove(item.id);
-          toast.show('Favori işlemi başarısız', { variant: 'error' });
-        });
-      }
-    },
-    [favIsFavorited, favAdd, favRemove, toast],
-  );
-
   // ── List card (half/full mode) ─────────────────────────────────────────────
   const renderListCard = useCallback(
     ({ item }: { item: BookSearchResult }) => (
@@ -664,11 +615,23 @@ export default function HomeScreen() {
         distanceKm={item.distance_km}
         coverUrl={item.photos?.[0]?.url}
         onPress={() => router.push(`/book/${item.id}`)}
-        onFavorite={() => handleToggleFavorite(item)}
+        onFavorite={() => {
+          if (favoritesStore.isFavorited(item.id)) {
+            favoritesStore.removeFavorite(item.id);
+          } else {
+            favoritesStore.addFavorite({
+              bookId: item.id,
+              title: item.title,
+              coverUrl: item.photos?.[0]?.url,
+              ownerId: item.owner_id,
+              addedAt: new Date().toISOString(),
+            });
+          }
+        }}
         testID={`book-card-${item.id}`}
       />
     ),
-    [handleToggleFavorite],
+    [favoritesStore],
   );
 
   // ── Sheet header (bug #6: count booksWithLocation) ─────────────────────────

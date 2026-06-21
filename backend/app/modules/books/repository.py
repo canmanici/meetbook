@@ -530,24 +530,34 @@ class BookRepository:
         singletons = []
         for cid, items in groups.items():
             if len(items) == 1:
-                book, loc, distance_m, owner = items[0]
+                book, loc = items[0]
+                owner_row = await self.session.execute(
+                    select(User.id, User.name).where(User.id == book.owner_id)
+                )
+                u = owner_row.one()
                 singletons.append(
                     BookSearchRow(
                         book=book,
                         public_location=loc,
-                        distance_m=distance_m,
-                        owner=owner,
+                        distance_m=0.0,
+                        owner=OwnerSummary(
+                            id=u.id,
+                            name=u.name,
+                            book_count=0,
+                            rating_avg=None,
+                            rating_count=0,
+                        ),
                     )
                 )
             else:
-                lats = [loc[0] for _, loc, _, _ in items]
-                lngs = [loc[1] for _, loc, _, _ in items]
+                lats = [loc[0] for _, loc in items]
+                lngs = [loc[1] for _, loc in items]
                 centroid = (sum(lats) / len(lats), sum(lngs) / len(lngs))
-                book_ids = [b.id for b, _, _, _ in items]
+                book_ids = [b.id for b, _ in items]
                 categories = list(
                     set(
                         b.category.value if hasattr(b.category, "value") else b.category
-                        for b, _, _, _ in items
+                        for b, _ in items
                     )
                 )
                 front_book = items[0][0]

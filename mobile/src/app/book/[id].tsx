@@ -71,6 +71,14 @@ export default function BookDetailScreen() {
   const isOwner = !!book && !!user && book.owner_id === user.id;
 
   const [editing, setEditing] = useState(false);
+  const { edit: editParam } = useLocalSearchParams<{ edit?: string }>();
+
+  useEffect(() => {
+    if (editParam === '1' && isOwner) {
+      setEditing(true);
+    }
+  }, [editParam, isOwner]);
+
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [isbn, setIsbn] = useState('');
