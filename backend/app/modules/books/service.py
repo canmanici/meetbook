@@ -14,7 +14,7 @@ from app.core.s3 import delete_photo as s3_delete_photo
 from app.core.s3 import upload_photo as s3_upload_photo
 from app.core.s3 import _upload_s3, _upload_local, _is_s3_configured
 
-from app.modules.books.models import BookPhoto
+from app.modules.books.models import Book, BookPhoto
 from app.modules.auth.models import User
 from app.modules.books.isbn_lookup import lookup_isbn as isbn_lookup
 from app.modules.books.repository import BookRepository, BookRow, encode_cursor
@@ -33,6 +33,7 @@ from app.modules.books.schemas import (
     LocationInput,
     LocationOutput,
     PhotoView,
+    ReorderDelta,
 )
 from app.modules.exchanges.repository import ExchangeRepository
 
@@ -576,3 +577,36 @@ class BookService:
 
         result = await isbn_lookup(clean_isbn)
         return ISBNLookupResponse(**result)
+
+    async def reorder_books(
+        self, owner_id: uuid.UUID, reorders: list[ReorderDelta]
+    ) -> list[BookOwnerView]:
+        """Batch-update sort_order for a user's books.
+
+        Args:
+            owner_id: The current user's ID.
+            reorders: List of (book_id, new_sort_order) pairs.
+
+        Returns:
+            Full list of the user's books.
+        """
+        book_ids = [r.book_id for r in reorders]
+
+        if len(set(book_ids)) != len(book_ids):
+            raise BookError("Duplicate book_ids in reorder request", 400)
+
+        for delta in reorders:
+            row = await self.repo.get_active_by_id(delta.book_id)
+            if row is None or row.book.owner_id != owner_id:
+                raise BookError(f"Book {delta.book_id} not found", 404)
+
+        from sqlalchemy import update as sa_update
+
+        for delta in reorders:
+            await self.session.execute(
+                sa_update(Book).where(Book.id == delta.book_id).values(sort_order=delta.sort_order)
+            )
+        await self.session.commit()
+
+        result = await self.list_my_books(owner_id, None, 1000)
+        return result.items
