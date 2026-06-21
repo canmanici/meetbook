@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
-import BottomSheet from '@gorhom/bottom-sheet';
-import { palette } from './tokens';
+import { View, Text, TouchableOpacity, StyleSheet, useColorScheme, Modal, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { palette, spacing, fontSize, radius } from './tokens';
 
 export interface FilterState {
   category: string | null;
@@ -17,13 +18,27 @@ interface FilterSheetProps {
   resultCount: number;
 }
 
-const CATEGORIES = ['Roman', 'Ders Kitabı', 'Çizgi Roman', 'Çocuk', ' Şiir', 'Diğer'];
-const CONDITIONS = ['Yeni', 'Yeni Gibi', 'İyi', 'Kullanılmış'];
-const LANGUAGES = ['Türkçe', 'English'];
+const CATEGORIES = [
+  { value: 'fiction', label: 'Roman' },
+  { value: 'non_fiction', label: 'Popüler Bilim' },
+  { value: 'textbook', label: 'Ders Kitabı' },
+  { value: 'comics', label: 'Çizgi Roman' },
+  { value: 'children', label: 'Çocuk' },
+  { value: 'poetry', label: 'Şiir' },
+  { value: 'other', label: 'Diğer' },
+];
+const CONDITIONS = [
+  { value: 'new', label: 'Yeni' },
+  { value: 'like_new', label: 'Yeni Gibi' },
+  { value: 'good', label: 'İyi' },
+  { value: 'worn', label: 'Kullanılmış' },
+];
+const LANGUAGES = [
+  { value: 'tr', label: 'Türkçe' },
+  { value: 'en', label: 'English' },
+];
 
 export function FilterSheet({ visible, onClose, onApply, resultCount }: FilterSheetProps) {
-  const sheetRef = React.useRef<BottomSheet>(null);
-  const snapPoints = React.useMemo(() => ['70%'], []);
   const scheme = useColorScheme();
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
 
@@ -48,97 +63,253 @@ export function FilterSheet({ visible, onClose, onApply, resultCount }: FilterSh
     setFilters({ category: null, condition: null, language: null, radiusKm: 10 });
   }, []);
 
-  React.useEffect(() => {
-    if (visible) sheetRef.current?.expand();
-    else sheetRef.current?.close();
-  }, [visible]);
+  const activeCount = [filters.category, filters.condition, filters.language].filter(Boolean).length;
 
   return (
-    <BottomSheet
-      ref={sheetRef}
-      index={-1}
-      snapPoints={snapPoints}
-      onClose={onClose}
-      enablePanDownToClose
-      backgroundStyle={[styles.background, { backgroundColor: colors.surface }]}
-      handleIndicatorStyle={[styles.indicator, { backgroundColor: colors.textMuted }]}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
     >
-      <View style={styles.content}>
-        <Text style={[styles.heading, { color: colors.text }]}>Filtreler</Text>
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable style={[styles.sheet, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+          {/* Handle */}
+          <View style={[styles.handle, { backgroundColor: colors.textMuted }]} />
 
-        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Kategori</Text>
-        <View style={styles.chipRow}>
-          {CATEGORIES.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              style={[styles.chip, { backgroundColor: colors.textMuted + '20' }, filters.category === cat && { backgroundColor: colors.primary }]}
-              onPress={() => toggleFilter('category', cat)}
-            >
-              <Text style={[styles.chipText, { color: colors.textMuted }, filters.category === cat && { color: colors.surface }]}>
-                {cat}
-              </Text>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <Text style={[styles.heading, { color: colors.text }]}>Filtreler</Text>
+              {activeCount > 0 && (
+                <View style={[styles.countBadge, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.countBadgeText}>{activeCount}</Text>
+                </View>
+              )}
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <Ionicons name="close" size={22} color={colors.textMuted} />
             </TouchableOpacity>
-          ))}
-        </View>
+          </View>
 
-        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Durum</Text>
-        <View style={styles.chipRow}>
-          {CONDITIONS.map((cond) => (
+          {/* Content */}
+          <View style={styles.content}>
+            {/* Category */}
+            <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Kategori</Text>
+            <View style={styles.chipRow}>
+              {CATEGORIES.map((cat) => {
+                const isActive = filters.category === cat.value;
+                return (
+                  <TouchableOpacity
+                    key={cat.value}
+                    style={[
+                      styles.chip,
+                      { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
+                      isActive && { backgroundColor: colors.primary, borderColor: colors.primary },
+                    ]}
+                    onPress={() => toggleFilter('category', cat.value)}
+                  >
+                    {isActive && <Ionicons name="checkmark" size={14} color="#fff" style={{ marginRight: 4 }} />}
+                    <Text style={[styles.chipText, { color: colors.text }, isActive && { color: '#fff' }]}>
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Condition */}
+            <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Durum</Text>
+            <View style={styles.chipRow}>
+              {CONDITIONS.map((cond) => {
+                const isActive = filters.condition === cond.value;
+                return (
+                  <TouchableOpacity
+                    key={cond.value}
+                    style={[
+                      styles.chip,
+                      { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
+                      isActive && { backgroundColor: colors.primary, borderColor: colors.primary },
+                    ]}
+                    onPress={() => toggleFilter('condition', cond.value)}
+                  >
+                    {isActive && <Ionicons name="checkmark" size={14} color="#fff" style={{ marginRight: 4 }} />}
+                    <Text style={[styles.chipText, { color: colors.text }, isActive && { color: '#fff' }]}>
+                      {cond.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Language */}
+            <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Dil</Text>
+            <View style={styles.chipRow}>
+              {LANGUAGES.map((lang) => {
+                const isActive = filters.language === lang.value;
+                return (
+                  <TouchableOpacity
+                    key={lang.value}
+                    style={[
+                      styles.chip,
+                      { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
+                      isActive && { backgroundColor: colors.primary, borderColor: colors.primary },
+                    ]}
+                    onPress={() => toggleFilter('language', lang.value)}
+                  >
+                    {isActive && <Ionicons name="checkmark" size={14} color="#fff" style={{ marginRight: 4 }} />}
+                    <Text style={[styles.chipText, { color: colors.text }, isActive && { color: '#fff' }]}>
+                      {lang.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Footer */}
+          <View style={[styles.footer, { borderTopColor: colors.border }]}>
             <TouchableOpacity
-              key={cond}
-              style={[styles.chip, { backgroundColor: colors.textMuted + '20' }, filters.condition === cond && { backgroundColor: colors.primary }]}
-              onPress={() => toggleFilter('condition', cond)}
+              style={[styles.resetBtn, { backgroundColor: colors.surfaceAlt }]}
+              onPress={resetFilters}
             >
-              <Text style={[styles.chipText, { color: colors.textMuted }, filters.condition === cond && { color: colors.surface }]}>
-                {cond}
-              </Text>
+              <Text style={[styles.resetBtnText, { color: colors.text }]}>Sıfırla</Text>
             </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Dil</Text>
-        <View style={styles.chipRow}>
-          {LANGUAGES.map((lang) => (
             <TouchableOpacity
-              key={lang}
-              style={[styles.chip, { backgroundColor: colors.textMuted + '20' }, filters.language === lang && { backgroundColor: colors.primary }]}
-              onPress={() => toggleFilter('language', lang)}
+              style={styles.applyBtnWrap}
+              onPress={() => onApply(filters)}
             >
-              <Text style={[styles.chipText, { color: colors.textMuted }, filters.language === lang && { color: colors.surface }]}>
-                {lang}
-              </Text>
+              <LinearGradient
+                colors={[colors.primary, colors.primary + 'CC']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.applyBtn}
+              >
+                <Text style={styles.applyBtnText}>Uygula ({resultCount})</Text>
+              </LinearGradient>
             </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.footer}>
-          <TouchableOpacity style={[styles.resetBtn, { backgroundColor: colors.textMuted + '20' }]} onPress={resetFilters}>
-            <Text style={[styles.resetBtnText, { color: colors.text }]}>Sıfırla</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.applyBtn, { backgroundColor: colors.primary }]} onPress={() => onApply(filters)}>
-            <Text style={[styles.applyBtnText, { color: colors.surface }]}>Uygula ({resultCount})</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </BottomSheet>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  background: { borderRadius: 20 },
-  indicator: { width: 40 },
-  content: { flex: 1, padding: 20 },
-  heading: { fontSize: 20, fontWeight: '800', marginBottom: 20 },
-  sectionLabel: {
-    fontSize: 12, fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, marginTop: 16,
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
-  chipText: { fontSize: 13, fontWeight: '600' },
-  footer: { flexDirection: 'row', gap: 10, marginTop: 24 },
-  resetBtn: { flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
-  resetBtnText: { fontSize: 14, fontWeight: '700' },
-  applyBtn: { flex: 2, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
-  applyBtnText: { fontSize: 14, fontWeight: '700' },
+  sheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingBottom: 34,
+    maxHeight: '80%',
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  heading: {
+    fontSize: fontSize.title,
+    fontWeight: '800',
+  },
+  countBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  content: {
+    paddingHorizontal: 20,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+    marginTop: 18,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  footer: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    marginTop: 24,
+  },
+  resetBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: radius.button,
+    alignItems: 'center',
+  },
+  resetBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  applyBtnWrap: {
+    flex: 2,
+    borderRadius: radius.button,
+    overflow: 'hidden',
+    shadowColor: '#11806B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  applyBtn: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: radius.button,
+  },
+  applyBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });

@@ -19,6 +19,30 @@ class NotificationRepository:
         await self.session.flush()
         return notification
 
+    async def exists_for_exchange(
+        self, user_id: uuid.UUID, type_: str, exchange_id: uuid.UUID
+    ) -> bool:
+        """True if a notification of this type already exists for this user+exchange.
+
+        Used by the loan reminder worker to stay idempotent across hourly runs.
+        """
+        from sqlalchemy import func
+
+        stmt = select(func.count()).select_from(Notification).where(
+            Notification.user_id == user_id,
+            Notification.type == type_,
+            Notification.payload["exchange_id"].astext == str(exchange_id),
+        )
+        result = await self.session.execute(stmt)
+        return (result.scalar() or 0) > 0
+
+    async def create_many(self, user_ids: list[uuid.UUID], type_: str, payload: dict) -> int:
+        """Bulk-create one notification per user (admin broadcast). Returns count."""
+        for uid in user_ids:
+            self.session.add(Notification(user_id=uid, type=type_, payload=payload))
+        await self.session.flush()
+        return len(user_ids)
+
     async def list_by_user(self, user_id: uuid.UUID) -> list[Notification]:
         result = await self.session.execute(
             select(Notification)

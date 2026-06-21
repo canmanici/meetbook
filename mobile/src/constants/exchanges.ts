@@ -11,6 +11,9 @@ export const EXCHANGE_STATUS_LABELS: Record<ExchangeStatus, string> = {
   completion_pending: 'Onay Bekleniyor',
   completed: 'Tamamlandı',
   expired: 'Süresi Doldu',
+  lent: 'Ödünçte',
+  return_pending: 'İade Onayı Bekliyor',
+  overdue: 'Gecikmiş',
 };
 
 export const EXCHANGE_STATUS_VARIANTS: Record<ExchangeStatus, BadgeVariant> = {
@@ -23,4 +26,7 @@ export const EXCHANGE_STATUS_VARIANTS: Record<ExchangeStatus, BadgeVariant> = {
   completion_pending: 'warning',
   completed: 'success',
   expired: 'danger',
+  lent: 'primary',
+  return_pending: 'warning',
+  overdue: 'danger',
 };

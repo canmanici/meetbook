@@ -70,11 +70,11 @@ export default function RootLayout() {
           <Stack.Screen name="meetup" options={{ headerShown: false }} />
           <Stack.Screen name="wishlist" options={{ headerShown: false }} />
           <Stack.Screen name="settings" options={{ headerShown: false }} />
-          <Stack.Screen name="user" options={{ headerShown: false }} />
-          <Stack.Screen name="chat" options={{ headerShown: false }} />
+          <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack>
-      </ToastProvider>
+        </ToastProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
   );

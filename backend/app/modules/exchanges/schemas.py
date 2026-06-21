@@ -3,12 +3,17 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.modules.books.models import BookCategory, BookCondition
 from app.modules.books.schemas import LocationOutput, PhotoView
-from app.modules.exchanges.models import ExchangeStatus, MeetupValidationStatus
+from app.modules.exchanges.models import ExchangeMode, ExchangeStatus, ExtensionStatus, MeetupValidationStatus
 from app.modules.places.schemas import PlaceSummary
+
+# Allowed loan durations (days): the three quick buttons plus a 1-90 manual range.
+QUICK_LOAN_DURATIONS = (7, 15, 30)
+MIN_LOAN_DAYS = 1
+MAX_LOAN_DAYS = 90
 
 # ---------------------------------------------------------------------------
 # Request schemas
@@ -18,6 +23,30 @@ from app.modules.places.schemas import PlaceSummary
 class ExchangeCreateRequest(BaseModel):
     book_id: uuid.UUID
     initial_message: str = Field(min_length=1, max_length=1000)
+    mode: ExchangeMode = ExchangeMode.trade
+    loan_duration_days: int | None = Field(default=None, ge=MIN_LOAN_DAYS, le=MAX_LOAN_DAYS)
+
+    @model_validator(mode="after")
+    def _check_loan_duration(self) -> "ExchangeCreateRequest":
+        if self.mode is ExchangeMode.borrow:
+            if self.loan_duration_days is None:
+                raise ValueError("loan_duration_days is required for borrow mode")
+        else:
+            # Ignore any duration sent for trade mode.
+            self.loan_duration_days = None
+        return self
+
+
+class LendRequest(BaseModel):
+    photo_url: str = Field(min_length=1, max_length=2000)
+
+
+class ReturnRequest(BaseModel):
+    photo_url: str = Field(min_length=1, max_length=2000)
+
+
+class ExtensionRequestBody(BaseModel):
+    days: int = Field(ge=MIN_LOAN_DAYS, le=MAX_LOAN_DAYS)
 
 
 class BlockCreateRequest(BaseModel):
@@ -49,9 +78,18 @@ class MeetupAcceptRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class TrustView(BaseModel):
+    score: int
+    badge: str  # "green" | "yellow" | "red"
+    label: str
+    on_time_rate: float | None = None
+    loans_borrowed_count: int = 0
+
+
 class CounterpartView(BaseModel):
     id: uuid.UUID
     name: str
+    trust: TrustView | None = None
 
 
 class BookSummary(BaseModel):
@@ -72,6 +110,8 @@ class ExchangeSummary(BaseModel):
     book: BookSummary
     counterpart: CounterpartView
     status: ExchangeStatus
+    mode: ExchangeMode = ExchangeMode.trade
+    due_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -115,6 +155,16 @@ class ExchangeDetail(BaseModel):
     initial_message: str
     completion_marked_by: uuid.UUID | None
     meetup: MeetupDetail | None = None
+    # Borrow-mode fields
+    mode: ExchangeMode = ExchangeMode.trade
+    loan_duration_days: int | None = None
+    due_at: datetime | None = None
+    lent_at: datetime | None = None
+    lent_photo_url: str | None = None
+    returned_photo_url: str | None = None
+    returned_marked_by: uuid.UUID | None = None
+    extension_status: ExtensionStatus = ExtensionStatus.none
+    extension_requested_days: int | None = None
     created_at: datetime
     updated_at: datetime
     expires_at: datetime

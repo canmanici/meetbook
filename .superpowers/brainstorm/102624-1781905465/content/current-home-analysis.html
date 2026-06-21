@@ -1,0 +1,204 @@
+<h2>Meetbook Home Page — Current State Analysis</h2>
+<p class="subtitle">Let's diagnose what's there and what's missing. Click a direction to explore.</p>
+
+<div class="section">
+  <h3>Current Layout (List View)</h3>
+  <div class="mockup">
+    <div class="mockup-header">📱 Home Screen — Current</div>
+    <div class="mockup-body" style="padding: 0; overflow: hidden; border-radius: 16px;">
+      
+      <!-- Phone frame -->
+      <div style="max-width: 375px; margin: 0 auto; background: #FBF6EC; min-height: 700px; position: relative; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
+        
+        <!-- Status bar -->
+        <div style="padding: 8px 16px; display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: #2A2722;">
+          <span>9:41</span>
+          <span>📶 🔋</span>
+        </div>
+        
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px 12px;">
+          <span style="font-size: 24px; font-weight: 700; color: #2A2722;">Ana Sayfa</span>
+          <div style="width: 40px; height: 40px; border-radius: 20px; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+            <span style="font-size: 18px;">🗺️</span>
+          </div>
+        </div>
+        
+        <!-- Search bar -->
+        <div style="margin: 0 16px 12px; background: #fff; border: 1px solid #ECE4D6; border-radius: 999px; padding: 10px 14px; display: flex; align-items: center; gap: 8px;">
+          <span style="color: #8A8378;">🔍</span>
+          <span style="color: #8A8378; font-size: 14px;">Kitap veya yazar ara...</span>
+          <span style="margin-left: auto; color: #11806B;">📷</span>
+        </div>
+        
+        <!-- Category chips -->
+        <div style="display: flex; gap: 8px; padding: 0 16px; overflow-x: auto; margin-bottom: 12px;">
+          <div style="padding: 6px 14px; border-radius: 999px; background: #11806B; color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap;">Tümü</div>
+          <div style="padding: 6px 14px; border-radius: 999px; background: #fff; border: 1px solid #ECE4D6; color: #2A2722; font-size: 13px; font-weight: 500; white-space: nowrap;">Roman</div>
+          <div style="padding: 6px 14px; border-radius: 999px; background: #fff; border: 1px solid #ECE4D6; color: #2A2722; font-size: 13px; font-weight: 500; white-space: nowrap;">Ders Kitabı</div>
+          <div style="padding: 6px 14px; border-radius: 999px; background: #fff; border: 1px solid #ECE4D6; color: #2A2722; font-size: 13px; font-weight: 500; white-space: nowrap;">Çizgi Roman</div>
+        </div>
+        
+        <!-- Sort pills -->
+        <div style="display: flex; gap: 8px; padding: 0 16px; margin-bottom: 12px;">
+          <div style="padding: 5px 12px; border-radius: 999px; background: #11806B; color: #fff; font-size: 12px; font-weight: 600;">Yakınlık</div>
+          <div style="padding: 5px 12px; border-radius: 999px; background: #fff; border: 1px solid #ECE4D6; color: #2A2722; font-size: 12px; font-weight: 500;">En Yeni</div>
+        </div>
+        
+        <!-- Book cards -->
+        <div style="padding: 0 16px;">
+          <!-- Card 1 -->
+          <div style="background: #fff; border: 1px solid #ECE4D6; border-radius: 22px; padding: 12px; margin-bottom: 12px; display: flex; gap: 12px; box-shadow: 0 4px 12px rgba(58,44,24,0.05);">
+            <div style="position: relative;">
+              <div style="width: 68px; height: 96px; border-radius: 12px; background: linear-gradient(135deg, #D9F0E4, #DCEBF7); display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 28px;">📚</span>
+              </div>
+              <div style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 800; display: flex; align-items: center; gap: 2px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); white-space: nowrap;">
+                <span style="color: #11806B;">📍</span> 1.2 km
+              </div>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <div style="font-size: 16px; font-weight: 800; color: #2A2722; margin-bottom: 3px;">Suç ve Ceza</div>
+                <div style="font-size: 13px; color: #8A8378;">Dostoyevski</div>
+              </div>
+              <div style="display: flex; gap: 6px; margin: 8px 0;">
+                <div style="padding: 4px 8px; border-radius: 999px; background: #D6EFE7; font-size: 11px; font-weight: 700; color: #11806B; display: flex; align-items: center; gap: 4px;">
+                  <span style="width: 6px; height: 6px; border-radius: 3px; background: #11806B;"></span> İyi
+                </div>
+                <div style="padding: 4px 8px; border-radius: 999px; background: #F4EEE1; font-size: 11px; font-weight: 700; color: #8A8378;">Roman</div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <div style="flex: 1; background: #11806B; border-radius: 18px; padding: 8px; text-align: center; color: #fff; font-size: 13px; font-weight: 800;">🔄 Takas İste</div>
+                <div style="width: 42px; height: 42px; border-radius: 16px; background: #F4EEE1; display: flex; align-items: center; justify-content: center;">
+                  <span style="font-size: 18px;">🤍</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Card 2 -->
+          <div style="background: #fff; border: 1px solid #ECE4D6; border-radius: 22px; padding: 12px; margin-bottom: 12px; display: flex; gap: 12px; box-shadow: 0 4px 12px rgba(58,44,24,0.05);">
+            <div style="position: relative;">
+              <div style="width: 68px; height: 96px; border-radius: 12px; background: linear-gradient(135deg, #FCE3DE, #FBF0D2); display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 28px;">📖</span>
+              </div>
+              <div style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 800; display: flex; align-items: center; gap: 2px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); white-space: nowrap;">
+                <span style="color: #11806B;">📍</span> 2.8 km
+              </div>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <div style="font-size: 16px; font-weight: 800; color: #2A2722; margin-bottom: 3px;">1984</div>
+                <div style="font-size: 13px; color: #8A8378;">George Orwell</div>
+              </div>
+              <div style="display: flex; gap: 6px; margin: 8px 0;">
+                <div style="padding: 4px 8px; border-radius: 999px; background: #D6EFE7; font-size: 11px; font-weight: 700; color: #11806B; display: flex; align-items: center; gap: 4px;">
+                  <span style="width: 6px; height: 6px; border-radius: 3px; background: #2FA36B;"></span> Yeni gibi
+                </div>
+                <div style="padding: 4px 8px; border-radius: 999px; background: #F4EEE1; font-size: 11px; font-weight: 700; color: #8A8378;">Roman</div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <div style="flex: 1; background: #11806B; border-radius: 18px; padding: 8px; text-align: center; color: #fff; font-size: 13px; font-weight: 800;">🔄 Takas İste</div>
+                <div style="width: 42px; height: 42px; border-radius: 16px; background: #F4EEE1; display: flex; align-items: center; justify-content: center;">
+                  <span style="font-size: 18px;">🤍</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Tab bar -->
+        <div style="position: absolute; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #ECE4D6; padding: 8px 0 20px; display: flex; justify-content: space-around;">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+            <div style="padding: 4px 10px; border-radius: 999px; background: #D6EFE7;"><span style="font-size: 18px;">🏠</span></div>
+            <span style="font-size: 10px; font-weight: 700; color: #11806B;">Ana Sayfa</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+            <span style="font-size: 18px;">🔍</span>
+            <span style="font-size: 10px; font-weight: 700; color: #8A8378;">Ara</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+            <span style="font-size: 18px;">📋</span>
+            <span style="font-size: 10px; font-weight: 700; color: #8A8378;">Talepler</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+            <span style="font-size: 18px;">💬</span>
+            <span style="font-size: 10px; font-weight: 700; color: #8A8378;">Mesajlar</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+            <span style="font-size: 18px;">👤</span>
+            <span style="font-size: 10px; font-weight: 700; color: #8A8378;">Profil</span>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>What's Working vs What's Not</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div style="background: rgba(47, 163, 107, 0.08); border: 1px solid rgba(47, 163, 107, 0.2); border-radius: 16px; padding: 16px;">
+      <h4 style="color: #2FA36B; margin: 0 0 8px 0; font-size: 14px;">✅ What Works</h4>
+      <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #2A2722; line-height: 1.8;">
+        <li>Clean card design with condition badges</li>
+        <li>Distance indicator is clear</li>
+        <li>Category filter chips</li>
+        <li>Search + ISBN scanner combo</li>
+        <li>List/Map toggle</li>
+      </ul>
+    </div>
+    <div style="background: rgba(229, 100, 90, 0.08); border: 1px solid rgba(229, 100, 90, 0.2); border-radius: 16px; padding: 16px;">
+      <h4 style="color: #E5645A; margin: 0 0 8px 0; font-size: 14px;">❌ What's Missing</h4>
+      <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #2A2722; line-height: 1.8;">
+        <li>No greeting / personalization</li>
+        <li>No visual hero section</li>
+        <li>No "recently added" highlight</li>
+        <li>No neighborhood context</li>
+        <li>Flat — no visual hierarchy</li>
+        <li>No CTA for first-time users</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Choose a Direction</h3>
+  <p class="subtitle">Click to explore each design direction in detail</p>
+  
+  <div class="options">
+    <div class="option" data-choice="a" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>🟢 Warm Community Hub</h3>
+        <p>Personalized greeting, "books near you" hero section with gradient overlay, neighborhood badge, horizontal scrollable featured books, then the full list. Warm, inviting, emphasizes community.</p>
+      </div>
+    </div>
+    
+    <div class="option" data-choice="b" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>🟠 Card-First Discovery</h3>
+        <p>Large hero book card (editor's pick or trending), stats bar (X books near you, Y users active), then a masonry/grid layout for browsing. More visual, less text-heavy, Instagram-meets-Pinterest feel.</p>
+      </div>
+    </div>
+    
+    <div class="option" data-choice="c" onclick="toggleSelect(this)">
+      <div class="letter">C</div>
+      <div class="content">
+        <h3>🔵 Map-Native Experience</h3>
+        <p>Map as the default view (not list), with a floating bottom sheet for book cards. Emphasizes the location-first nature of the app. Think Airbnb/Uber style. Bold, modern, distinct.</p>
+      </div>
+    </div>
+    
+    <div class="option" data-choice="d" onclick="toggleSelect(this)">
+      <div class="letter">D</div>
+      <div class="content">
+        <h3>🟣 Hybrid Power User</h3>
+        <p>Tabbed sections within the home: "For You" (personalized), "Nearby" (location), "Trending" (community). Combines best of all worlds. More complex but maximum engagement.</p>
+      </div>
+    </div>
+  </div>
+</div>

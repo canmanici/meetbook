@@ -410,6 +410,77 @@ export async function confirmExchangeCompletion(exchangeId: string): Promise<Exc
   );
 }
 
+// --- Borrow / lending lifecycle ---
+
+export async function uploadLoanPhoto(
+  exchangeId: string,
+  uri: string,
+  contentType: string,
+): Promise<{ url: string }> {
+  const { accessToken } = useAuthStore.getState();
+  const formData = new FormData();
+  const filename = uri.split('/').pop() || 'photo.jpg';
+  formData.append('file', {
+    uri,
+    name: filename,
+    type: contentType,
+  } as unknown as Blob);
+
+  const res = await fetch(`${BASE_URL}/exchanges/${exchangeId}/photo`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: formData,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new ApiError(res.status, data);
+  return data;
+}
+
+export async function lendExchange(
+  exchangeId: string,
+  photoUrl: string,
+): Promise<ExchangeDetail> {
+  return authedRequest<ExchangeDetail>(`/exchanges/${exchangeId}/lend`, 'POST', {
+    photo_url: photoUrl,
+  });
+}
+
+export async function returnExchange(
+  exchangeId: string,
+  photoUrl: string,
+): Promise<ExchangeDetail> {
+  return authedRequest<ExchangeDetail>(`/exchanges/${exchangeId}/return`, 'POST', {
+    photo_url: photoUrl,
+  });
+}
+
+export async function confirmExchangeReturn(exchangeId: string): Promise<ExchangeDetail> {
+  return authedRequest<ExchangeDetail>(`/exchanges/${exchangeId}/confirm-return`, 'POST', undefined);
+}
+
+export async function requestExchangeExtension(
+  exchangeId: string,
+  days: number,
+): Promise<ExchangeDetail> {
+  return authedRequest<ExchangeDetail>(`/exchanges/${exchangeId}/extension`, 'POST', { days });
+}
+
+export async function approveExchangeExtension(exchangeId: string): Promise<ExchangeDetail> {
+  return authedRequest<ExchangeDetail>(
+    `/exchanges/${exchangeId}/extension/approve`,
+    'POST',
+    undefined,
+  );
+}
+
+export async function rejectExchangeExtension(exchangeId: string): Promise<ExchangeDetail> {
+  return authedRequest<ExchangeDetail>(
+    `/exchanges/${exchangeId}/extension/reject`,
+    'POST',
+    undefined,
+  );
+}
+
 export async function getWishlistMatches(): Promise<{
   matches: Array<{
     id: string;
@@ -589,6 +660,10 @@ export type UserPublicProfile = {
   completed_exchanges: number;
   rating_average: number;
   rating_count: number;
+  loans_borrowed_count?: number;
+  trust_score?: number;
+  trust_badge?: string;
+  trust_label?: string;
 };
 
 export async function getUser(userId: string): Promise<UserPublicProfile> {

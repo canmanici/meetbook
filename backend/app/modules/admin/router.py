@@ -20,8 +20,11 @@ from app.modules.admin.schemas import (
     BlockedPlaceCreateRequest,
     BlockedPlaceListResponse,
     BlockedPlaceView,
+    BroadcastRequest,
+    BroadcastResponse,
     MetricsResponse,
     ReportResolveRequest,
+    TrustScoreRequest,
     UserActionRequest,
 )
 from app.modules.admin.service import AdminError, AdminService
@@ -94,6 +97,54 @@ async def reinstate_user(
         return await service.reinstate_user(user_id, user.id)
     except AdminError as e:
         raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.post("/users/{user_id}/ban", response_model=AdminUserView)
+async def ban_user(
+    user_id: uuid.UUID,
+    body: UserActionRequest,
+    user: User = Depends(get_admin_user),
+    service: AdminService = Depends(_get_service),
+) -> AdminUserView:
+    try:
+        return await service.ban_user(user_id, user.id, body.reason)
+    except AdminError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.post("/users/{user_id}/unban", response_model=AdminUserView)
+async def unban_user(
+    user_id: uuid.UUID,
+    user: User = Depends(get_admin_user),
+    service: AdminService = Depends(_get_service),
+) -> AdminUserView:
+    try:
+        return await service.unban_user(user_id, user.id)
+    except AdminError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.post("/users/{user_id}/trust-score", response_model=AdminUserDetailView)
+async def set_trust_score(
+    user_id: uuid.UUID,
+    body: TrustScoreRequest,
+    user: User = Depends(get_admin_user),
+    service: AdminService = Depends(_get_service),
+) -> AdminUserDetailView:
+    try:
+        return await service.set_trust_score(user_id, user.id, body.score, body.reason)
+    except AdminError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.post("/notifications/broadcast", response_model=BroadcastResponse)
+async def broadcast_notification(
+    body: BroadcastRequest,
+    user: User = Depends(get_admin_user),
+    service: AdminService = Depends(_get_service),
+) -> BroadcastResponse:
+    count = await service.broadcast_notification(user.id, body.title, body.message)
+    return BroadcastResponse(recipients=count)
 
 
 @router.post("/books/{book_id}/takedown", status_code=204)

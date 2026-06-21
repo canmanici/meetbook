@@ -1,0 +1,25 @@
+# Development override — auto-restarts backend on code changes.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# What this changes vs production:
+#   1. Mounts source code as WRITABLE (not :ro)
+#   2. Sets ENV=development so start.sh uses file watcher
+#   3. Watches app/, scripts/, alembic/ for changes → auto-restarts uvicorn
+#   4. No image rebuild needed — just edit and save
+
+services:
+  backend:
+    # Install dev dependencies (watchfiles) before starting
+    entrypoint: ["sh", "-c", "uv sync && exec uv run --no-dev python scripts/start_app.py"]
+    environment:
+      PYTHON_JIT: "1"
+      ENV: development
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      # Writable source mount — overrides the :ro in docker-compose.yml
+      - ./backend/app:/app/app
+      - ./backend/scripts:/app/scripts
+      - ./backend/alembic:/app/alembic
+      - ./backend/alembic.ini:/app/alembic.ini:ro
+      # Keep media volume for uploads
+      - mediadata:/app/media

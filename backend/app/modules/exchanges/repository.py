@@ -12,9 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.geo import make_point
 from app.modules.books.repository import decode_cursor
 from app.modules.exchanges.models import (
+    ACTIVE_LOAN_STATUSES,
     ACTIVE_STATUSES,
     Block,
     Chat,
+    ExchangeMode,
     ExchangeRequest,
     ExchangeStatus,
     Meetup,
@@ -34,6 +36,8 @@ class ExchangeRepository:
         requested_to: uuid.UUID,
         initial_message: str,
         expires_at: datetime,
+        mode: ExchangeMode = ExchangeMode.trade,
+        loan_duration_days: int | None = None,
     ) -> ExchangeRequest:
         request = ExchangeRequest(
             book_id=book_id,
@@ -42,10 +46,35 @@ class ExchangeRepository:
             initial_message=initial_message,
             status=ExchangeStatus.pending,
             expires_at=expires_at,
+            mode=mode,
+            loan_duration_days=loan_duration_days,
         )
         self.session.add(request)
         await self.session.flush()
         return request
+
+    async def has_active_loan_as_borrower(self, requester_id: uuid.UUID) -> bool:
+        """True if the user currently holds a borrowed book (single active loan rule)."""
+        stmt = select(func.count()).select_from(ExchangeRequest).where(
+            ExchangeRequest.requested_by == requester_id,
+            ExchangeRequest.mode == ExchangeMode.borrow,
+            ExchangeRequest.status.in_(ACTIVE_LOAN_STATUSES),
+        )
+        result = await self.session.execute(stmt)
+        return (result.scalar() or 0) > 0
+
+    async def list_due_loans(
+        self, statuses: tuple[ExchangeStatus, ...], before: datetime
+    ) -> list[ExchangeRequest]:
+        """Active loans whose due_at is at/before the given instant (worker use)."""
+        stmt = select(ExchangeRequest).where(
+            ExchangeRequest.mode == ExchangeMode.borrow,
+            ExchangeRequest.status.in_(statuses),
+            ExchangeRequest.due_at.isnot(None),
+            ExchangeRequest.due_at <= before,
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def get(self, exchange_id: uuid.UUID) -> ExchangeRequest | None:
         result = await self.session.execute(

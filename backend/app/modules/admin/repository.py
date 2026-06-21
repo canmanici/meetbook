@@ -39,6 +39,12 @@ class AdminRepository:
         result = await self.session.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
+    async def list_active_user_ids(self) -> list[uuid.UUID]:
+        result = await self.session.execute(
+            select(User.id).where(User.status == UserStatus.active)
+        )
+        return list(result.scalars().all())
+
     # -- Books ------------------------------------------------------------------
 
     async def get_book(self, book_id: uuid.UUID) -> Book | None:

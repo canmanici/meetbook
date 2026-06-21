@@ -29,6 +29,7 @@ import {
   fontSize,
   radius,
   shadows,
+  TrustBadge,
 } from '@/components/ui';
 import {
   BOOK_CATEGORIES,
@@ -41,6 +42,7 @@ import {
   type BookCondition,
 } from '@/constants/books';
 import { addFavorite, ApiError, createExchange, deleteBook, getBook, incrementBookView, listExchanges, lookupISBN, removeFavorite, updateBook } from '@/lib/api/client';
+import { DatePicker } from '@/components/ui/date-time-picker';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth-store';
 import { useBookDraftStore } from '@/stores/book-draft-store';
@@ -231,16 +233,46 @@ export default function BookDetailScreen() {
 
   const [requestMessage, setRequestMessage] = useState('');
   const [requestError, setRequestError] = useState<string | null>(null);
+  // Exchange mode: permanent trade vs. time-limited borrow.
+  const [mode, setMode] = useState<'trade' | 'borrow'>('trade');
+  // Quick duration buttons (days) plus a 'manual' option that reveals a date picker.
+  const [durationChoice, setDurationChoice] = useState<'7' | '15' | '30' | 'manual'>('15');
+  const [manualDueDate, setManualDueDate] = useState<Date | null>(null);
+
+  const loanDurationDays = (() => {
+    if (durationChoice !== 'manual') return Number(durationChoice);
+    if (!manualDueDate) return null;
+    const days = Math.ceil((manualDueDate.getTime() - Date.now()) / 86400000);
+    return days >= 1 ? days : null;
+  })();
 
   const requestMutation = useMutation({
-    mutationFn: () => createExchange({ book_id: id, initial_message: requestMessage.trim() || 'Merhaba, bu kitapla ilgileniyorum!' }),
+    mutationFn: () =>
+      createExchange({
+        book_id: id,
+        initial_message: requestMessage.trim() || 'Merhaba, bu kitapla ilgileniyorum!',
+        mode,
+        ...(mode === 'borrow' ? { loan_duration_days: loanDurationDays } : {}),
+      }),
     onSuccess: async (exchange) => {
       await queryClient.invalidateQueries({ queryKey: ['exchanges', 'sent'] });
-      toast.show('Takas isteği gönderildi! 🎉', { variant: 'success', duration: 4000 });
+      toast.show(
+        mode === 'borrow' ? 'Ödünç isteği gönderildi! 🎉' : 'Takas isteği gönderildi! 🎉',
+        { variant: 'success', duration: 4000 },
+      );
       router.push(`/exchange/${exchange.id}`);
     },
     onError: (err) => {
-      if (err instanceof ApiError && err.status === 409) {
+      const detail =
+        err instanceof ApiError &&
+        err.body &&
+        typeof err.body === 'object' &&
+        'detail' in err.body
+          ? (err.body as { detail?: string }).detail
+          : undefined;
+      if (detail === 'ACTIVE_LOAN_EXISTS') {
+        setRequestError('Zaten ödünçte bir kitabın var. Önce onu iade et.');
+      } else if (err instanceof ApiError && err.status === 409) {
         setRequestError('Bu kitap için zaten bir talebin var.');
       } else if (
         err instanceof ApiError &&
@@ -654,7 +686,37 @@ export default function BookDetailScreen() {
         {/* Request section for non-owners */}
         {!isOwner && book.is_available && (
           <View style={[styles.requestCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.requestTitle, { color: colors.text }]}>Takas Mesajı (opsiyonel)</Text>
+            <ChipSelect
+              label="Nasıl almak istersin?"
+              options={['trade', 'borrow'] as const}
+              labels={{ trade: 'Takas', borrow: 'Ödünç Al' }}
+              value={mode}
+              onChange={setMode}
+              testIDPrefix="exchange-mode"
+            />
+            {mode === 'borrow' && (
+              <>
+                <ChipSelect
+                  label="Ne kadar süre?"
+                  options={['7', '15', '30', 'manual'] as const}
+                  labels={{ '7': '1 Hafta', '15': '15 Gün', '30': '1 Ay', manual: 'Tarih Seç' }}
+                  value={durationChoice}
+                  onChange={setDurationChoice}
+                  testIDPrefix="loan-duration"
+                />
+                {durationChoice === 'manual' && (
+                  <DatePicker
+                    label="İade tarihi"
+                    value={manualDueDate}
+                    minimumDate={new Date()}
+                    onChange={setManualDueDate}
+                  />
+                )}
+              </>
+            )}
+            <Text style={[styles.requestTitle, { color: colors.text }]}>
+              {mode === 'borrow' ? 'Ödünç Mesajı (opsiyonel)' : 'Takas Mesajı (opsiyonel)'}
+            </Text>
             <Input
               label="Mesaj"
               value={requestMessage}
@@ -685,7 +747,7 @@ export default function BookDetailScreen() {
           <TouchableOpacity
             style={styles.exchangeButton}
             onPress={() => requestMutation.mutate()}
-            disabled={requestMutation.isPending}
+            disabled={requestMutation.isPending || (mode === 'borrow' && loanDurationDays == null)}
             testID="request-exchange-button">
             <LinearGradient
               colors={[colors.success, colors.primary]}
@@ -696,7 +758,7 @@ export default function BookDetailScreen() {
                 <ActivityIndicator color={colors.surface} size="small" />
               ) : (
                 <Text style={[styles.exchangeButtonText, { color: '#fff' }]}>
-                  Takas İste
+                  {mode === 'borrow' ? 'Ödünç İste' : 'Takas İste'}
                 </Text>
               )}
             </LinearGradient>
@@ -762,11 +824,16 @@ function PendingRequestsSection({ bookId, colors, queryClient }: { bookId: strin
               </View>
               <View style={styles.pendingItemInfo}>
                 <Text style={[styles.pendingItemName, { color: colors.text }]}>
-                  {exchange.sender?.name ?? 'Bilinmeyen'}
+                  {exchange.counterpart?.name ?? exchange.sender?.name ?? 'Bilinmeyen'}
                 </Text>
                 <Text style={[styles.pendingItemTime, { color: colors.textMuted }]}>
-                  {formatTime(exchange.created_at)}
+                  {exchange.mode === 'borrow' ? 'Ödünç' : 'Takas'} · {formatTime(exchange.created_at)}
                 </Text>
+                {exchange.counterpart?.trust && (
+                  <View style={{ marginTop: 4, alignSelf: 'flex-start' }}>
+                    <TrustBadge trust={exchange.counterpart.trust} showBorrowCount />
+                  </View>
+                )}
               </View>
             </View>
             {isPending && (

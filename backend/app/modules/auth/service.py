@@ -262,12 +262,29 @@ class AuthService:
         user = await self.repo.get_user_by_id(user_id)
         if user is None:
             raise AuthError("Not found", 404)
+        from app.modules.auth.trust import compute_trust
+
+        trust = compute_trust(
+            rating_average=float(user.rating_average or 0),
+            loans_borrowed_count=user.loans_borrowed_count,
+            loans_returned_on_time=user.loans_returned_on_time,
+            loans_returned_late=user.loans_returned_late,
+            trust_score_override=(
+                float(user.trust_score_override)
+                if user.trust_score_override is not None
+                else None
+            ),
+        )
         return UserPublicProfile(
             id=user.id,
             name=user.name,
             completed_exchanges=user.completed_exchanges,
             rating_average=float(user.rating_average),
             rating_count=user.rating_count,
+            loans_borrowed_count=user.loans_borrowed_count,
+            trust_score=trust.score,
+            trust_badge=trust.badge,
+            trust_label=trust.label,
         )
 
     async def update_me(self, user_id: uuid.UUID, body: UpdateMeRequest) -> MeResponse:

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Badge, EmptyState, Skeleton, palette, spacing, fontSize, radius, type ThemeColors } from '@/components/ui';
+import { Badge, EmptyState, Skeleton, TrustBadge, palette, spacing, fontSize, radius, type ThemeColors } from '@/components/ui';
 import { acceptExchange, rejectExchange, listExchanges, type ExchangeSummary } from '@/lib/api/client';
 import { EXCHANGE_STATUS_LABELS, EXCHANGE_STATUS_VARIANTS } from '@/constants/exchanges';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,15 +35,16 @@ export default function RequestsScreen() {
 
   const items = data?.items ?? [];
 
-  const tabs: { key: RequestTab; label: string }[] = [
-    { key: 'received', label: 'Gelen' },
-    { key: 'sent', label: 'Giden' },
+  const tabs: { key: RequestTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { key: 'received', label: 'Gelen', icon: 'arrow-down-circle' },
+    { key: 'sent', label: 'Giden', icon: 'arrow-up-circle' },
   ];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <View style={[styles.header, { backgroundColor: colors.surface }]}>
-        <View style={styles.tabRow}>
+      {/* Tabs */}
+      <View style={styles.tabContainer}>
+        <View style={[styles.tabRow, { backgroundColor: colors.surfaceAlt }]}>
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
             return (
@@ -52,26 +53,45 @@ export default function RequestsScreen() {
                 onPress={() => setActiveTab(tab.key)}
                 style={[
                   styles.tab,
-                  isActive
-                    ? { backgroundColor: colors.primary }
-                    : { borderColor: colors.primary, borderWidth: 1 },
+                  isActive && styles.tabActive,
                 ]}
                 testID={`tab-${tab.key}`}
               >
+                {isActive && (
+                  <LinearGradient
+                    colors={[colors.primary, colors.primary + 'DD']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.tabGradient}
+                  />
+                )}
+                <Ionicons
+                  name={tab.icon}
+                  size={16}
+                  color={isActive ? '#fff' : colors.textMuted}
+                  style={{ marginRight: 6 }}
+                />
                 <Text
                   style={[
                     styles.tabText,
-                    { color: isActive ? colors.surface : colors.primary },
+                    { color: isActive ? '#fff' : colors.textMuted },
                   ]}
                 >
                   {tab.label}
                 </Text>
+                {isActive && items.length > 0 && (
+                  <View style={[styles.tabBadge, { backgroundColor: '#fff' }]}>
+                    <Text style={[styles.tabBadgeText, { color: colors.primary }]}>{items.length}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })}
         </View>
       </View>
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+
+      {/* Content */}
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {isLoading ? (
           <>
             <Skeleton variant="list-item" />
@@ -82,9 +102,9 @@ export default function RequestsScreen() {
           <EmptyState
             message={activeTab === 'received' ? 'Henüz gelen talep yok' : 'Henüz giden talep yok'}
             description="Yakınındaki kitaplardan birini iste!"
-            illustration={<Text style={styles.illustration}>📋</Text>}
+            icon={activeTab === 'received' ? 'arrow-down-circle' : 'arrow-up-circle'}
             actionLabel="Kitaplara Göz At"
-            onAction={() => router.push('/tabs/search')}
+            onAction={() => router.push('/tabs/home')}
           />
         ) : activeTab === 'received' ? (
           items.map((item) => (
@@ -112,6 +132,7 @@ function IncomingRequestRow({
   const createdAt = new Date(item.created_at);
   const statusLabel = EXCHANGE_STATUS_LABELS[item.status] ?? item.status;
   const statusVariant = EXCHANGE_STATUS_VARIANTS[item.status] ?? 'info';
+  const isPending = item.status === 'pending';
 
   const acceptMutation = useMutation({
     mutationFn: acceptExchange,
@@ -137,60 +158,102 @@ function IncomingRequestRow({
     },
   });
 
-  const isPending = item.status === 'pending';
-
   return (
-    <TouchableOpacity
-      style={[styles.row, { backgroundColor: colors.surface }]}
-      onPress={() => router.push(`/exchange/${item.id}`)}
-      testID={`request-row-${item.id}`}
-    >
-      <View style={styles.rowHeader}>
-        <LinearGradient
-          colors={[colors.primary, colors.success]}
-          style={styles.avatarGradient}
-        >
-          <Text style={styles.avatarText}>{item.counterpart.name.charAt(0)}</Text>
-        </LinearGradient>
-        <View style={styles.rowInfo}>
-          <Text style={[styles.rowTitle, { color: colors.text }]}>{item.counterpart.name}</Text>
-          <Text style={[styles.rowSubtitle, { color: colors.textMuted }]}>
-            {item.book.title}
-          </Text>
-          <Text style={[styles.rowDate, { color: colors.textMuted }]}>
-            {createdAt.toLocaleDateString('tr-TR')}
-          </Text>
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      {/* Top accent line */}
+      <LinearGradient
+        colors={isPending ? [colors.primary, colors.primary + '88'] : [colors.textMuted + '44', colors.textMuted + '22']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.cardAccent}
+      />
+
+      <TouchableOpacity
+        onPress={() => router.push(`/exchange/${item.id}`)}
+        testID={`request-row-${item.id}`}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardContent}>
+          {/* Avatar + Info */}
+          <View style={styles.cardTop}>
+            <View style={styles.avatarWrap}>
+              <LinearGradient
+                colors={[colors.primary, colors.primary + 'BB']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.avatarGradient}
+              >
+                <Text style={styles.avatarText}>{item.counterpart.name.charAt(0)}</Text>
+              </LinearGradient>
+              {isPending && (
+                <View style={[styles.pulseDot, { backgroundColor: colors.success }]} />
+              )}
+            </View>
+            <View style={styles.cardInfo}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>{item.counterpart.name}</Text>
+              <Text style={[styles.cardSubtitle, { color: colors.textMuted }]}>
+                {item.book.title}
+              </Text>
+              <View style={styles.cardMeta}>
+                <View style={[styles.metaTag, { backgroundColor: colors.primary + '15' }]}>
+                  <Ionicons name={item.mode === 'borrow' ? 'hand-left-outline' : 'swap-horizontal-outline'} size={12} color={colors.primary} />
+                  <Text style={[styles.metaTagText, { color: colors.primary }]}>
+                    {item.mode === 'borrow' ? 'Ödünç' : 'Takas'}
+                  </Text>
+                </View>
+                <View style={[styles.metaTag, { backgroundColor: colors.surfaceAlt }]}>
+                  <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
+                  <Text style={[styles.metaTagText, { color: colors.textMuted }]}>
+                    {createdAt.toLocaleDateString('tr-TR')}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <Badge text={statusLabel} variant={statusVariant} testID={`request-status-${item.id}`} />
+          </View>
+
+          {/* Trust badge */}
+          {item.counterpart.trust && (
+            <View style={styles.trustRow}>
+              <TrustBadge trust={item.counterpart.trust} showBorrowCount />
+            </View>
+          )}
         </View>
-        <Badge text={statusLabel} variant={statusVariant} testID={`request-status-${item.id}`} />
-      </View>
+      </TouchableOpacity>
+
+      {/* Action buttons */}
       {isPending && (
         <View style={styles.actionRow}>
           <TouchableOpacity
-            style={styles.acceptButton}
+            style={styles.acceptButtonWrap}
             onPress={() => acceptMutation.mutate(item.id)}
             disabled={acceptMutation.isPending || rejectMutation.isPending}
+            activeOpacity={0.85}
             testID={`accept-${item.id}`}
           >
             <LinearGradient
-              colors={[colors.primary, colors.success]}
+              colors={[colors.primary, colors.primary + 'CC']}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.acceptButtonGradient}
+              end={{ x: 1, y: 1 }}
+              style={styles.acceptButton}
             >
+              <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
               <Text style={styles.acceptButtonText}>Onayla</Text>
             </LinearGradient>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.rejectButton, { borderColor: colors.danger }]}
+            style={[styles.rejectButtonWrap, { borderColor: colors.danger + '40' }]}
             onPress={() => rejectMutation.mutate(item.id)}
             disabled={acceptMutation.isPending || rejectMutation.isPending}
+            activeOpacity={0.7}
             testID={`reject-${item.id}`}
           >
+            <Ionicons name="close-circle-outline" size={18} color={colors.danger} />
             <Text style={[styles.rejectButtonText, { color: colors.danger }]}>Reddet</Text>
           </TouchableOpacity>
         </View>
       )}
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -206,30 +269,43 @@ function OutgoingRequestRow({
   const statusVariant = EXCHANGE_STATUS_VARIANTS[item.status] ?? 'info';
 
   return (
-    <TouchableOpacity
-      style={[styles.row, { backgroundColor: colors.surface }]}
-      onPress={() => router.push(`/exchange/${item.id}`)}
-      testID={`request-row-${item.id}`}
-    >
-      <View style={styles.rowHeader}>
-        <LinearGradient
-          colors={[colors.accent, colors.warning]}
-          style={styles.bookThumbGradient}
-        >
-          <Ionicons name="book" size={24} color={colors.surface} />
-        </LinearGradient>
-        <View style={styles.rowInfo}>
-          <Text style={[styles.rowTitle, { color: colors.text }]}>{item.book.title}</Text>
-          <Text style={[styles.rowSubtitle, { color: colors.textMuted }]}>
-            {item.counterpart.name}
-          </Text>
-          <Text style={[styles.rowDate, { color: colors.textMuted }]}>
-            {createdAt.toLocaleDateString('tr-TR')}
-          </Text>
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <TouchableOpacity
+        onPress={() => router.push(`/exchange/${item.id}`)}
+        testID={`request-row-${item.id}`}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardContent}>
+          <View style={styles.cardTop}>
+            <View style={styles.avatarWrap}>
+              <LinearGradient
+                colors={[colors.accent, colors.warning]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.avatarGradient}
+              >
+                <Ionicons name="book" size={20} color="#fff" />
+              </LinearGradient>
+            </View>
+            <View style={styles.cardInfo}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>{item.book.title}</Text>
+              <Text style={[styles.cardSubtitle, { color: colors.textMuted }]}>
+                {item.counterpart.name}
+              </Text>
+              <View style={styles.cardMeta}>
+                <View style={[styles.metaTag, { backgroundColor: colors.surfaceAlt }]}>
+                  <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
+                  <Text style={[styles.metaTagText, { color: colors.textMuted }]}>
+                    {createdAt.toLocaleDateString('tr-TR')}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <Badge text={statusLabel} variant={statusVariant} testID={`request-status-${item.id}`} />
+          </View>
         </View>
-        <Badge text={statusLabel} variant={statusVariant} testID={`request-status-${item.id}`} />
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -237,108 +313,188 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  tabContainer: {
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   tabRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    borderRadius: radius.button,
+    padding: 3,
   },
   tab: {
     flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.input,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm + 1,
+    borderRadius: radius.button - 2,
+    overflow: 'hidden',
+  },
+  tabActive: {
+    shadowColor: '#11806B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  tabGradient: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: radius.button - 2,
   },
   tabText: {
-    fontSize: fontSize.body,
-    fontWeight: '600',
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+  },
+  tabBadge: {
+    marginLeft: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  tabBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
   },
   content: {
     flex: 1,
   },
   scrollContent: {
     padding: spacing.lg,
-    gap: spacing.sm,
+    paddingTop: spacing.sm,
+    gap: spacing.md,
   },
-  illustration: {
-    fontSize: 64,
-    marginBottom: spacing.xl,
+  card: {
+    borderRadius: radius.card,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#2A1F10',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 4,
   },
-  row: {
+  cardAccent: {
+    height: 3,
+  },
+  cardContent: {
     padding: spacing.md,
-    borderRadius: radius.input,
-    marginBottom: spacing.sm,
   },
-  rowHeader: {
+  cardTop: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  avatarWrap: {
+    position: 'relative',
   },
   avatarGradient: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#11806B',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
   avatarText: {
     color: '#fff',
-    fontSize: fontSize.body,
-    fontWeight: '700',
+    fontSize: fontSize.title,
+    fontWeight: '800',
   },
-  bookThumbGradient: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.input,
-    alignItems: 'center',
-    justifyContent: 'center',
+  pulseDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: '#fff',
   },
-  rowInfo: {
+  cardInfo: {
     flex: 1,
   },
-  rowTitle: {
+  cardTitle: {
     fontSize: fontSize.body,
-    fontWeight: '600',
+    fontWeight: '800',
+    lineHeight: 20,
   },
-  rowSubtitle: {
+  cardSubtitle: {
     fontSize: fontSize.bodySm,
     marginTop: 2,
+    fontWeight: '500',
   },
-  rowDate: {
+  cardMeta: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  metaTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  metaTagText: {
     fontSize: fontSize.caption,
-    marginTop: 4,
+    fontWeight: '600',
+  },
+  trustRow: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.04)',
   },
   actionRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  acceptButtonWrap: {
+    flex: 1,
+    borderRadius: radius.button,
+    shadowColor: '#11806B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 5,
   },
   acceptButton: {
-    flex: 1,
-    borderRadius: radius.input,
-    overflow: 'hidden',
-  },
-  acceptButtonGradient: {
-    paddingVertical: spacing.sm,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: radius.input,
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.button,
   },
   acceptButtonText: {
     color: '#fff',
     fontSize: fontSize.bodySm,
-    fontWeight: '600',
+    fontWeight: '800',
   },
-  rejectButton: {
+  rejectButtonWrap: {
     flex: 1,
-    borderWidth: 1,
-    borderRadius: radius.input,
-    paddingVertical: spacing.sm,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1.5,
+    borderRadius: radius.button,
+    paddingVertical: spacing.sm + 2,
   },
   rejectButtonText: {
     fontSize: fontSize.bodySm,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

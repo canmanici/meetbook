@@ -1449,6 +1449,25 @@
                             <div class="bar-chart" id="reports-chart"></div>
                         </div>
                     </div>
+
+                    <div class="chart-container" style="margin-top: 1.5rem;">
+                        <div class="chart-header">
+                            <h3 class="chart-title">Toplu Mesaj Gonder</h3>
+                        </div>
+                        <div style="display: grid; gap: 0.75rem; max-width: 640px;">
+                            <div>
+                                <label class="form-label" for="broadcast-title">Baslik</label>
+                                <input class="form-input" type="text" id="broadcast-title" maxlength="200" placeholder="Duyuru basligi">
+                            </div>
+                            <div>
+                                <label class="form-label" for="broadcast-message">Mesaj</label>
+                                <textarea class="form-textarea" id="broadcast-message" maxlength="2000" placeholder="Tum aktif kullanicilara gidecek mesaj"></textarea>
+                            </div>
+                            <div>
+                                <button class="btn btn-primary" onclick="sendBroadcast()">Gonder</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Reports Page -->
@@ -1503,6 +1522,7 @@
                                 <option value="">Tumu</option>
                                 <option value="active">Aktif</option>
                                 <option value="suspended">Askida</option>
+                                <option value="banned">Banli</option>
                                 <option value="deleted">Silinmis</option>
                             </select>
                         </div>
@@ -2245,6 +2265,7 @@
                             <button class="btn btn-secondary btn-sm" onclick="viewUser('${user.id}')">Gor</button>
                             ${user.status === 'active' ? `<button class="btn btn-danger btn-sm" onclick="showSuspendModal('${user.id}')">Asagi Al</button>` : ''}
                             ${user.status === 'suspended' ? `<button class="btn btn-success btn-sm" onclick="reinstateUser('${user.id}')">Geri Yükle</button>` : ''}
+                            ${user.status === 'banned' ? `<button class="btn btn-success btn-sm" onclick="unbanUser('${user.id}')">Ban Kaldir</button>` : `<button class="btn btn-danger btn-sm" onclick="banUser('${user.id}')">Banla</button>`}
                         </td>
                     </tr>
                 `).join('');
@@ -2263,7 +2284,8 @@
             const badges = {
                 active: 'success',
                 suspended: 'warning',
-                deleted: 'danger'
+                deleted: 'danger',
+                banned: 'danger'
             };
             return badges[status] || 'primary';
         }
@@ -2282,6 +2304,15 @@
                         <div><strong>Admin:</strong> ${user.is_admin ? 'Evet' : 'Hayir'}</div>
                         <div><strong>Puan:</strong> ${user.rating_average.toFixed(2)} (${user.rating_count} degerlendirme)</div>
                         <div><strong>Takas:</strong> ${user.completed_exchanges} tamamlanmis</div>
+                        <div><strong>Guven Skoru:</strong> <span class="badge badge-primary">${user.trust_score ?? '-'}</span>${user.trust_score_override != null ? ' (manuel)' : ''}</div>
+                        <div><strong>Odunc Aldigi:</strong> ${user.loans_borrowed_count ?? 0} (zamaninda: ${user.loans_returned_on_time ?? 0}, gec: ${user.loans_returned_late ?? 0})</div>
+                        <div style="display:flex; gap:0.5rem; align-items:flex-end;">
+                            <div style="flex:1;">
+                                <label class="form-label" for="trust-score-input">Guven Skoru Override (0-100, bos=otomatik)</label>
+                                <input class="form-input" type="number" min="0" max="100" id="trust-score-input" value="${user.trust_score_override != null ? user.trust_score_override : ''}">
+                            </div>
+                            <button class="btn btn-primary btn-sm" onclick="setTrustScore('${user.id}')">Kaydet</button>
+                        </div>
                         <div><strong>Kayit:</strong> ${formatDate(user.created_at)}</div>
                         <div><strong>Guncelleme:</strong> ${formatDate(user.updated_at)}</div>
                         <div><strong>Son Aktif:</strong> ${user.last_active_at ? formatDate(user.last_active_at) : '-'}</div>
@@ -2298,6 +2329,11 @@
                 }
                 if (user.status === 'suspended') {
                     footer += `<button class="btn btn-success" onclick="reinstateUser('${user.id}'); closeModal('user-modal');">Geri Yükle</button>`;
+                }
+                if (user.status === 'banned') {
+                    footer += `<button class="btn btn-success" onclick="unbanUser('${user.id}'); closeModal('user-modal');">Ban Kaldir</button>`;
+                } else {
+                    footer += `<button class="btn btn-danger" onclick="banUser('${user.id}'); closeModal('user-modal');">Banla</button>`;
                 }
                 document.getElementById('user-modal-footer').innerHTML = footer;
 
@@ -2337,6 +2373,67 @@
                 loadUsers();
             } catch (error) {
                 console.error('Reinstate user error:', error);
+            }
+        }
+
+        async function banUser(id) {
+            const reason = prompt('Banlama nedeni (opsiyonel):');
+            try {
+                await api(`/admin/users/${id}/ban`, {
+                    method: 'POST',
+                    body: JSON.stringify({ reason: reason || null })
+                });
+                showToast('Basarili', 'Kullanici banlandi', 'success');
+                loadUsers();
+            } catch (error) {
+                console.error('Ban user error:', error);
+            }
+        }
+
+        async function unbanUser(id) {
+            try {
+                await api(`/admin/users/${id}/unban`, { method: 'POST' });
+                showToast('Basarili', 'Kullanici banlamasi kaldirildi', 'success');
+                loadUsers();
+            } catch (error) {
+                console.error('Unban user error:', error);
+            }
+        }
+
+        async function setTrustScore(id) {
+            const raw = document.getElementById('trust-score-input').value;
+            const score = raw === '' ? null : Number(raw);
+            try {
+                await api(`/admin/users/${id}/trust-score`, {
+                    method: 'POST',
+                    body: JSON.stringify({ score, reason: null })
+                });
+                showToast('Basarili', 'Guven skoru guncellendi', 'success');
+                closeModal('user-modal');
+                loadUsers();
+            } catch (error) {
+                console.error('Set trust score error:', error);
+            }
+        }
+
+        async function sendBroadcast() {
+            const title = document.getElementById('broadcast-title').value.trim();
+            const message = document.getElementById('broadcast-message').value.trim();
+            if (!title || !message) {
+                showToast('Hata', 'Baslik ve mesaj zorunlu', 'error');
+                return;
+            }
+            if (!confirm('Tum aktif kullanicilara mesaj gonderilecek. Emin misiniz?')) return;
+            try {
+                const res = await api('/admin/notifications/broadcast', {
+                    method: 'POST',
+                    body: JSON.stringify({ title, message })
+                });
+                showToast('Basarili', `${res.recipients} kullaniciya gonderildi`, 'success');
+                document.getElementById('broadcast-title').value = '';
+                document.getElementById('broadcast-message').value = '';
+            } catch (error) {
+                console.error('Broadcast error:', error);
             }
         }
 

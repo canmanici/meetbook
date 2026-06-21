@@ -10,17 +10,25 @@ import {
   Platform,
   useColorScheme,
   ActivityIndicator,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
-import { palette, spacing, fontSize } from '@/components/ui';
+import { spacing, fontSize, radius, palette, shadows } from '@/components/ui/tokens';
+import { Avatar } from '@/components/ui/avatar';
+import { MessageBubble } from '@/components/ui/message-bubble';
+import { TypingIndicator } from '@/components/ui/typing-indicator';
+import { EmojiPicker } from '@/components/ui/emoji-picker';
 import {
   getMessages,
   listChats,
   markMessagesRead,
+  searchMessages,
   type MessageView,
   type MessageListResponse,
 } from '@/lib/api/chat';
@@ -28,6 +36,55 @@ import { useShallow } from 'zustand/react/shallow';
 import { useChatStore } from '@/stores/chat-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { getExchange } from '@/lib/api/client';
+
+// ---------------------------------------------------------------------------
+// Date separator helpers
+// ---------------------------------------------------------------------------
+
+function isSameDay(a: string, b: string): boolean {
+  const da = new Date(a);
+  const db = new Date(b);
+  return (
+    da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()
+  );
+}
+
+function formatDateLabel(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffMs = today.getTime() - msgDay.getTime();
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffDays === 0) return 'Bugün';
+  if (diffDays === 1) return 'Dün';
+  if (diffDays < 7) {
+    const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+    return days[d.getDay()];
+  }
+  return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function formatTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+}
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+type MessageListItem =
+  | { type: 'date'; date: string; key: string }
+  | { type: 'typing'; key: string }
+  | { type: 'message'; message: MessageView; key: string };
+
+// ---------------------------------------------------------------------------
+// Screen
+// ---------------------------------------------------------------------------
 
 export default function ChatDetailScreen() {
   const { id: exchangeId } = useLocalSearchParams<{ id: string }>();
@@ -40,9 +97,25 @@ export default function ChatDetailScreen() {
 
   const currentUserId = useAuthStore((s) => s.user?.id);
   const sendMessage = useChatStore((s) => s.sendMessage);
+  const sendTyping = useChatStore((s) => s.sendTyping);
+  const sendDelete = useChatStore((s) => s.sendDelete);
+  const sendReaction = useChatStore((s) => s.sendReaction);
+  const replyingTo = useChatStore((s) => s.replyingTo);
+  const setReplyingTo = useChatStore((s) => s.setReplyingTo);
 
-  // Resolve the real Chat.id for this exchange — the WS protocol and
-  // real-time message buffer key on Chat.id, not ExchangeRequest.id.
+  const [inputText, setInputText] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<MessageView[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
+  const lastReadRef = useRef<string | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<TextInput>(null);
+
+  // ---- Resolve Chat.id ----
   const { data: chatsData } = useQuery({
     queryKey: ['chats'],
     queryFn: listChats,
@@ -53,24 +126,27 @@ export default function ChatDetailScreen() {
     [chatsData, exchangeId],
   );
 
+  const chatSummary = useMemo(
+    () => chatsData?.items.find((c) => c.exchange_id === exchangeId),
+    [chatsData, exchangeId],
+  );
+
   const realtimeMessages = useChatStore(useShallow((s) => s.messages[chatId ?? ''] ?? []));
+  const typingState = useChatStore(useShallow((s) => s.typing[chatId ?? ''] ?? {}));
 
-  const [inputText, setInputText] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
-  const lastReadRef = useRef<string | null>(null);
-
-  // Fetch exchange detail for counterpart name
+  // ---- Exchange info ----
   const { data: exchange } = useQuery({
     queryKey: ['exchange', exchangeId],
     queryFn: () => getExchange(exchangeId!),
     enabled: !!exchangeId,
   });
 
-  const counterpartName =
-    exchange?.counterpart?.name ?? 'Sohbet';
+  const counterpartName = exchange?.counterpart?.name ?? chatSummary?.counterpart_name ?? 'Sohbet';
+  const counterpartId = exchange?.counterpart?.id ?? chatSummary?.counterpart_id;
 
-  // Fetch messages — newest first, cursor-paginated
+  const isOtherTyping = counterpartId && typingState[counterpartId];
+
+  // ---- Messages ----
   const {
     data,
     isLoading,
@@ -85,11 +161,10 @@ export default function ChatDetailScreen() {
     enabled: !!exchangeId,
   });
 
-  // Flatten pages (oldest → newest)
-  const allMessages = useMemo(() => {
+  // Merge paginated + real-time, oldest → newest
+  const rawMessages = useMemo(() => {
     const pages = data?.pages ?? [];
     const msgs = pages.flatMap((p: MessageListResponse) => p.items).reverse();
-    // Merge real-time messages
     const existingIds = new Set(msgs.map((m: MessageView) => m.id));
     for (const rm of realtimeMessages) {
       if (!existingIds.has(rm.id)) {
@@ -99,322 +174,584 @@ export default function ChatDetailScreen() {
     return msgs;
   }, [data, realtimeMessages]);
 
-  // Mark messages as read
+  // Build flat list with date separators + typing indicator
+  const listData: MessageListItem[] = useMemo(() => {
+    const items: MessageListItem[] = [];
+    let lastDate: string | null = null;
+    for (const msg of rawMessages) {
+      if (!lastDate || !isSameDay(lastDate, msg.created_at)) {
+        const label = formatDateLabel(msg.created_at);
+        items.push({ type: 'date', date: label, key: `date-${label}` });
+        lastDate = msg.created_at;
+      }
+      items.push({ type: 'message', message: msg, key: msg.id });
+    }
+    // Typing indicator at the end
+    if (isOtherTyping) {
+      items.push({ type: 'typing', key: 'typing-indicator' });
+    }
+    return items;
+  }, [rawMessages, isOtherTyping]);
+
+  // ---- Mark as read ----
   useEffect(() => {
-    if (!exchangeId || allMessages.length === 0) return;
-    const latest = allMessages[allMessages.length - 1];
+    if (!exchangeId || rawMessages.length === 0) return;
+    const latest = rawMessages[rawMessages.length - 1];
     if (latest && latest.sender_id !== currentUserId && latest.id !== lastReadRef.current) {
       lastReadRef.current = latest.id;
       markMessagesRead(exchangeId, latest.id).catch(() => {});
     }
-  }, [allMessages.length, exchangeId, currentUserId]);
+  }, [rawMessages.length, exchangeId, currentUserId]);
 
-  // Scroll to bottom on new message
-  const scrollToBottom = useCallback(() => {
+  // ---- Scroll helpers ----
+  const scrollToBottom = useCallback((animated = true) => {
     setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+      flatListRef.current?.scrollToEnd({ animated });
+    }, 80);
   }, []);
 
   useEffect(() => {
-    if (allMessages.length > 0) scrollToBottom();
-  }, [realtimeMessages.length]);
+    if (rawMessages.length > 0) scrollToBottom();
+  }, [realtimeMessages.length, isOtherTyping]);
 
-  // Send message
+  // ---- Typing indicator ----
+  const handleInputChange = (text: string) => {
+    setInputText(text);
+    if (chatId) {
+      sendTyping(chatId, true);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        sendTyping(chatId, false);
+      }, 2000);
+    }
+  };
+
+  // ---- Send ----
   const handleSend = async () => {
     const text = inputText.trim();
     if (!text || !chatId || isSending) return;
 
     setIsSending(true);
     setInputText('');
+    setShowEmojiPicker(false);
 
-    // Optimistic local add
-    const tempId = `temp-${Date.now()}`;
-    const optimisticMsg: MessageView = {
-      id: tempId,
-      chat_id: chatId,
-      sender_id: currentUserId ?? '',
-      text,
-      created_at: new Date().toISOString(),
-      read_at: null,
-    };
-    useChatStore.getState().addMessage(chatId, optimisticMsg);
+    const replyToId = replyingTo?.id ?? null;
+    sendMessage(chatId, text, replyToId);
 
-    // Send via WebSocket
-    sendMessage(chatId, text);
-
-    // Refetch after short delay to get confirmed messages
+    scrollToBottom(true);
     setTimeout(() => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', exchangeId] });
       setIsSending(false);
     }, 500);
   };
 
-  // Render a single message bubble
-  const renderMessage = ({ item }: { item: MessageView }) => {
-    const isMine = item.sender_id === currentUserId;
-    const isPending = item.id.startsWith('temp-');
+  // ---- Search ----
+  const handleSearch = async () => {
+    if (!searchQuery.trim() || !exchangeId) return;
+    setIsSearching(true);
+    try {
+      const result = await searchMessages(exchangeId, searchQuery);
+      setSearchResults(result.items.map((r) => r.message));
+    } catch {
+      setSearchResults([]);
+    }
+    setIsSearching(false);
+  };
 
-    return (
-      <View
-        style={[
-          styles.messageRow,
-          isMine ? styles.myMessageRow : styles.otherMessageRow,
-        ]}
-      >
-        <View
-          style={[
-            styles.bubble,
-            isMine
-              ? [styles.myBubble, { backgroundColor: colors.primary }]
-              : [styles.otherBubble, { backgroundColor: colors.surface }],
-            isPending && styles.pendingBubble,
-          ]}
-        >
-          <Text
-            style={[
-              styles.messageText,
-              { color: isMine ? '#ffffff' : colors.text },
-            ]}
-          >
-            {item.text}
-          </Text>
-          <View style={styles.messageMeta}>
-            <Text
-              style={[
-                styles.timeLabel,
-                { color: isMine ? 'rgba(255,255,255,0.7)' : colors.textMuted },
-              ]}
-            >
-              {formatTime(item.created_at)}
-            </Text>
-            {isMine && (
-              <Ionicons
-                name={item.read_at ? 'checkmark-done' : 'checkmark'}
-                size={14}
-                color={item.read_at ? '#60a5fa' : 'rgba(255,255,255,0.5)'}
-                style={{ marginLeft: 4 }}
-              />
-            )}
+  const clearSearch = () => {
+    setIsSearchMode(false);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  // ---- Message actions ----
+  const handleReply = (msg: MessageView) => {
+    setReplyingTo(msg);
+    inputRef.current?.focus();
+  };
+
+  const handleDelete = (msg: MessageView) => {
+    if (chatId) {
+      sendDelete(chatId, msg.id);
+    }
+  };
+
+  const handleReaction = (msg: MessageView, emoji: string, action: 'add' | 'remove') => {
+    if (chatId) {
+      sendReaction(chatId, msg.id, emoji, action);
+    }
+  };
+
+  // ---- Render ----
+  const renderListItem = ({ item }: { item: MessageListItem }) => {
+    if (item.type === 'date') {
+      return (
+        <View style={styles.dateSeparator}>
+          <View style={[styles.datePill, { backgroundColor: colors.surfaceAlt }]}>
+            <Text style={[styles.dateText, { color: colors.textMuted }]}>{item.date}</Text>
           </View>
         </View>
-      </View>
+      );
+    }
+
+    if (item.type === 'typing') {
+      return <TypingIndicator name={counterpartName} />;
+    }
+
+    const msg = item.message;
+    const isMine = msg.sender_id === currentUserId;
+
+    // Check if this message is grouped with the previous one
+    const msgIndex = rawMessages.findIndex((m) => m.id === msg.id);
+    const prevMsg = msgIndex > 0 ? rawMessages[msgIndex - 1] : null;
+    const isGrouped = prevMsg
+      ? prevMsg.sender_id === msg.sender_id && isSameDay(prevMsg.created_at, msg.created_at)
+      : false;
+
+    return (
+      <MessageBubble
+        message={msg}
+        isMine={isMine}
+        isGrouped={isGrouped}
+        currentUserId={currentUserId ?? ''}
+        onReply={handleReply}
+        onDelete={handleDelete}
+        onReaction={handleReaction}
+      />
     );
   };
+
+  // Exchange info banner
+  const exchangeBook = exchange?.book;
 
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      keyboardVerticalOffset={0}
     >
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          { backgroundColor: colors.surface, paddingTop: insets.top },
-        ]}
-      >
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+      {/* ---- Header ---- */}
+      <View style={[styles.header, { backgroundColor: colors.surface, paddingTop: insets.top + spacing.xs, ...shadows.card }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <View style={styles.headerInfo}>
-          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-            {counterpartName}
-          </Text>
+
+        <View style={styles.headerCenter}>
+          <Avatar name={counterpartName} size="small" />
+          <View style={{ marginLeft: spacing.sm, flex: 1 }}>
+            <Text style={[styles.headerName, { color: colors.text }]} numberOfLines={1}>
+              {counterpartName}
+            </Text>
+            {exchangeBook && (
+              <Text style={[styles.headerSub, { color: colors.textMuted }]} numberOfLines={1}>
+                📖 {exchangeBook.title}
+              </Text>
+            )}
+          </View>
         </View>
-        <View style={styles.headerRight} />
+
+        <TouchableOpacity
+          style={styles.headerAction}
+          onPress={() => {
+            if (isSearchMode) {
+              clearSearch();
+            } else {
+              setIsSearchMode(true);
+            }
+          }}
+        >
+          <Ionicons name={isSearchMode ? 'close' : 'search'} size={22} color={colors.textMuted} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.headerAction}>
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.textMuted} />
+        </TouchableOpacity>
       </View>
 
-      {/* Messages */}
+      {/* ---- Search bar (when active) ---- */}
+      {isSearchMode && (
+        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <Ionicons name="search" size={18} color={colors.textMuted} style={{ marginRight: spacing.xs }} />
+          <TextInput
+            ref={inputRef}
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Sohbette ara..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
+            autoFocus
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* ---- Exchange context banner ---- */}
+      {exchange && !isSearchMode && (
+        <View style={[styles.contextBanner, { backgroundColor: colors.primarySoft, borderColor: colors.primary + '30' }]}>
+          <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
+          <Text style={[styles.contextText, { color: colors.primary }]} numberOfLines={1}>
+            Takas: {exchange.book?.title ?? '—'}
+          </Text>
+        </View>
+      )}
+
+      {/* ---- Search results ---- */}
+      {isSearchMode && searchResults.length > 0 && (
+        <View style={[styles.searchResults, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.searchResultsTitle, { color: colors.textMuted }]}>
+            {searchResults.length} sonuç bulundu
+          </Text>
+          {searchResults.slice(0, 10).map((msg) => (
+            <TouchableOpacity
+              key={msg.id}
+              style={[styles.searchResultItem, { borderBottomColor: colors.border }]}
+              onPress={() => {
+                // TODO: scroll to message
+                clearSearch();
+              }}
+            >
+              <Text style={[styles.searchResultText, { color: colors.text }]} numberOfLines={2}>
+                {msg.text}
+              </Text>
+              <Text style={[styles.searchResultTime, { color: colors.textMuted }]}>
+                {formatTime(msg.created_at)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* ---- Messages ---- */}
       <FlatList
         ref={flatListRef}
-        data={allMessages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.messagesContainer}
+        data={isSearchMode ? [] : listData}
+        keyExtractor={(item) => item.key}
+        renderItem={renderListItem}
+        contentContainerStyle={[styles.messagesContainer, { paddingBottom: spacing.md }]}
         onEndReached={() => hasNextPage && fetchNextPage()}
-        onEndReachedThreshold={0.5}
+        onEndReachedThreshold={0.4}
         ListFooterComponent={
           isFetchingNextPage ? (
-            <ActivityIndicator size="small" color={colors.primary} style={{ padding: 16 }} />
+            <ActivityIndicator size="small" color={colors.primary} style={{ padding: spacing.md }} />
           ) : null
         }
         ListEmptyComponent={
           isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 100 }} />
           ) : (
-            <View style={styles.emptyMessages}>
-              <Ionicons name="chatbubble-ellipses-outline" size={48} color={colors.textMuted} />
-              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                Mesaj göndermeye başlayın
+            <View style={styles.emptyState}>
+              <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
+                <Ionicons name="chatbubble-ellipses" size={40} color={colors.primary} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>Sohbete Başlayın</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+                {counterpartName} ile mesajlaşarak takas detaylarını konuşun
               </Text>
             </View>
           )
         }
       />
 
-      {/* Input bar */}
+      {/* ---- Reply preview bar ---- */}
+      {replyingTo && (
+        <View style={[styles.replyBar, { backgroundColor: colors.surfaceAlt, borderLeftColor: colors.primary }]}>
+          <View style={styles.replyBarContent}>
+            <Text style={[styles.replyBarName, { color: colors.primary }]} numberOfLines={1}>
+              {replyingTo.sender_id === currentUserId ? 'Sen' : counterpartName}
+            </Text>
+            <Text style={[styles.replyBarText, { color: colors.textMuted }]} numberOfLines={1}>
+              {replyingTo.text}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => setReplyingTo(null)} style={styles.replyBarClose}>
+            <Ionicons name="close" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ---- Input bar ---- */}
       <View
         style={[
-          styles.inputContainer,
+          styles.inputBar,
           {
             backgroundColor: colors.surface,
             paddingBottom: insets.bottom + spacing.sm,
+            ...shadows.sheet,
           },
         ]}
       >
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: colors.background,
-              color: colors.text,
-              borderColor: colors.border,
-            },
-          ]}
-          placeholder="Mesaj yaz..."
-          placeholderTextColor={colors.textMuted}
-          value={inputText}
-          onChangeText={setInputText}
-          multiline
-          maxLength={2000}
-          onSubmitEditing={handleSend}
-          blurOnSubmit
-        />
+        {/* Emoji button */}
         <TouchableOpacity
-          style={[
-            styles.sendButton,
-            {
-              backgroundColor: inputText.trim() ? colors.primary : colors.textMuted + '40',
-            },
-          ]}
-          onPress={handleSend}
-          disabled={!inputText.trim() || !chatId || isSending}
+          style={[styles.inputAction, { backgroundColor: colors.surfaceAlt }]}
+          onPress={() => setShowEmojiPicker(true)}
         >
-          <Ionicons name="send" size={20} color="#ffffff" />
+          <Ionicons name="happy-outline" size={24} color={colors.primary} />
         </TouchableOpacity>
+
+        {/* Text input */}
+        <View style={[styles.inputWrapper, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <TextInput
+            ref={inputRef}
+            style={[styles.textInput, { color: colors.text }]}
+            placeholder="Mesaj yaz..."
+            placeholderTextColor={colors.textMuted}
+            value={inputText}
+            onChangeText={handleInputChange}
+            multiline
+            maxLength={2000}
+          />
+        </View>
+
+        {/* Send / Voice button */}
+        {inputText.trim() ? (
+          <TouchableOpacity
+            style={styles.sendBtn}
+            onPress={handleSend}
+            disabled={!chatId || isSending}
+          >
+            <LinearGradient
+              colors={[colors.primary, isDark ? '#2EA88A' : '#0D5E4F']}
+              style={styles.sendBtnGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="send" size={18} color="#ffffff" />
+            </LinearGradient>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={[styles.inputAction, { backgroundColor: colors.surfaceAlt }]}>
+            <Ionicons name="mic" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* ---- Emoji picker ---- */}
+      <EmojiPicker
+        visible={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        onSelect={(emoji) => {
+          setInputText((prev) => prev + emoji);
+          setShowEmojiPicker(false);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
 
-function formatTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-
-  if (diffMins < 1) return 'şimdi';
-  if (diffMins < 60) return `${diffMins}dk`;
-
-  const hours = date.getHours().toString().padStart(2, '0');
-  const mins = date.getMinutes().toString().padStart(2, '0');
-  return `${hours}:${mins}`;
-}
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: palette.light.border,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
   },
-  backButton: {
-    padding: spacing.sm,
-    marginRight: spacing.sm,
+  backBtn: {
+    padding: spacing.xs,
+    marginRight: spacing.xs,
   },
-  headerInfo: {
+  headerCenter: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  headerTitle: {
+  headerName: {
     fontSize: fontSize.body,
     fontWeight: '700',
   },
-  headerRight: {
-    width: 44,
+  headerSub: {
+    fontSize: fontSize.caption,
+    marginTop: 1,
   },
-  messagesContainer: {
+  headerAction: {
+    padding: spacing.xs,
+    marginLeft: spacing.xs,
+  },
+  // Search
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    flexGrow: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  messageRow: {
-    marginVertical: 3,
-    flexDirection: 'row',
-  },
-  myMessageRow: {
-    justifyContent: 'flex-end',
-  },
-  otherMessageRow: {
-    justifyContent: 'flex-start',
-  },
-  bubble: {
-    maxWidth: '78%',
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  myBubble: {
-    borderBottomRightRadius: 4,
-  },
-  otherBubble: {
-    borderBottomLeftRadius: 4,
-  },
-  pendingBubble: {
-    opacity: 0.7,
-  },
-  messageText: {
-    fontSize: fontSize.body,
-    lineHeight: 20,
-  },
-  messageMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: 4,
-  },
-  timeLabel: {
-    fontSize: 11,
-  },
-  emptyMessages: {
+  searchInput: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 80,
-    gap: 12,
-  },
-  emptyText: {
     fontSize: fontSize.body,
+    padding: 0,
   },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+  searchResults: {
+    maxHeight: 200,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  searchResultsTitle: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: palette.light.border,
+    paddingBottom: spacing.xs,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  searchResultText: {
+    flex: 1,
+    fontSize: fontSize.bodySm,
+    marginRight: spacing.sm,
+  },
+  searchResultTime: {
+    fontSize: fontSize.caption,
+  },
+  // Exchange context
+  contextBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.card,
+    borderWidth: 1,
     gap: spacing.sm,
   },
-  input: {
+  contextText: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
     flex: 1,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: fontSize.body,
-    maxHeight: 100,
-    borderWidth: 1,
   },
-  sendButton: {
+  // Messages
+  messagesContainer: {
+    paddingTop: spacing.sm,
+    flexGrow: 1,
+  },
+  dateSeparator: {
+    alignItems: 'center',
+    marginVertical: spacing.md,
+  },
+  datePill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+  },
+  dateText: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
+  },
+  // Empty state
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    gap: spacing.md,
+  },
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  emptyTitle: {
+    fontSize: fontSize.title,
+    fontWeight: '700',
+  },
+  emptySubtitle: {
+    fontSize: fontSize.bodySm,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+    lineHeight: 20,
+  },
+  // Reply bar
+  replyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderLeftWidth: 3,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.xs,
+    borderRadius: radius.input,
+  },
+  replyBarContent: {
+    flex: 1,
+  },
+  replyBarName: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+  },
+  replyBarText: {
+    fontSize: fontSize.bodySm,
+    lineHeight: 18,
+  },
+  replyBarClose: {
+    padding: spacing.xs,
+    marginLeft: spacing.xs,
+  },
+  // Input bar
+  inputBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+    gap: spacing.xs,
+  },
+  inputAction: {
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  inputWrapper: {
+    flex: 1,
+    borderRadius: radius.button,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  textInput: {
+    fontSize: fontSize.body,
+    lineHeight: 20,
+    maxHeight: 100,
+    paddingVertical: Platform.OS === 'ios' ? spacing.xs : spacing.sm,
+    margin: 0,
+  },
+  sendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  sendBtnGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.float,
   },
 });

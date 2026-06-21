@@ -160,6 +160,62 @@ class AdminService:
         await self.session.commit()
         return _user_to_view(user)
 
+    async def ban_user(
+        self, user_id: uuid.UUID, moderator_id: uuid.UUID, reason: str | None
+    ) -> AdminUserView:
+        user = await self.repo.get_user(user_id)
+        if user is None:
+            raise AdminError("NOT_FOUND", 404)
+        user.status = UserStatus.banned
+        user.updated_at = datetime.now(UTC)
+        await self._audit(
+            moderator_id, "user_banned", {"user_id": str(user_id), "reason": reason}
+        )
+        await self.session.commit()
+        return _user_to_view(user)
+
+    async def unban_user(self, user_id: uuid.UUID, moderator_id: uuid.UUID) -> AdminUserView:
+        user = await self.repo.get_user(user_id)
+        if user is None:
+            raise AdminError("NOT_FOUND", 404)
+        user.status = UserStatus.active
+        user.updated_at = datetime.now(UTC)
+        await self._audit(moderator_id, "user_unbanned", {"user_id": str(user_id)})
+        await self.session.commit()
+        return _user_to_view(user)
+
+    async def set_trust_score(
+        self, user_id: uuid.UUID, moderator_id: uuid.UUID, score: float | None, reason: str | None
+    ) -> AdminUserDetailView:
+        user = await self.repo.get_user(user_id)
+        if user is None:
+            raise AdminError("NOT_FOUND", 404)
+        user.trust_score_override = score
+        user.updated_at = datetime.now(UTC)
+        await self._audit(
+            moderator_id,
+            "user_trust_score_changed",
+            {"user_id": str(user_id), "score": score, "reason": reason},
+        )
+        await self.session.commit()
+        detail = await self.repo.get_user_detail(user_id)
+        return _user_to_detail_view(detail)
+
+    async def broadcast_notification(
+        self, moderator_id: uuid.UUID, title: str, message: str
+    ) -> int:
+        user_ids = await self.repo.list_active_user_ids()
+        count = await self.notification_service.broadcast(
+            user_ids, "admin_broadcast", {"title": title, "message": message}
+        )
+        await self._audit(
+            moderator_id,
+            "notification_broadcast",
+            {"recipients": count, "title": title},
+        )
+        await self.session.commit()
+        return count
+
     # -- Books -----------------------------------------------------------------
 
     async def takedown_book(
@@ -313,7 +369,29 @@ def _user_to_list_item(user) -> "AdminUserListItem":
 
 def _user_to_detail_view(user) -> "AdminUserDetailView":
     from app.modules.admin.schemas import AdminUserDetailView
+    from app.modules.auth.trust import compute_trust
+
+    trust = compute_trust(
+        rating_average=float(user.rating_average or 0),
+        loans_borrowed_count=user.loans_borrowed_count,
+        loans_returned_on_time=user.loans_returned_on_time,
+        loans_returned_late=user.loans_returned_late,
+        trust_score_override=(
+            float(user.trust_score_override)
+            if user.trust_score_override is not None
+            else None
+        ),
+    )
     return AdminUserDetailView(
+        loans_borrowed_count=user.loans_borrowed_count,
+        loans_returned_on_time=user.loans_returned_on_time,
+        loans_returned_late=user.loans_returned_late,
+        trust_score_override=(
+            float(user.trust_score_override)
+            if user.trust_score_override is not None
+            else None
+        ),
+        trust_score=trust.score,
         id=user.id,
         email=user.email,
         name=user.name,

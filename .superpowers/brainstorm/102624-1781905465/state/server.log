@@ -1,0 +1,5 @@
+{"type":"server-started","port":56979,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:56979","screen_dir":"/home/can/Masaüstü/meetbook/.superpowers/brainstorm/102624-1781905465/content","state_dir":"/home/can/Masaüstü/meetbook/.superpowers/brainstorm/102624-1781905465/state"}
+{"type":"screen-added","file":"/home/can/Masaüstü/meetbook/.superpowers/brainstorm/102624-1781905465/content/current-home-analysis.html"}
+{"type":"screen-added","file":"/home/can/Masaüstü/meetbook/.superpowers/brainstorm/102624-1781905465/content/polish-before-after.html"}
+{"type":"screen-added","file":"/home/can/Masaüstü/meetbook/.superpowers/brainstorm/102624-1781905465/content/fixed-home.html"}
+{"type":"server-stopped","reason":"idle timeout"}

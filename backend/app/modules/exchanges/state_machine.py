@@ -19,6 +19,13 @@ class ExchangeAction(str, enum.Enum):
     propose_meetup = "propose_meetup"
     accept_meetup = "accept_meetup"
     reject_meetup = "reject_meetup"
+    # Borrow-mode actions
+    mark_lent = "mark_lent"  # book handed over → lent
+    mark_returned = "mark_returned"  # borrower returned → return_pending
+    confirm_return = "confirm_return"  # owner confirms → completed
+    request_extension = "request_extension"
+    approve_extension = "approve_extension"
+    reject_extension = "reject_extension"
 
 
 class Actor(str, enum.Enum):
@@ -78,6 +85,54 @@ TRANSITIONS: dict[tuple[ExchangeStatus, ExchangeAction], tuple[ExchangeStatus, A
         ExchangeStatus.completion_pending,
         Actor.EITHER,
     ),
+    # --- Borrow-mode lifecycle ---
+    # Book handed over at the confirmed meetup → on loan. Either party may mark it.
+    (ExchangeStatus.meetup_confirmed, ExchangeAction.mark_lent): (
+        ExchangeStatus.lent,
+        Actor.EITHER,
+    ),
+    # Borrower returns the book → awaiting owner confirmation.
+    (ExchangeStatus.lent, ExchangeAction.mark_returned): (
+        ExchangeStatus.return_pending,
+        Actor.REQUESTER,
+    ),
+    (ExchangeStatus.overdue, ExchangeAction.mark_returned): (
+        ExchangeStatus.return_pending,
+        Actor.REQUESTER,
+    ),
+    # Owner confirms the returned book → loan completed.
+    (ExchangeStatus.return_pending, ExchangeAction.confirm_return): (
+        ExchangeStatus.completed,
+        Actor.OWNER,
+    ),
+    # Extension request/response keep the loan in place.
+    (ExchangeStatus.lent, ExchangeAction.request_extension): (
+        ExchangeStatus.lent,
+        Actor.REQUESTER,
+    ),
+    (ExchangeStatus.overdue, ExchangeAction.request_extension): (
+        ExchangeStatus.overdue,
+        Actor.REQUESTER,
+    ),
+    (ExchangeStatus.lent, ExchangeAction.approve_extension): (
+        ExchangeStatus.lent,
+        Actor.OWNER,
+    ),
+    (ExchangeStatus.overdue, ExchangeAction.approve_extension): (
+        ExchangeStatus.lent,
+        Actor.OWNER,
+    ),
+    (ExchangeStatus.lent, ExchangeAction.reject_extension): (
+        ExchangeStatus.lent,
+        Actor.OWNER,
+    ),
+    (ExchangeStatus.overdue, ExchangeAction.reject_extension): (
+        ExchangeStatus.overdue,
+        Actor.OWNER,
+    ),
+    # Cancel an active loan (e.g. lost book dispute) — either party.
+    (ExchangeStatus.lent, ExchangeAction.cancel): (ExchangeStatus.cancelled, Actor.EITHER),
+    (ExchangeStatus.overdue, ExchangeAction.cancel): (ExchangeStatus.cancelled, Actor.EITHER),
 }
 
 # Statuses the hourly expiry worker may move to `expired` once `expires_at` has passed.

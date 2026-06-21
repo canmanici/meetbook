@@ -36,6 +36,21 @@ class UserActionRequest(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
 
 
+class TrustScoreRequest(BaseModel):
+    # Null clears the override and reverts to the computed score.
+    score: float | None = Field(default=None, ge=0, le=100)
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class BroadcastRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    message: str = Field(min_length=1, max_length=2000)
+
+
+class BroadcastResponse(BaseModel):
+    recipients: int
+
+
 class AdminUserView(BaseModel):
     id: uuid.UUID
     email: str
@@ -112,6 +127,11 @@ class AdminUserDetailView(BaseModel):
     phone_verified_at: datetime | None
     trusted_contact_name: str | None
     trusted_contact_phone: str | None
+    loans_borrowed_count: int = 0
+    loans_returned_on_time: int = 0
+    loans_returned_late: int = 0
+    trust_score_override: float | None = None
+    trust_score: int = 0
 
 
 # -- Book list/detail schemas ------------------------------------------------

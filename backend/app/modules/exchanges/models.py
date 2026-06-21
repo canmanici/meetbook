@@ -14,6 +14,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    Integer,
     Text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -31,6 +32,15 @@ class ExchangeStatus(str, enum.Enum):
     completion_pending = "completion_pending"
     completed = "completed"
     expired = "expired"
+    # Borrow-mode statuses
+    lent = "lent"  # book handed over, currently on loan
+    return_pending = "return_pending"  # borrower marked returned, awaiting owner confirm
+    overdue = "overdue"  # past due_at, set by the loan_reminders worker
+
+
+class ExchangeMode(str, enum.Enum):
+    trade = "trade"  # permanent swap (legacy default)
+    borrow = "borrow"  # time-limited loan, book is returned
 
 
 # Statuses not yet rejected/cancelled/completed/expired — duplicate guard, uq_active_request,
@@ -41,7 +51,24 @@ ACTIVE_STATUSES = (
     ExchangeStatus.meetup_proposed,
     ExchangeStatus.meetup_confirmed,
     ExchangeStatus.completion_pending,
+    ExchangeStatus.lent,
+    ExchangeStatus.return_pending,
+    ExchangeStatus.overdue,
 )
+
+# A borrower may have at most one of these at a time across all books (single active loan rule).
+ACTIVE_LOAN_STATUSES = (
+    ExchangeStatus.lent,
+    ExchangeStatus.return_pending,
+    ExchangeStatus.overdue,
+)
+
+
+class ExtensionStatus(str, enum.Enum):
+    none = "none"
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
 
 
 class ExchangeRequest(Base):
@@ -68,6 +95,31 @@ class ExchangeRequest(Base):
     initial_message = Column(Text, nullable=False)
     completion_marked_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
+
+    # Borrow-mode fields (null for trade-mode requests).
+    mode = Column(
+        Enum(ExchangeMode, name="exchange_mode", create_type=True),
+        nullable=False,
+        default=ExchangeMode.trade,
+        server_default=ExchangeMode.trade.value,
+    )
+    loan_duration_days = Column(Integer, nullable=True)
+    due_at = Column(DateTime(timezone=True), nullable=True)
+    lent_at = Column(DateTime(timezone=True), nullable=True)
+    lent_photo_url = Column(Text, nullable=True)
+    returned_marked_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    returned_photo_url = Column(Text, nullable=True)
+    returned_confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    # Captured at mark_returned time: was the book returned on/before due_at?
+    returned_on_time = Column(Boolean, nullable=True)
+    extension_requested_days = Column(Integer, nullable=True)
+    extension_status = Column(
+        Enum(ExtensionStatus, name="extension_status", create_type=True),
+        nullable=False,
+        default=ExtensionStatus.none,
+        server_default=ExtensionStatus.none.value,
+    )
+
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
 

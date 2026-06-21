@@ -8,7 +8,7 @@ import { listExchanges } from '@/lib/api/client';
 
 const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   home: 'home',
-  search: 'search',
+  'my-books': 'library',
   requests: 'clipboard',
   chats: 'chatbubble',
   profile: 'person',
@@ -97,11 +97,11 @@ export function AppTabs() {
         }}
       />
       <Tabs.Screen
-        name="search"
+        name="my-books"
         options={{
-          title: 'Ara',
-          tabBarButtonTestID: 'search-tab',
-          tabBarIcon: ({ color, focused }) => <TabIcon name="search" color={color} focused={focused} pillColor={colors.primarySoft} />,
+          title: 'Kitaplarım',
+          tabBarButtonTestID: 'my-books-tab',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="my-books" color={color} focused={focused} pillColor={colors.primarySoft} />,
         }}
       />
       <Tabs.Screen

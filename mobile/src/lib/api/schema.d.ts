@@ -1496,7 +1496,31 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            trust?: components["schemas"]["TrustView"] | null;
         };
+        /** TrustView */
+        TrustView: {
+            /** Score */
+            score: number;
+            /** Badge */
+            badge: string;
+            /** Label */
+            label: string;
+            /** On Time Rate */
+            on_time_rate?: number | null;
+            /** Loans Borrowed Count */
+            loans_borrowed_count?: number;
+        };
+        /**
+         * ExchangeMode
+         * @enum {string}
+         */
+        ExchangeMode: "trade" | "borrow";
+        /**
+         * ExtensionStatus
+         * @enum {string}
+         */
+        ExtensionStatus: "none" | "pending" | "approved" | "rejected";
         /** ExchangeCreateRequest */
         ExchangeCreateRequest: {
             /**
@@ -1506,6 +1530,9 @@ export interface components {
             book_id: string;
             /** Initial Message */
             initial_message: string;
+            mode?: components["schemas"]["ExchangeMode"];
+            /** Loan Duration Days */
+            loan_duration_days?: number | null;
         };
         /** ExchangeDetail */
         ExchangeDetail: {
@@ -1532,6 +1559,22 @@ export interface components {
             /** Completion Marked By */
             completion_marked_by: string | null;
             meetup?: components["schemas"]["MeetupDetail"] | null;
+            mode?: components["schemas"]["ExchangeMode"];
+            /** Loan Duration Days */
+            loan_duration_days?: number | null;
+            /** Due At */
+            due_at?: string | null;
+            /** Lent At */
+            lent_at?: string | null;
+            /** Lent Photo Url */
+            lent_photo_url?: string | null;
+            /** Returned Photo Url */
+            returned_photo_url?: string | null;
+            /** Returned Marked By */
+            returned_marked_by?: string | null;
+            extension_status?: components["schemas"]["ExtensionStatus"];
+            /** Extension Requested Days */
+            extension_requested_days?: number | null;
             /**
              * Created At
              * Format: date-time
@@ -1559,7 +1602,7 @@ export interface components {
          * ExchangeStatus
          * @enum {string}
          */
-        ExchangeStatus: "pending" | "accepted" | "rejected" | "cancelled" | "meetup_proposed" | "meetup_confirmed" | "completion_pending" | "completed" | "expired";
+        ExchangeStatus: "pending" | "accepted" | "rejected" | "cancelled" | "meetup_proposed" | "meetup_confirmed" | "completion_pending" | "completed" | "expired" | "lent" | "return_pending" | "overdue";
         /** ExchangeSummary */
         ExchangeSummary: {
             /**
@@ -1570,6 +1613,9 @@ export interface components {
             book: components["schemas"]["BookSummary"];
             counterpart: components["schemas"]["CounterpartView"];
             status: components["schemas"]["ExchangeStatus"];
+            mode?: components["schemas"]["ExchangeMode"];
+            /** Due At */
+            due_at?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -2115,6 +2161,26 @@ export interface components {
              * @default 0
              */
             rating_count: number;
+            /**
+             * Loans Borrowed Count
+             * @default 0
+             */
+            loans_borrowed_count?: number;
+            /**
+             * Trust Score
+             * @default 0
+             */
+            trust_score?: number;
+            /**
+             * Trust Badge
+             * @default yellow
+             */
+            trust_badge?: string;
+            /**
+             * Trust Label
+             * @default ""
+             */
+            trust_label?: string;
         };
         /** ValidationError */
         ValidationError: {

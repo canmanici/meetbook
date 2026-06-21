@@ -45,6 +45,13 @@
           "locationWhenInUsePermission": "MeetBook, kitabının konumunu işaretlemen için konumunu kullanır."
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "MeetBook, kitabı teslim ve iade ederken durum fotoğrafı çekmen için kameranı kullanır.",
+          "photosPermission": "MeetBook, kitap fotoğrafı seçmen için galerine erişir."
+        }
+      ],
       "@react-native-community/datetimepicker"
     ],
     "experiments": {

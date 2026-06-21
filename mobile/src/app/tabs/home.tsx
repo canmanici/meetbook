@@ -16,7 +16,7 @@ import { useColorScheme } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 import ClusteredMapView from 'react-native-map-clustering';
 
-import { BookCard, EmptyState, Skeleton, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
+import { BookCard, EmptyState, Skeleton, palette, spacing, fontSize, radius, shadows, FilterSheet, type FilterState } from '@/components/ui';
 import { BookMarker } from '@/components/ui/book-marker';
 
 import { searchNearbyBooks } from '@/lib/api/client';
@@ -24,10 +24,12 @@ import { searchNearbyBooks } from '@/lib/api/client';
 const CATEGORIES = [
   { value: null, label: 'Tümü' },
   { value: 'fiction', label: 'Roman' },
+  { value: 'non_fiction', label: 'Popüler Bilim' },
   { value: 'textbook', label: 'Ders Kitabı' },
   { value: 'comics', label: 'Çizgi Roman' },
   { value: 'children', label: 'Çocuk' },
   { value: 'poetry', label: 'Şiir' },
+  { value: 'other', label: 'Diğer' },
 ];
 
 export default function HomeScreen() {
@@ -42,6 +44,13 @@ export default function HomeScreen() {
   const [searchText, setSearchText] = useState('');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<'distance' | 'newest'>('distance');
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<FilterState>({
+    category: null,
+    condition: null,
+    language: null,
+    radiusKm: 10,
+  });
   const [mapRegion, setMapRegion] = useState({
     latitude: 41.0082,
     longitude: 28.9784,
@@ -91,12 +100,15 @@ export default function HomeScreen() {
   };
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['books', 'nearby', userLocation?.lat, userLocation?.lng, selectedCategory, searchText],
+    queryKey: ['books', 'nearby', userLocation?.lat, userLocation?.lng, selectedCategory, searchText, activeFilters],
     queryFn: () =>
       searchNearbyBooks({
         lat: userLocation!.lat,
         lng: userLocation!.lng,
-        category: selectedCategory ?? undefined,
+        category: selectedCategory ?? activeFilters.category ?? undefined,
+        condition: activeFilters.condition ?? undefined,
+        language: activeFilters.language ?? undefined,
+        radius_km: activeFilters.radiusKm,
         q: searchText || undefined,
       }),
     enabled: !!userLocation,
@@ -121,18 +133,38 @@ export default function HomeScreen() {
 
   const renderSearchAndChips = () => (
     <>
-      <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.textMuted + '40' }]}>
-        <Ionicons name="search-outline" size={18} color={colors.textMuted} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.text }]}
-          placeholder="Kitap veya yazar ara..."
-          placeholderTextColor={colors.textMuted}
-          value={searchText}
-          onChangeText={setSearchText}
-          testID="search-input"
-        />
-        <TouchableOpacity onPress={() => router.push('/book/scan-isbn')} style={styles.cameraBtn}>
-          <Ionicons name="camera-outline" size={20} color={colors.primary} />
+      <View style={styles.searchRow}>
+        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.textMuted + '40' }]}>
+          <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Kitap veya yazar ara..."
+            placeholderTextColor={colors.textMuted}
+            value={searchText}
+            onChangeText={setSearchText}
+            testID="search-input"
+          />
+          <TouchableOpacity onPress={() => router.push('/book/scan-isbn')} style={styles.searchIconBtn}>
+            <Ionicons name="camera-outline" size={18} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          onPress={() => toggleViewMode(viewMode === 'list' ? 'map' : 'list')}
+          style={[styles.mapToggleBtn, { backgroundColor: colors.surface, borderColor: colors.textMuted + '40' }]}
+          testID="view-toggle"
+        >
+          <Ionicons
+            name={viewMode === 'list' ? 'map-outline' : 'list-outline'}
+            size={20}
+            color={colors.primary}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setFilterVisible(true)}
+          style={[styles.mapToggleBtn, { backgroundColor: colors.surface, borderColor: colors.textMuted + '40' }]}
+          testID="filter-btn"
+        >
+          <Ionicons name="options-outline" size={20} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -179,6 +211,29 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {(activeFilters.condition || activeFilters.language) && (
+        <View style={styles.activeFilterRow}>
+          <View style={{ flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' }}>
+            {activeFilters.condition && (
+              <View style={[styles.activeChip, { backgroundColor: colors.primary + '20' }]}>
+                <Text style={[styles.activeChipText, { color: colors.primary }]}>{activeFilters.condition}</Text>
+                <TouchableOpacity onPress={() => setActiveFilters((p) => ({ ...p, condition: null }))}>
+                  <Ionicons name="close-circle" size={16} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
+            {activeFilters.language && (
+              <View style={[styles.activeChip, { backgroundColor: colors.primary + '20' }]}>
+                <Text style={[styles.activeChipText, { color: colors.primary }]}>{activeFilters.language}</Text>
+                <TouchableOpacity onPress={() => setActiveFilters((p) => ({ ...p, language: null }))}>
+                  <Ionicons name="close-circle" size={16} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
       {viewMode === 'list' && (
         <View style={styles.sortRow}>
           <TouchableOpacity
@@ -212,21 +267,6 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <View style={[styles.header, { backgroundColor: colors.background }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Ana Sayfa</Text>
-        <TouchableOpacity
-          style={[styles.viewToggle, { backgroundColor: colors.surface }]}
-          onPress={() => toggleViewMode(viewMode === 'list' ? 'map' : 'list')}
-          activeOpacity={0.7}
-          testID="view-toggle"
-        >
-          <Ionicons
-            name={viewMode === 'list' ? 'map-outline' : 'list-outline'}
-            size={20}
-            color={colors.primary}
-          />
-        </TouchableOpacity>
-      </View>
 
       {viewMode === 'list' ? (
         <>
@@ -332,6 +372,15 @@ export default function HomeScreen() {
         </View>
       )}
 
+      <FilterSheet
+        visible={filterVisible}
+        onClose={() => setFilterVisible(false)}
+        onApply={(filters) => {
+          setActiveFilters(filters);
+          setFilterVisible(false);
+        }}
+        resultCount={books.length}
+      />
     </View>
   );
 }
@@ -340,32 +389,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  headerTitle: {
-    fontSize: fontSize.heading,
-    fontWeight: '700',
-  },
-  viewToggle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.card,
-  },
-  searchBar: {
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
+    marginTop: spacing.xs,
+    gap: spacing.sm,
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    height: 42,
     borderRadius: radius.pill,
     borderWidth: 1,
   },
@@ -374,9 +411,17 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
     fontSize: fontSize.bodySm,
   },
-  cameraBtn: {
-    marginLeft: spacing.sm,
+  searchIconBtn: {
+    marginLeft: spacing.xs,
     padding: spacing.xs,
+  },
+  mapToggleBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   chipRow: {
     maxHeight: 44,
@@ -448,7 +493,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    paddingBottom: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   recenterBtn: {
     position: 'absolute',

@@ -28,6 +28,10 @@ class NotificationService:
         notification = await self.repo.create(user_id, type_, payload)
         return notification
 
+    async def broadcast(self, user_ids: list[uuid.UUID], type_: str, payload: dict) -> int:
+        """Create one notification per user (admin broadcast). Returns count created."""
+        return await self.repo.create_many(user_ids, type_, payload)
+
     async def list_notifications(self, user_id: uuid.UUID) -> NotificationListResponse:
         notifications = await self.repo.list_by_user(user_id)
         return NotificationListResponse(items=[_to_view(n) for n in notifications])

@@ -18,7 +18,10 @@ import {
   useColorScheme,
 } from 'react-native';
 
-import { Avatar, Badge, Button, Card, SafetySheet, Sheet, TimelineStep, palette, spacing, fontSize, radius } from '@/components/ui';
+import * as ImagePicker from 'expo-image-picker';
+
+import { Avatar, Badge, Button, Card, SafetySheet, Sheet, TimelineStep, TrustBadge, palette, spacing, fontSize, radius } from '@/components/ui';
+import { ChipSelect } from '@/components/chip-select';
 import { BOOK_CATEGORY_LABELS, BOOK_CONDITION_LABELS } from '@/constants/books';
 import { EXCHANGE_STATUS_LABELS, EXCHANGE_STATUS_VARIANTS } from '@/constants/exchanges';
 import { MEETUP_VALIDATION_LABELS } from '@/constants/meetup';
@@ -36,6 +39,13 @@ import {
   getMe,
   rejectExchange,
   rejectMeetup,
+  lendExchange,
+  returnExchange,
+  confirmExchangeReturn,
+  requestExchangeExtension,
+  approveExchangeExtension,
+  rejectExchangeExtension,
+  uploadLoanPhoto,
   type ExchangeDetail,
 } from '@/lib/api/client';
 import { buildMapLinks } from '@/lib/maps';
@@ -138,6 +148,67 @@ export default function ExchangeDetailScreen() {
     mutationFn: () => confirmExchangeCompletion(id),
     onSuccess: invalidate,
   });
+
+  // --- Borrow / lending lifecycle ---
+  const [extensionDays, setExtensionDays] = useState<'7' | '15' | '30'>('7');
+
+  // Capture a photo (camera) and upload it; returns the stored URL or null if cancelled.
+  const captureLoanPhoto = async (): Promise<string | null> => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('İzin gerekli', 'Fotoğraf çekmek için kamera izni gerekiyor.');
+      return null;
+    }
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+    if (result.canceled || !result.assets?.[0]) return null;
+    const asset = result.assets[0];
+    const uploaded = await uploadLoanPhoto(id, asset.uri, asset.mimeType || 'image/jpeg');
+    return uploaded.url;
+  };
+
+  const lendMutation = useMutation({
+    mutationFn: async () => {
+      const photoUrl = await captureLoanPhoto();
+      if (!photoUrl) throw new Error('PHOTO_REQUIRED');
+      return lendExchange(id, photoUrl);
+    },
+    onSuccess: invalidate,
+    onError: (err) => {
+      if ((err as Error).message !== 'PHOTO_REQUIRED') {
+        Alert.alert('Hata', 'İşlem tamamlanamadı. Lütfen tekrar deneyin.');
+      }
+    },
+  });
+  const returnMutation = useMutation({
+    mutationFn: async () => {
+      const photoUrl = await captureLoanPhoto();
+      if (!photoUrl) throw new Error('PHOTO_REQUIRED');
+      return returnExchange(id, photoUrl);
+    },
+    onSuccess: invalidate,
+    onError: (err) => {
+      if ((err as Error).message !== 'PHOTO_REQUIRED') {
+        Alert.alert('Hata', 'İşlem tamamlanamadı. Lütfen tekrar deneyin.');
+      }
+    },
+  });
+  const confirmReturnMutation = useMutation({
+    mutationFn: () => confirmExchangeReturn(id),
+    onSuccess: invalidate,
+  });
+  const requestExtensionMutation = useMutation({
+    mutationFn: () => requestExchangeExtension(id, Number(extensionDays)),
+    onSuccess: invalidate,
+  });
+  const approveExtensionMutation = useMutation({
+    mutationFn: () => approveExchangeExtension(id),
+    onSuccess: invalidate,
+  });
+  const rejectExtensionMutation = useMutation({
+    mutationFn: () => rejectExchangeExtension(id),
+    onSuccess: invalidate,
+  });
+
   const [selectedOfferIndex, setSelectedOfferIndex] = useState(0);
 
   useEffect(() => {
@@ -683,8 +754,8 @@ export default function ExchangeDetailScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Completion Actions */}
-      {exchange.status === 'accepted' && (
+      {/* Completion Actions (trade mode) */}
+      {exchange.status === 'accepted' && exchange.mode !== 'borrow' && (
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.acceptButton, { backgroundColor: colors.primary }]}
@@ -699,6 +770,133 @@ export default function ExchangeDetailScreen() {
             )}
           </TouchableOpacity>
         </View>
+      )}
+
+      {/* --- Borrow / lending lifecycle --- */}
+      {exchange.mode === 'borrow' && (exchange.status === 'lent' || exchange.status === 'return_pending' || exchange.status === 'overdue') && exchange.due_at && (
+        <Card style={styles.timelineCard}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Ödünç Durumu</Text>
+          <Badge
+            variant={exchange.status === 'overdue' ? 'danger' : 'primary'}
+            text={renderDueLabel(exchange.due_at, exchange.status)}
+          />
+        </Card>
+      )}
+
+      {/* Hand-over: at confirmed meetup, either party marks the book lent (photo required) */}
+      {exchange.mode === 'borrow' && exchange.status === 'meetup_confirmed' && (
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.acceptButton, { backgroundColor: colors.primary }]}
+            onPress={() => lendMutation.mutate()}
+            disabled={lendMutation.isPending}
+            testID="lend-button"
+          >
+            {lendMutation.isPending ? (
+              <ActivityIndicator color={colors.surface} />
+            ) : (
+              <Text style={[styles.acceptButtonText, { color: colors.surface }]}>Teslim Edildi (Fotoğraf Çek)</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Borrower returns the book (photo required) */}
+      {exchange.mode === 'borrow' && (exchange.status === 'lent' || exchange.status === 'overdue') && isRequester && (
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.acceptButton, { backgroundColor: colors.primary }]}
+            onPress={() => returnMutation.mutate()}
+            disabled={returnMutation.isPending}
+            testID="return-button"
+          >
+            {returnMutation.isPending ? (
+              <ActivityIndicator color={colors.surface} />
+            ) : (
+              <Text style={[styles.acceptButtonText, { color: colors.surface }]}>İade Ettim (Fotoğraf Çek)</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Owner confirms the returned book */}
+      {exchange.mode === 'borrow' && exchange.status === 'return_pending' && isOwner && (
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.acceptButton, { backgroundColor: colors.primary }]}
+            onPress={() => confirmReturnMutation.mutate()}
+            disabled={confirmReturnMutation.isPending}
+            testID="confirm-return-button"
+          >
+            {confirmReturnMutation.isPending ? (
+              <ActivityIndicator color={colors.surface} />
+            ) : (
+              <Text style={[styles.acceptButtonText, { color: colors.surface }]}>İadeyi Onayla</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {exchange.mode === 'borrow' && exchange.status === 'return_pending' && isRequester && (
+        <Text style={[styles.waiting, { color: colors.textMuted }]}>
+          Kitap sahibinin iade onayı bekleniyor.
+        </Text>
+      )}
+
+      {/* Extension request (borrower) while on loan */}
+      {exchange.mode === 'borrow' && (exchange.status === 'lent' || exchange.status === 'overdue') && isRequester && (
+        <Card style={styles.timelineCard}>
+          {exchange.extension_status === 'pending' ? (
+            <Text style={[styles.waiting, { color: colors.textMuted }]}>
+              Süre uzatma isteğin onay bekliyor ({exchange.extension_requested_days} gün).
+            </Text>
+          ) : (
+            <>
+              <ChipSelect
+                label="Süre uzatma iste"
+                options={['7', '15', '30'] as const}
+                labels={{ '7': '1 Hafta', '15': '15 Gün', '30': '1 Ay' }}
+                value={extensionDays}
+                onChange={setExtensionDays}
+                testIDPrefix="extension-days"
+              />
+              <Button
+                variant="secondary"
+                onPress={() => requestExtensionMutation.mutate()}
+                loading={requestExtensionMutation.isPending}
+                testID="request-extension-button"
+              >
+                Uzatma İste
+              </Button>
+            </>
+          )}
+        </Card>
+      )}
+
+      {/* Extension decision (owner) */}
+      {exchange.mode === 'borrow' && exchange.extension_status === 'pending' && isOwner && (exchange.status === 'lent' || exchange.status === 'overdue') && (
+        <Card style={styles.timelineCard}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>
+            Süre uzatma isteği: {exchange.extension_requested_days} gün
+          </Text>
+          <View style={styles.actions}>
+            <Button
+              onPress={() => approveExtensionMutation.mutate()}
+              loading={approveExtensionMutation.isPending}
+              testID="approve-extension-button"
+            >
+              Onayla
+            </Button>
+            <Button
+              variant="ghost"
+              onPress={() => rejectExtensionMutation.mutate()}
+              loading={rejectExtensionMutation.isPending}
+              testID="reject-extension-button"
+            >
+              Reddet
+            </Button>
+          </View>
+        </Card>
       )}
 
       {exchange.status === 'completed' && (
@@ -843,6 +1041,17 @@ export default function ExchangeDetailScreen() {
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleString('tr-TR');
+}
+
+function renderDueLabel(dueAt: string, status: string): string {
+  const due = new Date(dueAt);
+  const days = Math.ceil((due.getTime() - Date.now()) / 86400000);
+  const dateStr = due.toLocaleDateString('tr-TR');
+  if (status === 'overdue' || days < 0) {
+    return `Gecikmiş · ${Math.abs(days)} gün geçti (${dateStr})`;
+  }
+  if (days === 0) return `Son gün bugün (${dateStr})`;
+  return `${days} gün kaldı · son tarih ${dateStr}`;
 }
 
 const styles = StyleSheet.create({

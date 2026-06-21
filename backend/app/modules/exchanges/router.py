@@ -3,7 +3,8 @@
 import uuid
 
 import redis.asyncio as aioredis
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
@@ -18,9 +19,12 @@ from app.modules.exchanges.schemas import (
     ExchangeCreateRequest,
     ExchangeDetail,
     ExchangeListResponse,
+    ExtensionRequestBody,
+    LendRequest,
     MeetupAcceptRequest,
     MeetupProposeRequest,
     MeetupSuggestionsResponse,
+    ReturnRequest,
 )
 from app.modules.exchanges.service import ExchangeError, ExchangeService
 
@@ -155,6 +159,102 @@ async def confirm_completion(
 ) -> ExchangeDetail:
     try:
         return await service.confirm_completion(exchange_id, user.id)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+class LoanPhotoResponse(BaseModel):
+    url: str
+
+
+@router.post("/{exchange_id}/photo", response_model=LoanPhotoResponse)
+async def upload_loan_photo(
+    exchange_id: uuid.UUID,
+    file: UploadFile = File(...),
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> LoanPhotoResponse:
+    file_bytes = await file.read()
+    try:
+        url = await service.upload_loan_photo(
+            exchange_id, user.id, file_bytes, file.content_type or "image/jpeg"
+        )
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+    return LoanPhotoResponse(url=url)
+
+
+@router.post("/{exchange_id}/lend", response_model=ExchangeDetail)
+async def lend_book(
+    exchange_id: uuid.UUID,
+    body: LendRequest,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> ExchangeDetail:
+    try:
+        return await service.lend(exchange_id, user.id, body)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.post("/{exchange_id}/return", response_model=ExchangeDetail)
+async def return_book(
+    exchange_id: uuid.UUID,
+    body: ReturnRequest,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> ExchangeDetail:
+    try:
+        return await service.mark_returned(exchange_id, user.id, body)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.post("/{exchange_id}/confirm-return", response_model=ExchangeDetail)
+async def confirm_return(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> ExchangeDetail:
+    try:
+        return await service.confirm_return(exchange_id, user.id)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.post("/{exchange_id}/extension", response_model=ExchangeDetail)
+async def request_extension(
+    exchange_id: uuid.UUID,
+    body: ExtensionRequestBody,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> ExchangeDetail:
+    try:
+        return await service.request_extension(exchange_id, user.id, body)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.post("/{exchange_id}/extension/approve", response_model=ExchangeDetail)
+async def approve_extension(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> ExchangeDetail:
+    try:
+        return await service.respond_extension(exchange_id, user.id, approve=True)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.post("/{exchange_id}/extension/reject", response_model=ExchangeDetail)
+async def reject_extension(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> ExchangeDetail:
+    try:
+        return await service.respond_extension(exchange_id, user.id, approve=False)
     except ExchangeError as e:
         raise HTTPException(status_code=e.status_code, detail=e.code)
 

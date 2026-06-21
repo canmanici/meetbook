@@ -66,6 +66,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
         from app.workers.expire_requests import expire_requests
+        from app.workers.loan_reminders import run_loan_reminders
         from app.workers.reveal_ratings import reveal_overdue_ratings
 
         async def _run_expire_requests() -> None:
@@ -76,9 +77,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             async with get_session_factory()() as session:
                 await reveal_overdue_ratings(session)
 
+        async def _run_loan_reminders() -> None:
+            async with get_session_factory()() as session:
+                await run_loan_reminders(session)
+
         scheduler = AsyncIOScheduler()
         scheduler.add_job(_run_expire_requests, "interval", hours=1)
         scheduler.add_job(_run_reveal_ratings, "interval", hours=1)
+        scheduler.add_job(_run_loan_reminders, "interval", hours=1)
         scheduler.start()
 
     yield
@@ -94,12 +100,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    settings = get_settings()
+    is_dev = settings.env in ("local", "dev", "development", "test")
     app = FastAPI(
         title="MeetBook API",
         version="0.1.0",
         lifespan=lifespan,
-        docs_url="/api/docs",
-        openapi_url="/api/openapi.json",
+        docs_url="/api/docs" if is_dev else None,
+        redoc_url="/redoc" if is_dev else None,
+        openapi_url="/api/openapi.json" if is_dev else None,
     )
 
     app.add_middleware(

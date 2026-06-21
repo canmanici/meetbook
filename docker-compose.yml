@@ -47,6 +47,7 @@ services:
     build: ./backend
     env_file: ./backend/.env
     environment:
+      PYTHON_JIT: "1"
       DATABASE_URL: postgresql+asyncpg://meetbook:meetbook_dev@db:5432/meetbook
       REDIS_URL: redis://:meetbook_dev@redis:6379/0
       S3_ENDPOINT: http://minio:9000

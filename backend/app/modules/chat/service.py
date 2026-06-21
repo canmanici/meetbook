@@ -1,4 +1,4 @@
-"""Chat business logic + WebSocket connection manager + Redis pub/sub."""
+"""Chat business logic + WebSocket connection manager + Redis pub/sub + presence."""
 
 import asyncio
 import json
@@ -18,31 +18,36 @@ from app.modules.chat.models import Message
 from app.modules.chat.repository import ChatRepository
 from app.modules.chat.schemas import (
     ChatListResponse,
+    ChatSettingsView,
     ChatSummary,
+    MessageDeliveryInfo,
     MessageListResponse,
     MessageView,
+    ReactionView,
     WSOutgoing,
 )
 
 TICKET_TTL_SECONDS = 30
 MESSAGE_LIMIT = 2000
 PUBSUB_RETRY_DELAY_SECONDS = 5
+PRESENCE_KEY_TTL = 60  # seconds — user considered offline after 60s without ping
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# In-memory connection pool
-#   user_id -> set[WebSocket]
+# In-memory connection pool + Redis presence
 # ---------------------------------------------------------------------------
 _connections: dict[uuid.UUID, set[WebSocket]] = {}
 _redis_pubsub: aioredis.Redis | None = None
-_listener_task: Any = None  # asyncio.Task | None
+_listener_task: Any = None
 
-# ── Standalone ticket helpers (used by WS endpoint without a DB session) ──
+PRESENCE_CHANNEL = "presence"
+
+
+# ── Ticket helpers ─────────────────────────────────────────────────────────
 
 
 async def create_ticket(user_id: uuid.UUID) -> str:
-    """Generate a single-use 30-second WebSocket ticket (standalone)."""
     raw = generate_opaque_token(16)
     hashed = hash_token(raw)
     r = await _get_redis()
@@ -52,40 +57,55 @@ async def create_ticket(user_id: uuid.UUID) -> str:
 
 
 async def consume_ticket(ticket: str) -> uuid.UUID | None:
-    """Validate and consume a single-use ticket. Returns user_id or None."""
     hashed = hash_token(ticket)
     r = await _get_redis()
     key = f"ws_ticket:{hashed}"
     raw_user_id = await r.get(key)
     if raw_user_id is None:
         return None
-    await r.delete(key)  # single-use
+    await r.delete(key)
     return uuid.UUID(raw_user_id.decode() if isinstance(raw_user_id, bytes) else raw_user_id)
 
 
-def _to_view(msg: Message) -> MessageView:
+def _to_view(
+    msg: Message,
+    reply_text: str | None = None,
+    reply_sender_name: str | None = None,
+) -> MessageView:
     return MessageView(
         id=msg.id,
         chat_id=msg.chat_id,
         sender_id=msg.sender_id,
+        message_type=msg.message_type,
         text=msg.text,
         created_at=msg.created_at,
         read_at=msg.read_at,
+        reply_to_id=msg.reply_to_id,
+        reply_to_text=reply_text,
+        reply_to_sender_name=reply_sender_name,
+        starred_at=msg.starred_at,
+        pinned_at=msg.pinned_at,
+        extra=msg.extra,
     )
 
 
 # ---------------------------------------------------------------------------
-# Connection manager — wire-level WebSocket ops
+# Connection manager + Presence
 # ---------------------------------------------------------------------------
 
 
 class ConnectionManager:
-    """Per-instance in-memory WebSocket pool."""
+    """Per-instance in-memory WebSocket pool with Redis-backed presence."""
 
     @staticmethod
     async def connect(user_id: uuid.UUID, ws: WebSocket) -> None:
         await ws.accept()
         _connections.setdefault(user_id, set()).add(ws)
+        # Set online in Redis
+        r = await _get_redis()
+        await r.setex(f"presence:{user_id}", PRESENCE_KEY_TTL, "online")
+        # Broadcast presence
+        await ConnectionManager._broadcast_presence(user_id, True)
 
     @staticmethod
     def disconnect(user_id: uuid.UUID, ws: WebSocket) -> None:
@@ -94,6 +114,53 @@ class ConnectionManager:
             pool.discard(ws)
             if not pool:
                 _connections.pop(user_id, None)
+
+    @staticmethod
+    async def mark_online(user_id: uuid.UUID) -> None:
+        """Refresh presence TTL (called on every WS activity)."""
+        r = await _get_redis()
+        await r.setex(f"presence:{user_id}", PRESENCE_KEY_TTL, "online")
+
+    @staticmethod
+    async def check_online(user_id: uuid.UUID) -> bool:
+        """Check if user is online (connection in this process OR Redis key)."""
+        if user_id in _connections:
+            return True
+        r = await _get_redis()
+        val = await r.get(f"presence:{user_id}")
+        return val is not None
+
+    @staticmethod
+    async def get_last_seen(user_id: uuid.UUID) -> str | None:
+        """Get user's last seen timestamp."""
+        r = await _get_redis()
+        ts = await r.get(f"last_seen:{user_id}")
+        if ts:
+            return ts.decode() if isinstance(ts, bytes) else ts
+        return None
+
+    @staticmethod
+    async def set_last_seen(user_id: uuid.UUID) -> None:
+        r = await _get_redis()
+        await r.setex(f"last_seen:{user_id}", 86400 * 7, datetime.now(UTC).isoformat())
+
+    @staticmethod
+    async def _broadcast_presence(user_id: uuid.UUID, is_online: bool) -> None:
+        """Broadcast presence change to all connected users who share a chat."""
+        payload = {
+            "type": "presence",
+            "user_id": str(user_id),
+            "is_online": is_online,
+        }
+        # Broadcast to all connected users (they can filter on their end)
+        for uid, pool in _connections.items():
+            if uid != user_id:
+                text = json.dumps(payload, default=str)
+                for ws in pool:
+                    try:
+                        await ws.send_text(text)
+                    except Exception:
+                        pass
 
     @staticmethod
     async def send_to_user(user_id: uuid.UUID, payload: dict[str, Any]) -> None:
@@ -119,11 +186,6 @@ class ConnectionManager:
         exclude_user_id: uuid.UUID | None = None,
         repo: ChatRepository | None = None,
     ) -> None:
-        """Deliver payload to every connected participant of *chat_id*.
-
-        If *repo* is given the participant list is fetched from the DB;
-        otherwise it falls back to the (less reliable) connection-pool keys.
-        """
         targets: set[uuid.UUID] = set()
         if repo:
             exchange = await repo.get_exchange_for_chat(chat_id)
@@ -140,7 +202,7 @@ class ConnectionManager:
 
 
 # ---------------------------------------------------------------------------
-# Redis pub/sub helpers
+# Redis pub/sub
 # ---------------------------------------------------------------------------
 
 CHAT_CHANNEL_TPL = "chat:{chat_id}"
@@ -154,24 +216,12 @@ async def _get_redis() -> aioredis.Redis:
 
 
 async def publish_message(chat_id: uuid.UUID, payload: dict[str, Any]) -> None:
-    """Publish a message event to Redis so other instances receive it."""
     r = await _get_redis()
     channel = CHAT_CHANNEL_TPL.format(chat_id=chat_id)
     await r.publish(channel, json.dumps(payload, default=str))
 
 
 async def subscribe_and_listen() -> None:
-    """Background coroutine: listen on ``chat:*`` Redis channels and
-    deliver to local WebSocket connections.
-
-    Launched once per process in the FastAPI lifespan. If the Redis
-    connection fails or drops, retries with a fixed delay instead of
-    dying silently for the lifetime of the process.
-
-    Uses its own connection (socket_timeout=None) rather than the shared
-    `_get_redis()` client — the default 5s socket timeout would otherwise
-    abort `pubsub.listen()`'s indefinite blocking read every 5 seconds.
-    """
     while True:
         try:
             r = aioredis.from_url(get_settings().redis_url, socket_timeout=None)
@@ -180,10 +230,7 @@ async def subscribe_and_listen() -> None:
         except asyncio.CancelledError:
             raise
         except Exception:
-            logger.exception(
-                "Chat pub/sub connection failed, retrying in %ss",
-                PUBSUB_RETRY_DELAY_SECONDS,
-            )
+            logger.exception("Chat pub/sub connection failed, retrying in %ss", PUBSUB_RETRY_DELAY_SECONDS)
             await asyncio.sleep(PUBSUB_RETRY_DELAY_SECONDS)
             continue
 
@@ -198,7 +245,6 @@ async def subscribe_and_listen() -> None:
                 if isinstance(channel, bytes):
                     channel = channel.decode()
 
-                # channel = "chat:<uuid>"
                 try:
                     chat_id_str = channel.split(":", 1)[1]
                     chat_id = uuid.UUID(chat_id_str)
@@ -210,8 +256,6 @@ async def subscribe_and_listen() -> None:
                 except json.JSONDecodeError:
                     continue
 
-                # Forward to local connections, excluding the original sender
-                # (they already got the message from the fast-path local broadcast)
                 sender_id = payload.get("sender_id")
                 exclude: uuid.UUID | None = None
                 if sender_id:
@@ -226,10 +270,7 @@ async def subscribe_and_listen() -> None:
             await r.aclose()
             return
         except Exception:
-            logger.exception(
-                "Chat pub/sub listener error, reconnecting in %ss",
-                PUBSUB_RETRY_DELAY_SECONDS,
-            )
+            logger.exception("Chat pub/sub listener error, reconnecting in %ss", PUBSUB_RETRY_DELAY_SECONDS)
             await pubsub.close()
             await r.aclose()
             await asyncio.sleep(PUBSUB_RETRY_DELAY_SECONDS)
@@ -237,18 +278,16 @@ async def subscribe_and_listen() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Chat service (HTTP + WebSocket business logic)
+# Chat service
 # ---------------------------------------------------------------------------
 
 
 class ChatService:
-    """High-level chat operations used by both REST and WebSocket handlers."""
-
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.repo = ChatRepository(session)
 
-    # ── Ticket auth ───────────────────────────────────────────────────────
+    # ── Ticket ───────────────────────────────────────────────────────────
 
     async def create_ticket(self, user_id: uuid.UUID) -> str:
         return await create_ticket(user_id)
@@ -257,15 +296,13 @@ class ChatService:
 
     async def list_chats(self, user_id: uuid.UUID) -> ChatListResponse:
         rows = await self.repo.list_chats_for_user(user_id)
-
-        # Resolve counterpart names
         from app.modules.auth.repository import AuthRepository
         auth_repo = AuthRepository(self.session)
 
         items: list[ChatSummary] = []
         for row in rows:
             counterpart = await auth_repo.get_user_by_id(row["counterpart_id"])
-            name = counterpart.name if counterpart else "Bilinmeyon"
+            name = counterpart.name if counterpart else "Bilinmeyen"
             items.append(
                 ChatSummary(
                     chat_id=row["chat_id"],
@@ -273,6 +310,7 @@ class ChatService:
                     counterpart_id=row["counterpart_id"],
                     counterpart_name=name,
                     last_message=row["last_message"],
+                    last_message_type=row.get("last_message_type", "text"),
                     last_message_at=row["last_message_at"],
                     unread_count=row["unread_count"],
                 )
@@ -292,7 +330,6 @@ class ChatService:
         chat = await self.repo.get_chat_by_exchange(exchange_id)
         if chat is None:
             raise ChatError("CHAT_NOT_FOUND", 404)
-
         if not await self.repo.is_participant(chat.id, user_id):
             raise ChatError("FORBIDDEN", 403)
 
@@ -307,29 +344,86 @@ class ChatService:
             last = msgs[-1]
             next_cursor = encode_cursor(last.created_at, last.id)
 
-        return MessageListResponse(
-            items=[_to_view(m) for m in msgs],
-            next_cursor=next_cursor,
-        )
+        from app.modules.auth.repository import AuthRepository
+        auth_repo = AuthRepository(self.session)
+
+        reply_ids = [m.reply_to_id for m in msgs if m.reply_to_id]
+        reply_map: dict[uuid.UUID, tuple[str, str]] = {}
+        if reply_ids:
+            for rid in reply_ids:
+                reply_msg = await self.repo.get_message_by_id(rid)
+                if reply_msg:
+                    sender = await auth_repo.get_user_by_id(reply_msg.sender_id) if reply_msg.sender_id else None
+                    sender_name = sender.name if sender else "Sistem"
+                    reply_map[rid] = (reply_msg.text, sender_name)
+
+        msg_ids = [m.id for m in msgs]
+        reactions_map = await self.repo.get_reactions_for_messages(msg_ids)
+
+        items = []
+        for m in msgs:
+            reply_text = None
+            reply_sender_name = None
+            if m.reply_to_id and m.reply_to_id in reply_map:
+                reply_text, reply_sender_name = reply_map[m.reply_to_id]
+
+            view = _to_view(m, reply_text, reply_sender_name)
+            view.reactions = [
+                ReactionView(emoji=r["emoji"], users=r["users"], count=r["count"])
+                for r in reactions_map.get(m.id, [])
+            ]
+            items.append(view)
+
+        return MessageListResponse(items=items, next_cursor=next_cursor)
+
+    async def search_messages(
+        self, exchange_id: uuid.UUID, user_id: uuid.UUID, query: str
+    ) -> list[MessageView]:
+        chat = await self.repo.get_chat_by_exchange(exchange_id)
+        if chat is None:
+            raise ChatError("CHAT_NOT_FOUND", 404)
+        if not await self.repo.is_participant(chat.id, user_id):
+            raise ChatError("FORBIDDEN", 403)
+
+        msgs = await self.repo.search_messages(chat.id, query)
+        return [_to_view(m) for m in msgs]
+
+    async def get_pinned_messages(
+        self, exchange_id: uuid.UUID, user_id: uuid.UUID
+    ) -> list[MessageView]:
+        chat = await self.repo.get_chat_by_exchange(exchange_id)
+        if chat is None:
+            raise ChatError("CHAT_NOT_FOUND", 404)
+        if not await self.repo.is_participant(chat.id, user_id):
+            raise ChatError("FORBIDDEN", 403)
+
+        msgs = await self.repo.get_pinned_messages(chat.id)
+        return [_to_view(m) for m in msgs]
+
+    async def get_starred_messages(self, user_id: uuid.UUID) -> list[MessageView]:
+        msgs = await self.repo.get_starred_messages(user_id)
+        return [_to_view(m) for m in msgs]
+
+    async def get_message_delivery_info(
+        self, message_id: uuid.UUID, user_id: uuid.UUID
+    ) -> MessageDeliveryInfo | None:
+        info = await self.repo.get_message_delivery_info(message_id)
+        if info is None:
+            return None
+        return MessageDeliveryInfo(**info)
 
     async def mark_read(
-        self,
-        exchange_id: uuid.UUID,
-        user_id: uuid.UUID,
-        up_to_message_id: uuid.UUID,
+        self, exchange_id: uuid.UUID, user_id: uuid.UUID, up_to_message_id: uuid.UUID
     ) -> None:
         chat = await self.repo.get_chat_by_exchange(exchange_id)
         if chat is None:
             raise ChatError("CHAT_NOT_FOUND", 404)
-
         if not await self.repo.is_participant(chat.id, user_id):
             raise ChatError("FORBIDDEN", 403)
 
         marked_ids = await self.repo.mark_read(chat.id, user_id, up_to_message_id)
         if marked_ids:
             await self.session.commit()
-
-            # Notify the other participant that messages were read
             exchange = await self.repo.get_exchange_for_chat(chat.id)
             if exchange:
                 other_id = (
@@ -346,7 +440,52 @@ class ChatService:
                     },
                 )
 
-    # ── WebSocket message handling ────────────────────────────────────────
+    # ── Chat settings ────────────────────────────────────────────────────
+
+    async def get_chat_settings(
+        self, exchange_id: uuid.UUID, user_id: uuid.UUID
+    ) -> ChatSettingsView:
+        chat = await self.repo.get_chat_by_exchange(exchange_id)
+        if chat is None:
+            raise ChatError("CHAT_NOT_FOUND", 404)
+
+        settings = await self.repo.get_chat_settings(chat.id, user_id)
+        if settings is None:
+            return ChatSettingsView(
+                is_muted=False, font_size="normal", notification_sound="default"
+            )
+        return ChatSettingsView(
+            is_muted=settings.is_muted,
+            wallpaper_url=settings.wallpaper_url,
+            font_size=settings.font_size or "normal",
+            notification_sound=settings.notification_sound or "default",
+        )
+
+    async def update_chat_settings(
+        self,
+        exchange_id: uuid.UUID,
+        user_id: uuid.UUID,
+        is_muted: bool | None = None,
+        wallpaper_url: str | None = None,
+        font_size: str | None = None,
+        notification_sound: str | None = None,
+    ) -> ChatSettingsView:
+        chat = await self.repo.get_chat_by_exchange(exchange_id)
+        if chat is None:
+            raise ChatError("CHAT_NOT_FOUND", 404)
+
+        await self.repo.upsert_chat_settings(
+            chat.id, user_id, is_muted, wallpaper_url, font_size, notification_sound
+        )
+        await self.session.commit()
+        return await self.get_chat_settings(exchange_id, user_id)
+
+    # ── Link previews ────────────────────────────────────────────────────
+
+    async def extract_urls(self, text: str) -> list[str]:
+        return await self.repo.extract_urls(text)
+
+    # ── WebSocket handlers ───────────────────────────────────────────────
 
     async def handle_send(
         self,
@@ -354,14 +493,14 @@ class ChatService:
         ws: WebSocket,
         chat_id: uuid.UUID,
         text: str,
+        reply_to_id: uuid.UUID | None = None,
+        message_type: str = "text",
+        extra: dict | None = None,
     ) -> None:
-        """Validate, persist, publish, and deliver a chat message."""
-        # Membership check
         if not await self.repo.is_participant(chat_id, ws_user_id):
             await self._ws_error(ws, "Not a participant of this chat")
             return
 
-        # Block check (bidirectional)
         exchange = await self.repo.get_exchange_for_chat(chat_id)
         if exchange is None:
             await self._ws_error(ws, "Chat not found")
@@ -375,39 +514,152 @@ class ChatService:
             await self._ws_error(ws, "Cannot send message — user is blocked")
             return
 
-        # Length check
         if len(text) > MESSAGE_LIMIT:
             await self._ws_error(ws, f"Message too long (max {MESSAGE_LIMIT} chars)")
             return
 
-        # Persist
-        msg = await self.repo.create_message(chat_id, ws_user_id, text)
+        if reply_to_id:
+            reply_msg = await self.repo.get_message_by_id(reply_to_id)
+            if reply_msg is None or reply_msg.chat_id != chat_id:
+                reply_to_id = None
+
+        msg = await self.repo.create_message(
+            chat_id, ws_user_id, text, message_type, reply_to_id, extra
+        )
         await self.session.commit()
 
-        view = _to_view(msg)
+        # Extract URLs for link preview
+        from app.modules.auth.repository import AuthRepository
+        auth_repo = AuthRepository(self.session)
+
+        reply_text = None
+        reply_sender_name = None
+        if reply_to_id and reply_msg:
+            sender = await auth_repo.get_user_by_id(reply_msg.sender_id)
+            reply_text = reply_msg.text
+            reply_sender_name = sender.name if sender else "Bilinmeyen"
+
+        view = _to_view(msg, reply_text, reply_sender_name)
         sender_id_str = str(ws_user_id)
         payload = {
             "type": "message",
             "message": view.model_dump(mode="json"),
-            "sender_id": sender_id_str,  # used by Redis listener to skip sender
+            "sender_id": sender_id_str,
         }
 
-        # 1. Deliver to local connections first (fast path, include sender)
-        await ConnectionManager.broadcast_to_chat(
-            chat_id, payload, repo=self.repo,
-        )
-
-        # 2. Publish to Redis so other instances get it
+        await ConnectionManager.broadcast_to_chat(chat_id, payload, repo=self.repo)
         await publish_message(chat_id, payload)
 
-    async def handle_ws_message(
+    async def handle_typing(
+        self, ws_user_id: uuid.UUID, chat_id: uuid.UUID, is_typing: bool
+    ) -> None:
+        exchange = await self.repo.get_exchange_for_chat(chat_id)
+        if exchange is None:
+            return
+
+        other_id = (
+            exchange.requested_to if ws_user_id == exchange.requested_by
+            else exchange.requested_by
+        )
+        await ConnectionManager.send_to_user(
+            other_id,
+            {
+                "type": "typing",
+                "chat_id": str(chat_id),
+                "user_id": str(ws_user_id),
+                "is_typing": is_typing,
+            },
+        )
+
+    async def handle_delete(
+        self, ws_user_id: uuid.UUID, ws: WebSocket, chat_id: uuid.UUID, message_id: uuid.UUID
+    ) -> None:
+        if not await self.repo.is_participant(chat_id, ws_user_id):
+            await self._ws_error(ws, "Not a participant of this chat")
+            return
+
+        msg = await self.repo.delete_message(message_id, ws_user_id)
+        if msg is None:
+            await self._ws_error(ws, "Cannot delete this message")
+            return
+
+        await self.session.commit()
+
+        payload = {
+            "type": "deleted",
+            "chat_id": str(chat_id),
+            "message_id": str(message_id),
+            "sender_id": str(ws_user_id),
+        }
+        await ConnectionManager.broadcast_to_chat(chat_id, payload, repo=self.repo)
+        await publish_message(chat_id, payload)
+
+    async def handle_reaction(
         self,
         ws_user_id: uuid.UUID,
         ws: WebSocket,
-        raw: dict[str, Any],
+        chat_id: uuid.UUID,
+        message_id: uuid.UUID,
+        emoji: str,
+        action: str,
     ) -> None:
-        """Dispatch a raw WebSocket JSON message."""
+        if not await self.repo.is_participant(chat_id, ws_user_id):
+            await self._ws_error(ws, "Not a participant of this chat")
+            return
+
+        msg = await self.repo.get_message_by_id(message_id)
+        if msg is None or msg.chat_id != chat_id:
+            await self._ws_error(ws, "Message not found")
+            return
+
+        if action == "add":
+            await self.repo.add_reaction(message_id, ws_user_id, emoji)
+        elif action == "remove":
+            await self.repo.remove_reaction(message_id, ws_user_id, emoji)
+        else:
+            await self._ws_error(ws, "Invalid reaction action")
+            return
+
+        await self.session.commit()
+
+        reactions_map = await self.repo.get_reactions_for_messages([message_id])
+        reactions = [
+            {"emoji": r["emoji"], "users": r["users"], "count": r["count"]}
+            for r in reactions_map.get(message_id, [])
+        ]
+
+        payload = {
+            "type": "reaction",
+            "chat_id": str(chat_id),
+            "message_id": str(message_id),
+            "reactions": reactions,
+            "sender_id": str(ws_user_id),
+        }
+        await ConnectionManager.broadcast_to_chat(chat_id, payload, repo=self.repo)
+        await publish_message(chat_id, payload)
+
+    async def handle_presence(self, ws_user_id: uuid.UUID) -> None:
+        """Refresh presence and broadcast to peers."""
+        await ConnectionManager.mark_online(ws_user_id)
+        # Broadcast to all connected users
+        for uid in _connections:
+            if uid != ws_user_id:
+                await ConnectionManager.send_to_user(
+                    uid,
+                    {
+                        "type": "presence",
+                        "user_id": str(ws_user_id),
+                        "is_online": True,
+                    },
+                )
+
+    async def handle_ws_message(
+        self, ws_user_id: uuid.UUID, ws: WebSocket, raw: dict[str, Any]
+    ) -> None:
         msg_type = raw.get("type")
+
+        # Refresh presence on any WS message
+        await ConnectionManager.mark_online(ws_user_id)
 
         if msg_type == "ping":
             await ws.send_text(json.dumps({"type": "pong"}))
@@ -423,7 +675,60 @@ class ChatService:
             except (ValueError, AttributeError):
                 await self._ws_error(ws, "Invalid chat_id")
                 return
-            await self.handle_send(ws_user_id, ws, chat_id, text)
+            reply_to_raw = raw.get("reply_to_id")
+            reply_to_id = None
+            if reply_to_raw:
+                try:
+                    reply_to_id = uuid.UUID(str(reply_to_raw))
+                except (ValueError, AttributeError):
+                    pass
+            message_type = raw.get("message_type", "text")
+            extra = raw.get("extra")
+            await self.handle_send(ws_user_id, ws, chat_id, text, reply_to_id, message_type, extra)
+
+        elif msg_type == "typing":
+            chat_id_raw = raw.get("chat_id")
+            is_typing = raw.get("is_typing", False)
+            if not chat_id_raw:
+                return
+            try:
+                chat_id = uuid.UUID(str(chat_id_raw))
+            except (ValueError, AttributeError):
+                return
+            await self.handle_typing(ws_user_id, chat_id, is_typing)
+
+        elif msg_type == "delete":
+            chat_id_raw = raw.get("chat_id")
+            message_id_raw = raw.get("message_id")
+            if not chat_id_raw or not message_id_raw:
+                await self._ws_error(ws, "chat_id and message_id are required")
+                return
+            try:
+                chat_id = uuid.UUID(str(chat_id_raw))
+                message_id = uuid.UUID(str(message_id_raw))
+            except (ValueError, AttributeError):
+                await self._ws_error(ws, "Invalid IDs")
+                return
+            await self.handle_delete(ws_user_id, ws, chat_id, message_id)
+
+        elif msg_type == "reaction":
+            chat_id_raw = raw.get("chat_id")
+            message_id_raw = raw.get("message_id")
+            emoji = raw.get("emoji", "")
+            action = raw.get("action", "add")
+            if not chat_id_raw or not message_id_raw or not emoji:
+                await self._ws_error(ws, "chat_id, message_id, and emoji are required")
+                return
+            try:
+                chat_id = uuid.UUID(str(chat_id_raw))
+                message_id = uuid.UUID(str(message_id_raw))
+            except (ValueError, AttributeError):
+                await self._ws_error(ws, "Invalid IDs")
+                return
+            await self.handle_reaction(ws_user_id, ws, chat_id, message_id, emoji, action)
+
+        elif msg_type == "presence":
+            await self.handle_presence(ws_user_id)
 
         else:
             await self._ws_error(ws, f"Unknown message type: {msg_type}")
@@ -431,9 +736,7 @@ class ChatService:
     @staticmethod
     async def _ws_error(ws: WebSocket, message: str) -> None:
         try:
-            await ws.send_text(
-                json.dumps({"type": "error", "error": message})
-            )
+            await ws.send_text(json.dumps({"type": "error", "error": message}))
         except Exception:
             pass
 

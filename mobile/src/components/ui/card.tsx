@@ -10,6 +10,7 @@ import {
   StyleProp,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { palette, spacing, radius, fontSize, shadows } from './tokens';
 
 interface CardProps {
@@ -94,32 +95,33 @@ export const BookCard: React.FC<BookCardProps> = ({
 
   return (
     <CardWrapper style={[styles.bookCard, { backgroundColor: colors.surface, borderColor: colors.border }, style]} {...wrapperProps}>
+      {typeof distanceKm === 'number' && (
+        <View style={[styles.distanceBadge, { backgroundColor: colors.surface }]} testID="distance-badge">
+          <Ionicons name="location" size={11} color={colors.primary} />
+          <Text style={[styles.distanceBadgeText, { color: colors.text }]}>{distanceKm.toFixed(1)} km</Text>
+        </View>
+      )}
       <View style={styles.bookCardInner}>
         <View style={styles.coverWrap}>
-          {hasCover ? (
-            <Image
-              source={{ uri: coverUrl }}
-              style={styles.cover}
-              resizeMode="cover"
-              testID="book-cover"
-              onError={handleImageError}
-            />
-          ) : coverFailed ? (
-            <View style={[styles.cover, styles.coverFallback, { backgroundColor: colors.surfaceAlt }]} testID="book-cover-error">
-              <Ionicons name="book-outline" size={26} color={colors.textMuted} />
-            </View>
-          ) : (
-            <View style={[styles.cover, styles.coverFallback, { backgroundColor: colors.surfaceAlt }]} testID="book-cover-placeholder">
-              <Ionicons name="book-outline" size={26} color={colors.textMuted} />
-            </View>
-          )}
-
-          {typeof distanceKm === 'number' && (
-            <View style={[styles.distanceBadge, { backgroundColor: colors.surface }]} testID="distance-badge">
-              <Ionicons name="location" size={11} color={colors.primary} />
-              <Text style={[styles.distanceBadgeText, { color: colors.text }]}>{distanceKm.toFixed(1)} km</Text>
-            </View>
-          )}
+          <View style={[styles.coverShadow, { shadowColor: colors.text }]}>
+            {hasCover ? (
+              <Image
+                source={{ uri: coverUrl }}
+                style={styles.cover}
+                resizeMode="cover"
+                testID="book-cover"
+                onError={handleImageError}
+              />
+            ) : coverFailed ? (
+              <View style={[styles.cover, styles.coverFallback, { backgroundColor: colors.surfaceAlt }]} testID="book-cover-error">
+                <Ionicons name="book-outline" size={28} color={colors.textMuted} />
+              </View>
+            ) : (
+              <View style={[styles.cover, styles.coverFallback, { backgroundColor: colors.surfaceAlt }]} testID="book-cover-placeholder">
+                <Ionicons name="book-outline" size={28} color={colors.textMuted} />
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.content}>
@@ -142,18 +144,25 @@ export const BookCard: React.FC<BookCardProps> = ({
 
           <View style={styles.actionsRow}>
             <TouchableOpacity
-              style={[styles.exchangeButton, { backgroundColor: colors.primary }]}
-              onPress={onRequestExchange}
               activeOpacity={0.85}
+              onPress={onRequestExchange}
               testID="exchange-button"
+              style={styles.exchangeButtonWrap}
             >
-              <Ionicons name="swap-horizontal" size={16} color="#fff" />
-              <Text style={styles.exchangeButtonText}>Takas İste</Text>
+              <LinearGradient
+                colors={[colors.primary, '#0D5E4F']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.exchangeButton}
+              >
+                <Ionicons name="swap-horizontal" size={16} color="#fff" />
+                <Text style={styles.exchangeButtonText}>Takas İste</Text>
+              </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.favoriteButton, { backgroundColor: colors.surfaceAlt }]}
               onPress={onFavorite}
-              activeOpacity={0.7}
+              activeOpacity={0.6}
               testID="favorite-button"
             >
               <Ionicons name="heart-outline" size={20} color={colors.accent} />
@@ -171,7 +180,12 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    ...shadows.card,
+    position: 'relative',
+    shadowColor: '#2A1F10',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
   },
   bookCardInner: {
     flexDirection: 'row',
@@ -179,10 +193,19 @@ const styles = StyleSheet.create({
   coverWrap: {
     marginRight: spacing.md,
   },
+  coverShadow: {
+    borderRadius: radius.field + 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 15,
+  },
   cover: {
-    width: 68,
-    height: 96,
+    width: 72,
+    height: 128,
     borderRadius: radius.field,
+    borderWidth: 0,
   },
   coverFallback: {
     justifyContent: 'center',
@@ -190,16 +213,20 @@ const styles = StyleSheet.create({
   },
   distanceBadge: {
     position: 'absolute',
-    bottom: -8,
-    alignSelf: 'center',
+    top: 10,
+    right: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
     paddingVertical: 3,
     borderRadius: radius.pill,
-    zIndex: 1,
-    ...shadows.card,
+    zIndex: 10,
+    shadowColor: '#2A1F10',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   distanceBadgeText: {
     fontSize: 11,
@@ -250,11 +277,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  exchangeButtonWrap: {
+    flex: 1,
+    borderRadius: radius.button,
+    shadowColor: '#0A4D42',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 80,
+  },
   exchangeButton: {
     flex: 1,
     flexDirection: 'row',
     gap: 6,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm + 3,
     borderRadius: radius.button,
     alignItems: 'center',
     justifyContent: 'center',
@@ -270,5 +306,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.field,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#2A1F10',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 60,
+    elevation: 4,
   },
 });

@@ -1,5 +1,5 @@
 /**
- * Chat API functions + WebSocket connection manager.
+ * Chat API functions + WebSocket connection manager — full-featured.
  */
 import { useAuthStore } from '@/stores/auth-store';
 import { authedRequest } from './client';
@@ -8,18 +8,75 @@ import { authedRequest } from './client';
 // Types
 // ---------------------------------------------------------------------------
 
+export interface ReactionView {
+  emoji: string;
+  users: string[];
+  count: number;
+}
+
 export interface MessageView {
   id: string;
   chat_id: string;
-  sender_id: string;
+  sender_id: string | null;
+  message_type: 'text' | 'image' | 'voice' | 'location' | 'book_card' | 'system';
   text: string;
   created_at: string;
   read_at: string | null;
+  reply_to_id?: string | null;
+  reply_to_text?: string | null;
+  reply_to_sender_name?: string | null;
+  reactions?: ReactionView[];
+  starred_at?: string | null;
+  pinned_at?: string | null;
+  extra?: {
+    // image
+    url?: string;
+    thumbnail_url?: string;
+    width?: number;
+    height?: number;
+    // voice
+    duration_seconds?: number;
+    // location
+    lat?: number;
+    lng?: number;
+    name?: string;
+    // book_card
+    book_id?: string;
+    title?: string;
+    author?: string;
+    cover_url?: string;
+    category?: string;
+    // system
+    action?: string;
+    data?: Record<string, unknown>;
+  } | null;
 }
 
 export interface MessageListResponse {
   items: MessageView[];
   next_cursor: string | null;
+}
+
+export interface MessageSearchResult {
+  message: MessageView;
+  context_before: string | null;
+  context_after: string | null;
+}
+
+export interface MessageSearchResponse {
+  items: MessageSearchResult[];
+  total: number;
+}
+
+export interface ChatSettingsView {
+  is_muted: boolean;
+  wallpaper_url: string | null;
+  font_size: string;
+  notification_sound: string;
+}
+
+export interface ChatSettingsResponse {
+  settings: ChatSettingsView;
 }
 
 export interface ChatSummary {
@@ -28,6 +85,7 @@ export interface ChatSummary {
   counterpart_id: string;
   counterpart_name: string;
   last_message: string | null;
+  last_message_type: string;
   last_message_at: string | null;
   unread_count: number;
 }
@@ -39,6 +97,13 @@ export interface ChatListResponse {
 export interface ChatTicketResponse {
   ticket: string;
   expires_in_seconds: number;
+}
+
+export interface MessageDeliveryInfo {
+  message_id: string;
+  sent_at: string;
+  read_at: string | null;
+  delivered_to: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -59,9 +124,7 @@ export async function getMessages(
   limit = 50,
 ): Promise<MessageListResponse> {
   const params: Record<string, string | number> = { limit };
-  if (cursor) {
-    params.cursor = cursor;
-  }
+  if (cursor) params.cursor = cursor;
   return authedRequest<MessageListResponse>(
     `/exchanges/${exchangeId}/chat/messages`,
     'GET',
@@ -70,15 +133,59 @@ export async function getMessages(
   );
 }
 
-export async function markMessagesRead(
+export async function searchMessages(
   exchangeId: string,
-  upToMessageId: string,
-): Promise<void> {
-  return authedRequest<void>(
-    `/exchanges/${exchangeId}/chat/read`,
-    'POST',
-    { up_to_message_id: upToMessageId },
+  query: string,
+  limit = 50,
+): Promise<MessageSearchResponse> {
+  return authedRequest<MessageSearchResponse>(
+    `/exchanges/${exchangeId}/chat/messages/search`,
+    'GET',
+    undefined,
+    { query: { q: query, limit } },
   );
+}
+
+export async function getPinnedMessages(exchangeId: string): Promise<{ items: MessageView[] }> {
+  return authedRequest(`/exchanges/${exchangeId}/chat/messages/pinned`, 'GET', undefined);
+}
+
+export async function toggleStarMessage(exchangeId: string, messageId: string): Promise<{ starred: boolean }> {
+  return authedRequest(`/exchanges/${exchangeId}/chat/messages/${messageId}/star`, 'POST', undefined);
+}
+
+export async function togglePinMessage(exchangeId: string, messageId: string): Promise<{ pinned: boolean }> {
+  return authedRequest(`/exchanges/${exchangeId}/chat/messages/${messageId}/pin`, 'POST', undefined);
+}
+
+export async function getMessageInfo(exchangeId: string, messageId: string): Promise<MessageDeliveryInfo> {
+  return authedRequest(`/exchanges/${exchangeId}/chat/messages/${messageId}/info`, 'GET', undefined);
+}
+
+export async function markMessagesRead(exchangeId: string, upToMessageId: string): Promise<void> {
+  return authedRequest(`/exchanges/${exchangeId}/chat/read`, 'POST', { up_to_message_id: upToMessageId });
+}
+
+export async function getChatSettings(exchangeId: string): Promise<ChatSettingsResponse> {
+  return authedRequest(`/exchanges/${exchangeId}/chat/settings`, 'GET', undefined);
+}
+
+export async function updateChatSettings(
+  exchangeId: string,
+  settings: Partial<{ is_muted: boolean; wallpaper_url: string; font_size: string; notification_sound: string }>,
+): Promise<ChatSettingsResponse> {
+  return authedRequest(`/exchanges/${exchangeId}/chat/settings`, 'PATCH', settings);
+}
+
+export async function getStarredMessages(): Promise<{ items: MessageView[] }> {
+  return authedRequest('/chat/starred', 'GET', undefined);
+}
+
+export async function uploadChatMedia(
+  exchangeId: string,
+  file: FormData,
+): Promise<{ url: string; thumbnail_url?: string }> {
+  return authedRequest(`/exchanges/${exchangeId}/chat/media`, 'POST', file);
 }
 
 // ---------------------------------------------------------------------------
@@ -88,12 +195,18 @@ export async function markMessagesRead(
 export type WSWatcher = (msg: WSMessage) => void;
 
 export interface WSMessage {
-  type: 'message' | 'read' | 'error' | 'pong';
+  type: 'message' | 'read' | 'typing' | 'reaction' | 'deleted' | 'presence' | 'error' | 'pong';
   message?: MessageView;
   error?: string;
   chat_id?: string;
+  message_id?: string;
   read_by?: string;
   up_to_message_id?: string;
+  user_id?: string;
+  is_typing?: boolean;
+  is_online?: boolean;
+  reactions?: Array<{ emoji: string; users: string[]; count: number }>;
+  sender_id?: string;
 }
 
 const WS_BASE =
@@ -106,6 +219,7 @@ class ChatWebSocketManager {
   private watchers: Set<WSWatcher> = new Set();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private isConnecting = false;
+  private pingInterval: ReturnType<typeof setInterval> | null = null;
 
   subscribe(watcher: WSWatcher): () => void {
     this.watchers.add(watcher);
@@ -114,11 +228,7 @@ class ChatWebSocketManager {
 
   private notify(msg: WSMessage) {
     for (const w of this.watchers) {
-      try {
-        w(msg);
-      } catch {
-        /* ignore per-watcher errors */
-      }
+      try { w(msg); } catch {}
     }
   }
 
@@ -129,54 +239,72 @@ class ChatWebSocketManager {
     try {
       const { ticket } = await getChatTicket();
       const url = `${WS_BASE}/ws/chat?ticket=${ticket}`;
-
       this.ws = new WebSocket(url);
 
       this.ws.onopen = () => {
         this.isConnecting = false;
+        this.pingInterval = setInterval(() => this.ping(), 30000);
+        // Request presence on connect
+        this.ws?.send(JSON.stringify({ type: 'presence' }));
       };
 
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data) as WSMessage;
           this.notify(data);
-        } catch {
-          // ignore malformed messages
-        }
+        } catch {}
       };
 
       this.ws.onclose = () => {
         this.isConnecting = false;
         this.ws = null;
-        // Reconnect after 5 seconds
+        if (this.pingInterval) { clearInterval(this.pingInterval); this.pingInterval = null; }
         this.reconnectTimer = setTimeout(() => this.connect(), 5000);
       };
 
-      this.ws.onerror = () => {
-        this.isConnecting = false;
-      };
+      this.ws.onerror = () => { this.isConnecting = false; };
     } catch {
       this.isConnecting = false;
-      // Retry connection later
       this.reconnectTimer = setTimeout(() => this.connect(), 10000);
     }
   }
 
   disconnect() {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    if (this.ws) {
-      this.ws.onclose = null; // prevent reconnect
-      this.ws.close();
-      this.ws = null;
+    if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+    if (this.pingInterval) { clearInterval(this.pingInterval); this.pingInterval = null; }
+    if (this.ws) { this.ws.onclose = null; this.ws.close(); this.ws = null; }
+  }
+
+  send(chatId: string, text: string, replyToId?: string | null, messageType = 'text', extra?: Record<string, unknown> | null) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      const payload: Record<string, unknown> = { type: 'send', chat_id: chatId, text, message_type: messageType };
+      if (replyToId) payload.reply_to_id = replyToId;
+      if (extra) payload.extra = extra;
+      this.ws.send(JSON.stringify(payload));
     }
   }
 
-  send(chatId: string, text: string) {
+  sendTyping(chatId: string, isTyping: boolean) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: 'send', chat_id: chatId, text }));
+      this.ws.send(JSON.stringify({ type: 'typing', chat_id: chatId, is_typing: isTyping }));
+    }
+  }
+
+  deleteMessage(chatId: string, messageId: string) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'delete', chat_id: chatId, message_id: messageId }));
+    }
+  }
+
+  sendReaction(chatId: string, messageId: string, emoji: string, action: 'add' | 'remove') {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'reaction', chat_id: chatId, message_id: messageId, emoji, action }));
+    }
+  }
+
+  ping() {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'ping' }));
     }
   }
 }

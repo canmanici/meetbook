@@ -82,12 +82,13 @@ export default function UserProfileScreen() {
 
   const stats = [
     { value: profile.completed_exchanges, label: 'takas', icon: 'swap-horizontal' as const },
-    { value: userBooks.length, label: 'kitap', icon: 'library' as const },
+    { value: profile.loans_borrowed_count ?? 0, label: 'ödünç', icon: 'book' as const },
     {
       value: profile.rating_count > 0 ? profile.rating_average.toFixed(1) : '—',
       label: 'puan',
       icon: 'star' as const,
     },
+    { value: profile.trust_score ?? 0, label: 'güven', icon: 'shield-checkmark' as const },
   ];
 
   return (

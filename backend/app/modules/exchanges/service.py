@@ -10,10 +10,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.geo import in_turkey_bbox, make_point
 from app.core.redis import get_redis
+from app.modules.auth.models import User
 from app.modules.auth.repository import AuthRepository
+from app.modules.auth.trust import compute_trust
 from app.modules.books.repository import BookRepository, BookRow, encode_cursor
 from app.modules.books.schemas import LocationOutput, PhotoView
-from app.modules.exchanges.models import ExchangeRequest, ExchangeStatus, Meetup, MeetupValidationStatus
+from app.modules.exchanges.models import (
+    ExchangeMode,
+    ExchangeRequest,
+    ExchangeStatus,
+    ExtensionStatus,
+    Meetup,
+    MeetupValidationStatus,
+)
 from app.modules.exchanges.repository import ExchangeRepository, Role
 from app.modules.exchanges.schemas import (
     BlockedUserView,
@@ -24,10 +33,14 @@ from app.modules.exchanges.schemas import (
     ExchangeDetail,
     ExchangeListResponse,
     ExchangeSummary,
+    ExtensionRequestBody,
+    LendRequest,
     MeetupAcceptRequest,
     MeetupDetail,
     MeetupOfferView,
     MeetupProposeRequest,
+    ReturnRequest,
+    TrustView,
 )
 from app.modules.exchanges.state_machine import (
     ExchangeAction,
@@ -40,6 +53,27 @@ from app.modules.places.schemas import PlaceSummary
 
 REQUEST_TTL = timedelta(days=14)
 NEW_ACCOUNT_ACTIVE_REQUEST_LIMIT = 3
+
+
+def _trust_view(user: User) -> TrustView:
+    result = compute_trust(
+        rating_average=float(user.rating_average or 0),
+        loans_borrowed_count=user.loans_borrowed_count,
+        loans_returned_on_time=user.loans_returned_on_time,
+        loans_returned_late=user.loans_returned_late,
+        trust_score_override=(
+            float(user.trust_score_override)
+            if user.trust_score_override is not None
+            else None
+        ),
+    )
+    return TrustView(
+        score=result.score,
+        badge=result.badge,
+        label=result.label,
+        on_time_rate=result.on_time_rate,
+        loans_borrowed_count=result.loans_borrowed_count,
+    )
 
 
 class ExchangeError(Exception):
@@ -118,13 +152,24 @@ class ExchangeService:
         return ExchangeDetail(
             id=request.id,
             book=_book_summary(book_row, photos),
-            counterpart=CounterpartView(id=counterpart.id, name=counterpart.name),
+            counterpart=CounterpartView(
+                id=counterpart.id, name=counterpart.name, trust=_trust_view(counterpart)
+            ),
             requested_by=request.requested_by,
             requested_to=request.requested_to,
             status=request.status,
             initial_message=request.initial_message,
             completion_marked_by=request.completion_marked_by,
             meetup=_meetup_to_detail(meetup) if meetup is not None else None,
+            mode=request.mode,
+            loan_duration_days=request.loan_duration_days,
+            due_at=request.due_at,
+            lent_at=request.lent_at,
+            lent_photo_url=request.lent_photo_url,
+            returned_photo_url=request.returned_photo_url,
+            returned_marked_by=request.returned_marked_by,
+            extension_status=request.extension_status,
+            extension_requested_days=request.extension_requested_days,
             created_at=request.created_at,
             updated_at=request.updated_at,
             expires_at=request.expires_at,
@@ -140,8 +185,12 @@ class ExchangeService:
         return ExchangeSummary(
             id=request.id,
             book=_book_summary(book_row, photos),
-            counterpart=CounterpartView(id=counterpart.id, name=counterpart.name),
+            counterpart=CounterpartView(
+                id=counterpart.id, name=counterpart.name, trust=_trust_view(counterpart)
+            ),
             status=request.status,
+            mode=request.mode,
+            due_at=request.due_at,
             created_at=request.created_at,
             updated_at=request.updated_at,
         )
@@ -175,6 +224,11 @@ class ExchangeService:
             if active_count >= NEW_ACCOUNT_ACTIVE_REQUEST_LIMIT:
                 raise ExchangeError("NEW_ACCOUNT_LIMIT", 400)
 
+        # Single active loan rule: a borrower may hold only one borrowed book at a time.
+        if body.mode is ExchangeMode.borrow:
+            if await self.repo.has_active_loan_as_borrower(current_user_id):
+                raise ExchangeError("ACTIVE_LOAN_EXISTS", 409)
+
         expires_at = datetime.now(UTC) + REQUEST_TTL
         request = await self.repo.create(
             book_id=book.id,
@@ -182,6 +236,8 @@ class ExchangeService:
             requested_to=book.owner_id,
             initial_message=body.initial_message,
             expires_at=expires_at,
+            mode=body.mode,
+            loan_duration_days=body.loan_duration_days,
         )
         await self.session.commit()
         return await self._to_detail(request, current_user_id)
@@ -275,6 +331,155 @@ class ExchangeService:
         return await self._transition(
             exchange_id, current_user_id, ExchangeAction.confirm_completion
         )
+
+    # -----------------------------------------------------------------------
+    # Borrow-mode lifecycle
+    # -----------------------------------------------------------------------
+
+    async def _load_for_transition(
+        self, exchange_id: uuid.UUID, current_user_id: uuid.UUID, action: ExchangeAction
+    ) -> tuple[ExchangeRequest, ExchangeStatus]:
+        """Lock the request, validate the transition + actor, return (request, next_status)."""
+        request = await self.repo.get_for_update(exchange_id)
+        participants = (request.requested_by, request.requested_to) if request else ()
+        if request is None or current_user_id not in participants:
+            raise ExchangeError("NOT_FOUND", 404)
+        if request.mode is not ExchangeMode.borrow:
+            raise ExchangeError("NOT_A_LOAN", 409)
+        try:
+            next_status, actor = get_transition(request.status, action)
+        except TransitionError as e:
+            raise ExchangeError(e.code, e.status_code) from e
+        if not check_actor(
+            actor,
+            current_user_id,
+            request.requested_by,
+            request.requested_to,
+            request.completion_marked_by,
+        ):
+            raise ExchangeError("WRONG_ACTOR", 409)
+        return request, next_status
+
+    async def lend(
+        self, exchange_id: uuid.UUID, current_user_id: uuid.UUID, body: LendRequest
+    ) -> ExchangeDetail:
+        request, next_status = await self._load_for_transition(
+            exchange_id, current_user_id, ExchangeAction.mark_lent
+        )
+        # Re-check the single active loan rule for the borrower at hand-over time.
+        if await self.repo.has_active_loan_as_borrower(request.requested_by):
+            raise ExchangeError("ACTIVE_LOAN_EXISTS", 409)
+        now = datetime.now(UTC)
+        request.status = next_status
+        request.lent_at = now
+        request.lent_photo_url = body.photo_url
+        request.due_at = now + timedelta(days=request.loan_duration_days or 0)
+        request.updated_at = now
+        # Book is off the market while it is on loan.
+        book_row = await self.books_repo.get_by_id(request.book_id)
+        if book_row is not None:
+            await self.books_repo.update(book_row.book, {"is_available": False})
+        await self.session.commit()
+        return await self._to_detail(request, current_user_id)
+
+    async def mark_returned(
+        self, exchange_id: uuid.UUID, current_user_id: uuid.UUID, body: ReturnRequest
+    ) -> ExchangeDetail:
+        request, next_status = await self._load_for_transition(
+            exchange_id, current_user_id, ExchangeAction.mark_returned
+        )
+        now = datetime.now(UTC)
+        request.status = next_status
+        request.returned_marked_by = current_user_id
+        request.returned_photo_url = body.photo_url
+        request.returned_on_time = request.due_at is None or now <= request.due_at
+        request.updated_at = now
+        await self.session.commit()
+        return await self._to_detail(request, current_user_id)
+
+    async def confirm_return(
+        self, exchange_id: uuid.UUID, current_user_id: uuid.UUID
+    ) -> ExchangeDetail:
+        request, next_status = await self._load_for_transition(
+            exchange_id, current_user_id, ExchangeAction.confirm_return
+        )
+        now = datetime.now(UTC)
+        request.status = next_status
+        request.returned_confirmed_at = now
+        request.updated_at = now
+
+        # The book becomes available again — a loan does not consume it.
+        book_row = await self.books_repo.get_by_id(request.book_id)
+        if book_row is not None:
+            await self.books_repo.update(book_row.book, {"is_available": True})
+
+        # Update borrower trust counters + both parties' completed counter.
+        borrower = await self.auth_repo.get_user_by_id(request.requested_by)
+        owner = await self.auth_repo.get_user_by_id(request.requested_to)
+        if borrower is not None:
+            borrower.loans_borrowed_count += 1
+            if request.returned_on_time:
+                borrower.loans_returned_on_time += 1
+            else:
+                borrower.loans_returned_late += 1
+            borrower.completed_exchanges += 1
+        if owner is not None:
+            owner.completed_exchanges += 1
+
+        await self.session.commit()
+        return await self._to_detail(request, current_user_id)
+
+    async def upload_loan_photo(
+        self, exchange_id: uuid.UUID, current_user_id: uuid.UUID, file_bytes: bytes, content_type: str
+    ) -> str:
+        """Upload a hand-over/return photo for a loan; any participant may upload."""
+        from app.core.s3 import upload_photo
+
+        request = await self.repo.get(exchange_id)
+        participants = (request.requested_by, request.requested_to) if request else ()
+        if request is None or current_user_id not in participants:
+            raise ExchangeError("NOT_FOUND", 404)
+        result = await upload_photo(request.book_id, file_bytes, content_type)
+        return result["url"]
+
+    async def request_extension(
+        self, exchange_id: uuid.UUID, current_user_id: uuid.UUID, body: ExtensionRequestBody
+    ) -> ExchangeDetail:
+        request, next_status = await self._load_for_transition(
+            exchange_id, current_user_id, ExchangeAction.request_extension
+        )
+        if request.extension_status is ExtensionStatus.pending:
+            raise ExchangeError("EXTENSION_ALREADY_PENDING", 409)
+        request.status = next_status
+        request.extension_requested_days = body.days
+        request.extension_status = ExtensionStatus.pending
+        request.updated_at = datetime.now(UTC)
+        await self.session.commit()
+        return await self._to_detail(request, current_user_id)
+
+    async def respond_extension(
+        self, exchange_id: uuid.UUID, current_user_id: uuid.UUID, approve: bool
+    ) -> ExchangeDetail:
+        action = (
+            ExchangeAction.approve_extension if approve else ExchangeAction.reject_extension
+        )
+        request, next_status = await self._load_for_transition(
+            exchange_id, current_user_id, action
+        )
+        if request.extension_status is not ExtensionStatus.pending:
+            raise ExchangeError("NO_EXTENSION_PENDING", 409)
+        now = datetime.now(UTC)
+        if approve:
+            base = request.due_at or now
+            request.due_at = base + timedelta(days=request.extension_requested_days or 0)
+            request.extension_status = ExtensionStatus.approved
+        else:
+            request.extension_status = ExtensionStatus.rejected
+        request.extension_requested_days = None
+        request.status = next_status
+        request.updated_at = now
+        await self.session.commit()
+        return await self._to_detail(request, current_user_id)
 
     async def propose_meetup(
         self, exchange_id: uuid.UUID, current_user_id: uuid.UUID, body: MeetupProposeRequest

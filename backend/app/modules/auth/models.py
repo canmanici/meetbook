@@ -27,6 +27,7 @@ class UserStatus(str, enum.Enum):
     active = "active"
     suspended = "suspended"
     deleted = "deleted"
+    banned = "banned"
 
 
 class User(Base):
@@ -55,6 +56,12 @@ class User(Base):
     trusted_contact_phone = Column(String(20), nullable=True)
     rating_average = Column(Numeric(3, 2), nullable=False, default=0)
     rating_count = Column(Integer, nullable=False, default=0)
+    # Borrow/lending trust metrics
+    loans_borrowed_count = Column(Integer, nullable=False, default=0, server_default="0")
+    loans_returned_on_time = Column(Integer, nullable=False, default=0, server_default="0")
+    loans_returned_late = Column(Integer, nullable=False, default=0, server_default="0")
+    # Admin manual override of the computed trust score (0-100). Null → use computed value.
+    trust_score_override = Column(Numeric(5, 2), nullable=True)
     is_admin = Column(Boolean, nullable=False, default=False)
 
     # Relationships

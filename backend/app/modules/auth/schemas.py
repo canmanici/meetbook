@@ -61,6 +61,10 @@ class UserPublicProfile(BaseModel):
     completed_exchanges: int = 0
     rating_average: float = 0
     rating_count: int = 0
+    loans_borrowed_count: int = 0
+    trust_score: int = 0
+    trust_badge: str = "yellow"
+    trust_label: str = ""
 
 
 class AuthTokensResponse(BaseModel):
