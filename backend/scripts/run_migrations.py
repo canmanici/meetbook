@@ -35,6 +35,11 @@ ALEMBIC_VERSIONS_DIR = os.path.join(PROJECT_ROOT, "alembic", "versions")
 ALEMBIC_CACHE_DIR = os.path.join(ALEMBIC_VERSIONS_DIR, "__pycache__")
 ENV_PYCACHE = os.path.join(PROJECT_ROOT, "alembic", "__pycache__")
 
+# Ensure PROJECT_ROOT is on sys.path so `app.core.config` etc. are importable
+# even when the caller forgets to set PYTHONPATH (common in local dev).
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 # Lock ID must be unique across the entire Postgres cluster.
 # Hash the project name to avoid collision with other apps using the same DB.
 PG_LOCK_ID = abs(hash("meetbook-alembic-migration-lock")) % (2**31 - 1)

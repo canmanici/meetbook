@@ -50,6 +50,11 @@ ALEMBIC_DIR = PROJECT_ROOT / "alembic"
 ALEMBIC_VERSIONS_DIR = ALEMBIC_DIR / "versions"
 ALEMBIC_INI = PROJECT_ROOT / "alembic.ini"
 
+# Ensure PROJECT_ROOT is on sys.path so `app.core.config` etc. are importable
+# even when the caller forgets to set PYTHONPATH (common in local dev).
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 
 def clear_pycache() -> None:
     """Delete __pycache__ dirs to prevent stale-bytecode poisoning.
