@@ -37,15 +37,18 @@ class BookRow:
     public_location: tuple[float, float]
 
 
-def encode_cursor(created_at: datetime, book_id: uuid.UUID) -> str:
-    raw = f"{created_at.isoformat()}|{book_id}"
+def encode_cursor(sort_order: int, created_at: datetime, book_id: uuid.UUID) -> str:
+    raw = f"{sort_order:010d}:{created_at.isoformat()}:{str(book_id)}"
     return base64.urlsafe_b64encode(raw.encode()).decode()
 
 
-def decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
+def decode_cursor(cursor: str) -> tuple[int, datetime, uuid.UUID]:
     raw = base64.urlsafe_b64decode(cursor.encode()).decode()
-    created_at_str, id_str = raw.split("|", 1)
-    return datetime.fromisoformat(created_at_str), uuid.UUID(id_str)
+    parts = raw.split(":", maxsplit=2)
+    sort_order = int(parts[0])
+    created_at = datetime.fromisoformat(parts[1])
+    book_id = uuid.UUID(parts[2])
+    return sort_order, created_at, book_id
 
 
 class BookRepository:
@@ -104,24 +107,34 @@ class BookRepository:
 
     async def list_by_owner(
         self, owner_id: uuid.UUID, cursor: str | None, limit: int
-    ) -> list[BookRow]:
+    ) -> tuple[list[BookRow], str | None]:
         stmt = self._select_with_coords().where(
             Book.owner_id == owner_id, Book.deleted_at.is_(None)
         )
         if cursor:
-            cursor_created_at, cursor_id = decode_cursor(cursor)
+            cursor_sort_order, cursor_created_at, cursor_id = decode_cursor(cursor)
             stmt = stmt.where(
                 or_(
-                    Book.created_at < cursor_created_at,
+                    Book.sort_order > cursor_sort_order,
                     and_(
+                        Book.sort_order == cursor_sort_order,
+                        Book.created_at < cursor_created_at,
+                    ),
+                    and_(
+                        Book.sort_order == cursor_sort_order,
                         Book.created_at == cursor_created_at,
                         Book.id < cursor_id,
                     ),
                 )
             )
-        stmt = stmt.order_by(Book.created_at.desc(), Book.id.desc()).limit(limit)
+        stmt = stmt.order_by(Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc()).limit(limit)
         result = await self.session.execute(stmt)
-        return [self._to_row(row) for row in result.all()]
+        items = [self._to_row(row) for row in result.all()]
+        if len(items) == limit:
+            next_cursor = encode_cursor(items[-1].book.sort_order, items[-1].book.created_at, items[-1].book.id)
+        else:
+            next_cursor = None
+        return items, next_cursor
 
     async def list_available(
         self,
@@ -150,17 +163,22 @@ class BookRepository:
                 )
             )
         if cursor:
-            cursor_created_at, cursor_id = decode_cursor(cursor)
+            cursor_sort_order, cursor_created_at, cursor_id = decode_cursor(cursor)
             stmt = stmt.where(
                 or_(
-                    Book.created_at < cursor_created_at,
+                    Book.sort_order > cursor_sort_order,
                     and_(
+                        Book.sort_order == cursor_sort_order,
+                        Book.created_at < cursor_created_at,
+                    ),
+                    and_(
+                        Book.sort_order == cursor_sort_order,
                         Book.created_at == cursor_created_at,
                         Book.id < cursor_id,
                     ),
                 )
             )
-        stmt = stmt.order_by(Book.created_at.desc(), Book.id.desc()).limit(limit)
+        stmt = stmt.order_by(Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc()).limit(limit)
         result = await self.session.execute(stmt)
         return [self._to_row(row) for row in result.all()]
 
@@ -259,18 +277,23 @@ class BookRepository:
             )
 
         if cursor:
-            cursor_created_at, cursor_id = decode_cursor(cursor)
+            cursor_sort_order, cursor_created_at, cursor_id = decode_cursor(cursor)
             stmt = stmt.where(
                 or_(
-                    Book.created_at < cursor_created_at,
+                    Book.sort_order > cursor_sort_order,
                     and_(
+                        Book.sort_order == cursor_sort_order,
+                        Book.created_at < cursor_created_at,
+                    ),
+                    and_(
+                        Book.sort_order == cursor_sort_order,
                         Book.created_at == cursor_created_at,
                         Book.id < cursor_id,
                     ),
                 )
             )
 
-        stmt = stmt.order_by(distance_col, Book.created_at.desc(), Book.id.desc()).limit(limit)
+        stmt = stmt.order_by(distance_col, Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc()).limit(limit)
         result = await self.session.execute(stmt)
 
         rows = []
@@ -387,7 +410,24 @@ class BookRepository:
                 )
             )
 
-        stmt = stmt.order_by(distance_col, Book.created_at.desc(), Book.id.desc()).limit(limit)
+        if cursor:
+            cursor_sort_order, cursor_created_at, cursor_id = decode_cursor(cursor)
+            stmt = stmt.where(
+                or_(
+                    Book.sort_order > cursor_sort_order,
+                    and_(
+                        Book.sort_order == cursor_sort_order,
+                        Book.created_at < cursor_created_at,
+                    ),
+                    and_(
+                        Book.sort_order == cursor_sort_order,
+                        Book.created_at == cursor_created_at,
+                        Book.id < cursor_id,
+                    ),
+                )
+            )
+
+        stmt = stmt.order_by(distance_col, Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc()).limit(limit)
         result = await self.session.execute(stmt)
 
         rows = []
@@ -583,6 +623,11 @@ class BookRepository:
 
     async def soft_delete(self, book: Book) -> None:
         book.deleted_at = datetime.now(UTC)
+
+    async def get_books_by_ids(self, book_ids: list[uuid.UUID]) -> list[Book]:
+        stmt = select(Book).where(Book.id.in_(book_ids))
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     # -----------------------------------------------------------------------
     # View count
