@@ -72,7 +72,8 @@ def clear_pycache() -> None:
         for d in cache_dirs:
             if d.is_dir():
                 for pyc in d.glob("*.pyc"):
-                    source = ALEMBIC_VERSIONS_DIR / pyc.stem.split(".")[0].replace("-", "_").replace(".cpython", "") + ".py"
+                    stem = pyc.stem.split(".")[0].replace("-", "_").replace(".cpython", "")
+                    source = ALEMBIC_VERSIONS_DIR / f"{stem}.py"
                     # Simplistic check: if pyc exists and source is missing → stale
                     if not source.exists():
                         needs_clear = True
