@@ -23,6 +23,19 @@ async def test_search_bbox_returns_books(
 
 
 @pytest.mark.asyncio
+async def test_search_bbox_rejects_inverted_coordinates(
+    client: httpx.AsyncClient, register_user
+) -> None:
+    user = await register_user("bbox_inv@example.com", "BBox Inv")
+    resp = await client.get(
+        "/api/v1/books/search-bbox"
+        "?min_lat=41.1&max_lat=40.9&min_lng=28.8&max_lng=29.1",
+        headers=user["headers"],
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_search_bbox_rejects_too_large_area(
     client: httpx.AsyncClient, register_user
 ) -> None:

@@ -197,6 +197,9 @@ class BookService:
         limit: int,
         current_user_id: uuid.UUID,
     ) -> BookSearchResponse:
+        if min_lat >= max_lat or min_lng >= max_lng:
+            raise BookError("min must be less than max", 422)
+
         # Area clamp — ~50km × 50km max (0.45 deg lat ≈ 50km)
         lat_span = max_lat - min_lat
         lng_span = max_lng - min_lng
