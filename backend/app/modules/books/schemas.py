@@ -82,6 +82,7 @@ class BookOwnerView(BaseModel):
     view_count: int = 0
     favorite_count: int = 0
     is_favorited: bool = False
+    sort_order: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -184,3 +185,12 @@ class ISBNLookupResponse(BaseModel):
     cover_url: str | None = None
     page_count: int | None = None
     published_year: int | None = None
+
+
+class ReorderDelta(BaseModel):
+    book_id: uuid.UUID
+    sort_order: int
+
+
+class ReorderBody(BaseModel):
+    reorders: list[ReorderDelta]
