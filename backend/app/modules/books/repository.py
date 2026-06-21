@@ -38,13 +38,13 @@ class BookRow:
 
 
 def encode_cursor(sort_order: int, created_at: datetime, book_id: uuid.UUID) -> str:
-    raw = f"{sort_order:010d}:{created_at.isoformat()}:{str(book_id)}"
+    raw = f"{sort_order:010d}|{created_at.isoformat()}|{str(book_id)}"
     return base64.urlsafe_b64encode(raw.encode()).decode()
 
 
 def decode_cursor(cursor: str) -> tuple[int, datetime, uuid.UUID]:
     raw = base64.urlsafe_b64decode(cursor.encode()).decode()
-    parts = raw.split(":", maxsplit=2)
+    parts = raw.split("|", maxsplit=2)
     sort_order = int(parts[0])
     created_at = datetime.fromisoformat(parts[1])
     book_id = uuid.UUID(parts[2])

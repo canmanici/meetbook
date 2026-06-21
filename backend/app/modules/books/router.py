@@ -137,8 +137,21 @@ async def list_my_books(
     limit: int = Query(default=20, ge=1, le=50),
     user: User = Depends(get_current_user),
     service: BookService = Depends(_get_service),
-) -> BookListResponse:
+    ) -> BookListResponse:
     return await service.list_my_books(user.id, cursor, limit)
+
+
+@router.patch("/reorder", response_model=BookListResponse)
+async def reorder_books(
+    body: ReorderBody,
+    service: BookService = Depends(_get_service),
+    current_user: User = Depends(get_current_user),
+) -> BookListResponse:
+    try:
+        items = await service.reorder_books(current_user.id, body.reorders)
+        return BookListResponse(items=items, next_cursor=None)
+    except BookError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
 @router.get("/{book_id}", response_model=BookOwnerView | BookPublicView)
@@ -283,22 +296,6 @@ async def remove_book_favorite(
     except BookError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
     return Response(status_code=204)
-
-
-@router.patch("/reorder", response_model=BookListResponse)
-async def reorder_books(
-    body: ReorderBody,
-    service: BookService = Depends(_get_service),
-    current_user: User = Depends(get_current_user),
-) -> BookListResponse:
-    """Batch-reorder books for the current user.
-
-    Accepts a list of (book_id, sort_order) pairs and updates them
-    atomically. Returns the user's complete book list sorted by the
-    new sort_order values.
-    """
-    items = await service.reorder_books(current_user.id, body.reorders)
-    return BookListResponse(items=items, next_cursor=None)
 
 
 @router.get("/isbn/{isbn_code}", response_model=ISBNLookupResponse)

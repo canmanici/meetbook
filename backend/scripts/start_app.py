@@ -56,6 +56,24 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 
+def _safe_rmtree(path: Path) -> bool:
+    """Remove a directory tree, gracefully handling read-only filesystems.
+
+    Returns True if the tree was actually removed, False if it was skipped
+    (e.g. read-only FS in a Docker container). Never raises.
+    """
+    try:
+        shutil.rmtree(path)
+        return True
+    except OSError as exc:
+        log_elapsed(
+            f"WARNING: Cannot remove {path.relative_to(PROJECT_ROOT)} "
+            f"({exc.strerror or exc}). "
+            f"Filesystem may be read-only — stale bytecode could cause issues."
+        )
+        return False
+
+
 def clear_pycache() -> None:
     """Delete ALL __pycache__ dirs to prevent stale-bytecode poisoning.
 
@@ -72,6 +90,10 @@ def clear_pycache() -> None:
     This function used to only clear ``alembic/__pycache__``, but that
     missed ``scripts/__pycache__`` and ``app/__pycache__/*`` — causing
     stale bytecode to silently override source edits (months of debugging).
+
+    NOTE: In read-only filesystem containers (e.g. security-hardened Docker),
+    the rmtree calls are gracefully skipped with a warning rather than
+    crashing the startup.
     """
     env = os.environ.get("ENV", "production")
     is_dev = env in ("development", "dev", "local")
@@ -79,11 +101,18 @@ def clear_pycache() -> None:
     if is_dev:
         # ── Dev mode: nuke every __pycache__ under PROJECT_ROOT ───────────
         cleared = 0
+        skipped = 0
         for pycache in PROJECT_ROOT.rglob("__pycache__"):
             if pycache.is_dir() and ".venv" not in pycache.parts:
-                shutil.rmtree(pycache)
-                cleared += 1
-        log_elapsed(f"Cleared {cleared} __pycache__ dirs (dev mode — picks up host edits)")
+                if _safe_rmtree(pycache):
+                    cleared += 1
+                else:
+                    skipped += 1
+        log_elapsed(
+            f"Cleared {cleared} __pycache__ dirs "
+            f"({f'{skipped} skipped (read-only FS), ' if skipped else ''}"
+            f"dev mode — picks up host edits)"
+        )
     else:
         # ── Production mode: only clear alembic caches if source is missing ─
         cache_dirs = [ALEMBIC_VERSIONS_DIR / "__pycache__", ALEMBIC_DIR / "__pycache__"]
@@ -102,8 +131,8 @@ def clear_pycache() -> None:
         if needs_clear:
             for d in cache_dirs:
                 if d.is_dir():
-                    shutil.rmtree(d)
-                    log_elapsed(f"Cleared {d.relative_to(PROJECT_ROOT)} (stale source)")
+                    if _safe_rmtree(d):
+                        log_elapsed(f"Cleared {d.relative_to(PROJECT_ROOT)} (stale source)")
         else:
             cached = sum(1 for d in cache_dirs if d.is_dir() for _ in d.glob("*.pyc"))
             log_elapsed(f"Preserving pre-compiled bytecode ({cached} files)")

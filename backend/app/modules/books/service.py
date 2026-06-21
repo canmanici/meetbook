@@ -158,11 +158,7 @@ class BookService:
     async def list_my_books(
         self, owner_id: uuid.UUID, cursor: str | None, limit: int
     ) -> BookListResponse:
-        rows = await self.repo.list_by_owner(owner_id, cursor, limit)
-        next_cursor = None
-        if len(rows) == limit:
-            last = rows[-1].book
-            next_cursor = encode_cursor(last.created_at, last.id)
+        rows, next_cursor = await self.repo.list_by_owner(owner_id, cursor, limit)
         items = []
         owner_name = await self._get_owner_name(owner_id)
         for row in rows:
@@ -175,9 +171,9 @@ class BookService:
     ) -> BookListResponse:
         rows = await self.repo.list_available(cursor, limit, current_user_id)
         next_cursor = None
-        if len(rows) == limit:
-            last = rows[-1].book
-            next_cursor = encode_cursor(last.created_at, last.id)
+        if rows:
+            last = rows[-1]
+            next_cursor = encode_cursor(last.book.sort_order, last.book.created_at, last.book.id) if len(rows) == limit else None
         items = []
         owner_ids = [row.book.owner_id for row in rows]
         owner_names = await self._get_owner_names(owner_ids)
