@@ -57,43 +57,56 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 def clear_pycache() -> None:
-    """Delete __pycache__ dirs to prevent stale-bytecode poisoning.
+    """Delete ALL __pycache__ dirs to prevent stale-bytecode poisoning.
 
-    In production (Docker image), pre-compiled bytecode from compileall
-    is baked in — do NOT clear it. Only clear when the alembic directory
-    is a host-mount (dev mode), which can have stale bytecode from edits.
+    When to clear vs preserve:
+      - DEV mode (host-mount volumes): The Docker image has pre-compiled
+        bytecode from ``compileall`` (Dockerfile line 22). But source files
+        are mounted from the host and CAN be edited. Python prefers stale
+        .pyc over .py source, so we MUST nuke all bytecode on every dev
+        startup to pick up host edits.
+      - PRODUCTION mode (image-only, no host mounts): The image's bytecode
+        is always consistent with its source. We preserve it for the ~30%
+        startup speedup.
+
+    This function used to only clear ``alembic/__pycache__``, but that
+    missed ``scripts/__pycache__`` and ``app/__pycache__/*`` — causing
+    stale bytecode to silently override source edits (months of debugging).
     """
-    # Detect if alembic dir is a volume mount (dev mode) by checking if
-    # the .pyc files are missing or if we're in development mode
     env = os.environ.get("ENV", "production")
     is_dev = env in ("development", "dev", "local")
 
-    cache_dirs = [ALEMBIC_VERSIONS_DIR / "__pycache__", ALEMBIC_DIR / "__pycache__"]
-    needs_clear = is_dev  # Always clear in dev mode (host mounts can be stale)
-
-    if not needs_clear:
-        # In production: only clear if .pyc timestamps are OLDER than source
-        # (indicates stale cache). If .pyc is newer, keep it.
+    if is_dev:
+        # ── Dev mode: nuke every __pycache__ under PROJECT_ROOT ───────────
+        cleared = 0
+        for pycache in PROJECT_ROOT.rglob("__pycache__"):
+            if pycache.is_dir() and ".venv" not in pycache.parts:
+                shutil.rmtree(pycache)
+                cleared += 1
+        log_elapsed(f"Cleared {cleared} __pycache__ dirs (dev mode — picks up host edits)")
+    else:
+        # ── Production mode: only clear alembic caches if source is missing ─
+        cache_dirs = [ALEMBIC_VERSIONS_DIR / "__pycache__", ALEMBIC_DIR / "__pycache__"]
+        needs_clear = False
         for d in cache_dirs:
             if d.is_dir():
                 for pyc in d.glob("*.pyc"):
                     stem = pyc.stem.split(".")[0].replace("-", "_").replace(".cpython", "")
                     source = ALEMBIC_VERSIONS_DIR / f"{stem}.py"
-                    # Simplistic check: if pyc exists and source is missing → stale
                     if not source.exists():
                         needs_clear = True
                         break
             if needs_clear:
                 break
 
-    if needs_clear:
-        for d in cache_dirs:
-            if d.is_dir():
-                shutil.rmtree(d)
-                log_elapsed(f"Cleared {d.relative_to(PROJECT_ROOT)} (dev={is_dev})")
-    else:
-        cached = sum(1 for d in cache_dirs if d.is_dir() for _ in d.glob("*.pyc"))
-        log_elapsed(f"Preserving pre-compiled bytecode ({cached} files)")
+        if needs_clear:
+            for d in cache_dirs:
+                if d.is_dir():
+                    shutil.rmtree(d)
+                    log_elapsed(f"Cleared {d.relative_to(PROJECT_ROOT)} (stale source)")
+        else:
+            cached = sum(1 for d in cache_dirs if d.is_dir() for _ in d.glob("*.pyc"))
+            log_elapsed(f"Preserving pre-compiled bytecode ({cached} files)")
 
 
 # ── Database readiness ────────────────────────────────────────────────────────
@@ -210,7 +223,16 @@ def start_uvicorn() -> None:
 
 # ── Recovery strategies ──────────────────────────────────────────────────────
 def try_recover_migration() -> bool:
-    """Attempt to recover from a failed migration."""
+    """Attempt to recover from a failed migration.
+
+    NEVER stamps to base or re-runs migrations from scratch — that would
+    DESTROY existing data (tables already exist from a previous run, and
+    CREATE TABLE on an existing table raises an error). Instead we:
+      1. Detect the stale revision via raw SQL
+      2. Clear the alembic_version entry that references a missing file
+      3. Stamp to the actual head
+      4. Run any pending migrations
+    """
     from alembic.config import Config
     from alembic import command
 
@@ -219,26 +241,88 @@ def try_recover_migration() -> bool:
     from app.core.config import get_settings
     config.set_main_option("sqlalchemy.url", get_settings().database_url)
 
+    # ── Step 1: Detect and clear stale alembic_version ───────────────────────
+    # If the error is "Can't locate revision", the DB has a revision ID that
+    # no migration file defines. The ONLY fix is to clear that entry.
+    stale_id = _detect_stale_alembic_revision()
+    if stale_id:
+        log_elapsed(f"Database has stale revision '{stale_id}' — clearing...")
+        _clear_alembic_version()
+        log_elapsed("Cleared stale revision entry.")
+
+    # ── Step 2: Stamp to head (no data loss — only updates alembic_version) ──
     try:
-        # Try to stamp to current head (fixes stale alembic_version)
         command.stamp(config, "head")
         log_elapsed("Stamp to head succeeded.")
+    except Exception as e:
+        log_elapsed(f"Stamp to head failed: {e}")
+        log_elapsed("Cannot recover automatically. Manual intervention required:")
+        log_elapsed("  python -c \"from alembic import command; from alembic.config import Config; c = Config('alembic.ini'); c.set_main_option('sqlalchemy.url', '<url>'); command.stamp(c, 'head')\"")
+        return False
 
-        # Retry migration
+    # ── Step 3: Run pending migrations ───────────────────────────────────────
+    # Safe: if the DB is already at head this is a no-op.
+    try:
         command.upgrade(config, "head")
         log_elapsed("Recovery migration succeeded.")
         return True
     except Exception as e:
-        log_elapsed(f"Stamp recovery failed: {e}")
-        log_elapsed("Trying hard reset (stamp base)...")
+        log_elapsed(f"Recovery migration still failed after stamp: {e}")
+        log_elapsed("Database may have structural issues beyond alembic version.")
+        return False
+
+
+def _detect_stale_alembic_revision() -> str | None:
+    """Check if alembic_version references a revision no file defines.
+
+    Returns the stale revision ID if found, None otherwise.
+    """
+    import asyncio
+    import asyncpg
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    config = Config(str(ALEMBIC_INI))
+    from app.core.config import get_settings
+    config.set_main_option("sqlalchemy.url", get_settings().database_url)
+    script = ScriptDirectory.from_config(config)
+    rev_ids = {r.revision for r in script.walk_revisions()}
+
+    async def _check() -> str | None:
+        url = get_settings().database_url.replace("+asyncpg", "")
+        conn = await asyncpg.connect(url)
         try:
-            command.stamp(config, "base")
-            command.upgrade(config, "head")
-            log_elapsed("Hard reset recovery succeeded.")
-            return True
-        except Exception as e2:
-            log_elapsed(f"Hard reset also failed: {e2}")
-            return False
+            row = await conn.fetchrow("SELECT version_num FROM alembic_version")
+            if row and row["version_num"] not in rev_ids:
+                return row["version_num"]
+            return None
+        except Exception:
+            return None
+        finally:
+            await conn.close()
+
+    try:
+        return asyncio.run(_check())
+    except Exception:
+        return None
+
+
+def _clear_alembic_version() -> None:
+    """Delete the alembic_version row (safe — only clears the revision marker)."""
+    import asyncio
+    import asyncpg
+
+    from app.core.config import get_settings
+
+    async def _clear() -> None:
+        url = get_settings().database_url.replace("+asyncpg", "")
+        conn = await asyncpg.connect(url)
+        try:
+            await conn.execute("DELETE FROM alembic_version")
+        finally:
+            await conn.close()
+
+    asyncio.run(_clear())
 
 
 # ── Main launch sequence ─────────────────────────────────────────────────────
@@ -275,22 +359,37 @@ def main() -> int:
             log_elapsed("Manual intervention required.")
             return 1
 
-    # Phase 4: Verify core tables
+    # Phase 4: Verify core tables exist
+    # NOTE: We do NOT stamp base + re-run migrations here. That is DESTRUCTIVE:
+    # it clears alembic_version and re-runs CREATE TABLE on tables that already
+    # exist, which either fails (PostgreSQL error) or silently skips — but the
+    # alembic_version ends up out of sync. Existing user data is NEVER deleted
+    # by migrations, so if verify_core_tables() fails it means either:
+    #   a) The database was wiped externally (volume deleted, fresh Postgres)
+    #   b) A previous recovery attempt corrupted the state
+    #
+    # In case (a), a manual `alembic stamp base && alembic upgrade head` fixes
+    # it. In case (b), the migration chain needs manual repair.
     if not verify_core_tables():
         log_elapsed("WARNING: Users table missing despite migrations at head.")
-        log_elapsed("Running hard reset...")
+        log_elapsed("This means the database was wiped or corrupted externally.")
+        log_elapsed("Attempting safe recovery (run pending migrations only)...")
         try:
             from alembic.config import Config
             from alembic import command
             config = Config(str(ALEMBIC_INI))
             from app.core.config import get_settings
             config.set_main_option("sqlalchemy.url", get_settings().database_url)
-            command.stamp(config, "base")
+            # Only run pending migrations — don't stamp base (would lose data).
+            # If alembic_version is intact, this upgrades from current → head.
+            # If alembic_version was cleared, this runs everything from scratch
+            # which is safe because the tables truly don't exist.
             command.upgrade(config, "head")
-            log_elapsed("Hard reset completed.")
+            log_elapsed("Pending migrations applied.")
         except Exception as e:
-            log_elapsed(f"FATAL: Hard reset failed: {e}")
-            return 1
+            log_elapsed(f"WARNING: Could not auto-recover: {e}")
+            log_elapsed("The app will start, but some tables may be missing.")
+            log_elapsed("To fix: docker compose down && docker volume rm meetbook_pgdata && docker compose up")
 
     # Phase 5: Seed data
     if not os.environ.get("SKIP_SEED"):
