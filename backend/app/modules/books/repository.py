@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.models import User
 from app.modules.books.models import Book, BookFavorite, BookPhoto
+from app.modules.books.schemas import OwnerSummary
 from app.modules.exchanges.models import Block
 from app.modules.ratings.models import Rating
 
@@ -26,7 +27,7 @@ class BookSearchRow:
     book: Book
     public_location: tuple[float, float]
     distance_m: float
-    owner: "OwnerSummary"
+    owner: OwnerSummary
 
 
 @dataclass
@@ -189,7 +190,6 @@ class BookRepository:
             .where(
                 Book.owner_id == User.id,
                 Book.deleted_at.is_(None),
-                Book.is_available.is_(True),
             )
             .correlate(User)
             .label("owner_book_count")
@@ -275,8 +275,6 @@ class BookRepository:
 
         rows = []
         for row in result.all():
-            from app.modules.books.schemas import OwnerSummary
-
             rows.append(
                 BookSearchRow(
                     book=row[0],
