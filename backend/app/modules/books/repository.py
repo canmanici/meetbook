@@ -15,8 +15,10 @@ from geoalchemy2.elements import WKTElement
 from sqlalchemy import Select, and_, cast, delete, exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.auth.models import User
 from app.modules.books.models import Book, BookFavorite, BookPhoto
 from app.modules.exchanges.models import Block
+from app.modules.ratings.models import Rating
 
 
 @dataclass
@@ -24,6 +26,7 @@ class BookSearchRow:
     book: Book
     public_location: tuple[float, float]
     distance_m: float
+    owner: "OwnerSummary"
 
 
 @dataclass
@@ -180,12 +183,42 @@ class BookRepository:
             Book.public_location, func.ST_GeogFromText(user_wkt)
         ).label("distance_m")
 
+        owner_book_count = (
+            select(func.count())
+            .select_from(Book)
+            .where(
+                Book.owner_id == User.id,
+                Book.deleted_at.is_(None),
+                Book.is_available.is_(True),
+            )
+            .correlate(User)
+            .label("owner_book_count")
+        )
+        owner_rating_avg = (
+            select(func.avg(Rating.score))
+            .where(Rating.rated_user == User.id)
+            .correlate(User)
+            .label("owner_rating_avg")
+        )
+        owner_rating_count = (
+            select(func.count())
+            .select_from(Rating)
+            .where(Rating.rated_user == User.id)
+            .correlate(User)
+            .label("owner_rating_count")
+        )
+
         stmt = select(
             Book,
             func.ST_Y(pub).label("public_lat"),
             func.ST_X(pub).label("public_lng"),
             distance_col,
-        ).where(
+            User.id.label("owner_id"),
+            User.name.label("owner_name"),
+            owner_book_count,
+            owner_rating_avg,
+            owner_rating_count,
+        ).join(User, User.id == Book.owner_id).where(
             Book.deleted_at.is_(None),
             Book.is_available.is_(True),
             func.ST_DWithin(
@@ -242,11 +275,20 @@ class BookRepository:
 
         rows = []
         for row in result.all():
+            from app.modules.books.schemas import OwnerSummary
+
             rows.append(
                 BookSearchRow(
                     book=row[0],
                     public_location=(row.public_lat, row.public_lng),
                     distance_m=row.distance_m,
+                    owner=OwnerSummary(
+                        id=row.owner_id,
+                        name=row.owner_name,
+                        book_count=row.owner_book_count or 0,
+                        rating_avg=float(row.owner_rating_avg) if row.owner_rating_avg else None,
+                        rating_count=row.owner_rating_count or 0,
+                    ),
                 )
             )
         return rows

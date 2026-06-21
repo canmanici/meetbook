@@ -128,6 +128,14 @@ class BookSearchParams(BaseModel):
     q: str | None = Field(default=None, max_length=100)
 
 
+class OwnerSummary(BaseModel):
+    id: uuid.UUID
+    name: str
+    book_count: int
+    rating_avg: float | None = None
+    rating_count: int = 0
+
+
 class BookSearchResult(BaseModel):
     id: uuid.UUID
     owner_id: uuid.UUID
@@ -142,6 +150,7 @@ class BookSearchResult(BaseModel):
     is_available: bool
     public_location: LocationOutput
     distance_km: float
+    owner: OwnerSummary
     photos: list[PhotoView] = []
     created_at: datetime
     updated_at: datetime

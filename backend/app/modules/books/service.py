@@ -225,6 +225,7 @@ class BookService:
                         lat=row.public_location[0], lng=row.public_location[1]
                     ),
                     distance_km=round(row.distance_m / 1000, 1),
+                    owner=row.owner,
                     photos=[PhotoView(id=p.id, url=p.url, thumbnail_url=p.thumbnail_url, position=p.position) for p in photos],
                     created_at=row.book.created_at,
                     updated_at=row.book.updated_at,
