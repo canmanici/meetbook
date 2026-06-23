@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -49,8 +50,38 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                     config=Config(signature_version="s3v4"),
                 ) as client:
                     await client.create_bucket(Bucket=settings.s3_bucket)
+                    logger.info("Created S3 bucket: %s", settings.s3_bucket)
             except Exception:
                 pass  # Bucket may already exist or MinIO not ready yet
+
+        # Make bucket publicly readable (required for mobile app to fetch photos directly)
+        try:
+            import aioboto3
+            from botocore.config import Config
+
+            session = aioboto3.Session()
+            async with session.client(
+                "s3",
+                endpoint_url=settings.s3_endpoint or None,
+                aws_access_key_id=settings.s3_access_key,
+                aws_secret_access_key=settings.s3_secret_key,
+                config=Config(signature_version="s3v4"),
+            ) as client:
+                await client.put_bucket_policy(
+                    Bucket=settings.s3_bucket,
+                    Policy=json.dumps({
+                        "Version": "2012-10-17",
+                        "Statement": [{
+                            "Effect": "Allow",
+                            "Principal": "*",
+                            "Action": ["s3:GetObject"],
+                            "Resource": f"arn:aws:s3:::{settings.s3_bucket}/*",
+                        }],
+                    }),
+                )
+                logger.info("Bucket policy set to public-read: %s", settings.s3_bucket)
+        except Exception as exc:
+            logger.warning("Could not set bucket public-read policy (may already be set): %s", exc)
 
     # Start Redis pub/sub listener for real-time chat (horizontal scaling).
     # Listens on ``chat:*`` channels and forwards to local WebSocket connections.

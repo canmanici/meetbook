@@ -1,20 +1,32 @@
 #!/bin/bash
 # ── MeetBook Offline Production Build Script ───────────────────────────────
-# Requires: JDK 17, Android SDK (ANDROID_HOME set), keytool
+# Requires: JDK 17, Android SDK (ANDROID_HOME set), keytool, python3
 # Usage:    bash build-release.sh
 # Output:   android/app/build/outputs/apk/release/app-release.apk
+#
+# Builds for arm64-v8a only with R8 minification
+# and resource shrinking enabled.
 
-set -e
+set -euo pipefail
 
 cd "$(dirname "$0")"
 
 echo "🔨 MeetBook v1.0.0 — Production APK Build"
 echo "   API: https://canmanici.com/meetbook/api/v1"
+echo "   ABIs: arm64-v8a"
 echo ""
 
 # ── Prebuild (regenerate android/ios if needed) ───────────────────────────
-echo "📦 Running prebuild..."
-EXPO_PUBLIC_API_URL="https://canmanici.com/meetbook/api/v1" npx expo prebuild --platform android --no-install 2>&1 | tail -3
+# Only run if android/ doesn't exist yet (saves ~5s on subsequent builds)
+if [ ! -d "android/app" ]; then
+    echo "📦 Running prebuild..."
+    EXPO_PUBLIC_API_URL="https://canmanici.com/meetbook/api/v1" npx expo prebuild --platform android --no-install 2>&1 | tail -3
+else
+    echo "📦 Android project exists, skipping prebuild"
+fi
+
+# ── Fix build.gradle (expo prebuild generates a broken signingConfigs block) ─
+python3 fix-android-build.py
 
 # ── Keystore ──────────────────────────────────────────────────────────────
 KEYSTORE="android/app/release.keystore"
@@ -42,34 +54,24 @@ RELEASE_KEY_PASSWORD=meetbook
 EOF
 fi
 
-BUILD_GRADLE="android/app/build.gradle"
-if grep -q "signingConfig signingConfigs.debug" "$BUILD_GRADLE"; then
-    echo "✏️  Patching build.gradle for release signing..."
-    sed -i 's/signingConfig signingConfigs.debug/\/\/ signingConfig signingConfigs.debug/' "$BUILD_GRADLE"
-    sed -i '/\/\/ signingConfig signingConfigs.debug/a\            signingConfig signingConfigs.release' "$BUILD_GRADLE"
-    
-    # Add release signing config if not present
-    if ! grep -q "signingConfigs {.*release" "$BUILD_GRADLE"; then
-        sed -i '/signingConfigs {/,/}/{
-            /}/i\
-        release {\
-            storeFile file(findProperty('"'"'RELEASE_STORE_FILE'"'"') ?: '"'"'release.keystore'"'"')\
-            storePassword findProperty('"'"'RELEASE_STORE_PASSWORD'"'"') ?: '"'"'meetbook'"'"'\
-            keyAlias findProperty('"'"'RELEASE_KEY_ALIAS'"'"') ?: '"'"'meetbook-release'"'"'\
-            keyPassword findProperty('"'"'RELEASE_KEY_PASSWORD'"'"') ?: '"'"'meetbook'"'"'\
-        }
-        }' "$BUILD_GRADLE"
-    fi
-fi
-
 # ── Build ─────────────────────────────────────────────────────────────────
-echo "🏗️  Building release APK..."
+echo "🏗️  Building release APK (arm64-v8a only)..."
 cd android
-./gradlew assembleRelease 2>&1 | tail -5
+
+./gradlew assembleRelease \
+  -PreactNativeArchitectures=arm64-v8a \
+  -Pandroid.enableMinifyInReleaseBuilds=true \
+  -Pandroid.enableShrinkResourcesInReleaseBuilds=true \
+  -Pandroid.enablePngCrunchInReleaseBuilds=true \
+  2>&1 | tail -10
+
 cd ..
 
 # ── Output ────────────────────────────────────────────────────────────────
-APK="android/app/build/outputs/apk/release/app-release.apk"
+# With ABI splits enabled, the APK is named with ABI suffix
+APK_DIR="android/app/build/outputs/apk/release"
+APK=$(find "$APK_DIR" -name "*.apk" 2>/dev/null | head -1)
+
 if [ -f "$APK" ]; then
     SIZE=$(du -sh "$APK" | cut -f1)
     echo ""
