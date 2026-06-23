@@ -465,6 +465,15 @@ def main() -> int:
     else:
         log_elapsed("SKIP_SEED set — skipping seed.")
 
+    # Phase 5b: Reset the DB engine so uvicorn creates a fresh one on its
+    # own event loop.  The seed (and migration) scripts use asyncio.run()
+    # which creates a temporary event loop — any engine created there has
+    # connections bound to that dead loop.  Dropping the reference forces
+    # get_engine() to create a new engine on uvicorn's event loop.
+    from app.core.db import reset_engine
+    reset_engine()
+    log_elapsed("DB engine reset (ready for uvicorn event loop).")
+
     # Phase 6: Start uvicorn (blocking, never returns)
     try:
         start_uvicorn()
