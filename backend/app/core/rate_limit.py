@@ -1,11 +1,15 @@
-"""Global + per-route rate limiting middleware."""
+"""Global + per-route rate limiting middleware.
 
+Pure ASGI implementation — avoids starlette.BaseHTTPMiddleware which is
+incompatible with asyncpg's event-loop-bound connections.
+"""
+
+import json
 import time
 from collections.abc import Awaitable, Callable
 
 import redis.asyncio as aioredis
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.security import decode_access_token
 
@@ -24,106 +28,146 @@ class RateLimitConfig:
         self.trusted_proxies = trusted_proxies or set()
 
 
-class RateLimitMiddleware(BaseHTTPMiddleware):
+class RateLimitMiddleware:
+    """Pure ASGI rate-limit middleware.
+
+    Using BaseHTTPMiddleware causes ``RuntimeError: Future attached to a
+    different loop`` with asyncpg because it wraps the endpoint in a new
+    task.  This implementation is a plain ASGI middleware that operates on
+    the raw scope/headers without creating new tasks.
+    """
+
     def __init__(
         self,
-        app,
+        app: ASGIApp,
         redis_client: aioredis.Redis,
         config: RateLimitConfig | None = None,
     ) -> None:
-        super().__init__(app)
+        self.app = app
         self._redis = redis_client
         self._config = config or RateLimitConfig()
 
-    @staticmethod
-    def _get_client_ip(request: Request) -> str:
-        """Extract the real client IP, checking proxy headers first.
+    # ------------------------------------------------------------------
+    # ASGI interface
+    # ------------------------------------------------------------------
 
-        Precedence:
-          1. X-Forwarded-For  (leftmost, comma-separated)
-          2. X-Real-IP        (single IP, used by nginx)
-          3. request.client.host (direct connection / fallback)
-        """
-        forwarded = request.headers.get("X-Forwarded-For", "")
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = dict(scope.get("headers", []))
+        # headers values are bytes; normalise to str
+        headers = {k.decode(): v.decode() for k, v in scope.get("headers", [])}
+
+        # Identify user
+        identifier = self._extract_identifier(scope, headers)
+
+        key_prefix = f"ratelimit:{identifier}"
+        path = scope.get("path", "")
+
+        # Check route-specific limits
+        blocked_response: dict | None = None
+        route_key: str | None = None
+        for pattern, (limit, window) in self._config.route_limits.items():
+            if path == pattern or path.startswith(pattern + "/"):
+                route_key = f"{key_prefix}:{pattern}"
+                allowed, retry_after = await self._check_limit(route_key, limit, window)
+                if not allowed:
+                    blocked_response = {
+                        "detail": "Rate limit exceeded",
+                        "retry_after": retry_after,
+                    }
+                break
+
+        # Check global limit (only if route check passed)
+        global_key = f"{key_prefix}:global"
+        if blocked_response is None:
+            allowed, retry_after = await self._check_limit(
+                global_key, self._config.requests_per_minute, 60
+            )
+            if not allowed:
+                blocked_response = {
+                    "detail": "Rate limit exceeded",
+                    "retry_after": retry_after,
+                }
+
+        if blocked_response is not None:
+            body = json.dumps(blocked_response).encode()
+            response_headers = [
+                [b"content-type", b"application/json"],
+                [b"retry-after", str(blocked_response["retry_after"]).encode()],
+            ]
+            await send({
+                "type": "http.response.start",
+                "status": 429,
+                "headers": response_headers,
+            })
+            await send({
+                "type": "http.response.body",
+                "body": body,
+            })
+            return
+
+        # Forward to downstream app, intercepting response headers
+        response_started = False
+
+        async def send_wrapper(message: Message) -> None:
+            nonlocal response_started
+            if message["type"] == "http.response.start":
+                response_started = True
+                # Add rate-limit headers
+                remaining = await self._redis.zcard(global_key)
+                original_headers = list(message.get("headers", []))
+                original_headers.append(
+                    [b"x-ratelimit-limit", str(self._config.requests_per_minute).encode()]
+                )
+                original_headers.append(
+                    [
+                        b"x-ratelimit-remaining",
+                        str(max(0, self._config.requests_per_minute - remaining)).encode(),
+                    ]
+                )
+                message["headers"] = original_headers
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _extract_identifier(self, scope: Scope, headers: dict[str, str]) -> str:
+        """Use user_id for authenticated users (per-user buckets),
+        real client IP for unauthenticated (anti-abuse)."""
+        auth_header = headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            try:
+                payload = decode_access_token(auth_header[7:])
+                sub = payload.get("sub")
+                if sub:
+                    return sub
+            except Exception:  # noqa: S110
+                pass
+
+        return self._get_client_ip(scope, headers)
+
+    @staticmethod
+    def _get_client_ip(scope: Scope, headers: dict[str, str]) -> str:
+        forwarded = headers.get("x-forwarded-for", "")
         if forwarded:
-            # Leftmost IP is the original client
             client_ip = forwarded.split(",")[0].strip()
             if client_ip:
                 return client_ip
 
-        real_ip = request.headers.get("X-Real-IP", "")
+        real_ip = headers.get("x-real-ip", "")
         if real_ip:
             return real_ip.strip()
 
-        return request.client.host if request.client else "unknown"
-
-    @staticmethod
-    def _match_route(path: str, pattern: str) -> bool:
-        """Exact match or prefix-with-slash to avoid 'password-reset' catching 'password-reset-request'."""
-        return path == pattern or path.startswith(pattern + "/")
-
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
-        # Identify user
-        user_id = None
-        auth_header = request.headers.get("authorization", "")
-        if auth_header.startswith("Bearer "):
-            try:
-                payload = decode_access_token(auth_header[7:])
-                user_id = payload.get("sub")
-            except Exception:  # noqa: S110
-                pass
-
-        # Use user_id for authenticated users (per-user buckets),
-        # real client IP for unauthenticated (anti-abuse).
-        if user_id:
-            identifier = user_id
-        else:
-            identifier = self._get_client_ip(request)
-
-        key_prefix = f"ratelimit:{identifier}"
-
-        # Check route-specific limits
-        path = request.url.path
-        for pattern, (limit, window) in self._config.route_limits.items():
-            if self._match_route(path, pattern):
-                key = f"{key_prefix}:{pattern}"
-                allowed, retry_after = await self._check_limit(key, limit, window)
-                if not allowed:
-                    response = Response(
-                        content='{"detail":"Rate limit exceeded"}',
-                        status_code=429,
-                        media_type="application/json",
-                    )
-                    response.headers["Retry-After"] = str(retry_after)
-                    return response
-                break
-
-        # Check global limit
-        key = f"{key_prefix}:global"
-        allowed, retry_after = await self._check_limit(
-            key, self._config.requests_per_minute, 60
-        )
-        if not allowed:
-            response = Response(
-                content='{"detail":"Rate limit exceeded"}',
-                status_code=429,
-                media_type="application/json",
-            )
-            response.headers["Retry-After"] = str(retry_after)
-            return response
-
-        response = await call_next(request)
-
-        # Add rate limit headers
-        remaining = await self._redis.zcard(key)
-        response.headers["X-RateLimit-Limit"] = str(self._config.requests_per_minute)
-        response.headers["X-RateLimit-Remaining"] = str(
-            max(0, self._config.requests_per_minute - remaining)
-        )
-
-        return response
+        client = scope.get("client")
+        if client:
+            return client[0]
+        return "unknown"
 
     async def _check_limit(
         self, key: str, limit: int, window_seconds: int
