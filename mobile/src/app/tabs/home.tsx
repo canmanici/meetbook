@@ -38,8 +38,13 @@ import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import MapView, { PROVIDER_GOOGLE, Marker, type Region } from 'react-native-maps';
-import ClusteredMapView from 'react-native-map-clustering';
+import {
+  Camera,
+  type Region,
+  MAPLIBRE_AVAILABLE,
+  MAP_STYLE,
+  MLMap,
+} from '@/lib/map-adapter';
 
 import { palette, spacing, fontSize, radius, shadows, type ThemeColors } from '@/components/ui/tokens';
 import { BookCard, FilterSheet, type FilterState } from '@/components/ui';
@@ -100,6 +105,10 @@ function regionToBbox(region: Region): BBoxParams {
     min_lng: region.longitude - region.longitudeDelta / 2,
     max_lng: region.longitude + region.longitudeDelta / 2,
   };
+}
+
+function deltaToZoom(delta: number): number {
+  return Math.max(0, Math.min(20, Math.log2(360 / delta)));
 }
 
 function formatDistance(km: number): string {
@@ -181,7 +190,8 @@ export default function HomeScreen() {
   const [geofenceRadiusKm, setGeofenceRadiusKm] = useState(10);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
+  const cameraRef = useRef<any>(null);
   const lastQueriedCenterRef = useRef<{ lat: number; lng: number } | null>(null);
   // Track the last queried latitudeDelta so we can detect ZOOM changes (not
   // just pan). Without this, zooming in keeps the same center → the drift
@@ -216,6 +226,23 @@ export default function HomeScreen() {
       lastQueriedZoomRef.current = initialRegion.latitudeDelta;
     })();
   }, []);
+
+  // ── Fly camera to user location once GPS resolves ──────────────────────────
+  const hasFlownToLocation = useRef(false);
+  useEffect(() => {
+    if (userLocation && cameraRef.current && !hasFlownToLocation.current) {
+      hasFlownToLocation.current = true;
+      // Brief delay so the map has time to finish loading MapTiler tiles
+      const t = setTimeout(() => {
+        cameraRef.current?.flyTo({
+          center: [userLocation.lng, userLocation.lat],
+          zoom: 11,
+          duration: 1200,
+        });
+      }, 800);
+      return () => clearTimeout(t);
+    }
+  }, [userLocation]);
 
   // ── User profile (for geofence radius) ─────────────────────────────────────
   const { data: meData } = useQuery({
@@ -402,7 +429,7 @@ export default function HomeScreen() {
       latitudeDelta: 0.15,
       longitudeDelta: 0.15,
     };
-    mapRef.current.animateToRegion(newRegion);
+    // MapLibre Camera handles position via initialViewState/state
     setMapRegion(newRegion);
     setQueryBbox(regionToBbox(newRegion));
     lastQueriedCenterRef.current = { lat, lng };
@@ -510,26 +537,6 @@ export default function HomeScreen() {
       }
     },
     [geofenceRadiusKm, toast, queryClient],
-  );
-
-  // ── Supercluster renderCluster (§3.4 cluster variant) ─────────────────────
-  const renderCluster = useCallback(
-    (cluster: any) => {
-      const [lng, lat] = cluster.geometry.coordinates;
-      const count = cluster.properties.point_count ?? cluster.properties.count ?? 0;
-      return (
-        <Marker
-          key={`cluster-${cluster.id}`}
-          coordinate={{ latitude: lat, longitude: lng }}
-          onPress={cluster.onPress}
-        >
-          <View style={[styles.clusterBubble, { backgroundColor: colors.primary, borderColor: isDark ? palette.dark.surface : '#FFFFFF' }]}>
-            <Text style={styles.clusterText}>{count}</Text>
-          </View>
-        </Marker>
-      );
-    },
-    [colors.primary, isDark],
   );
 
   // ── Render singleton marker ────────────────────────────────────────────────
@@ -705,49 +712,75 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* ── Map (fills the screen, spec §3.1) ──────────────────────────────── */}
-      <ClusteredMapView
-        ref={mapRef as any}
-        style={styles.map}
-        provider={PROVIDER_GOOGLE}
-        region={mapRegion}
-        mapType={MAP_TYPES[mapTypeIndex]}
-        showsUserLocation={false}
-        showsMyLocationButton={false}
-        onRegionChangeComplete={handleRegionChangeComplete}
-        onPress={handleMapPress}
-        onLongPress={handleLongPress}
-        // No customMapStyle — use Google Maps native style (user preference)
-        // Bug #1: clustering re-enabled + configured
-        clusteringEnabled
-        radius={50}
-        maxZoom={16}
-        spiralEnabled
-        preserveClusterPressBehavior
-        renderCluster={renderCluster}
-        testID="map-view"
-      >
-        {/* Radius circle (geofence visualization, §3.8) */}
-        {userLocation && (
-          <RadiusCircle
-            center={userLocation}
-            radiusKm={geofenceRadiusKm}
-            color={colors.primary}
-            onLabelPress={handleRadiusLabelPress}
-            testID="radius-circle"
+      {MAPLIBRE_AVAILABLE && MLMap ? (
+        <MLMap
+          ref={mapRef}
+          style={styles.map}
+          logo={false}
+          attribution={false}
+          mapStyle={MAP_STYLE}
+          onRegionDidChange={(event: any) => {
+            const geo = event.geometry;
+            if (geo) {
+              const [lng, lat] = geo.coordinates;
+              const zoom = event.properties?.zoom ?? 12;
+              const delta = 360 / Math.pow(2, zoom);
+              setMapRegion({
+                latitude: lat,
+                longitude: lng,
+                latitudeDelta: delta,
+                longitudeDelta: delta,
+              });
+            }
+          }}
+          onPress={() => {
+            handleMapPress();
+          }}
+          testID="map-view"
+        >
+          <Camera
+            ref={cameraRef}
+            initialViewState={{
+              center: [mapRegion.longitude, mapRegion.latitude],
+              zoom: deltaToZoom(mapRegion.latitudeDelta),
+            }}
           />
-        )}
+          {/* ── Individual book markers (singletons) ─────────────────────────── */}
+          {markerBooks.map((book) => {
+            if (!book.public_location) return null;
+            return renderSingleton(book);
+          })}
 
-        {/* User location dot with accuracy + pulse (§3.4) */}
-        {userLocation && (
-          <UserLocationDot coordinate={userLocation} color={colors.primary} testID="user-dot" />
-        )}
+          {/* Shelf markers from backend clusters (30m grouping, §3.4 shelf variant) */}
+          {clusters.map((cluster) => (
+            renderShelf(cluster)
+          ))}
 
-        {/* Shelf markers from backend clusters (§3.4 shelf variant) */}
-        {clusters.map(renderShelf)}
+          {/* Radius circle (geofence visualization, §3.8) */}
+          {userLocation && (
+            <RadiusCircle
+              center={userLocation}
+              radiusKm={geofenceRadiusKm}
+              color={colors.primary}
+              onLabelPress={handleRadiusLabelPress}
+              testID="radius-circle"
+            />
+          )}
 
-        {/* Singleton markers — from clusters if available, else from bbox books (fallback) */}
-        {markerBooks.map(renderSingleton)}
-      </ClusteredMapView>
+          {/* User location dot with accuracy + pulse (§3.4) */}
+          {userLocation && (
+            <UserLocationDot coordinate={userLocation} color={colors.primary} testID="user-dot" />
+          )}
+        </MLMap>
+      ) : (
+        /* Fallback when MapLibre native module is unavailable (Expo Go) */
+        <View style={[styles.map, { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.surfaceAlt }]}>
+          <Ionicons name="map-outline" size={48} color={colors.textMuted} />
+          <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 14, textAlign: 'center' }}>
+            Harita goruntusu icin{'\n'}Development Build gereklidir
+          </Text>
+        </View>
+      )}
 
       {/* ── Dimming overlay when a marker is selected (§3.4) ─────────────────── */}
       {selectedBook && (

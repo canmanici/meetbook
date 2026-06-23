@@ -4,12 +4,12 @@
  * resets on thumbnailUrl change (bug #8), textbook hides distance at low zoom.
  */
 
-// Mock react-native-maps
+// Mock map adapter
 // The MockMarker captures its props into a global array so tests can assert
 // on the props passed to <Marker> (e.g., style.width/height for the 100px
 // fallback regression test).
 const markerRenderCalls: any[] = [];
-jest.mock('react-native-maps', () => {
+jest.mock('@/lib/map-adapter', () => {
   const React = require('react');
   const { View } = require('react-native');
   const MockMarker = React.forwardRef((props: any, ref: any) => {
@@ -20,11 +20,13 @@ jest.mock('react-native-maps', () => {
   });
   return {
     __esModule: true,
-    default: MockMarker,
+    MapView: MockMarker,
     Marker: MockMarker,
     Circle: (props: any) => React.createElement(View, { ...props }),
-    Callout: (props: any) => React.createElement(View, { ...props }, props.children),
-    PROVIDER_GOOGLE: 'google',
+    ShapeSource: (props: any) => React.createElement(View, { ...props }, props.children),
+    FillLayer: () => null,
+    LineLayer: () => null,
+    SymbolLayer: () => null,
   };
 });
 

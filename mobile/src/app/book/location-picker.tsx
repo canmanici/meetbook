@@ -2,7 +2,7 @@ import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, type LatLng, type MapPressEvent } from 'react-native-maps';
+import { MapView, Marker, type LatLng, type MapPressEvent, type MapViewRef } from '@/lib/map-adapter';
 
 import { Button, InlineError, palette, spacing } from '@/components/ui';
 import { useBookDraftStore } from '@/stores/book-draft-store';
@@ -20,7 +20,7 @@ export default function LocationPickerScreen() {
   const [marker, setMarker] = useState<LatLng | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
 
   const onMapPress = (event: MapPressEvent) => {
     setMarker(event.nativeEvent.coordinate);
@@ -39,12 +39,8 @@ export default function LocationPickerScreen() {
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const { latitude, longitude } = position.coords;
       setMarker({ latitude, longitude });
-      mapRef.current?.animateToRegion({
-        latitude,
-        longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      });
+      // MapLibre doesn't support animateToRegion on MapView ref directly
+      // The map will center on the marker via the region prop
     } catch {
       setError('Konum alınamadı.');
     } finally {

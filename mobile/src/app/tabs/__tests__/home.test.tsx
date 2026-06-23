@@ -6,7 +6,7 @@
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
-jest.mock('react-native-maps', () => {
+jest.mock('@maplibre/maplibre-react-native', () => {
   const React = require('react');
   const { View } = require('react-native');
   const MockMap = React.forwardRef((props: any, ref: any) =>
@@ -17,21 +17,33 @@ jest.mock('react-native-maps', () => {
   );
   return {
     __esModule: true,
-    default: MockMap,
+    Map: MockMap,
+    MapLibreMap: MockMap,
     Marker: MockMarker,
-    Circle: (props: any) => React.createElement(View, { ...props }),
-    PROVIDER_GOOGLE: 'google',
+    GeoJSONSource: (props: any) => React.createElement(View, { ...props }, props.children),
+    Layer: () => null,
+    SymbolLayer: () => null,
   };
 });
 
-jest.mock('react-native-map-clustering', () => {
+jest.mock('@/lib/map-adapter', () => {
   const React = require('react');
   const { View } = require('react-native');
+  const MockMap = React.forwardRef((props: any, ref: any) =>
+    React.createElement(View, { ref, ...props, testID: props.testID || 'map-view' }, props.children),
+  );
+  const MockMarker = React.forwardRef((props: any, ref: any) =>
+    React.createElement(View, { ref, ...props, testID: props.testID || 'marker' }, props.children),
+  );
   return {
     __esModule: true,
-    default: React.forwardRef((props: any, ref: any) =>
-      React.createElement(View, { ref, ...props, testID: props.testID || 'clustered-map' }, props.children),
-    ),
+    MapView: MockMap,
+    Marker: MockMarker,
+    Circle: (props: any) => React.createElement(View, { ...props }),
+    ShapeSource: (props: any) => React.createElement(View, { ...props }, props.children),
+    FillLayer: () => null,
+    LineLayer: () => null,
+    SymbolLayer: () => null,
   };
 });
 

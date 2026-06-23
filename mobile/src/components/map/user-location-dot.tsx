@@ -11,7 +11,7 @@
  * reliably via prop updates on both platforms.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { Circle, Marker } from 'react-native-maps';
+import { Circle, Marker } from '@/lib/map-adapter';
 import { View, StyleSheet } from 'react-native';
 import { moderateScale } from 'react-native-size-matters';
 

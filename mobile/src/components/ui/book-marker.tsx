@@ -15,7 +15,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Image, StyleSheet, Text, Platform, ViewStyle } from 'react-native';
-import { Marker } from 'react-native-maps';
+import { Marker } from '@/lib/map-adapter';
 import { moderateScale } from 'react-native-size-matters';
 import Animated, {
   useSharedValue,

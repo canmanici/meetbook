@@ -9,7 +9,7 @@ import {
   View,
   useColorScheme,
 } from 'react-native';
-import MapView, { Marker, type LatLng, type MapPressEvent } from 'react-native-maps';
+import { MapView, Marker, type LatLng, type MapPressEvent } from '@/lib/map-adapter';
 
 import { Button, Input, SafetySheet, fontSize, palette, radius, spacing } from '@/components/ui';
 import { DatePicker } from '@/components/ui/date-time-picker';

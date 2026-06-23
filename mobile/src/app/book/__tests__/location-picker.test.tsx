@@ -14,7 +14,7 @@ jest.mock('expo-location', () => ({
   getCurrentPositionAsync: jest.fn(),
 }));
 
-jest.mock('react-native-maps', () => {
+jest.mock('@/lib/map-adapter', () => {
   const ReactActual = require('react');
   const { View } = require('react-native');
   const MockMapView = ({ children, onPress, testID }: any) =>
@@ -22,7 +22,7 @@ jest.mock('react-native-maps', () => {
   const MockMarker = ({ testID }: any) => ReactActual.createElement(View, { testID });
   return {
     __esModule: true,
-    default: MockMapView,
+    MapView: MockMapView,
     Marker: MockMarker,
   };
 });

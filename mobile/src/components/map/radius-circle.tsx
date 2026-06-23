@@ -10,7 +10,7 @@
  * reliably fire touch events on Marker children.
  */
 import React from 'react';
-import { Circle, Marker } from 'react-native-maps';
+import { Circle, Marker } from '@/lib/map-adapter';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { fontSize } from '@/components/ui/tokens';
 

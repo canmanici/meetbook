@@ -3,7 +3,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import MapView, { Marker } from 'react-native-maps';
+import { MapView, Marker } from '@/lib/map-adapter';
 import {
   ActivityIndicator,
   Alert,

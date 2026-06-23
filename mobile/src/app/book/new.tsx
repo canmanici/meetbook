@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, type LatLng, type MapPressEvent } from 'react-native-maps';
+import { MapView, Marker, type LatLng, type MapPressEvent } from '@/lib/map-adapter';
 import * as Location from 'expo-location';
 
 
@@ -66,7 +66,7 @@ export default function NewBookScreen() {
   const [marker, setMarker] = useState<LatLng | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
 
   // Sync picked location from store (if user picks location from separate screen)
   useEffect(() => {
@@ -128,12 +128,7 @@ export default function NewBookScreen() {
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const { latitude, longitude } = position.coords;
       setMarker({ latitude, longitude });
-      mapRef.current?.animateToRegion({
-        latitude,
-        longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      });
+      // MapLibre doesn't support animateToRegion on MapView ref directly
     } catch {
       setLocationError('Konum alınamadı.');
     } finally {
