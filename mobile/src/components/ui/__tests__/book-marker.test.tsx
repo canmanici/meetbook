@@ -51,6 +51,7 @@ jest.mock('react-native-reanimated', () => {
 });
 
 import React from 'react';
+import { Platform } from 'react-native';
 import { render } from '@testing-library/react-native';
 import { BookMarker, categoryColor, type BookCategory } from '../book-marker';
 import { pastels, palette } from '@/components/ui/tokens';
@@ -334,6 +335,75 @@ describe('BookMarker', () => {
         expect(style.width).not.toBe(0);
         expect(style.height).not.toBe(0);
       }
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Android nuclear fix: pass `image` prop on <Marker> to bypass the
+  // createDrawable() 100px rasterization fallback. The image loads via Fresco
+  // as a BitmapDescriptor — no custom view rasterization, no 100px fallback.
+  // On iOS, no `image` prop is passed (iOS renders the view hierarchy directly).
+  // ─────────────────────────────────────────────────────────────────────────
+  describe('Android image prop bypass (100px nuclear fix)', () => {
+    const originalPlatform = Platform.OS;
+
+    afterEach(() => {
+      // Restore platform after each test
+      Object.defineProperty(Platform, 'OS', { value: originalPlatform, writable: true });
+    });
+
+    it('Android: passes image prop with cover URL when markerUri is set', () => {
+      Object.defineProperty(Platform, 'OS', { value: 'android', writable: true });
+      markerRenderCalls.length = 0;
+      render(
+        <BookMarker
+          coordinate={coordinate}
+          title="Test"
+          variant="standard"
+          category="fiction"
+          thumbnailUrl="https://example.com/thumb.jpg"
+          testID="m-android-image"
+        />,
+      );
+      const markerProps = markerRenderCalls.find((p) => p.testID === 'm-android-image');
+      expect(markerProps).toBeTruthy();
+      expect(markerProps.image).toBeTruthy();
+      expect(markerProps.image.uri).toBe('https://example.com/thumb.jpg');
+    });
+
+    it('Android: does NOT pass image prop when no cover URL (placeholder)', () => {
+      Object.defineProperty(Platform, 'OS', { value: 'android', writable: true });
+      markerRenderCalls.length = 0;
+      render(
+        <BookMarker
+          coordinate={coordinate}
+          title="Test"
+          variant="standard"
+          category="fiction"
+          testID="m-android-noimg"
+        />,
+      );
+      const markerProps = markerRenderCalls.find((p) => p.testID === 'm-android-noimg');
+      expect(markerProps).toBeTruthy();
+      expect(markerProps.image).toBeFalsy();
+    });
+
+    it('iOS: does NOT pass image prop (uses children view hierarchy)', () => {
+      Object.defineProperty(Platform, 'OS', { value: 'ios', writable: true });
+      markerRenderCalls.length = 0;
+      render(
+        <BookMarker
+          coordinate={coordinate}
+          title="Test"
+          variant="standard"
+          category="fiction"
+          thumbnailUrl="https://example.com/thumb.jpg"
+          testID="m-ios-noimg"
+        />,
+      );
+      const markerProps = markerRenderCalls.find((p) => p.testID === 'm-ios-noimg');
+      expect(markerProps).toBeTruthy();
+      expect(markerProps.image).toBeFalsy();
     });
   });
 });

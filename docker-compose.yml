@@ -58,7 +58,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/app:/app/app:ro
+      - ./backend/app:/app/app
       - mediadata:/app/media
     depends_on:
       db:

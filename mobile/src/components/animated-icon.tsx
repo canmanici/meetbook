@@ -6,6 +6,17 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
+// Total time the splash stays before fading out (lets the icon animation breathe).
+const HOLD_DURATION = 1400;
+
+// Icon: pop in with an elastic overshoot, hold, then fade with the backdrop.
+const iconKeyframe = new Keyframe({
+  0: { opacity: 0, transform: [{ scale: 0.4 }] },
+  35: { opacity: 1, transform: [{ scale: 1.12 }], easing: Easing.out(Easing.back(2)) },
+  55: { opacity: 1, transform: [{ scale: 1 }], easing: Easing.elastic(1) },
+  85: { opacity: 1, transform: [{ scale: 1 }] },
+  100: { opacity: 0, transform: [{ scale: 1.4 }], easing: Easing.in(Easing.cubic) },
+});
 
 export function AnimatedSplashOverlay() {
   const [visible, setVisible] = useState(true);
@@ -13,34 +24,29 @@ export function AnimatedSplashOverlay() {
   if (!visible) return null;
 
   const splashKeyframe = new Keyframe({
-    0: {
-      transform: [{ scale: INITIAL_SCALE_FACTOR }],
-      opacity: 1,
-    },
-    20: {
-      opacity: 1,
-    },
-    70: {
-      opacity: 0,
-      easing: Easing.elastic(0.7),
-    },
-    100: {
-      opacity: 0,
-      transform: [{ scale: 1 }],
-      easing: Easing.elastic(0.7),
-    },
+    0: { opacity: 1 },
+    75: { opacity: 1 },
+    100: { opacity: 0, easing: Easing.in(Easing.cubic) },
   });
 
   return (
     <Animated.View
-      entering={splashKeyframe.duration(DURATION).withCallback((finished) => {
+      entering={splashKeyframe.duration(HOLD_DURATION).withCallback((finished) => {
         'worklet';
         if (finished) {
           scheduleOnRN(setVisible, false);
         }
       })}
       style={styles.backgroundSolidColor}
-    />
+    >
+      <Animated.View entering={iconKeyframe.duration(HOLD_DURATION)} style={styles.splashIconWrap}>
+        <Image
+          source={require('@/assets/images/icon.png')}
+          style={styles.splashIcon}
+          contentFit="cover"
+        />
+      </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -125,8 +131,26 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   backgroundSolidColor: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: '#208AEF',
     zIndex: 1000,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  splashIconWrap: {
+    width: 132,
+    height: 132,
+    borderRadius: 32,
+    overflow: 'hidden',
+    backgroundColor: '#1A1208',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  splashIcon: {
+    width: '100%',
+    height: '100%',
   },
 });

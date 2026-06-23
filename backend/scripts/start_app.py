@@ -389,36 +389,75 @@ def main() -> int:
             return 1
 
     # Phase 4: Verify core tables exist
-    # NOTE: We do NOT stamp base + re-run migrations here. That is DESTRUCTIVE:
-    # it clears alembic_version and re-runs CREATE TABLE on tables that already
-    # exist, which either fails (PostgreSQL error) or silently skips — but the
-    # alembic_version ends up out of sync. Existing user data is NEVER deleted
-    # by migrations, so if verify_core_tables() fails it means either:
-    #   a) The database was wiped externally (volume deleted, fresh Postgres)
-    #   b) A previous recovery attempt corrupted the state
+    # When verify_core_tables() fails, it means alembic_version thinks we're
+    # at head but the actual tables don't exist. This happens when:
+    #   a) The DB was wiped externally (volume deleted, fresh Postgres)
+    #   b) A previous container crash left alembic_version stamped but tables
+    #      never created (the exact bug we hit on 2026-06-23)
     #
-    # In case (a), a manual `alembic stamp base && alembic upgrade head` fixes
-    # it. In case (b), the migration chain needs manual repair.
+    # Strategy:
+    #   1. First try `upgrade head` — safe no-op if already at head
+    #   2. If tables still missing, check if ANY user data exists
+    #   3. If no data: stamp base + re-run (safe, tables don't exist)
+    #   4. If data exists: log error, require manual intervention
     if not verify_core_tables():
         log_elapsed("WARNING: Users table missing despite migrations at head.")
-        log_elapsed("This means the database was wiped or corrupted externally.")
-        log_elapsed("Attempting safe recovery (run pending migrations only)...")
+        from alembic.config import Config
+        from alembic import command
+        from app.core.config import get_settings
+
+        config = Config(str(ALEMBIC_INI))
+        settings = get_settings()
+        config.set_main_option("sqlalchemy.url", settings.database_url)
+
+        # Step 1: Try upgrade head (might be a no-op if already at head)
         try:
-            from alembic.config import Config
-            from alembic import command
-            config = Config(str(ALEMBIC_INI))
-            from app.core.config import get_settings
-            config.set_main_option("sqlalchemy.url", get_settings().database_url)
-            # Only run pending migrations — don't stamp base (would lose data).
-            # If alembic_version is intact, this upgrades from current → head.
-            # If alembic_version was cleared, this runs everything from scratch
-            # which is safe because the tables truly don't exist.
             command.upgrade(config, "head")
-            log_elapsed("Pending migrations applied.")
-        except Exception as e:
-            log_elapsed(f"WARNING: Could not auto-recover: {e}")
-            log_elapsed("The app will start, but some tables may be missing.")
-            log_elapsed("To fix: docker compose down && docker volume rm meetbook_pgdata && docker compose up")
+        except Exception:
+            pass
+
+        # Step 2: Check if tables exist now
+        if verify_core_tables():
+            log_elapsed("Recovery succeeded (upgrade head created tables).")
+        else:
+            # Tables still missing — check if there's any data to protect
+            import asyncio
+            from sqlalchemy.ext.asyncio import create_async_engine
+            from sqlalchemy import text
+
+            async def _has_data():
+                engine = create_async_engine(settings.database_url)
+                try:
+                    async with engine.connect() as conn:
+                        result = await conn.execute(text(
+                            "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+                            "WHERE table_schema = 'public' AND table_type = 'BASE TABLE' "
+                            "AND table_name != 'alembic_version' LIMIT 1)"
+                        ))
+                        return bool(result.scalar())
+                finally:
+                    await engine.dispose()
+
+            has_data = asyncio.run(_has_data())
+
+            if has_data:
+                # Data exists — DON'T stamp base, would destroy it
+                log_elapsed("CRITICAL: Tables missing but other tables have data.")
+                log_elapsed("Cannot auto-recover without data loss.")
+                log_elapsed("Manual fix required:")
+                log_elapsed("  1. Check which tables are missing")
+                log_elapsed("  2. Run specific migration: alembic upgrade <revision>")
+                log_elapsed("  3. Or: alembic stamp base && alembic upgrade head (DATA LOSS)")
+            else:
+                # No data anywhere — safe to stamp base and re-run
+                log_elapsed("No application data found — safe to re-run all migrations.")
+                try:
+                    command.stamp(config, "base")
+                    command.upgrade(config, "head")
+                    log_elapsed("Full re-migration complete.")
+                except Exception as e:
+                    log_elapsed(f"WARNING: Auto-recovery failed: {e}")
+                    log_elapsed("To fix: docker compose down && docker volume rm meetbook_pgdata && docker compose up")
 
     # Phase 5: Seed data
     if not os.environ.get("SKIP_SEED"):

@@ -154,7 +154,7 @@ jest.mock('@/lib/map-styles/dark.json', () => [], { virtual: true });
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
+import { render, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import HomeScreen from '../home';
@@ -227,5 +227,24 @@ describe('HomeScreen (map-first)', () => {
   it('renders user location dot', async () => {
     const { findByTestId } = renderHome();
     expect(await findByTestId('user-dot')).toBeTruthy();
+  });
+
+  it('bug: "search area" pill appears on zoom-in without pan', async () => {
+    const { getByTestId, getByText, queryByTestId } = renderHome();
+    // Wait for initial query to finish → refs (center + zoom) are set.
+    await waitFor(() => expect(getByText(/kitap bulundu/)).toBeTruthy());
+    expect(queryByTestId('search-area-pill')).toBeNull();
+
+    // Zoom in on the same center: latitudeDelta 0.15 → 0.05 (67% change > 20% threshold)
+    const map = getByTestId('map-view');
+    map.props.onRegionChangeComplete({
+      latitude: 41.0082,
+      longitude: 28.9784,
+      latitudeDelta: 0.05,
+      longitudeDelta: 0.05,
+    });
+
+    // Wait for the 500ms pill debounce
+    await waitFor(() => expect(getByTestId('search-area-pill')).toBeTruthy(), { timeout: 2000 });
   });
 });

@@ -73,6 +73,7 @@ async def search_books_bbox(
     language: str | None = Query(default=None),
     condition: str | None = Query(default=None),
     q: str | None = Query(default=None, max_length=100),
+    cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
     user: User = Depends(get_current_user),
     service: BookService = Depends(_get_service),
@@ -81,6 +82,7 @@ async def search_books_bbox(
         return await service.search_bbox(
             min_lat, max_lat, min_lng, max_lng,
             category, language, condition, q, limit, current_user_id=user.id,
+            cursor=cursor,
         )
     except BookError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

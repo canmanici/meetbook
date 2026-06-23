@@ -88,7 +88,10 @@ def _run_alembic(args: list[str]) -> int:
     """Run alembic with given args and return exit code."""
     from alembic.config import CommandLine
 
-    argv = ["alembic"] + args
+    # CommandLine.main() expects argv[0] to be the program name (sys.argv[0]),
+    # NOT "alembic". Passing ["alembic", "upgrade", "head"] causes it to
+    # try parsing "alembic" as a subcommand, which fails.
+    argv = ["run_migrations.py"] + args
     try:
         CommandLine().main(argv=argv)
         return 0

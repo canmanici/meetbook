@@ -195,6 +195,7 @@ class BookService:
         q: str | None,
         limit: int,
         current_user_id: uuid.UUID,
+        cursor: str | None = None,
     ) -> BookSearchResponse:
         if min_lat >= max_lat or min_lng >= max_lng:
             raise BookError("min must be less than max", 422)
@@ -208,7 +209,14 @@ class BookService:
         rows = await self.repo.search_bbox(
             min_lat, max_lat, min_lng, max_lng,
             category, language, condition, q, limit, current_user_id,
+            cursor=cursor,
         )
+
+        # Batch fetch first photos so markers and cards can show cover images.
+        first_photos = await self.repo.get_first_photos_batch(
+            [r.book.id for r in rows]
+        )
+
         items = [
             BookSearchResult(
                 id=r.book.id, owner_id=r.book.owner_id, owner_name=r.owner.name,
@@ -218,7 +226,7 @@ class BookService:
                 is_available=r.book.is_available,
                 public_location=LocationOutput(lat=r.public_location[0], lng=r.public_location[1]),
                 distance_km=round(r.distance_m / 1000.0, 1),
-                photos=[],
+                photos=_to_photo_views([first_photos[r.book.id]]) if r.book.id in first_photos else [],
                 created_at=r.book.created_at, updated_at=r.book.updated_at,
                 owner=r.owner,
             )
@@ -249,6 +257,11 @@ class BookService:
         cluster_dicts, singleton_rows = await self.repo.search_clusters(
             min_lat, max_lat, min_lng, max_lng,
             category, language, condition, q, limit, current_user_id,
+        )
+
+        # Batch fetch first photos for singletons so their markers/cards show covers.
+        singleton_first_photos = await self.repo.get_first_photos_batch(
+            [r.book.id for r in singleton_rows]
         )
 
         clusters = []
@@ -284,7 +297,7 @@ class BookService:
                     lat=r.public_location[0], lng=r.public_location[1]
                 ),
                 distance_km=r.distance_m / 1000.0,
-                photos=[],
+                photos=_to_photo_views([singleton_first_photos[r.book.id]]) if r.book.id in singleton_first_photos else [],
                 created_at=r.book.created_at,
                 updated_at=r.book.updated_at,
                 owner=r.owner,

@@ -361,6 +361,15 @@ function MarkerPreviewCardImpl({
               </TouchableOpacity>
 
               <TouchableOpacity
+                style={[styles.goToBookBtn, { borderColor: colors.primary }]}
+                onPress={() => onNavigateToDetail(book.id)}
+                testID="preview-go-to-book"
+              >
+                <Text style={[styles.goToBookBtnText, { color: colors.primary }]}>Kitaba Git</Text>
+                <Ionicons name="book-outline" size={16} color={colors.primary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={[styles.exchangeBtn, { backgroundColor: colors.primary }]}
                 onPress={handleExchange}
                 disabled={exchangeLoading}
@@ -376,6 +385,11 @@ function MarkerPreviewCardImpl({
                 )}
               </TouchableOpacity>
             </View>
+
+            {/* Swipe hint */}
+            <Text style={[styles.swipeHint, { color: colors.textMuted }]}>
+              ↑ Yukarı kaydırarak detayları gör
+            </Text>
           </View>
         </BlurView>
       </Animated.View>
@@ -517,6 +531,21 @@ const styles = StyleSheet.create({
     fontSize: fontSize.bodySm,
     fontWeight: '600',
   },
+  goToBookBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.button,
+    borderWidth: 2,
+    flex: 1,
+  },
+  goToBookBtnText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+  },
   exchangeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -531,6 +560,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: fontSize.bodySm,
     fontWeight: '700',
+  },
+  swipeHint: {
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    opacity: 0.7,
   },
 });
 

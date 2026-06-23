@@ -1,6 +1,7 @@
 import { clearTokens, setTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
 
+import { emitApiError, messageForStatus } from './error-bus';
 import type { components, paths } from './schema';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
@@ -86,22 +87,46 @@ async function rawRequest(
   const url = `${BASE_URL}${path}${search ? `?${search}` : ''}`;
   console.log(`[API] ${method} ${url}${body !== undefined ? ` body=${JSON.stringify(body)}` : ''}`);
   const start = Date.now();
-  const res = await fetch(url, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (err) {
+    // Server unreachable / DNS / timeout — fetch rejects with a TypeError.
+    // Surface an animated popup and throw a typed error (status 0) instead of
+    // letting the raw rejection crash the app.
+    console.log(`[API] ${method} ${url} → network error`, err);
+    emitApiError({ kind: 'network', status: 0, message: messageForStatus(0) });
+    throw new ApiError(0, { detail: 'network_error' });
+  }
   const duration = Date.now() - start;
   console.log(`[API] ${method} ${url} → ${res.status} (${duration}ms)`);
   return res;
 }
 
+async function safeJson(res: Response): Promise<unknown> {
+  if (res.status === 204) return undefined;
+  try {
+    return await res.json();
+  } catch {
+    // Error pages (e.g. a 502 HTML body) aren't JSON — don't crash on parse.
+    return undefined;
+  }
+}
+
 async function parse<T>(res: Response): Promise<T> {
-  const data = res.status === 204 ? undefined : await res.json();
+  const data = await safeJson(res);
   if (!res.ok) {
+    // 5xx → backend is down/erroring. Show the animated popup globally.
+    if (res.status >= 500) {
+      emitApiError({ kind: 'server', status: res.status, message: messageForStatus(res.status) });
+    }
     throw new ApiError(res.status, data);
   }
   return data as T;

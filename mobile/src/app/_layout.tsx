@@ -7,6 +7,8 @@ import { useColorScheme } from 'react-native';
 import { ToastProvider } from '@/components/ui/toast-provider';
 import { palette } from '@/components/ui/tokens';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { AppErrorBoundary } from '@/components/app-error-boundary';
+import { ServerErrorOverlay } from '@/components/server-error-overlay';
 import { getMe } from '@/lib/api/client';
 import { queryClient } from '@/lib/query-client';
 import { useAuthStore } from '@/stores/auth-store';
@@ -48,6 +50,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <AnimatedSplashOverlay />
+        <AppErrorBoundary>
         <ToastProvider>
         <Stack
         screenOptions={{
@@ -74,7 +77,9 @@ export default function RootLayout() {
           <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack>
+        <ServerErrorOverlay />
         </ToastProvider>
+        </AppErrorBoundary>
       </QueryClientProvider>
     </GestureHandlerRootView>
   );

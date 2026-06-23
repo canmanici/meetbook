@@ -13,7 +13,7 @@
  * Border: light → #fff, dark → palette.dark.surface (spec §3.4).
  * Selection: scale 1.3× + 6px primary glow ring (spec §3.4).
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Image, StyleSheet, Text, Platform, ViewStyle } from 'react-native';
 import { Marker } from 'react-native-maps';
 import { moderateScale } from 'react-native-size-matters';
@@ -119,25 +119,6 @@ const GLOW_W = 6;
 const COVER_W = MARKER_W - 2 * RING_W;
 const COVER_H = MARKER_H - 2 * RING_W;
 
-// ── THE 100px FALLBACK FIX ─────────────────────────────────────────────────
-// MapMarker.java:525 → `int width = this.width <= 0 ? 100 : this.width;`
-// MapMarkerManager has NO @ReactProp for width/height. The native side gets
-// dimensions ONLY from SizeReportingShadowNode → updateExtraData → view.update().
-// If the shadow node reports 0 (layout not measured before first raster pass),
-// the bitmap falls back to 100×100 px and gets FROZEN by tracksViewChanges.
-// No StyleSheet on inner children can override this — the MARKER view itself
-// must have explicit dimensions. We pass `style={{ width, height }}` on the
-// <Marker> component (MapMarker.js merges it via style={[marker, this.props.style]}).
-// The footprint covers: label (110 wide, ~22 tall) + box (46×62) + margins for
-// pulse ring / glow ring / shelf backs / badge. Box sits at the BOTTOM; anchor
-// points at the box center so the geographic coordinate is accurate.
-const FOOTPRINT_W = moderateScale(120);
-const FOOTPRINT_H = moderateScale(96);
-// Anchor y = (FOOTPRINT_H - MARKER_H/2) / FOOTPRINT_H = box-center / footprint.
-const BOX_CENTER_Y = (FOOTPRINT_H - MARKER_H / 2) / FOOTPRINT_H;
-
-const CLUSTER_SIZE = moderateScale(44);
-
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function BookMarker({
@@ -157,34 +138,20 @@ export function BookMarker({
   isDark = false,
   testID,
 }: BookMarkerProps) {
-  // tracksViewChanges fix (spec bug #8 + Android raster race):
-  // On Android, react-native-maps rasterizes <Marker> children to a bitmap.
-  // We must keep tracksViewChanges=true until the cover <Image> has BOTH
-  // loaded AND laid out, then allow one settle pass before freezing the
-  // bitmap. Flipping false on raw onLoad freezes the pre-layout frame —
-  // that is the "10×10 px cover" bug. Hard timeout = 3000ms (slow networks).
+  // tracksViewChanges fix (spec bug #8): reset on URI change, flip false on load.
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
   const tracksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const imageLoadedRef = useRef(false);
   const markerUri = thumbnailUrl || coverUrl;
 
   useEffect(() => {
-    imageLoadedRef.current = false;
     setTracksViewChanges(true);
     if (tracksTimerRef.current) clearTimeout(tracksTimerRef.current);
-    const timer = setTimeout(() => setTracksViewChanges(false), 3000);
+    const timer = setTimeout(() => setTracksViewChanges(false), 2000);
     tracksTimerRef.current = timer;
     return () => {
       if (tracksTimerRef.current) clearTimeout(tracksTimerRef.current);
     };
   }, [markerUri]);
-
-  const freezeTracks = useCallback(() => {
-    // Wait one settle pass after image load so the layout commits before
-    // the bitmap is frozen. 250ms covers a RN layout cycle on Android.
-    if (tracksTimerRef.current) clearTimeout(tracksTimerRef.current);
-    tracksTimerRef.current = setTimeout(() => setTracksViewChanges(false), 250);
-  }, []);
 
   // ── Fresh pulse animation (2s loop) ──────────────────────────────────────
   const pulseScale = useSharedValue(0.5);
@@ -249,10 +216,7 @@ export function BookMarker({
   const showFreshLabel = variant === 'fresh';
 
   // ── Cover image ───────────────────────────────────────────────────────────
-  const onLoadEnd = () => {
-    imageLoadedRef.current = true;
-    freezeTracks();
-  };
+  const onLoadEnd = () => setTracksViewChanges(false);
 
   const renderCover = (extraStyle?: ViewStyle) => {
     if (markerUri) {
@@ -283,7 +247,6 @@ export function BookMarker({
         tracksViewChanges={tracksViewChanges}
         onPress={onPress}
         testID={testID}
-        style={{ width: CLUSTER_SIZE, height: CLUSTER_SIZE }}
       >
         <View style={[styles.clusterBubble, { backgroundColor: clusterColor, borderColor }]} testID={`${testID}-cluster`}>
           <Text style={styles.clusterText}>{clusterCount > 0 ? clusterCount : '·'}</Text>
@@ -298,14 +261,13 @@ export function BookMarker({
   return (
     <Marker
       coordinate={coordinate}
-      anchor={{ x: 0.5, y: BOX_CENTER_Y }}
+      anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges={tracksViewChanges}
       onPress={onPress}
       testID={testID}
-      style={{ width: FOOTPRINT_W, height: FOOTPRINT_H }}
     >
       <Animated.View style={[styles.wrapper, selectStyle]} testID={`${testID}-wrapper`}>
-        {/* Distance / fresh label above marker (flex child, sits above boxArea) */}
+        {/* Distance / fresh label above marker */}
         {(showDistanceLabel || showTextbookLabel || showFreshLabel) && (
           <View
             style={[
@@ -319,60 +281,55 @@ export function BookMarker({
           </View>
         )}
 
-        {/* Box area — relative positioning context for rings/badge/shelf backs.
-            Explicit MARKER_W × MARKER_H so decorations center on the box, not
-            on the full footprint. */}
-        <View style={styles.boxArea}>
-          {/* Fresh pulse ring */}
-          {variant === 'fresh' && (
-            <Animated.View
-              style={[styles.pulseRing, { borderColor: pastels[theme].coral.ink }, pulseStyle]}
-              pointerEvents="none"
-            />
-          )}
+        {/* Fresh pulse ring */}
+        {variant === 'fresh' && (
+          <Animated.View
+            style={[styles.pulseRing, { borderColor: pastels[theme].coral.ink }, pulseStyle]}
+            pointerEvents="none"
+          />
+        )}
 
-          {/* Selection glow ring */}
-          {selected && (
-            <View
-              style={[styles.glowRing, { borderColor: glowColor }]}
-              pointerEvents="none"
-            />
-          )}
+        {/* Selection glow ring */}
+        {selected && (
+          <View
+            style={[styles.glowRing, { borderColor: glowColor }]}
+            pointerEvents="none"
+          />
+        )}
 
-          {/* Shelf stacked covers behind */}
-          {isShelf && (
-            <>
-              <View style={[styles.shelfBack2, { borderColor }]} />
-              <View style={[styles.shelfBack1, { borderColor }]}>
-                {markerUri && (
-                  <Image
-                    source={{ uri: markerUri }}
-                    style={styles.shelfBackImage}
-                    resizeMode="cover"
-                  />
-                )}
-              </View>
-            </>
-          )}
+        {/* Shelf stacked covers behind */}
+        {isShelf && (
+          <>
+            <View style={[styles.shelfBack2, { borderColor }]} />
+            <View style={[styles.shelfBack1, { borderColor }]}>
+              {markerUri && (
+                <Image
+                  source={{ uri: markerUri }}
+                  style={styles.shelfBackImage}
+                  resizeMode="cover"
+                />
+              )}
+            </View>
+          </>
+        )}
 
-          {/* Main cover box with category-color ring */}
-          <View style={[styles.box, { borderColor, borderWidth: RING_W }]}>
-            <View style={[styles.ring, { borderColor: ringColor, borderWidth: RING_W }]} />
-            {renderCover()}
-            {variant === 'unavailable' && (
-              <View style={styles.unavailableOverlay}>
-                <Text style={styles.unavailableIcon}>⊘</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Shelf +N badge */}
-          {isShelf && stackCount > 0 && (
-            <View style={[styles.stackBadge, { backgroundColor: palette[theme].primary, borderColor }]}>
-              <Text style={styles.stackBadgeText}>+{stackCount}</Text>
+        {/* Main cover box with category-color ring */}
+        <View style={[styles.box, { borderColor, borderWidth: RING_W }]}>
+          <View style={[styles.ring, { borderColor: ringColor, borderWidth: RING_W }]} />
+          {renderCover()}
+          {variant === 'unavailable' && (
+            <View style={styles.unavailableOverlay}>
+              <Text style={styles.unavailableIcon}>⊘</Text>
             </View>
           )}
         </View>
+
+        {/* Shelf +N badge */}
+        {isShelf && stackCount > 0 && (
+          <View style={[styles.stackBadge, { backgroundColor: palette[theme].primary, borderColor }]}>
+            <Text style={styles.stackBadgeText}>+{stackCount}</Text>
+          </View>
+        )}
       </Animated.View>
     </Marker>
   );
@@ -382,19 +339,6 @@ export function BookMarker({
 
 const styles = StyleSheet.create({
   wrapper: {
-    width: FOOTPRINT_W,
-    height: FOOTPRINT_H,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  // Box area: explicit MARKER_W × MARKER_H. Acts as the relative positioning
-  // context for absolute decorations (rings, badge, shelf backs). The native
-  // shadow node measures the MARKER view (footprint), NOT this — but having
-  // explicit dims here ensures the box layout is deterministic and the
-  // decorations center correctly on the box, not on the footprint.
-  boxArea: {
-    width: MARKER_W,
-    height: MARKER_H,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -449,8 +393,8 @@ const styles = StyleSheet.create({
     borderRadius: moderateScale(12),
   },
   cover: {
-    width: COVER_W,
-    height: COVER_H,
+    width: '100%',
+    height: '100%',
     borderRadius: moderateScale(9),
     backgroundColor: '#333333',
   },
@@ -511,8 +455,8 @@ const styles = StyleSheet.create({
     }),
   },
   shelfBackImage: {
-    width: COVER_W,
-    height: COVER_H,
+    width: '100%',
+    height: '100%',
     borderRadius: moderateScale(9),
   },
   stackBadge: {

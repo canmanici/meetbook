@@ -206,4 +206,21 @@ describe('MarkerPreviewCard', () => {
       expect(onClose).toHaveBeenCalled();
     });
   });
+
+  it('renders Kitaba Git button', () => {
+    const { getByText } = renderCard();
+    expect(getByText('Kitaba Git')).toBeTruthy();
+  });
+
+  it('calls onNavigateToDetail when Kitaba Git pressed', () => {
+    const onNavigateToDetail = jest.fn();
+    const { getByTestId } = renderCard(mockBook, { onNavigateToDetail });
+    fireEvent.press(getByTestId('preview-go-to-book'));
+    expect(onNavigateToDetail).toHaveBeenCalledWith('book-1');
+  });
+
+  it('renders swipe hint text', () => {
+    const { getByText } = renderCard();
+    expect(getByText('↑ Yukarı kaydırarak detayları gör')).toBeTruthy();
+  });
 });

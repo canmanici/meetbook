@@ -85,6 +85,11 @@ const FRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
 const REGION_DEBOUNCE_MS = 300;
 const PILL_DEBOUNCE_MS = 500;
 const DRIFT_THRESHOLD = 0.2; // 20% of viewport
+// Hard cap on the bbox search (backend /books/search-bbox enforces le=50).
+// When the response hits this cap the count is "50+" — there may be more books
+// in the viewport than we fetched. Zooming in re-queries a smaller bbox and
+// reveals the true count for that area.
+const BBOX_LIMIT = 50;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -178,6 +183,11 @@ export default function HomeScreen() {
   // ── Refs ───────────────────────────────────────────────────────────────────
   const mapRef = useRef<MapView>(null);
   const lastQueriedCenterRef = useRef<{ lat: number; lng: number } | null>(null);
+  // Track the last queried latitudeDelta so we can detect ZOOM changes (not
+  // just pan). Without this, zooming in keeps the same center → the drift
+  // pill never shows → the user can't re-query the tighter viewport →
+  // "can't get closer" bug.
+  const lastQueriedZoomRef = useRef<number | null>(null);
   const regionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pillDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -203,6 +213,7 @@ export default function HomeScreen() {
       setMapRegion(initialRegion);
       setQueryBbox(regionToBbox(initialRegion));
       lastQueriedCenterRef.current = userLoc;
+      lastQueriedZoomRef.current = initialRegion.latitudeDelta;
     })();
   }, []);
 
@@ -233,7 +244,7 @@ export default function HomeScreen() {
           condition: activeFilters.condition ?? undefined,
           language: activeFilters.language ?? undefined,
           q: searchText || undefined,
-          limit: 50,
+          limit: BBOX_LIMIT,
         });
       } catch (err: any) {
         // 422 = "Alan çok geniş" — bbox too wide, don't crash
@@ -269,11 +280,12 @@ export default function HomeScreen() {
   const clustersSingletons = useMemo(() => clustersQuery.data?.singletons ?? [], [clustersQuery.data]);
   const clustersSucceeded = clustersQuery.isSuccess && clustersQuery.data !== undefined;
 
-  // Markers: use clusters singletons if available, otherwise fall back to ALL bbox books
-  // This ensures markers always render when books exist, even if clusters endpoint fails
+  // Markers: use clusters singletons if any exist, otherwise fall back to ALL
+  // bbox books. This ensures markers always render when books exist, even if
+  // the clusters endpoint returns empty singletons while bbox found books.
   const markerBooks = useMemo(
-    () => (clustersSucceeded ? clustersSingletons : books),
-    [clustersSucceeded, clustersSingletons, books],
+    () => (clustersSingletons.length > 0 ? clustersSingletons : books),
+    [clustersSingletons, books],
   );
 
   // ── Bug #6: count books WITH location ──────────────────────────────────────
@@ -394,6 +406,7 @@ export default function HomeScreen() {
     setMapRegion(newRegion);
     setQueryBbox(regionToBbox(newRegion));
     lastQueriedCenterRef.current = { lat, lng };
+    lastQueriedZoomRef.current = newRegion.latitudeDelta;
     setShowSearchPill(false);
 
     toast.show('Konumunuz aranıyor...', { variant: 'info' });
@@ -422,16 +435,24 @@ export default function HomeScreen() {
         setMapRegion(region);
       }, REGION_DEBOUNCE_MS);
 
-      // §3.7: 500ms debounce on pill visibility + 20% drift threshold
+      // §3.7: 500ms debounce on pill visibility + 20% drift threshold.
+      // Pill shows on EITHER center drift (pan) OR zoom change. Zoom-only
+      // changes keep the same center, so without the zoom check the pill
+      // never appears when the user zooms in → "can't get closer" bug.
       if (pillDebounceRef.current) clearTimeout(pillDebounceRef.current);
       pillDebounceRef.current = setTimeout(() => {
         if (lastQueriedCenterRef.current) {
           const dLat = Math.abs(region.latitude - lastQueriedCenterRef.current.lat);
           const dLng = Math.abs(region.longitude - lastQueriedCenterRef.current.lng);
-          const drifted =
+          const centerDrifted =
             dLat > DRIFT_THRESHOLD * region.latitudeDelta ||
             dLng > DRIFT_THRESHOLD * region.longitudeDelta;
-          setShowSearchPill(drifted);
+          const zoomDrifted =
+            lastQueriedZoomRef.current != null &&
+            Math.abs(region.latitudeDelta - lastQueriedZoomRef.current) /
+              lastQueriedZoomRef.current >
+              DRIFT_THRESHOLD;
+          setShowSearchPill(centerDrifted || zoomDrifted);
         }
       }, PILL_DEBOUNCE_MS);
     },
@@ -444,6 +465,7 @@ export default function HomeScreen() {
     const bbox = regionToBbox(mapRegion);
     setQueryBbox(bbox);
     lastQueriedCenterRef.current = { lat: mapRegion.latitude, lng: mapRegion.longitude };
+    lastQueriedZoomRef.current = mapRegion.latitudeDelta;
     setShowSearchPill(false);
   }, [mapRegion]);
 
@@ -635,11 +657,17 @@ export default function HomeScreen() {
   );
 
   // ── Sheet header (bug #6: count booksWithLocation) ─────────────────────────
+  // "50+" indicator: when the raw API response hits BBOX_LIMIT, the count is
+  // capped — there may be more books in the viewport. The "+" signals "zoom in
+  // to see the real count for a smaller area."
+  const countCapped = books.length >= BBOX_LIMIT;
   const sheetHeader = useMemo(
     () => (
       <View style={styles.sheetHeader}>
         <Text style={[styles.sheetResultCount, { color: colors.text }]}>
-          <Text style={{ color: colors.primary, fontWeight: '800' }}>{booksWithLocation.length}</Text>
+          <Text style={{ color: colors.primary, fontWeight: '800' }}>
+            {booksWithLocation.length}{countCapped ? '+' : ''}
+          </Text>
           {' '}kitap bulundu
         </Text>
         <View style={styles.sheetSortPills}>
@@ -670,7 +698,7 @@ export default function HomeScreen() {
         </View>
       </View>
     ),
-    [booksWithLocation.length, colors, sortBy, handleSortToggle],
+    [booksWithLocation.length, countCapped, colors, sortBy, handleSortToggle],
   );
 
   // ── Render ──────────────────────────────────────────────────────────────────
