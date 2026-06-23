@@ -238,6 +238,39 @@ def create_app() -> FastAPI:
     media_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/media", StaticFiles(directory=str(media_dir)), name="media")
 
+    # Proxy /storage/{bucket}/{path} → MinIO (backup when Traefik→MinIO routing is broken)
+    from fastapi import HTTPException
+    from fastapi.responses import Response
+
+    @app.get("/storage/{bucket}/{path:path}")
+    @app.head("/storage/{bucket}/{path:path}")
+    async def proxy_storage(bucket: str, path: str):
+        """Fetch a file from MinIO and return it directly."""
+        settings = get_settings()
+        if not settings.s3_endpoint or not settings.s3_access_key:
+            raise HTTPException(status_code=404, detail="Storage not configured")
+
+        try:
+            import aioboto3
+            from botocore.config import Config
+
+            session = aioboto3.Session()
+            async with session.client(
+                "s3",
+                endpoint_url=settings.s3_endpoint,
+                aws_access_key_id=settings.s3_access_key,
+                aws_secret_access_key=settings.s3_secret_key,
+                config=Config(signature_version="s3v4"),
+            ) as client:
+                response = await client.get_object(Bucket=bucket, Key=path)
+                body = await response["Body"].read()
+                ct = response.get("ContentType", "application/octet-stream")
+                return Response(content=body, media_type=ct, headers={
+                    "Cache-Control": "public, max-age=31536000",
+                })
+        except Exception:
+            raise HTTPException(status_code=404, detail="File not found")
+
     return app
 
 
