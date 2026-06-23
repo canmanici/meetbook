@@ -651,7 +651,7 @@ class ExchangeService:
             if current_user_id == request.requested_by
             else request.requested_by
         )
-        other_books = await self.books_repo.list_by_owner(other_user_id, None, 1)
+        other_books, _ = await self.books_repo.list_by_owner(other_user_id, None, 1)
         if other_books:
             other_lat, other_lng = other_books[0].location
             lat = (lat + other_lat) / 2
