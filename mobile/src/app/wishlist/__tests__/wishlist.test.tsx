@@ -36,3 +36,36 @@ describe('WishlistScreen', () => {
     expect(queryByText(/exchange iste/i)).toBeNull();
   });
 });
+
+import { fireEvent, waitFor } from '@testing-library/react-native';
+
+describe('WishlistScreen add behavior', () => {
+  beforeEach(() => {
+    const { addToWishlist } = require('@/lib/api/client');
+    addToWishlist.mockClear();
+  });
+
+  it('sends isbn when input matches ISBN-13', async () => {
+    const { addToWishlist } = require('@/lib/api/client');
+    const { findByTestId } = renderWishlist();
+    const input = await findByTestId('wishlist-search-input');
+    fireEvent.changeText(input, '9789750700001');
+    const addBtn = await findByTestId('wishlist-add-button');
+    fireEvent.press(addBtn);
+    await waitFor(() => expect(addToWishlist).toHaveBeenCalled());
+    expect(addToWishlist.mock.calls[0][0]).toMatchObject({ isbn: '9789750700001' });
+    expect(addToWishlist.mock.calls[0][0].title).toBeUndefined();
+  });
+
+  it('sends title when input is not an ISBN', async () => {
+    const { addToWishlist } = require('@/lib/api/client');
+    const { findByTestId } = renderWishlist();
+    const input = await findByTestId('wishlist-search-input');
+    fireEvent.changeText(input, 'Suç ve Ceza');
+    const addBtn = await findByTestId('wishlist-add-button');
+    fireEvent.press(addBtn);
+    await waitFor(() => expect(addToWishlist).toHaveBeenCalled());
+    expect(addToWishlist.mock.calls[0][0]).toMatchObject({ title: 'Suç ve Ceza' });
+    expect(addToWishlist.mock.calls[0][0].isbn).toBeUndefined();
+  });
+});

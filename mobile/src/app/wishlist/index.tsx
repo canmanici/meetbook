@@ -16,6 +16,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { Input, EmptyState, Skeleton, Badge, palette, spacing, radius, fontSize, shadows } from '@/components/ui';
 import { getWishlist, addToWishlist, removeFromWishlist, getWishlistMatches, WishlistItem } from '@/lib/api/client';
 
+// ISBN-10 or ISBN-13 (digits, optionally with hyphens, with optional 978/979 prefix)
+const ISBN_RE = /^(?:97[89][- ]?)?(?:\d[- ]?){9}[\dX]$/;
+
+function buildAddPayload(input: string): { isbn: string } | { title: string } {
+  const trimmed = input.trim();
+  const cleaned = trimmed.replace(/[- ]/g, '');
+  if (/^\d{9}[\dX]$/.test(cleaned) || /^\d{13}$/.test(cleaned)) {
+    return { isbn: cleaned };
+  }
+  return { title: trimmed };
+}
+
 export default function WishlistScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
@@ -23,8 +35,6 @@ export default function WishlistScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [isbn, setIsbn] = useState('');
-  const [title, setTitle] = useState('');
-  const [author, setAuthor] = useState('');
 
   const { data: wishlistData, isLoading: wishlistLoading } = useQuery({
     queryKey: ['wishlist'],
@@ -42,8 +52,6 @@ export default function WishlistScreen() {
       queryClient.invalidateQueries({ queryKey: ['wishlist'] });
       queryClient.invalidateQueries({ queryKey: ['wishlist-matches'] });
       setIsbn('');
-      setTitle('');
-      setAuthor('');
     },
   });
 
@@ -80,11 +88,7 @@ export default function WishlistScreen() {
           style={[styles.addButton, { backgroundColor: colors.primary }]}
           onPress={() => {
             if (isbn.trim()) {
-              addMutation.mutate({
-                isbn: isbn.trim(),
-                title: title.trim() || undefined,
-                author: author.trim() || undefined,
-              });
+              addMutation.mutate(buildAddPayload(isbn));
             }
           }}
           disabled={!isbn.trim() || addMutation.isPending}
