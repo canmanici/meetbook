@@ -56,6 +56,7 @@ export default function BookDetailScreen() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const galleryRef = useRef<ScrollView>(null);
+  const formInitialized = useRef(false);
 
   const pickedLocation = useBookDraftStore((state) => state.pickedLocation);
   const clearPickedLocation = useBookDraftStore((state) => state.clearPickedLocation);
@@ -132,18 +133,24 @@ export default function BookDetailScreen() {
   }).data;
 
   useEffect(() => {
-    if (book && isOwner && 'location' in book) {
-      setTitle(book.title);
-      setAuthor(book.author ?? '');
-      setIsbn(book.isbn ?? '');
-      setDescription(book.description ?? '');
-      setCategory(book.category);
-      setLanguage(book.language);
-      setCondition(book.condition);
-      setIsAvailable(book.is_available);
-      setLocation(book.location);
+    if (editing && !formInitialized.current) {
+      formInitialized.current = true;
+      if (book) {
+        setTitle(book.title || '');
+        setAuthor(book.author ?? '');
+        setIsbn(book.isbn ?? '');
+        setDescription(book.description ?? '');
+        setCategory(book.category);
+        setLanguage(book.language);
+        setCondition(book.condition);
+        setIsAvailable(book.is_available);
+        setLocation(book.location);
+      }
     }
-  }, [book, isOwner]);
+    if (!editing) {
+      formInitialized.current = false;
+    }
+  }, [editing, book, isOwner]);
 
   useEffect(() => {
     if (pickedLocation) {

@@ -175,8 +175,8 @@ class AuthService:
         await self.session.commit()
 
         user = await self.repo.get_user_by_id(rt.user_id)
-        if user is None:
-            raise AuthError("User not found", 401)
+        if user is None or user.status != UserStatus.active:
+            raise AuthError("Account is not active", 401)
 
         return TokenResponse(
             access_token=access_token,
@@ -208,9 +208,7 @@ class AuthService:
                 self.session, "password_reset_requested", user_id=user.id
             )
             await self.session.commit()
-            # In production: send email with raw_token
-            # For now: log to console
-            print(f"[PASSWORD RESET] Token for {email}: {raw_token}")
+            # TODO: In production — send email with raw_token via mail provider
 
         # Always return success (don't reveal email existence)
         return MessageResponse(message="If the email exists, a reset link has been sent")

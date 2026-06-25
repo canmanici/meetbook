@@ -162,6 +162,10 @@ class BookRepository:
                     )
                 )
             )
+
+        if owner_id is not None:
+            stmt = stmt.where(Book.owner_id == owner_id)
+
         if cursor:
             cursor_sort_order, cursor_created_at, cursor_id = decode_cursor(cursor)
             stmt = stmt.where(
@@ -184,8 +188,8 @@ class BookRepository:
 
     async def search_nearby(
         self,
-        user_lat: float,
-        user_lng: float,
+        user_lat: float | None,
+        user_lng: float | None,
         radius_m: float,
         category: str | None,
         language: str | None,
@@ -194,13 +198,9 @@ class BookRepository:
         cursor: str | None,
         limit: int,
         current_user_id: uuid.UUID | None = None,
+        owner_id: uuid.UUID | None = None,
     ) -> list[BookSearchRow]:
         pub = cast(Book.public_location, Geometry)
-        user_wkt = f"SRID=4326;POINT({user_lng} {user_lat})"
-
-        distance_col = func.ST_Distance(
-            Book.public_location, func.ST_GeogFromText(user_wkt)
-        ).label("distance_m")
 
         owner_book_count = (
             select(func.count())
@@ -226,40 +226,55 @@ class BookRepository:
             .label("owner_rating_count")
         )
 
-        stmt = select(
+        select_cols = [
             Book,
             func.ST_Y(pub).label("public_lat"),
             func.ST_X(pub).label("public_lng"),
-            distance_col,
             User.id.label("owner_id"),
             User.name.label("owner_name"),
             owner_book_count,
             owner_rating_avg,
             owner_rating_count,
-        ).join(User, User.id == Book.owner_id).where(
+        ]
+
+        conditions = [
             Book.deleted_at.is_(None),
             Book.is_available.is_(True),
-            func.ST_DWithin(
-                Book.public_location,
-                func.ST_GeogFromText(user_wkt),
-                radius_m,
-            ),
-        )
+        ]
+
+        if user_lat is not None and user_lng is not None:
+            user_wkt = f"SRID=4326;POINT({user_lng} {user_lat})"
+            distance_col = func.ST_Distance(
+                Book.public_location, func.ST_GeogFromText(user_wkt)
+            ).label("distance_m")
+            select_cols.append(distance_col)
+            conditions.append(
+                func.ST_DWithin(
+                    Book.public_location,
+                    func.ST_GeogFromText(user_wkt),
+                    radius_m,
+                )
+            )
+        else:
+            distance_col = None
+
+        if owner_id is not None:
+            conditions.append(Book.owner_id == owner_id)
 
         if category:
-            stmt = stmt.where(Book.category == category)
+            conditions.append(Book.category == category)
         if language:
-            stmt = stmt.where(Book.language == language)
+            conditions.append(Book.language == language)
         if condition:
-            stmt = stmt.where(Book.condition == condition)
+            conditions.append(Book.condition == condition)
         if q:
             pattern = f"%{q}%"
-            stmt = stmt.where(
+            conditions.append(
                 or_(Book.title.ilike(pattern), Book.author.ilike(pattern))
             )
 
         if current_user_id is not None:
-            stmt = stmt.where(
+            conditions.append(
                 ~exists(
                     select(Block.blocker_id).where(
                         or_(
@@ -278,7 +293,7 @@ class BookRepository:
 
         if cursor:
             cursor_sort_order, cursor_created_at, cursor_id = decode_cursor(cursor)
-            stmt = stmt.where(
+            conditions.append(
                 or_(
                     Book.sort_order > cursor_sort_order,
                     and_(
@@ -293,7 +308,14 @@ class BookRepository:
                 )
             )
 
-        stmt = stmt.order_by(distance_col, Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc()).limit(limit)
+        stmt = select(*select_cols).join(User, User.id == Book.owner_id).where(*conditions)
+
+        if distance_col is not None:
+            stmt = stmt.order_by(distance_col, Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc())
+        else:
+            stmt = stmt.order_by(Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc())
+
+        stmt = stmt.limit(limit)
         result = await self.session.execute(stmt)
 
         rows = []
@@ -302,7 +324,7 @@ class BookRepository:
                 BookSearchRow(
                     book=row[0],
                     public_location=(row.public_lat, row.public_lng),
-                    distance_m=row.distance_m,
+                    distance_m=row.distance_m if distance_col is not None else 0.0,
                     owner=OwnerSummary(
                         id=row.owner_id,
                         name=row.owner_name,
@@ -571,23 +593,13 @@ class BookRepository:
         singletons = []
         for cid, items in groups.items():
             if len(items) == 1:
-                book, loc, _distance_m, _owner = items[0]
-                owner_row = await self.session.execute(
-                    select(User.id, User.name).where(User.id == book.owner_id)
-                )
-                u = owner_row.one()
+                book, loc, _distance_m, owner = items[0]
                 singletons.append(
                     BookSearchRow(
                         book=book,
                         public_location=loc,
                         distance_m=0.0,
-                        owner=OwnerSummary(
-                            id=u.id,
-                            name=u.name,
-                            book_count=0,
-                            rating_avg=None,
-                            rating_count=0,
-                        ),
+                        owner=owner,
                     )
                 )
             else:
@@ -638,7 +650,7 @@ class BookRepository:
         stmt = (
             update(Book)
             .where(Book.id == book_id)
-            .values(view_count=Book.view_count + 1, updated_at=datetime.now(UTC))
+            .values(view_count=func.coalesce(Book.view_count, 0) + 1, updated_at=func.now())
         )
         await self.session.execute(stmt)
 
@@ -661,7 +673,7 @@ class BookRepository:
         stmt = (
             update(Book)
             .where(Book.id == book_id)
-            .values(favorite_count=Book.favorite_count + 1, updated_at=datetime.now(UTC))
+            .values(favorite_count=func.coalesce(Book.favorite_count, 0) + 1, updated_at=func.now())
         )
         await self.session.execute(stmt)
         await self.session.flush()
@@ -682,7 +694,7 @@ class BookRepository:
         stmt = (
             update(Book)
             .where(Book.id == book_id, Book.favorite_count > 0)
-            .values(favorite_count=Book.favorite_count - 1, updated_at=datetime.now(UTC))
+            .values(favorite_count=func.coalesce(Book.favorite_count, 0) - 1, updated_at=func.now())
         )
         await self.session.execute(stmt)
         await self.session.flush()

@@ -3,7 +3,6 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.repository import AuthRepository
@@ -58,17 +57,13 @@ class RatingService:
             else exchange.requested_by
         )
 
-        try:
-            rating = await self.repo.create(
-                exchange_request_id=body.exchange_id,
-                rated_by=current_user_id,
-                rated_user=rated_user,
-                score=body.score,
-                comment=body.comment,
-            )
-        except IntegrityError:
-            await self.session.rollback()
-            raise RatingError("ALREADY_RATED", 409)
+        rating = await self.repo.create(
+            exchange_request_id=body.exchange_id,
+            rated_by=current_user_id,
+            rated_user=rated_user,
+            score=body.score,
+            comment=body.comment,
+        )
 
         await self._maybe_reveal(body.exchange_id)
         await self.session.commit()

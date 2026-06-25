@@ -36,13 +36,14 @@ def _get_service(session: AsyncSession = Depends(get_session)) -> BookService:
 
 @router.get("/search", response_model=BookSearchResponse)
 async def search_books(
-    lat: float = Query(..., ge=-90, le=90),
-    lng: float = Query(..., ge=-180, le=180),
+    lat: float | None = Query(default=None, ge=-90, le=90),
+    lng: float | None = Query(default=None, ge=-180, le=180),
     radius_km: float = Query(default=10.0, ge=0.1, le=100.0),
     category: str | None = Query(default=None),
     language: str | None = Query(default=None),
     condition: str | None = Query(default=None),
     q: str | None = Query(default=None, max_length=100),
+    owner_id: uuid.UUID | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
     user: User = Depends(get_current_user),
     service: BookService = Depends(_get_service),
@@ -55,6 +56,7 @@ async def search_books(
         language=language,
         condition=condition,
         q=q,
+        owner_id=owner_id,
     )
     logger.info(
         "Nearby search: lat=%s, lng=%s, radius=%s km, user=%s",

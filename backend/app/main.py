@@ -16,6 +16,7 @@ from sqlalchemy import text
 from app.core.config import get_settings
 from app.core.db import get_engine, get_session_factory
 from app.core.rate_limit import RateLimitConfig, RateLimitMiddleware
+from app.core.redis import get_redis
 
 logger = logging.getLogger("app.access")
 
@@ -161,11 +162,11 @@ def create_app() -> FastAPI:
         """Liveness + dependency check: DB (with PostGIS) and Redis must answer."""
         async with get_engine().connect() as conn:
             postgis = (await conn.execute(text("SELECT PostGIS_Version()"))).scalar()
-        r = aioredis.from_url(get_settings().redis_url)
+        r = get_redis()
         try:
             await r.ping()
-        finally:
-            await r.aclose()
+        except Exception:
+            logger.warning("Redis ping failed in health check")
         return {"status": "ok", "postgis": postgis}
 
     # Auth module

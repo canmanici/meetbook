@@ -309,7 +309,7 @@ class BookService:
     async def search_nearby(
         self, params: BookSearchParams, limit: int = 20, current_user_id: uuid.UUID | None = None
     ) -> BookSearchResponse:
-        radius_m = params.radius_km * 1000
+        radius_m = params.radius_km * 1000 if params.radius_km else 0
 
         rows = await self.repo.search_nearby(
             user_lat=params.lat,
@@ -322,6 +322,7 @@ class BookService:
             cursor=None,
             limit=limit,
             current_user_id=current_user_id,
+            owner_id=params.owner_id,
         )
 
         items = []

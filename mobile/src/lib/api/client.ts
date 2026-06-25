@@ -17,6 +17,8 @@ export class ApiError extends Error {
   }
 }
 
+let refreshPromise: Promise<void> | null = null;
+
 type RegisterBody =
   paths['/api/v1/auth/register']['post']['requestBody']['content']['application/json'];
 type RegisterResponse =
@@ -85,7 +87,9 @@ async function rawRequest(
         .join('&')
     : '';
   const url = `${BASE_URL}${path}${search ? `?${search}` : ''}`;
-  console.log(`[API] ${method} ${url}${body !== undefined ? ` body=${JSON.stringify(body)}` : ''}`);
+  if (__DEV__) {
+    console.log(`[API] ${method} ${url}${body !== undefined ? ` body=${JSON.stringify(body)}` : ''}`);
+  }
   const start = Date.now();
   let res: Response;
   try {
@@ -144,18 +148,21 @@ export async function authedRequest<T>(
 
   if (res.status === 401 && accessToken && allowRetry) {
     if (refreshToken) {
-      try {
-        const tokens = await refresh({ refresh_token: refreshToken });
-        await setTokens(tokens.access_token, tokens.refresh_token);
-        useAuthStore.setState({
-          accessToken: tokens.access_token,
-          refreshToken: tokens.refresh_token,
+      if (!refreshPromise) {
+        refreshPromise = (async () => {
+          const tokens = await refresh({ refresh_token: refreshToken });
+          await setTokens(tokens.access_token, tokens.refresh_token);
+          useAuthStore.setState({
+            accessToken: tokens.access_token,
+            refreshToken: tokens.refresh_token,
+          });
+        })().finally(() => {
+          refreshPromise = null;
         });
-        return authedRequest<T>(path, method, body, { allowRetry: false, query });
-      } catch {
-        await clearTokens();
-        clearSession();
       }
+      await refreshPromise;
+      const currentToken = useAuthStore.getState().accessToken;
+      return authedRequest<T>(path, method, body, { allowRetry: false, query });
     } else {
       await clearTokens();
       clearSession();
@@ -205,13 +212,14 @@ export async function listNearbyBooks(params: {
 }
 
 export async function searchNearbyBooks(params: {
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
   radius_km?: number;
   category?: string;
   language?: string;
   condition?: string;
   q?: string;
+  owner_id?: string;
   limit?: number;
   cursor?: string;
 }): Promise<{

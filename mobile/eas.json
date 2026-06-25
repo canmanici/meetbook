@@ -8,7 +8,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.8.199:8000/api/v1"
+        "EXPO_PUBLIC_API_URL": "http://192.168.8.199:8000/api/v1",
+        "EXPO_PUBLIC_MAPTILER_KEY": "eKJft93A5dolP425TPfm"
       }
     },
     "preview": {
@@ -17,7 +18,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://canmanici.com/meetbook/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://canmanici.com/meetbook/api/v1",
+        "EXPO_PUBLIC_MAPTILER_KEY": "eKJft93A5dolP425TPfm"
       }
     },
     "production": {
@@ -25,7 +27,8 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://canmanici.com/meetbook/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://canmanici.com/meetbook/api/v1",
+        "EXPO_PUBLIC_MAPTILER_KEY": "eKJft93A5dolP425TPfm"
       }
     },
     "production-apk": {
@@ -33,7 +36,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://canmanici.com/meetbook/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://canmanici.com/meetbook/api/v1",
+        "EXPO_PUBLIC_MAPTILER_KEY": "eKJft93A5dolP425TPfm"
       }
     }
   },

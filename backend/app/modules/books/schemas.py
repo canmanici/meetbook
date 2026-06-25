@@ -120,13 +120,14 @@ class PhotoReorderRequest(BaseModel):
 
 
 class BookSearchParams(BaseModel):
-    lat: float = Field(ge=-90, le=90)
-    lng: float = Field(ge=-180, le=180)
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
     radius_km: float = Field(default=10.0, ge=0.1, le=100.0)
     category: BookCategory | None = None
     language: str | None = None
     condition: BookCondition | None = None
     q: str | None = Field(default=None, max_length=100)
+    owner_id: uuid.UUID | None = None
 
 
 class OwnerSummary(BaseModel):

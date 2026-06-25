@@ -1,5 +1,11 @@
 import * as SecureStore from 'expo-secure-store';
 
+export const secureStorage = {
+  getItem: SecureStore.getItemAsync,
+  setItem: SecureStore.setItemAsync,
+  removeItem: SecureStore.deleteItemAsync,
+};
+
 const ACCESS_TOKEN_KEY = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
 

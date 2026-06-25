@@ -4,6 +4,7 @@
  */
 import { create } from 'zustand';
 
+import { useAuthStore } from '@/stores/auth-store';
 import type { MessageView, ReactionView } from '@/lib/api/chat';
 import { chatWS } from '@/lib/api/chat';
 
@@ -22,6 +23,7 @@ interface ChatState {
   typing: TypingState;
   presence: PresenceState;
   replyingTo: MessageView | null;
+  error: string | null;
 
   connect: () => void;
   disconnect: () => void;
@@ -45,6 +47,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   typing: {},
   presence: {},
   replyingTo: null,
+  error: null,
 
   connect: () => {
     chatWS.connect();
@@ -70,18 +73,48 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendMessage: (chatId, text, replyToId, messageType = 'text', extra = null) => {
-    chatWS.send(chatId, text, replyToId, messageType, extra);
-    set({ replyingTo: null });
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: MessageView = {
+      id: tempId,
+      chat_id: chatId,
+      sender_id: useAuthStore.getState().user?.id ?? 'pending',
+      text,
+      created_at: new Date().toISOString(),
+      message_type: (messageType as MessageView['message_type']) ?? 'text',
+      read_at: null,
+      reply_to_id: replyToId ?? null,
+    };
+    if (extra) optimisticMsg.extra = extra as MessageView['extra'];
+
+    set((state) => ({
+      messages: {
+        ...state.messages,
+        [chatId]: [...(state.messages[chatId] || []), optimisticMsg],
+      },
+      error: null,
+    }));
+
+    const sent = chatWS.send(chatId, text, replyToId, messageType, extra);
+    if (!sent) {
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [chatId]: (state.messages[chatId] || []).filter((m) => m.id !== tempId),
+        },
+        error: 'Bağlantı yok. Mesaj gönderilemedi.',
+      }));
+    }
   },
 
   addMessage: (chatId, msg) => {
     set((state) => {
       const existing = state.messages[chatId] ?? [];
       if (existing.some((m) => m.id === msg.id)) return state;
+      const withoutTemp = existing.filter((m) => !m.id.startsWith('temp-'));
       return {
         messages: {
           ...state.messages,
-          [chatId]: [...existing, msg],
+          [chatId]: [...withoutTemp, msg],
         },
       };
     });

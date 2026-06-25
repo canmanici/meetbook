@@ -15,8 +15,11 @@ import type { Feature, GeoJsonProperties } from 'geojson';
 // ── Map style ──────────────────────────────────────────────────────────────
 // MapTiler Streets v2 — beautiful worldwide OSM map with labels and fonts.
 // Free tier: 100K requests/month.
-const MAPTILER_KEY = 'eKJft93A5dolP425TPfm';
-const MAP_STYLE = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`;
+// MapTiler key from env — rotate at https://cloud.maptiler.com/account/keys/
+const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY ?? '';
+const MAP_STYLE = MAPTILER_KEY
+  ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
+  : 'https://demotiles.maplibre.org/style.json'; // fallback: no labels, but works
 
 // ── Safe MapLibre import ────────────────────────────────────────────────────
 // Use dynamic require so the app doesn't crash if the native module is missing.
@@ -126,6 +129,22 @@ const RealMapView = forwardRef<any, any>(
         ? deltaToZoom(region.latitudeDelta)
         : 12;
 
+    // MapLibre's onPress passes a GeoJSON Feature with [lng, lat] coords.
+    // Adapt to react-native-maps style { nativeEvent: { coordinate: { latitude, longitude } } }
+    const handlePress = useCallback(
+      (feature: any) => {
+        if (onPress && feature?.geometry?.coordinates) {
+          const [lng, lat] = feature.geometry.coordinates;
+          onPress({
+            nativeEvent: {
+              coordinate: { latitude: lat, longitude: lng },
+            },
+          });
+        }
+      },
+      [onPress],
+    );
+
     const MapComponent = ML.Map;
     const CameraComponent = ML.Camera;
 
@@ -137,6 +156,7 @@ const RealMapView = forwardRef<any, any>(
         logo={false}
         attribution={false}
         onDidFinishLoadingMap={() => {}}
+        onPress={handlePress}
         onRegionDidChange={onRegionDidChange}
         mapStyle={MAP_STYLE}
       >

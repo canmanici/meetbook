@@ -275,13 +275,15 @@ class ChatWebSocketManager {
     if (this.ws) { this.ws.onclose = null; this.ws.close(); this.ws = null; }
   }
 
-  send(chatId: string, text: string, replyToId?: string | null, messageType = 'text', extra?: Record<string, unknown> | null) {
+  send(chatId: string, text: string, replyToId?: string | null, messageType = 'text', extra?: Record<string, unknown> | null): boolean {
     if (this.ws?.readyState === WebSocket.OPEN) {
       const payload: Record<string, unknown> = { type: 'send', chat_id: chatId, text, message_type: messageType };
       if (replyToId) payload.reply_to_id = replyToId;
       if (extra) payload.extra = extra;
       this.ws.send(JSON.stringify(payload));
+      return true;
     }
+    return false;
   }
 
   sendTyping(chatId: string, isTyping: boolean) {

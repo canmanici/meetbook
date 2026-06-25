@@ -46,7 +46,7 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
     return _session_factory
 
 
-def reset_engine() -> None:
+async def reset_engine() -> None:
     """Discard the cached engine so the next get_engine() call creates a fresh one.
 
     Call this after startup scripts (seed, migrations) that create the engine
@@ -56,8 +56,6 @@ def reset_engine() -> None:
     """
     global _engine, _session_factory
     if _engine is not None:
-        # Synchronous dispose — fire-and-forget; the pool will close
-        # connections lazily anyway.  The important thing is to drop the
-        # reference so get_engine() creates a new engine on the current loop.
+        await _engine.dispose()
         _engine = None
         _session_factory = None

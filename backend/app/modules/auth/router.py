@@ -34,6 +34,15 @@ def _get_service(session: AsyncSession = Depends(get_session)) -> AuthService:
     return AuthService(session)
 
 
+def _get_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return "127.0.0.1"
+
+
 def _get_throttle() -> LoginThrottle:
     return LoginThrottle(aioredis.from_url(get_settings().redis_url))
 
@@ -57,7 +66,7 @@ async def login(
     throttle: LoginThrottle = Depends(_get_throttle),
 ) -> TokenResponse:
     try:
-        ip = request.client.host if request.client else "127.0.0.1"
+        ip = _get_client_ip(request)
         return await service.login(body.email, body.password, throttle, ip)
     except AuthError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

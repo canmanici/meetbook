@@ -158,6 +158,10 @@ export default function NewBookScreen() {
   const canSubmit = canNext();
 
   const onSubmit = async () => {
+    if (!title.trim()) {
+      setError('Lütfen kitap adı girin');
+      return;
+    }
     if (!marker || photos.length === 0) {
       return;
     }

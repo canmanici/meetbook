@@ -1,5 +1,7 @@
 """15-minute worker: match wishlist items against nearby books and create alerts."""
 
+import logging
+
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +10,8 @@ from app.modules.books.models import Book
 from app.modules.geofence.repository import GeofenceAlertRepository
 from app.modules.notifications.service import NotificationService
 from app.modules.wishlist.models import WishlistItem
+
+logger = logging.getLogger(__name__)
 
 
 async def run_geofence_matcher(session: AsyncSession) -> int:
@@ -51,21 +55,25 @@ async def run_geofence_matcher(session: AsyncSession) -> int:
             )
         )
 
-        for book in nearby.scalars().all():
-            if await repo.exists(user.id, wishlist_item.id, book.id):
-                continue
+        for i, book in enumerate(nearby.scalars().all()):
+            try:
+                if not await repo.exists(user.id, wishlist_item.id, book.id):
+                    await repo.create_alert(user.id, wishlist_item.id, book.id)
+                    await notif_service.create_notification(
+                        user_id=user.id,
+                        type_="geofence_match",
+                        payload={
+                            "wishlist_item_id": str(wishlist_item.id),
+                            "book_id": str(book.id),
+                            "book_title": book.title,
+                        },
+                    )
+                    created += 1
+            except Exception:
+                logger.exception("Failed to process geofence match for book %s", book.id)
 
-            await repo.create_alert(user.id, wishlist_item.id, book.id)
-            await notif_service.create_notification(
-                user_id=user.id,
-                type_="geofence_match",
-                payload={
-                    "wishlist_item_id": str(wishlist_item.id),
-                    "book_id": str(book.id),
-                    "book_title": book.title,
-                },
-            )
-            created += 1
+            if (i + 1) % 50 == 0:
+                await session.commit()
 
     if created > 0:
         await session.commit()

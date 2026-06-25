@@ -35,21 +35,17 @@ export default function UserProfileScreen() {
     enabled: !!id,
   });
 
-  // Fetch this user's books using search without location (backend will handle)
   const { data: booksData } = useQuery({
     queryKey: ['user-books', id],
     queryFn: () =>
       searchNearbyBooks({
-        lat: 39.0,
-        lng: 35.0,
-        radius_km: 99999,
+        owner_id: id,
         limit: 50,
       }),
     enabled: !!id,
   });
 
-  const userBooks =
-    booksData?.items?.filter((b) => b.owner_id === id) ?? [];
+  const userBooks = booksData?.items ?? [];
 
   if (isLoading) {
     return (

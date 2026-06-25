@@ -782,6 +782,23 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {/* ── Error overlay when bbox query fails (network/server error, bug H13) ── */}
+      {bboxQuery.isError && (
+        <View style={styles.errorOverlay} pointerEvents="auto" testID="bbox-error">
+          <Ionicons name="cloud-offline-outline" size={48} color="#FFFFFF" style={{ marginBottom: 12 }} />
+          <Text style={styles.errorTitle}>Kitaplar yüklenemedi</Text>
+          <Text style={styles.errorMessage}>İnternet bağlantınızı kontrol edin.</Text>
+          <TouchableOpacity
+            style={styles.errorRetryBtn}
+            onPress={() => bboxQuery.refetch()}
+            testID="bbox-error-retry"
+          >
+            <Ionicons name="refresh" size={18} color="#FFFFFF" />
+            <Text style={styles.errorRetryText}>Tekrar Dene</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* ── Dimming overlay when a marker is selected (§3.4) ─────────────────── */}
       {selectedBook && (
         <View style={[styles.dimOverlay, { backgroundColor: isDark ? 'rgba(15,12,9,0.35)' : 'rgba(42,39,34,0.25)' }]} pointerEvents="none" testID="dim-overlay" />
@@ -954,6 +971,43 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { ...StyleSheet.absoluteFillObject },
+
+  // Error overlay (bug H13: network failure / server error)
+  errorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingHorizontal: spacing.xl,
+  },
+  errorTitle: {
+    color: '#FFFFFF',
+    fontSize: fontSize.title,
+    fontWeight: '800',
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: fontSize.body,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  errorRetryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.pill,
+  },
+  errorRetryText: {
+    color: '#FFFFFF',
+    fontSize: fontSize.body,
+    fontWeight: '700',
+  },
 
   // Dimming overlay (§3.4 selection state)
   dimOverlay: {

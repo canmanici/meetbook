@@ -17,6 +17,7 @@ from app.modules.chat import models as chat_models  # noqa: F401
 from app.modules.ratings import models as ratings_models  # noqa: F401
 from app.modules.reports import models as reports_models  # noqa: F401
 from app.modules.notifications import models as notifications_models  # noqa: F401
+from app.modules.geofence import models as geofence_models  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url)
