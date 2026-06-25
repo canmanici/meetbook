@@ -60,6 +60,7 @@ const PUBLIC_BOOK = {
   condition: 'worn' as const,
   is_available: false,
   public_location: { lat: 39.93, lng: 32.86 },
+  distance_km: 3.7,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 };
@@ -248,5 +249,18 @@ describe('BookDetailScreen', () => {
     const callArg = Share.share.mock.calls[0][0];
     expect(callArg.message).toContain('Beyaz Diş');
     expect(callArg.message).toContain('Jack London');
+  });
+
+  it('shows real distance from distance_km, not hardcoded 2.4 km', async () => {
+    jest.clearAllMocks();
+    const { getBook } = require('@/lib/api/client');
+    getBook.mockResolvedValue(PUBLIC_BOOK);
+    useAuthStore.setState({ user: { id: 'user-1', name: 'Me', email: 'me@example.com' } as any });
+
+    const { findByText, queryByText } = renderWithQueryClient(<BookDetailScreen />);
+    await waitFor(() => expect(getBook).toHaveBeenCalled());
+
+    expect(await findByText('3.7 km')).toBeTruthy();
+    expect(queryByText('2.4 km')).toBeNull();
   });
 });

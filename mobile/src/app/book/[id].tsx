@@ -43,6 +43,7 @@ import {
   type BookCondition,
 } from '@/constants/books';
 import { addFavorite, ApiError, createExchange, deleteBook, getBook, incrementBookView, listExchanges, lookupISBN, removeFavorite, updateBook } from '@/lib/api/client';
+import { formatDistance } from '@/lib/format';
 import { DatePicker } from '@/components/ui/date-time-picker';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth-store';
@@ -426,6 +427,7 @@ export default function BookDetailScreen() {
 
   const photos = 'photos' in book ? book.photos : [];
   const year = book.created_at ? new Date(book.created_at).getFullYear() : null;
+  const distanceLabel = !isOwner ? formatDistance((book as any).distance_km) : null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -566,10 +568,12 @@ export default function BookDetailScreen() {
                 </Text>
               ) : null}
             </View>
-            <View style={[styles.distanceBadge, { backgroundColor: colors.success + '20' }]}>
-              <Ionicons name="location" size={12} color={colors.success} />
-              <Text style={[styles.distanceText, { color: colors.success }]}>2.4 km</Text>
-            </View>
+            {distanceLabel && (
+              <View style={[styles.distanceBadge, { backgroundColor: colors.success + '20' }]}>
+                <Ionicons name="location" size={12} color={colors.success} />
+                <Text style={[styles.distanceText, { color: colors.success }]}>{distanceLabel}</Text>
+              </View>
+            )}
           </View>
 
           {/* Stats row */}
