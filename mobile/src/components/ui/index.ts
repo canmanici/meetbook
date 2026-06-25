@@ -3,6 +3,8 @@ export type { ButtonVariant } from './button';
 export { Input } from './input';
 export { Card, BookCard } from './card';
 export { Avatar } from './avatar';
+export { BookCover } from './book-cover';
+export type { BookCoverProps } from './book-cover';
 export { Badge } from './badge';
 export { Sheet } from './sheet';
 export { SafetySheet } from './safety-sheet';
