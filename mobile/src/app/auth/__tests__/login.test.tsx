@@ -75,4 +75,12 @@ describe('LoginScreen', () => {
       expect(getByText('E-posta veya şifre hatalı.')).toBeTruthy();
     });
   });
+
+  const renderLogin = () => render(<LoginScreen />);
+
+  it('wraps the form in a KeyboardAvoidingView', () => {
+    // KeyboardAvoidingView is a View subclass; we assert it exists in the tree
+    const { getByTestId } = renderLogin();
+    expect(getByTestId('auth-keyboard-view')).toBeTruthy();
+  });
 });

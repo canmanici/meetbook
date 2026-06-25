@@ -94,4 +94,11 @@ describe('RegisterScreen', () => {
       expect(getByText('Bu e-posta zaten kayıtlı.')).toBeTruthy();
     });
   });
+
+  const renderRegister = () => render(<RegisterScreen />);
+
+  it('wraps the form in a KeyboardAvoidingView', () => {
+    const { getByTestId } = renderRegister();
+    expect(getByTestId('auth-keyboard-view')).toBeTruthy();
+  });
 });

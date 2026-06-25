@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Button, InlineError, Input, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
@@ -43,46 +43,52 @@ export default function LoginScreen() {
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}>
-      <View style={styles.hero}>
-        <View style={[styles.logo, { backgroundColor: colors.primary }, shadows.float, { shadowColor: colors.primary }]}>
-          <Ionicons name="swap-horizontal" size={38} color="#fff" />
+    <KeyboardAvoidingView
+      testID="auth-keyboard-view"
+      style={{ flex: 1, backgroundColor: colors.background }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}>
+        <View style={styles.hero}>
+          <View style={[styles.logo, { backgroundColor: colors.primary }, shadows.float, { shadowColor: colors.primary }]}>
+            <Ionicons name="swap-horizontal" size={38} color="#fff" />
+          </View>
+          <Text style={[styles.brand, { color: colors.text }]}>MeetBook</Text>
+          <Text style={[styles.tagline, { color: colors.textMuted }]}>
+            Yakınındaki kitapseverlerle takas yap
+          </Text>
         </View>
-        <Text style={[styles.brand, { color: colors.text }]}>MeetBook</Text>
-        <Text style={[styles.tagline, { color: colors.textMuted }]}>
-          Yakınındaki kitapseverlerle takas yap
-        </Text>
-      </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
-        <Input
-          label="E-posta"
-          placeholder="ornek@eposta.com"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-        />
-        <Input
-          label="Şifre"
-          placeholder="Şifreniz"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        {error && <InlineError message={error} />}
-        <Button onPress={onSubmit} disabled={!canSubmit} loading={loading}>
-          Giriş yap
-        </Button>
-      </View>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
+          <Input
+            label="E-posta"
+            placeholder="ornek@eposta.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+          />
+          <Input
+            label="Şifre"
+            placeholder="Şifreniz"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+          {error && <InlineError message={error} />}
+          <Button onPress={onSubmit} disabled={!canSubmit} loading={loading}>
+            Giriş yap
+          </Button>
+        </View>
 
-      <View style={styles.linkRow}>
-        <Link href="/auth/register" style={[styles.link, { color: colors.primary }]}>
-          Hesabın yok mu? Kayıt ol
-        </Link>
-      </View>
-    </ScrollView>
+        <View style={styles.linkRow}>
+          <Link href="/auth/register" style={[styles.link, { color: colors.primary }]}>
+            Hesabın yok mu? Kayıt ol
+          </Link>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

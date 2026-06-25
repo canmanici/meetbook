@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Badge, Button, InlineError, Input, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
@@ -48,61 +48,67 @@ export default function RegisterScreen() {
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}>
-      <View style={styles.hero}>
-        <View style={[styles.logo, { backgroundColor: colors.accent }, shadows.float, { shadowColor: colors.accent }]}>
-          <Ionicons name="person-add" size={32} color="#fff" />
-        </View>
-        <Text style={[styles.brand, { color: colors.text }]}>Aramıza katıl</Text>
-        <Text style={[styles.tagline, { color: colors.textMuted }]}>
-          Birkaç saniyede hesabını oluştur
-        </Text>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
-        <Input label="Ad Soyad" placeholder="Adınız" value={name} onChangeText={setName} />
-        <Input
-          label="E-posta"
-          placeholder="ornek@eposta.com"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-        />
-        <Input
-          label="Şifre"
-          placeholder="En az 8 karakter"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        <Pressable
-          testID="kvkk-consent-toggle"
-          onPress={() => setKvkkConsent((value) => !value)}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: kvkkConsent }}
-          style={[styles.consentRow, { backgroundColor: colors.surfaceAlt }]}>
-          <Badge
-            text={kvkkConsent ? 'Onaylandı' : 'Onayla'}
-            variant={kvkkConsent ? 'success' : 'info'}
-          />
-          <Text style={[styles.consentText, { color: colors.text }]}>
-            KVKK Aydınlatma Metni&apos;ni okudum ve kabul ediyorum.
+    <KeyboardAvoidingView
+      testID="auth-keyboard-view"
+      style={{ flex: 1, backgroundColor: colors.background }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}>
+        <View style={styles.hero}>
+          <View style={[styles.logo, { backgroundColor: colors.accent }, shadows.float, { shadowColor: colors.accent }]}>
+            <Ionicons name="person-add" size={32} color="#fff" />
+          </View>
+          <Text style={[styles.brand, { color: colors.text }]}>Aramıza katıl</Text>
+          <Text style={[styles.tagline, { color: colors.textMuted }]}>
+            Birkaç saniyede hesabını oluştur
           </Text>
-        </Pressable>
-        {error && <InlineError message={error} />}
-        <Button onPress={onSubmit} disabled={!canSubmit} loading={loading}>
-          Kayıt ol
-        </Button>
-      </View>
+        </View>
 
-      <View style={styles.linkRow}>
-        <Link href="/auth/login" style={[styles.link, { color: colors.primary }]}>
-          Hesabın var mı? Giriş yap
-        </Link>
-      </View>
-    </ScrollView>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
+          <Input label="Ad Soyad" placeholder="Adınız" value={name} onChangeText={setName} />
+          <Input
+            label="E-posta"
+            placeholder="ornek@eposta.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+          />
+          <Input
+            label="Şifre"
+            placeholder="En az 8 karakter"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+          <Pressable
+            testID="kvkk-consent-toggle"
+            onPress={() => setKvkkConsent((value) => !value)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: kvkkConsent }}
+            style={[styles.consentRow, { backgroundColor: colors.surfaceAlt }]}>
+            <Badge
+              text={kvkkConsent ? 'Onaylandı' : 'Onayla'}
+              variant={kvkkConsent ? 'success' : 'info'}
+            />
+            <Text style={[styles.consentText, { color: colors.text }]}>
+              KVKK Aydınlatma Metni&apos;ni okudum ve kabul ediyorum.
+            </Text>
+          </Pressable>
+          {error && <InlineError message={error} />}
+          <Button onPress={onSubmit} disabled={!canSubmit} loading={loading}>
+            Kayıt ol
+          </Button>
+        </View>
+
+        <View style={styles.linkRow}>
+          <Link href="/auth/login" style={[styles.link, { color: colors.primary }]}>
+            Hesabın var mı? Giriş yap
+          </Link>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
