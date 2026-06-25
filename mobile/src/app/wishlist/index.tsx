@@ -197,7 +197,7 @@ export default function WishlistScreen() {
                           onPress={() => router.push(`/book/${match.id}`)}
                           testID={`exchange-request-${match.id}`}
                         >
-                          <Text style={styles.exchangeButtonText}>exchange iste</Text>
+                          <Text style={styles.exchangeButtonText}>Takas İste</Text>
                         </TouchableOpacity>
                       </View>
                     </TouchableOpacity>
