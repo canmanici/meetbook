@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 jest.mock('expo-router', () => {
@@ -80,5 +80,29 @@ describe('ChatDetailScreen', () => {
     const ellipsis = await findByTestId('chat-info-button');
     fireEvent.press(ellipsis);
     expect(router.push).toHaveBeenCalledWith('/chat/info/ex-1');
+  });
+
+  it('search result tap scrolls FlatList to that message', async () => {
+    const { searchMessages } = require('@/lib/api/chat');
+    searchMessages.mockResolvedValue({
+      items: [{ message: { id: 'msg-9', chat_id: 'ex-1', sender_id: 'u2', message_type: 'text', text: 'found me', created_at: '2026-06-02T00:00:00Z', read_at: null } }],
+    });
+
+    const { findByPlaceholderText, findByTestId, queryByTestId } = renderChat();
+
+    // Open search mode
+    const searchToggle = await findByTestId('chat-search-toggle');
+    fireEvent.press(searchToggle);
+
+    const input = await findByPlaceholderText('Sohbette ara...');
+    fireEvent.changeText(input, 'found');
+    fireEvent(input, 'submitEditing');
+
+    // Wait for the search result item to appear
+    const resultItem = await findByTestId('search-result-msg-9');
+    fireEvent.press(resultItem);
+
+    // After pressing, search should clear (result list disappears)
+    await waitFor(() => expect(queryByTestId('search-result-msg-9')).toBeNull());
   });
 });

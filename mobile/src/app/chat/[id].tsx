@@ -359,6 +359,7 @@ export default function ChatDetailScreen() {
               setIsSearchMode(true);
             }
           }}
+          testID="chat-search-toggle"
         >
           <Ionicons name={isSearchMode ? 'close' : 'search'} size={22} color={colors.textMuted} />
         </TouchableOpacity>
@@ -413,9 +414,19 @@ export default function ChatDetailScreen() {
           {searchResults.slice(0, 10).map((msg) => (
             <TouchableOpacity
               key={msg.id}
+              testID={`search-result-${msg.id}`}
               style={[styles.searchResultItem, { borderBottomColor: colors.border }]}
               onPress={() => {
-                // TODO: scroll to message
+                // Find the message in the flattened list and scroll to it
+                const flat = isSearchMode ? listData : listData;
+                const index = flat.findIndex((item) => item.key === msg.id);
+                if (index >= 0 && flatListRef.current) {
+                  try {
+                    flatListRef.current.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+                  } catch {
+                    // index out of range (message not in loaded pages) — ignore
+                  }
+                }
                 clearSearch();
               }}
             >
