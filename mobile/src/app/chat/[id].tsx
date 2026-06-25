@@ -362,7 +362,11 @@ export default function ChatDetailScreen() {
         >
           <Ionicons name={isSearchMode ? 'close' : 'search'} size={22} color={colors.textMuted} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.headerAction}>
+        <TouchableOpacity
+          style={styles.headerAction}
+          onPress={() => router.push(`/chat/info/${exchangeId}`)}
+          testID="chat-info-button"
+        >
           <Ionicons name="ellipsis-vertical" size={20} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
