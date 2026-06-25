@@ -10,6 +10,7 @@ import {
   Image,
   Linking,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -504,7 +505,13 @@ export default function BookDetailScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.glassButton}
-                    onPress={() => {}}
+                    onPress={() => {
+                      const parts = [book.title];
+                      if (book.author) parts.push(book.author);
+                      Share.share({
+                        message: `${parts.join(' — ')} · MeetBook'ta buldum!`,
+                      });
+                    }}
                     testID="share-button">
                     <Ionicons name="share-outline" size={20} color="#fff" />
                   </TouchableOpacity>
