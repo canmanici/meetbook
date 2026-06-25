@@ -10,7 +10,7 @@
  *   - searchBboxBooks(bbox) → sheet list (full book data)
  *   - "Search this area" → re-query visible bbox (§3.7)
  *   - Marker tap → preview card (no navigation) + sheet snaps to peek (§3.5)
- *   - Long-press map → "Add book here" confirmation (§3.9)
+ *   - Long-press map → map style picker (Standart / Uydu / Hibrit)
  *   - Radius circle = geofence radius from user settings (§3.8, §4.5)
  *   - QuickRadiusSheet from radius chip → PATCH /auth/me (§4.5)
  *   - Debounced mapRegion 300ms (bug #5), pill 500ms (§3.7)
