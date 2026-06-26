@@ -263,4 +263,16 @@ describe('BookDetailScreen', () => {
     expect(await findByText('3.7 km')).toBeTruthy();
     expect(queryByText('2.4 km')).toBeNull();
   });
+
+  it('shows skeleton cards while loading (not a bare spinner)', async () => {
+    jest.clearAllMocks();
+    const { getBook } = require('@/lib/api/client');
+    // Never resolves → stays in loading state
+    getBook.mockReturnValue(new Promise(() => {}));
+    useAuthStore.setState({ user: { id: 'user-1', name: 'Me', email: 'me@example.com' } as any });
+
+    const { findAllByTestId, queryByTestId } = renderWithQueryClient(<BookDetailScreen />);
+    expect((await findAllByTestId('skeleton-card')).length).toBeGreaterThanOrEqual(1);
+    expect(queryByTestId('loading-spinner')).toBeNull();
+  });
 });

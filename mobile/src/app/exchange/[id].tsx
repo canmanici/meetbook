@@ -21,7 +21,7 @@ import {
 
 import * as ImagePicker from 'expo-image-picker';
 
-import { Avatar, Badge, Button, Card, BookCover, SafetySheet, Sheet, TimelineStep, TrustBadge, palette, spacing, fontSize, radius } from '@/components/ui';
+import { Avatar, Badge, Button, Card, BookCover, SafetySheet, Sheet, Skeleton, TimelineStep, TrustBadge, palette, spacing, fontSize, radius } from '@/components/ui';
 import { ChipSelect } from '@/components/chip-select';
 import { BOOK_CATEGORY_LABELS, BOOK_CONDITION_LABELS } from '@/constants/books';
 import { EXCHANGE_STATUS_LABELS, EXCHANGE_STATUS_VARIANTS } from '@/constants/exchanges';
@@ -288,9 +288,13 @@ export default function ExchangeDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={{ padding: spacing.md }}
+      >
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
+      </ScrollView>
     );
   }
 

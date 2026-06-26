@@ -120,4 +120,13 @@ describe('ChatDetailScreen', () => {
     fireEvent.changeText(input, 'hello');
     expect(await findByTestId('send-button')).toBeTruthy();
   });
+
+  it('shows skeleton list items while messages load, not a bare spinner', async () => {
+    const { getMessages } = require('@/lib/api/chat');
+    getMessages.mockReturnValue(new Promise(() => {}));
+
+    const { findAllByTestId, queryByTestId } = renderChat();
+    expect((await findAllByTestId('skeleton-list')).length).toBeGreaterThanOrEqual(1);
+    expect(queryByTestId('loading-spinner')).toBeNull();
+  });
 });

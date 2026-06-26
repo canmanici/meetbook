@@ -24,6 +24,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { MessageBubble } from '@/components/ui/message-bubble';
 import { TypingIndicator } from '@/components/ui/typing-indicator';
 import { EmojiPicker } from '@/components/ui/emoji-picker';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   getMessages,
   listChats,
@@ -457,7 +458,11 @@ export default function ChatDetailScreen() {
         }
         ListEmptyComponent={
           isLoading ? (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 100 }} />
+            <View style={{ padding: spacing.md }}>
+              <Skeleton variant="list-item" />
+              <Skeleton variant="list-item" />
+              <Skeleton variant="list-item" />
+            </View>
           ) : (
             <View style={styles.emptyState}>
               <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>

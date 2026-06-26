@@ -27,6 +27,7 @@ import {
   InlineError,
   Input,
   palette,
+  Skeleton,
   spacing,
   fontSize,
   radius,
@@ -327,9 +328,13 @@ export default function BookDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={{ padding: spacing.md }}
+      >
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
+      </ScrollView>
     );
   }
 

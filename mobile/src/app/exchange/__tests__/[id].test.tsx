@@ -209,4 +209,15 @@ describe('ExchangeDetailScreen', () => {
     expect(await findByTestId('book-cover-image')).toBeTruthy();
     expect(queryByText('📖')).toBeNull();
   });
+
+  it('shows skeleton while loading, not a bare spinner', async () => {
+    jest.clearAllMocks();
+    const { getExchange } = require('@/lib/api/client');
+    getExchange.mockReturnValue(new Promise(() => {}));
+    mockUser('me');
+
+    const { findAllByTestId, queryByTestId } = renderWithQueryClient(<ExchangeDetailScreen />);
+    expect((await findAllByTestId('skeleton-card')).length).toBeGreaterThanOrEqual(1);
+    expect(queryByTestId('loading-spinner')).toBeNull();
+  });
 });
