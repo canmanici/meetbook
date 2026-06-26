@@ -25,7 +25,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Image,
   Alert,
   Modal,
   Dimensions,
@@ -48,7 +47,7 @@ import LIGHT_STYLE from '@/lib/map-styles/light.json';
 import DARK_STYLE from '@/lib/map-styles/dark.json';
 
 import { palette, spacing, fontSize, radius, shadows, type ThemeColors } from '@/components/ui/tokens';
-import { BookCard, EmptyState, FilterSheet, type FilterState } from '@/components/ui';
+import { BookCard, BookCover, EmptyState, FilterSheet, type FilterState } from '@/components/ui';
 import { BookMarker, categoryColor, dominantCategoryColor, type BookCategory, type MarkerVariant } from '@/components/ui/book-marker';
 import {
   searchBboxBooks,
@@ -613,7 +612,7 @@ export default function HomeScreen() {
         >
           <View style={[styles.miniCardCover, { backgroundColor: colors.surfaceAlt }]}>
             {coverUrl ? (
-              <Image source={{ uri: coverUrl }} style={styles.miniCardCoverImg} resizeMode="cover" />
+              <BookCover url={coverUrl} size={48} />
             ) : (
               <View style={styles.miniCardPlaceholder}>
                 <Text style={[styles.miniCardPlaceholderText, { color: colors.textMuted }]}>

@@ -10,10 +10,10 @@ import {
   ScrollView,
   StyleSheet,
   useColorScheme,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useToast } from '@/hooks/use-toast';
 import { Badge, EmptyState, Skeleton, TrustBadge, palette, spacing, fontSize, radius, type ThemeColors } from '@/components/ui';
 import { acceptExchange, rejectExchange, listExchanges, type ExchangeSummary } from '@/lib/api/client';
 import { EXCHANGE_STATUS_LABELS, EXCHANGE_STATUS_VARIANTS } from '@/constants/exchanges';
@@ -147,6 +147,7 @@ function IncomingRequestRow({
   colors: ThemeColors;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const toast = useToast();
   const createdAt = new Date(item.created_at);
   const statusLabel = EXCHANGE_STATUS_LABELS[item.status] ?? item.status;
   const statusVariant = EXCHANGE_STATUS_VARIANTS[item.status] ?? 'info';
@@ -156,12 +157,11 @@ function IncomingRequestRow({
     mutationFn: acceptExchange,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['exchanges', 'received'] });
-      Alert.alert('Onaylandı', 'Talep onaylandı.', [
-        { text: 'Tamam', onPress: () => router.push(`/exchange/${data.id}`) }
-      ]);
+      toast.show('Talep kabul edildi', { variant: 'success' });
+      router.push(`/exchange/${data.id}`);
     },
     onError: () => {
-      Alert.alert('Hata', 'Talep onaylanamadı.');
+      toast.show('Talep kabul edilemedi', { variant: 'error' });
     },
   });
 
@@ -169,10 +169,10 @@ function IncomingRequestRow({
     mutationFn: rejectExchange,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['exchanges', 'received'] });
-      Alert.alert('Reddedildi', 'Talep reddedildi.');
+      toast.show('Talep reddedildi', { variant: 'success' });
     },
     onError: () => {
-      Alert.alert('Hata', 'Talep reddedilemedi.');
+      toast.show('Talep reddedilemedi', { variant: 'error' });
     },
   });
 

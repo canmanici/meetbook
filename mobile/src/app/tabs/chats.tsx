@@ -17,6 +17,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useShallow } from 'zustand/react/shallow';
+import { Swipeable } from 'react-native-gesture-handler';
+import { useToast } from '@/hooks/use-toast';
 
 import {
   palette,
@@ -66,7 +68,7 @@ function formatTime(dateStr: string): string {
   return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
 }
 
-type SectionKey = 'new' | 'today' | 'yesterday' | 'thisweek' | 'earlier';
+type SectionKey = 'pinned' | 'new' | 'today' | 'yesterday' | 'thisweek' | 'earlier';
 
 function sectionKeyFor(dateStr: string | null): SectionKey {
   if (!dateStr) return 'new';
@@ -82,6 +84,7 @@ function sectionKeyFor(dateStr: string | null): SectionKey {
 }
 
 const SECTION_ORDER: { key: SectionKey; title: string }[] = [
+  { key: 'pinned', title: 'Sabitlenenler' },
   { key: 'new', title: 'Yeni Sohbetler' },
   { key: 'today', title: 'Bugün' },
   { key: 'yesterday', title: 'Dün' },
@@ -113,6 +116,40 @@ function pastelForName(name: string): PastelName {
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
   return PASTEL_KEYS[Math.abs(h) % PASTEL_KEYS.length];
 }
+
+// ---------------------------------------------------------------------------
+// Swipe action backgrounds — left = archive (orange), right = pin (blue).
+// Defined at module scope so they stay referentially stable across renders.
+// ---------------------------------------------------------------------------
+
+const renderLeftActions = () => (
+  <View
+    style={{
+      backgroundColor: '#FF9500',
+      justifyContent: 'center',
+      paddingLeft: 20,
+      flex: 1,
+    }}
+  >
+    <Ionicons name="archive" size={24} color="#fff" />
+    <Text style={{ color: '#fff', fontSize: 12 }}>Arşivle</Text>
+  </View>
+);
+
+const renderRightActions = () => (
+  <View
+    style={{
+      backgroundColor: '#007AFF',
+      justifyContent: 'center',
+      alignItems: 'flex-end',
+      paddingRight: 20,
+      flex: 1,
+    }}
+  >
+    <Ionicons name="pin" size={24} color="#fff" />
+    <Text style={{ color: '#fff', fontSize: 12 }}>Sabitle</Text>
+  </View>
+);
 
 // ---------------------------------------------------------------------------
 // PulseDot — animated status dot for the connection pill.
@@ -322,6 +359,8 @@ export default function ChatsScreen() {
 
   const [filter, setFilter] = useState<FilterKey>('all');
   const [query, setQuery] = useState('');
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+  const toast = useToast();
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['chats'],
@@ -356,13 +395,20 @@ export default function ChatsScreen() {
     });
 
     const buckets: Record<SectionKey, ChatSummary[]> = {
+      pinned: [],
       new: [],
       today: [],
       yesterday: [],
       thisweek: [],
       earlier: [],
     };
-    for (const c of filtered) buckets[sectionKeyFor(c.last_message_at)].push(c);
+    for (const c of filtered) {
+      if (pinnedIds.includes(c.chat_id)) {
+        buckets.pinned.push(c);
+      } else {
+        buckets[sectionKeyFor(c.last_message_at)].push(c);
+      }
+    }
 
     // Sort each bucket by last_message_at desc (new chats sink within "new").
     const sortFn = (a: ChatSummary, b: ChatSummary) => {
@@ -377,11 +423,26 @@ export default function ChatsScreen() {
       title: s.title,
       data: buckets[s.key],
     }));
-  }, [allChats, filter, query]);
+  }, [allChats, filter, query, pinnedIds]);
 
   const handlePress = useCallback((exchangeId: string) => {
     router.push(`/chat/${exchangeId}`);
   }, [router]);
+
+  const handleArchive = useCallback(
+    (_chatId: string) => {
+      toast.show('Sohbet arşivlendi', { variant: 'info' });
+    },
+    [toast],
+  );
+
+  const handlePin = useCallback(
+    (chatId: string) => {
+      setPinnedIds((prev) => (prev.includes(chatId) ? prev : [chatId, ...prev]));
+      toast.show('Sohbet sabitlendi', { variant: 'success' });
+    },
+    [toast],
+  );
 
   const renderItem = useCallback(
     ({ item }: { item: ChatSummary }) => {
@@ -391,17 +452,39 @@ export default function ChatsScreen() {
         ([uid, t]) => t && uid !== currentUserId,
       );
       return (
-        <ChatItem
-          item={item}
-          isOnline={isOnline}
-          isTyping={isTyping}
-          colors={colors}
-          isDark={isDark}
-          onPress={handlePress}
-        />
+        <Swipeable
+          renderLeftActions={renderLeftActions}
+          renderRightActions={renderRightActions}
+          onSwipeableOpen={(direction, swipeable) => {
+            swipeable.close();
+            if (direction === 'left') {
+              handleArchive(item.chat_id);
+            } else {
+              handlePin(item.chat_id);
+            }
+          }}
+        >
+          <ChatItem
+            item={item}
+            isOnline={isOnline}
+            isTyping={isTyping}
+            colors={colors}
+            isDark={isDark}
+            onPress={handlePress}
+          />
+        </Swipeable>
       );
     },
-    [presence, typing, currentUserId, colors, isDark, handlePress],
+    [
+      presence,
+      typing,
+      currentUserId,
+      colors,
+      isDark,
+      handlePress,
+      handleArchive,
+      handlePin,
+    ],
   );
 
   const renderSectionHeader = useCallback(

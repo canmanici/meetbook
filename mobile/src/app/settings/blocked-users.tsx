@@ -6,6 +6,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, u
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, EmptyState, Skeleton, palette, spacing, fontSize, radius } from '@/components/ui';
+import { useToast } from '@/hooks/use-toast';
 import { listBlockedUsers, unblockUser, getUser } from '@/lib/api/client';
 
 export default function BlockedUsersScreen() {
@@ -14,6 +15,7 @@ export default function BlockedUsersScreen() {
   const colors = palette[isDark ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [refreshing, setRefreshing] = useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -47,7 +49,11 @@ export default function BlockedUsersScreen() {
 
   const unblockMutation = useMutation({
     mutationFn: (userId: string) => unblockUser(userId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['blocked-users'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blocked-users'] });
+      toast.show('Engel kaldırıldı', { variant: 'success' });
+    },
+    onError: () => toast.show('Engel kaldırılamadı', { variant: 'error' }),
   });
 
   const confirmUnblock = (userId: string) => {

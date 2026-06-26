@@ -51,6 +51,7 @@ import {
   type ExchangeDetail,
 } from '@/lib/api/client';
 import { buildMapLinks } from '@/lib/maps';
+import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth-store';
 
 type StepStatus = 'done' | 'active' | 'pending';
@@ -114,6 +115,7 @@ export default function ExchangeDetailScreen() {
   const scheme = useColorScheme();
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
   const queryClient = useQueryClient();
+  const toast = useToast();
   const userId = useAuthStore((state) => state.user?.id);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -152,16 +154,45 @@ export default function ExchangeDetailScreen() {
     await queryClient.invalidateQueries({ queryKey: ['exchanges', 'received'] });
   };
 
-  const acceptMutation = useMutation({ mutationFn: () => acceptExchange(id), onSuccess: invalidate });
-  const rejectMutation = useMutation({ mutationFn: () => rejectExchange(id), onSuccess: invalidate });
-  const cancelMutation = useMutation({ mutationFn: () => cancelExchange(id), onSuccess: invalidate });
+  const acceptMutation = useMutation({
+    mutationFn: () => acceptExchange(id),
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Talep kabul edildi', { variant: 'success' });
+    },
+    onError: () => toast.show('Talep kabul edilemedi', { variant: 'error' }),
+  });
+  const rejectMutation = useMutation({
+    mutationFn: () => rejectExchange(id),
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Talep reddedildi', { variant: 'success' });
+    },
+    onError: () => toast.show('Talep reddedilemedi', { variant: 'error' }),
+  });
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelExchange(id),
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Takas iptal edildi', { variant: 'success' });
+    },
+    onError: () => toast.show('Takas iptal edilemedi', { variant: 'error' }),
+  });
   const completeMutation = useMutation({
     mutationFn: () => completeExchange(id),
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Takas tamamlandı', { variant: 'success' });
+    },
+    onError: () => toast.show('Takas tamamlanamadı', { variant: 'error' }),
   });
   const confirmMutation = useMutation({
     mutationFn: () => confirmExchangeCompletion(id),
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Tamamlandı onaylandı', { variant: 'success' });
+    },
+    onError: () => toast.show('Onay gönderilemedi', { variant: 'error' }),
   });
 
   // --- Borrow / lending lifecycle ---
@@ -171,7 +202,7 @@ export default function ExchangeDetailScreen() {
   const captureLoanPhoto = async (): Promise<string | null> => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('İzin gerekli', 'Fotoğraf çekmek için kamera izni gerekiyor.');
+      toast.show('Fotoğraf çekmek için kamera izni gerekiyor', { variant: 'error' });
       return null;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
@@ -187,10 +218,13 @@ export default function ExchangeDetailScreen() {
       if (!photoUrl) throw new Error('PHOTO_REQUIRED');
       return lendExchange(id, photoUrl);
     },
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Teslim edildi', { variant: 'success' });
+    },
     onError: (err) => {
       if ((err as Error).message !== 'PHOTO_REQUIRED') {
-        Alert.alert('Hata', 'İşlem tamamlanamadı. Lütfen tekrar deneyin.');
+        toast.show('İşlem tamamlanamadı. Lütfen tekrar deneyin.', { variant: 'error' });
       }
     },
   });
@@ -200,28 +234,47 @@ export default function ExchangeDetailScreen() {
       if (!photoUrl) throw new Error('PHOTO_REQUIRED');
       return returnExchange(id, photoUrl);
     },
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('İade bildirildi', { variant: 'success' });
+    },
     onError: (err) => {
       if ((err as Error).message !== 'PHOTO_REQUIRED') {
-        Alert.alert('Hata', 'İşlem tamamlanamadı. Lütfen tekrar deneyin.');
+        toast.show('İşlem tamamlanamadı. Lütfen tekrar deneyin.', { variant: 'error' });
       }
     },
   });
   const confirmReturnMutation = useMutation({
     mutationFn: () => confirmExchangeReturn(id),
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('İade onaylandı', { variant: 'success' });
+    },
+    onError: () => toast.show('İade onaylanamadı', { variant: 'error' }),
   });
   const requestExtensionMutation = useMutation({
     mutationFn: () => requestExchangeExtension(id, Number(extensionDays)),
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Uzatma isteği gönderildi', { variant: 'success' });
+    },
+    onError: () => toast.show('Uzatma isteği gönderilemedi', { variant: 'error' }),
   });
   const approveExtensionMutation = useMutation({
     mutationFn: () => approveExchangeExtension(id),
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Uzatma onaylandı', { variant: 'success' });
+    },
+    onError: () => toast.show('Uzatma onaylanamadı', { variant: 'error' }),
   });
   const rejectExtensionMutation = useMutation({
     mutationFn: () => rejectExchangeExtension(id),
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Uzatma reddedildi', { variant: 'success' });
+    },
+    onError: () => toast.show('Uzatma reddedilemedi', { variant: 'error' }),
   });
 
   const [selectedOfferIndex, setSelectedOfferIndex] = useState(0);
@@ -233,24 +286,30 @@ export default function ExchangeDetailScreen() {
   const acceptMeetupMutation = useMutation({
     mutationFn: ({ offerIndex, acknowledgeWarning }: { offerIndex: number; acknowledgeWarning: boolean }) =>
       acceptMeetup(id, { offer_index: offerIndex, acknowledge_warning: acknowledgeWarning }),
-    onSuccess: (updated) => {
+    onSuccess: async (updated) => {
       setMeetupSafetySheetVisible(false);
-      return invalidate(updated);
+      await invalidate(updated);
+      toast.show('Buluşma onaylandı', { variant: 'success' });
     },
+    onError: () => toast.show('Buluşma onaylanamadı', { variant: 'error' }),
   });
   const rejectMeetupMutation = useMutation({
     mutationFn: () => rejectMeetup(id),
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Buluşma reddedildi', { variant: 'success' });
+    },
+    onError: () => toast.show('Buluşma reddedilemedi', { variant: 'error' }),
   });
 
   const blockMutation = useMutation({
     mutationFn: (counterpartId: string) => blockUser({ user_id: counterpartId }),
     onSuccess: () => {
-      Alert.alert('Kullanıcı engellendi', 'Bu kullanıcıyı bir daha göremeyeceksiniz.');
+      toast.show('Kullanıcı engellendi', { variant: 'success' });
       router.back();
     },
     onError: () => {
-      Alert.alert('Hata', 'Kullanıcı engellenemedi. Lütfen tekrar deneyin.');
+      toast.show('Kullanıcı engellenemedi', { variant: 'error' });
     },
   });
 
@@ -259,10 +318,10 @@ export default function ExchangeDetailScreen() {
     onSuccess: () => {
       setReportSheetVisible(false);
       setReportReason('');
-      Alert.alert('Bildirim alındı', 'Bildiriminiz moderasyon ekibine iletildi.');
+      toast.show('Bildirim alındı', { variant: 'success' });
     },
     onError: () => {
-      Alert.alert('Hata', 'Bildirim gönderilemedi. Lütfen tekrar deneyin.');
+      toast.show('Bildirim gönderilemedi', { variant: 'error' });
     },
   });
 
@@ -272,18 +331,18 @@ export default function ExchangeDetailScreen() {
       setRateSheetVisible(false);
       setRatingComment('');
       setRatingScore(5);
-      Alert.alert('Teşekkürler', 'Değerlendirmeniz kaydedildi.');
+      toast.show('Değerlendirmeniz kaydedildi', { variant: 'success' });
     },
     onError: (err: unknown) => {
       if (err instanceof ApiError && err.status === 409) {
         const detail = (err.body as { detail?: string })?.detail;
         if (detail === 'ALREADY_RATED') {
           setRateSheetVisible(false);
-          Alert.alert('Zaten değerlendirildi', 'Bu takası daha önce değerlendirdiniz.');
+          toast.show('Bu takası daha önce değerlendirdiniz', { variant: 'error' });
           return;
         }
       }
-      Alert.alert('Hata', 'Değerlendirme gönderilemedi. Lütfen tekrar deneyin.');
+      toast.show('Değerlendirme gönderilemedi', { variant: 'error' });
     },
   });
 

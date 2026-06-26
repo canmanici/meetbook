@@ -10,6 +10,7 @@ import { palette } from '@/components/ui/tokens';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { ServerErrorOverlay } from '@/components/server-error-overlay';
+import { OfflineBanner } from '@/components/offline-banner';
 import { getMe } from '@/lib/api/client';
 import { queryClient } from '@/lib/query-client';
 import { useAuthStore } from '@/stores/auth-store';
@@ -80,6 +81,7 @@ export default function RootLayout() {
         <AnimatedSplashOverlay />
         <AppErrorBoundary>
         <ToastProvider>
+        <OfflineBanner />
         <Stack
         screenOptions={{
           headerStyle: {

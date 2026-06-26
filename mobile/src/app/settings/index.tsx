@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { palette, spacing, fontSize, radius } from '@/components/ui';
+import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth-store';
 import { clearTokens } from '@/lib/secure-store';
 import { logout } from '@/lib/api/client';
@@ -34,6 +35,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const refreshToken = useAuthStore((s) => s.refreshToken);
   const clearSession = useAuthStore((s) => s.clearSession);
+  const toast = useToast();
 
   const [themePref, setThemePrefState] = useState<ThemePref>('system');
 
@@ -78,13 +80,13 @@ export default function SettingsScreen() {
 
   const handleFeedback = () => {
     Linking.openURL('mailto:support@meetbook.com').catch(() => {
-      Alert.alert('Hata', 'E-posta uygulaması açılamadı.');
+      toast.show('E-posta uygulaması açılamadı', { variant: 'error' });
     });
   };
 
   const handlePrivacy = () => {
     Linking.openURL('https://canmanici.com/meetbook/privacy').catch(() => {
-      Alert.alert('Hata', 'Tarayıcı açılamadı.');
+      toast.show('Tarayıcı açılamadı', { variant: 'error' });
     });
   };
 
@@ -98,7 +100,7 @@ export default function SettingsScreen() {
   };
 
   const handleAbout = () => {
-    Alert.alert('MeetBook', 'Sürüm 1.0.1\n© 2026 MeetBook\nİstanbul, Türkiye');
+    toast.show('MeetBook v1.0.1 · © 2026 MeetBook · İstanbul', { variant: 'info' });
   };
 
   const handleClearCache = () => {
@@ -119,12 +121,9 @@ export default function SettingsScreen() {
               if (cacheKeys.length > 0) {
                 await AsyncStorage.multiRemove(cacheKeys);
               }
-              Alert.alert(
-                'Tamam',
-                `Önbellek temizlendi (${cacheKeys.length} öğe).`,
-              );
+              toast.show(`Önbellek temizlendi (${cacheKeys.length} öğe)`, { variant: 'success' });
             } catch {
-              Alert.alert('Hata', 'Önbellek temizlenemedi.');
+              toast.show('Önbellek temizlenemedi', { variant: 'error' });
             }
           },
         },

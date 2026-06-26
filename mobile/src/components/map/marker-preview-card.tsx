@@ -18,7 +18,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -36,6 +35,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { palette, spacing, fontSize, radius, type ThemeColors } from '../ui/tokens';
+import { BookCover } from '../ui/book-cover';
 import { useToast } from '@/hooks/use-toast';
 import { useFavoritesStore } from '@/stores/favorites';
 import { addFavorite, removeFavorite, createExchange } from '@/lib/api/client';
@@ -261,11 +261,7 @@ function MarkerPreviewCardImpl({
             <View style={styles.topRow}>
               <View style={[styles.coverContainer, { borderRadius: radius.input }]}>
                 {book.coverUrl ? (
-                  <Image
-                    source={{ uri: book.coverUrl }}
-                    style={styles.cover}
-                    resizeMode="cover"
-                  />
+                  <BookCover url={book.coverUrl} size={64} />
                 ) : (
                   <View style={[styles.placeholder, { backgroundColor: colors.surfaceAlt }]}>
                     <Text style={[styles.placeholderText, { color: colors.textMuted }]}>

@@ -9,14 +9,13 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Image,
   RefreshControl,
   useColorScheme,
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar, Skeleton, palette, pastels, spacing, fontSize, radius, shadows } from '@/components/ui';
+import { Avatar, BookCover, Skeleton, palette, pastels, spacing, fontSize, radius, shadows } from '@/components/ui';
 import { getUser, searchNearbyBooks, type UserPublicProfile } from '@/lib/api/client';
 import { BOOK_CATEGORY_LABELS } from '@/constants/books';
 
@@ -188,7 +187,7 @@ export default function UserProfileScreen() {
               activeOpacity={0.7}
             >
               {book.photos?.[0]?.url ? (
-                <Image source={{ uri: book.photos[0].url }} style={styles.bookThumb} />
+                <BookCover url={book.photos[0].url} size={40} />
               ) : (
                 <View style={[styles.bookThumb, styles.bookThumbEmpty, { backgroundColor: colors.surfaceAlt }]}>
                   <Ionicons name="book-outline" size={20} color={colors.textMuted} />

@@ -23,6 +23,7 @@ import {
 import { ChipSelect } from '@/components/chip-select';
 import {
   Badge,
+  BookCover,
   Button,
   Card,
   InlineError,
@@ -45,7 +46,7 @@ import {
   type BookCategory,
   type BookCondition,
 } from '@/constants/books';
-import { addFavorite, ApiError, createExchange, deleteBook, getBook, incrementBookView, listExchanges, lookupISBN, removeFavorite, updateBook } from '@/lib/api/client';
+import { addFavorite, ApiError, createExchange, deleteBook, getBook, incrementBookView, listExchanges, lookupISBN, removeFavorite, searchNearbyBooks, updateBook } from '@/lib/api/client';
 import { formatDistance } from '@/lib/format';
 import { DatePicker } from '@/components/ui/date-time-picker';
 import { useToast } from '@/hooks/use-toast';
@@ -88,6 +89,13 @@ export default function BookDetailScreen() {
 
   const user = useAuthStore((state) => state.user);
   const isOwner = !!book && !!user && book.owner_id === user.id;
+
+  const { data: similarBooks } = useQuery({
+    queryKey: ['books', 'similar', book?.id],
+    queryFn: () => searchNearbyBooks({ category: book!.category, limit: 5 }),
+    enabled: !!book && !isOwner,
+    select: (data) => data.items.filter((b) => b.id !== id),
+  });
 
   const [editing, setEditing] = useState(false);
   const { edit: editParam } = useLocalSearchParams<{ edit?: string }>();
@@ -650,6 +658,40 @@ export default function BookDetailScreen() {
           ) : null}
         </View>
 
+        {/* Yakınındaki Benzer Kitaplar */}
+        {!isOwner && similarBooks && similarBooks.length > 0 && (
+          <View style={[styles.similarSection, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.similarTitle, { color: colors.text }]}>
+              Yakınındaki Benzer Kitaplar
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.similarList}
+            >
+              {similarBooks.map((b) => (
+                <TouchableOpacity
+                  key={b.id}
+                  style={styles.similarItem}
+                  onPress={() => router.push(`/book/${b.id}`)}
+                  activeOpacity={0.7}>
+                  <BookCover url={b.photos?.[0]?.url} size={80} />
+                  <Text
+                    style={[styles.similarItemTitle, { color: colors.text }]}
+                    numberOfLines={2}>
+                    {b.title}
+                  </Text>
+                  {b.distance_km ? (
+                    <Text style={[styles.similarItemDistance, { color: colors.textMuted }]}>
+                      {b.distance_km} km
+                    </Text>
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
           {/* Stats Card — shown to both owner and non-owner now */}
           <View style={[styles.statsCard, { backgroundColor: colors.surface }]}>
             <View style={styles.statsGrid}>
@@ -1177,6 +1219,37 @@ const styles = StyleSheet.create({
   descriptionText: {
     fontSize: fontSize.body,
     lineHeight: 22,
+  },
+
+  // Similar books section
+  similarSection: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.sheet,
+  },
+  similarTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '600',
+    marginBottom: spacing.md,
+  },
+  similarList: {
+    paddingVertical: spacing.xs,
+  },
+  similarItem: {
+    width: 80,
+    marginRight: spacing.md,
+    gap: spacing.xs,
+  },
+  similarItemTitle: {
+    fontSize: fontSize.caption,
+    fontWeight: '500',
+    lineHeight: 14,
+    marginTop: spacing.xs,
+  },
+  similarItemDistance: {
+    fontSize: fontSize.caption,
+    marginTop: 2,
   },
 
   // Owner Card

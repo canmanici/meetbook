@@ -8,12 +8,12 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Image,
   RefreshControl,
   useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 
 import { Input, EmptyState, Skeleton, Badge, palette, spacing, radius, fontSize, shadows } from '@/components/ui';
 import { getWishlist, addToWishlist, removeFromWishlist, getWishlistMatches, WishlistItem } from '@/lib/api/client';
@@ -219,7 +219,9 @@ export default function WishlistScreen() {
                           <Image
                             source={{ uri: match.photos[0].url }}
                             style={styles.matchCoverImage}
-                            resizeMode="cover"
+                            contentFit="cover"
+                            cachePolicy="memory-disk"
+                            transition={200}
                           />
                         ) : (
                           <Ionicons name="book-outline" size={20} color={colors.textMuted} />
