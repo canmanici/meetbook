@@ -379,6 +379,17 @@ export default function ExchangeDetailScreen() {
 
   const chosenOffer = meetup?.offers[selectedOfferIndex];
 
+  const meetupHistory = meetup
+    ? [...meetup.offers].sort(
+        (a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime(),
+      )
+    : [];
+  const meetupProposerName = meetup
+    ? meetup.proposed_by === userId
+      ? me?.name ?? 'Sen'
+      : exchange.counterpart.name
+    : '';
+
   const onAcceptMeetup = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const requiresAck =
@@ -831,6 +842,42 @@ export default function ExchangeDetailScreen() {
               </>
             )
           )}
+        </Card>
+      )}
+
+      {/* Meetup Offer History */}
+      {meetupHistory.length > 0 && (
+        <Card style={styles.historyCard}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Teklif Geçmişi</Text>
+          {meetupHistory.map((offer, i) => (
+            <View
+              key={i}
+              style={[styles.historyRow, { borderColor: colors.textMuted + '20' }]}
+              testID={`meetup-history-row-${i}`}
+            >
+              <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+              <Text
+                style={[styles.historyText, { color: colors.text }]}
+                numberOfLines={1}
+              >
+                {meetupProposerName} • {offer.place_name}
+              </Text>
+              <Text style={[styles.historyDate, { color: colors.textMuted }]}>
+                {formatDate(offer.scheduled_at)}
+              </Text>
+              <Badge
+                text={MEETUP_VALIDATION_LABELS[offer.validation_status]}
+                variant={
+                  offer.validation_status === 'auto'
+                    ? 'success'
+                    : offer.validation_status === 'rejected'
+                      ? 'danger'
+                      : 'warning'
+                }
+                testID={`meetup-history-badge-${i}`}
+              />
+            </View>
+          ))}
         </Card>
       )}
 
@@ -1373,6 +1420,24 @@ const styles = StyleSheet.create({
   meetupCard: {
     padding: spacing.md,
     gap: spacing.sm,
+  },
+  historyCard: {
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    borderBottomWidth: 1,
+  },
+  historyText: {
+    flex: 1,
+    fontSize: fontSize.bodySm,
+  },
+  historyDate: {
+    fontSize: fontSize.caption,
   },
   offersList: {
     gap: spacing.sm,

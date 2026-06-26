@@ -44,6 +44,7 @@ export default function MyBooksTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('newest');
   const [refreshing, setRefreshing] = useState(false);
+  const [statsExpanded, setStatsExpanded] = useState(false);
 
   const bulk = useBulkSelect();
 
@@ -96,6 +97,16 @@ export default function MyBooksTab() {
 
   const activeBooks = useMemo(() => allBooks.filter((b) => b.is_available), [allBooks]);
   const completedBooks = useMemo(() => allBooks.filter((b) => !b.is_available), [allBooks]);
+
+  const stats = useMemo(() => {
+    const totalViews = allBooks.reduce((sum, b) => sum + (b.view_count || 0), 0);
+    const mostViewed = allBooks.reduce(
+      (top, b) => (b.view_count > (top?.view_count ?? -1) ? b : top),
+      null as BookOwnerView | null,
+    );
+    const availableCount = allBooks.filter((b) => b.is_available).length;
+    return { totalViews, mostViewed, availableCount, totalCount: allBooks.length };
+  }, [allBooks]);
 
   const undoDelete = useUndoDelete<BookOwnerView>();
   undoDelete.setCallbacks(
@@ -265,6 +276,41 @@ export default function MyBooksTab() {
         }}
         scrollEventThrottle={200}
       >
+        {!bulk.isSelectMode && !isLoading && !isError && allBooks.length > 0 ? (
+          <View style={[styles.statsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <TouchableOpacity
+              style={styles.statsHeader}
+              onPress={() => setStatsExpanded((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel="İstatistikleri aç/kapat"
+            >
+              <View style={styles.statsTitleWrap}>
+                <Ionicons name="stats-chart" size={16} color={colors.primary} />
+                <Text style={[styles.statsTitle, { color: colors.text }]}>İstatistikler</Text>
+              </View>
+              <Ionicons
+                name={statsExpanded ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={colors.textMuted}
+              />
+            </TouchableOpacity>
+            {statsExpanded ? (
+              <View style={[styles.statsBody, { borderTopColor: colors.border }]}>
+                <Text style={[styles.statsRow, { color: colors.text }]}>
+                  Toplam Görüntülenme: {stats.totalViews}
+                </Text>
+                <Text style={[styles.statsRow, { color: colors.text }]} numberOfLines={1}>
+                  En Popüler:{' '}
+                  {stats.mostViewed ? `"${stats.mostViewed.title}" (${stats.mostViewed.view_count})` : '—'}
+                </Text>
+                <Text style={[styles.statsRow, { color: colors.text }]}>
+                  Müsait: {stats.availableCount} / {stats.totalCount} kitap
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
         {searchQuery.trim() && filteredBooks.length === 0 ? (
           <EmptyState
             message="Arama için sonuç yok"
@@ -499,6 +545,37 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingVertical: spacing.sm,
     paddingBottom: 120,
+  },
+  statsCard: {
+    borderRadius: radius.card,
+    borderWidth: 1,
+    marginBottom: spacing.md,
+    overflow: 'hidden',
+  },
+  statsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  statsTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statsTitle: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+  },
+  statsBody: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: 6,
+    borderTopWidth: 1,
+  },
+  statsRow: {
+    fontSize: fontSize.caption,
   },
   gridRow: {
     flexDirection: 'row',

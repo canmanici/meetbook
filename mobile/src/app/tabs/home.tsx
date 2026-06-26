@@ -35,6 +35,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
+import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
@@ -190,6 +192,7 @@ export default function HomeScreen() {
   });
   const [showRadiusSheet, setShowRadiusSheet] = useState(false);
   const [geofenceRadiusKm, setGeofenceRadiusKm] = useState(10);
+  const [showPushBanner, setShowPushBanner] = useState(false);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const mapRef = useRef<any>(null);
@@ -227,6 +230,39 @@ export default function HomeScreen() {
       lastQueriedCenterRef.current = userLoc;
       lastQueriedZoomRef.current = initialRegion.latitudeDelta;
     })();
+  }, []);
+
+  // ── Push permission banner (first launch only) ─────────────────────────────
+  useEffect(() => {
+    AsyncStorage.getItem('hasAskedPushPermission').then((asked) => {
+      if (!asked) setShowPushBanner(true);
+    });
+  }, []);
+
+  const requestPushPermission = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const { status } = await Notifications.requestPermissionsAsync();
+      await AsyncStorage.setItem('hasAskedPushPermission', 'true');
+      setShowPushBanner(false);
+      if (status === 'granted') {
+        try {
+          const token = await Notifications.getExpoPushTokenAsync();
+          // Send token to backend if API exists
+          void token;
+        } catch {
+          // Token fetch failed — permission still granted, ignore
+        }
+      }
+    } catch {
+      setShowPushBanner(false);
+      await AsyncStorage.setItem('hasAskedPushPermission', 'true');
+    }
+  }, []);
+
+  const dismissPushBanner = useCallback(async () => {
+    await AsyncStorage.setItem('hasAskedPushPermission', 'true');
+    setShowPushBanner(false);
   }, []);
 
   // ── Fly camera to user location once GPS resolves ──────────────────────────
@@ -913,6 +949,22 @@ export default function HomeScreen() {
               );
             })}
           </ScrollView>
+
+          {/* Push permission banner (first launch, dismissible) */}
+          {showPushBanner && (
+            <View style={[styles.pushBanner, { backgroundColor: colors.primarySoft }]} testID="push-banner">
+              <Ionicons name="notifications" size={20} color={colors.primary} />
+              <Text style={[styles.pushBannerText, { color: colors.text }]}>
+                Bildirimleri açın, yeni talepleri anında öğrenin
+              </Text>
+              <TouchableOpacity onPress={requestPushPermission} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} testID="push-allow">
+                <Text style={[styles.pushAllow, { color: colors.primary }]}>İzin Ver</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={dismissPushBanner} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} testID="push-dismiss">
+                <Ionicons name="close" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* "Search this area" pill (§3.7) */}
@@ -1165,6 +1217,29 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: fontSize.bodySm,
     fontWeight: '600',
+  },
+
+  // Push permission banner (first launch, dismissible)
+  pushBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.card,
+    gap: spacing.sm,
+    ...shadows.card,
+  },
+  pushBannerText: {
+    flex: 1,
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+  },
+  pushAllow: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '800',
   },
 
   // Sheet header (bug #6: count booksWithLocation)

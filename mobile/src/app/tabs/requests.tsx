@@ -11,6 +11,7 @@ import {
   StyleSheet,
   useColorScheme,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useToast } from '@/hooks/use-toast';
@@ -138,6 +139,20 @@ export default function RequestsScreen() {
   );
 }
 
+const renderLeftActions = () => (
+  <View style={{ backgroundColor: '#34C759', justifyContent: 'center', paddingLeft: 20, flex: 1 }}>
+    <Ionicons name="checkmark" size={24} color="#fff" />
+    <Text style={{ color: '#fff', fontSize: 12 }}>Kabul Et</Text>
+  </View>
+);
+
+const renderRightActions = () => (
+  <View style={{ backgroundColor: '#FF3B30', justifyContent: 'center', alignItems: 'flex-end', paddingRight: 20, flex: 1 }}>
+    <Ionicons name="close" size={24} color="#fff" />
+    <Text style={{ color: '#fff', fontSize: 12 }}>Reddet</Text>
+  </View>
+);
+
 function IncomingRequestRow({
   item,
   colors,
@@ -177,6 +192,21 @@ function IncomingRequestRow({
   });
 
   return (
+    <Swipeable
+      renderLeftActions={isPending ? renderLeftActions : undefined}
+      renderRightActions={isPending ? renderRightActions : undefined}
+      onSwipeableOpen={(direction, swipeable) => {
+        swipeable.close();
+        if (acceptMutation.isPending || rejectMutation.isPending) return;
+        if (direction === 'left') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          acceptMutation.mutate(item.id);
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          rejectMutation.mutate(item.id);
+        }
+      }}
+    >
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       {/* Top accent line */}
       <LinearGradient
@@ -284,6 +314,7 @@ function IncomingRequestRow({
         </View>
       )}
     </View>
+    </Swipeable>
   );
 }
 

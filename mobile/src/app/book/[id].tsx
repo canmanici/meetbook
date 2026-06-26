@@ -97,6 +97,13 @@ export default function BookDetailScreen() {
     select: (data) => data.items.filter((b) => b.id !== id),
   });
 
+  const { data: ownerBooks } = useQuery({
+    queryKey: ['books', 'owner', book?.owner_id],
+    queryFn: () => searchNearbyBooks({ owner_id: book!.owner_id, limit: 10 }),
+    enabled: !!book && !isOwner,
+    select: (data) => data.items.filter((b) => b.id !== id),
+  });
+
   const [editing, setEditing] = useState(false);
   const { edit: editParam } = useLocalSearchParams<{ edit?: string }>();
 
@@ -686,6 +693,35 @@ export default function BookDetailScreen() {
                       {b.distance_km} km
                     </Text>
                   ) : null}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* {owner_name}'in Diğer Kitapları */}
+        {!isOwner && ownerBooks && ownerBooks.length > 0 && (
+          <View style={[styles.similarSection, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.similarTitle, { color: colors.text }]}>
+              {book.owner_name ? `${book.owner_name}'in Diğer Kitapları` : 'Diğer Kitapları'}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.similarList}
+            >
+              {ownerBooks.map((b) => (
+                <TouchableOpacity
+                  key={b.id}
+                  style={styles.similarItem}
+                  onPress={() => router.push(`/book/${b.id}`)}
+                  activeOpacity={0.7}>
+                  <BookCover url={b.photos?.[0]?.url} size={80} />
+                  <Text
+                    style={[styles.similarItemTitle, { color: colors.text }]}
+                    numberOfLines={2}>
+                    {b.title}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
