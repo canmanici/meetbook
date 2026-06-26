@@ -32,6 +32,15 @@ jest.mock('@/stores/auth-store', () => ({
   useAuthStore: jest.fn(),
 }));
 
+jest.mock('expo-image', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    Image: (props: any) => React.createElement(View, { ...props, testID: props.testID || 'expo-image' }),
+  };
+});
+
 function renderWithQueryClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -181,5 +190,23 @@ describe('ExchangeDetailScreen', () => {
     await waitFor(() => {
       expect(rejectExchange).toHaveBeenCalledWith('exchange-1');
     });
+  });
+
+  it('renders BookCover image when book has a photo url', async () => {
+    (getExchange as jest.Mock).mockResolvedValue({
+      ...baseExchange,
+      book: {
+        ...baseExchange.book,
+        condition: 'good',
+        photos: [{ id: 'p1', url: 'https://example.com/cover.jpg' }],
+      },
+    });
+    mockUser('user-1');
+    const { findByTestId, queryByText } = renderWithQueryClient(<ExchangeDetailScreen />);
+
+    await waitFor(() => expect(getExchange).toHaveBeenCalled());
+
+    expect(await findByTestId('book-cover-image')).toBeTruthy();
+    expect(queryByText('📖')).toBeNull();
   });
 });

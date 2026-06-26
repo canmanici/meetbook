@@ -20,7 +20,7 @@ import {
 
 import * as ImagePicker from 'expo-image-picker';
 
-import { Avatar, Badge, Button, Card, SafetySheet, Sheet, TimelineStep, TrustBadge, palette, spacing, fontSize, radius } from '@/components/ui';
+import { Avatar, Badge, Button, Card, BookCover, SafetySheet, Sheet, TimelineStep, TrustBadge, palette, spacing, fontSize, radius } from '@/components/ui';
 import { ChipSelect } from '@/components/chip-select';
 import { BOOK_CATEGORY_LABELS, BOOK_CONDITION_LABELS } from '@/constants/books';
 import { EXCHANGE_STATUS_LABELS, EXCHANGE_STATUS_VARIANTS } from '@/constants/exchanges';
@@ -353,15 +353,9 @@ export default function ExchangeDetailScreen() {
       {/* Book + Counterpart Card */}
       <Card style={styles.bookCounterpartCard}>
         <View style={styles.bookRow}>
-          {coverUrl ? (
-            <View style={styles.coverContainer}>
-              <Text style={[styles.coverPlaceholder, { color: colors.textMuted }]}>📖</Text>
-            </View>
-          ) : (
-            <View style={[styles.coverContainer, { backgroundColor: colors.textMuted + '20' }]}>
-              <Ionicons name="book-outline" size={32} color={colors.textMuted} />
-            </View>
-          )}
+          <View style={styles.coverContainer}>
+            <BookCover url={coverUrl} size={64} />
+          </View>
           <View style={styles.bookInfo}>
             <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
               {exchange.book.title}
