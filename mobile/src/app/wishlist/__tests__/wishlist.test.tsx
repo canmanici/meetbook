@@ -69,3 +69,25 @@ describe('WishlistScreen add behavior', () => {
     expect(addToWishlist.mock.calls[0][0].isbn).toBeUndefined();
   });
 });
+
+describe('WishlistScreen pull-to-refresh', () => {
+  beforeEach(() => {
+    const { getWishlist } = require('@/lib/api/client');
+    getWishlist.mockClear();
+  });
+
+  it('supports pull-to-refresh that refetches wishlist', async () => {
+    const { getWishlist } = require('@/lib/api/client');
+    getWishlist.mockClear();
+    const { findByTestId } = renderWishlist();
+    // Wait for initial load
+    await waitFor(() => expect(getWishlist).toHaveBeenCalledTimes(1));
+
+    const scroll = await findByTestId('wishlist-scroll');
+    // Simulate pull-to-refresh
+    const RefreshControl = require('react-native').RefreshControl;
+    // Trigger the onRefresh callback
+    scroll.props.refreshControl.props.onRefresh();
+    await waitFor(() => expect(getWishlist).toHaveBeenCalledTimes(2));
+  });
+});

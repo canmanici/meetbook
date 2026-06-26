@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
+  RefreshControl,
   useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,16 +36,26 @@ export default function WishlistScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [isbn, setIsbn] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const { data: wishlistData, isLoading: wishlistLoading } = useQuery({
+  const { data: wishlistData, isLoading: wishlistLoading, refetch: refetchWishlist } = useQuery({
     queryKey: ['wishlist'],
     queryFn: getWishlist,
   });
 
-  const { data: matchesData, isLoading: matchesLoading } = useQuery({
+  const { data: matchesData, isLoading: matchesLoading, refetch: refetchMatches } = useQuery({
     queryKey: ['wishlist-matches'],
     queryFn: getWishlistMatches,
   });
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchWishlist(), refetchMatches()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchWishlist, refetchMatches]);
 
   const addMutation = useMutation({
     mutationFn: addToWishlist,
@@ -99,8 +110,12 @@ export default function WishlistScreen() {
       </View>
 
       <ScrollView
+        testID="wishlist-scroll"
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+        }
       >
         {wishlistLoading || matchesLoading ? (
           <>

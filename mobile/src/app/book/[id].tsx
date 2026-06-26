@@ -2,13 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
   Image,
   Linking,
+  RefreshControl,
   ScrollView,
   Share,
   StyleSheet,
@@ -59,6 +60,19 @@ export default function BookDetailScreen() {
   const toast = useToast();
   const galleryRef = useRef<ScrollView>(null);
   const formInitialized = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['books', id] }),
+        queryClient.invalidateQueries({ queryKey: ['exchanges', 'received'] }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient, id]);
 
   const pickedLocation = useBookDraftStore((state) => state.pickedLocation);
   const clearPickedLocation = useBookDraftStore((state) => state.clearPickedLocation);
@@ -432,9 +446,13 @@ export default function BookDetailScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
+        testID="book-scroll"
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+        }>
         {/* Photo Gallery */}
         <View style={styles.galleryContainer}>
           {photos.length > 0 ? (

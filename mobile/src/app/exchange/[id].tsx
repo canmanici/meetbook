@@ -2,12 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { MapView, Marker } from '@/lib/map-adapter';
 import {
   ActivityIndicator,
   Alert,
   Linking,
+  RefreshControl,
   ScrollView,
   Share,
   StyleSheet,
@@ -113,6 +114,7 @@ export default function ExchangeDetailScreen() {
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
   const queryClient = useQueryClient();
   const userId = useAuthStore((state) => state.user?.id);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { data: exchange, isLoading, error } = useQuery({
     queryKey: ['exchanges', id],
@@ -123,6 +125,18 @@ export default function ExchangeDetailScreen() {
     queryKey: ['me'],
     queryFn: () => getMe(),
   });
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['exchanges', id] }),
+        queryClient.invalidateQueries({ queryKey: ['me'] }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient, id]);
 
   const [meetupSafetySheetVisible, setMeetupSafetySheetVisible] = useState(false);
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
@@ -347,8 +361,12 @@ export default function ExchangeDetailScreen() {
 
   return (
     <ScrollView
+      testID="exchange-scroll"
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+      }
     >
       {/* Book + Counterpart Card */}
       <Card style={styles.bookCounterpartCard}>

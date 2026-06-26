@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, useColorScheme, Alert } from 'react-native';
+import { useCallback, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, useColorScheme, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, EmptyState, Skeleton, palette, spacing, fontSize, radius } from '@/components/ui';
@@ -13,12 +14,22 @@ export default function BlockedUsersScreen() {
   const colors = palette[isDark ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['blocked-users'],
     queryFn: () => listBlockedUsers(),
   });
   const items = data?.items ?? [];
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
 
   const unblockMutation = useMutation({
     mutationFn: (userId: string) => unblockUser(userId),
@@ -50,7 +61,14 @@ export default function BlockedUsersScreen() {
         <View style={[styles.headerBorder, { backgroundColor: colors.textMuted, opacity: 0.15 }]} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        testID="blocked-scroll"
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+        }
+      >
         {isLoading ? (
           <>
             <Skeleton variant="list-item" />

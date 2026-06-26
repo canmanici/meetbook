@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +10,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
+  RefreshControl,
   useColorScheme,
   ActivityIndicator,
 } from 'react-native';
@@ -24,6 +26,8 @@ export default function UserProfileScreen() {
   const isDark = scheme === 'dark';
   const colors = palette[isDark ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
 
   const {
     data: profile,
@@ -44,6 +48,18 @@ export default function UserProfileScreen() {
       }),
     enabled: !!id,
   });
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['user', id] }),
+        queryClient.invalidateQueries({ queryKey: ['user-books', id] }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient, id]);
 
   const userBooks = booksData?.items ?? [];
 
@@ -89,9 +105,13 @@ export default function UserProfileScreen() {
 
   return (
     <ScrollView
+      testID="user-scroll"
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={{ paddingBottom: spacing.xxxl }}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+      }
     >
       {/* Header with back button */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
