@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { Avatar, Badge, Button, Card, BookCover, SafetySheet, Sheet, Skeleton, TimelineStep, TrustBadge, palette, spacing, fontSize, radius } from '@/components/ui';
 import { ChipSelect } from '@/components/chip-select';
@@ -152,6 +153,15 @@ export default function ExchangeDetailScreen() {
   const [safetyMode, setSafetyMode] = useState(false);
   const [safetyStopAt, setSafetyStopAt] = useState<number | null>(null);
   const [safetyCountdown, setSafetyCountdown] = useState('');
+
+  // T41: post-meetup check-in
+  const [checkInDismissed, setCheckInDismissed] = useState(false);
+  // T42: meetup countdown + prep checklist
+  const [now, setNow] = useState(() => Date.now());
+  const [checklist, setChecklist] = useState<boolean[]>([false, false, false]);
+
+  const CHECKLIST_ITEMS = ['Kitabı hazırla', 'Telefonun şarjı dolu', 'Arkadaşına haber ver'];
+  const checklistKey = id ? `@meetbook_checklist_${id}` : null;
 
   const invalidate = async (updated: ExchangeDetail) => {
     queryClient.setQueryData(['exchanges', id], updated);
@@ -309,6 +319,46 @@ export default function ExchangeDetailScreen() {
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [safetyStopAt]);
+
+  // T42: countdown timer — tick every second while a meetup is confirmed
+  const meetupScheduledAt = exchange?.meetup?.scheduled_at;
+  useEffect(() => {
+    if (!meetupScheduledAt || exchange?.status !== 'meetup_confirmed') return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [meetupScheduledAt, exchange?.status]);
+
+  // T42: load prep checklist from AsyncStorage per exchange
+  useEffect(() => {
+    if (!checklistKey || !meetupScheduledAt || exchange?.status !== 'meetup_confirmed') return;
+    AsyncStorage.getItem(checklistKey)
+      .then((stored) => {
+        if (!stored) return;
+        try {
+          const parsed = JSON.parse(stored) as unknown;
+          if (Array.isArray(parsed) && parsed.length === CHECKLIST_ITEMS.length) {
+            setChecklist(parsed as boolean[]);
+          }
+        } catch {
+          // ignore malformed payload
+        }
+      })
+      .catch(() => undefined);
+  }, [checklistKey, meetupScheduledAt, exchange?.status]);
+
+  const toggleChecklistItem = useCallback(
+    (index: number) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setChecklist((prev) => {
+        const next = prev.map((value, i) => (i === index ? !value : value));
+        if (checklistKey) {
+          AsyncStorage.setItem(checklistKey, JSON.stringify(next)).catch(() => undefined);
+        }
+        return next;
+      });
+    },
+    [checklistKey],
+  );
 
   const acceptMeetupMutation = useMutation({
     mutationFn: ({ offerIndex, acknowledgeWarning }: { offerIndex: number; acknowledgeWarning: boolean }) =>
@@ -483,6 +533,31 @@ export default function ExchangeDetailScreen() {
   };
 
   const coverUrl = exchange.book.photos?.[0]?.url;
+
+  // T41/T42: time-based derived state for countdown + post-meetup check-in
+  const meetupTimeMs = meetup ? new Date(meetup.scheduled_at).getTime() : 0;
+  const oneHourAfterMeetupMs = meetupTimeMs + 60 * 60 * 1000;
+  const isMeetupConfirmed = exchange.status === 'meetup_confirmed' && !!meetup;
+  const showMeetupCountdown = isMeetupConfirmed && now < meetupTimeMs;
+  const showPostMeetupCheckIn = isMeetupConfirmed && now >= oneHourAfterMeetupMs && !checkInDismissed;
+
+  const remainingMs = Math.max(0, meetupTimeMs - now);
+  const countdownDays = Math.floor(remainingMs / 86400000);
+  const countdownHours = Math.floor((remainingMs % 86400000) / 3600000);
+  const countdownMinutes = Math.floor((remainingMs % 3600000) / 60000);
+
+  const onCheckInResponse = (response: 'success' | 'neutral' | 'danger') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (response === 'danger') {
+      setCheckInDismissed(true);
+      setReportSheetVisible(true);
+      return;
+    }
+    if (response === 'success') {
+      toast.show('Teşekkürler! Güven puanına katkı sağlandı', { variant: 'success' });
+    }
+    setCheckInDismissed(true);
+  };
 
   return (
     <ScrollView
@@ -890,6 +965,91 @@ export default function ExchangeDetailScreen() {
               </>
             )
           )}
+        </Card>
+      )}
+
+      {/* T42: Meetup countdown + prep checklist */}
+      {showMeetupCountdown && (
+        <Card
+          style={[styles.countdownCard, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '40' }]}
+        >
+          <View style={styles.countdownHeader}>
+            <Ionicons name="time-outline" size={20} color={colors.primary} />
+            <Text style={[styles.countdownTitle, { color: colors.primary }]}>Buluşmaya Kalan Süre</Text>
+          </View>
+          <Text style={[styles.countdownValue, { color: colors.text }]} testID="meetup-countdown-value">
+            Buluşmaya {countdownDays} gün {countdownHours} saat {countdownMinutes} dakika
+          </Text>
+
+          <View style={[styles.checklistDivider, { backgroundColor: colors.textMuted + '20' }]} />
+          <Text style={[styles.checklistTitle, { color: colors.text }]}>Hazırlık Listesi</Text>
+          {CHECKLIST_ITEMS.map((label, index) => {
+            const checked = checklist[index];
+            return (
+              <TouchableOpacity
+                key={index}
+                onPress={() => toggleChecklistItem(index)}
+                style={styles.checklistRow}
+                testID={`prep-checklist-item-${index}`}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked }}
+                accessibilityLabel={label}
+              >
+                <Ionicons
+                  name={checked ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={checked ? colors.primary : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.checklistLabel,
+                    { color: checked ? colors.text : colors.textMuted },
+                    checked && styles.checklistLabelDone,
+                  ]}
+                >
+                  {checked ? '☑' : '☐'} {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </Card>
+      )}
+
+      {/* T41: Post-meetup check-in */}
+      {showPostMeetupCheckIn && (
+        <Card style={styles.checkInCard}>
+          <Text style={[styles.checkInTitle, { color: colors.text }]} testID="post-meetup-checkin-card">
+            Buluşma nasıl geçti?
+          </Text>
+          <View style={styles.checkInActions}>
+            <TouchableOpacity
+              onPress={() => onCheckInResponse('success')}
+              style={[styles.checkInButton, { backgroundColor: colors.success }]}
+              testID="checkin-success-button"
+              accessibilityRole="button"
+              accessibilityLabel="Harikaydı"
+            >
+              <Text style={styles.checkInButtonText}>Harikaydı</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => onCheckInResponse('neutral')}
+              style={[styles.checkInButton, { backgroundColor: colors.textMuted }]}
+              testID="checkin-neutral-button"
+              accessibilityRole="button"
+              accessibilityLabel="İdare eder"
+            >
+              <Text style={styles.checkInButtonText}>İdare eder</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => onCheckInResponse('danger')}
+              style={[styles.checkInButton, { backgroundColor: colors.danger }]}
+              testID="checkin-danger-button"
+              accessibilityRole="button"
+              accessibilityLabel="Sorun oldu"
+            >
+              <Text style={styles.checkInButtonText}>Sorun oldu</Text>
+            </TouchableOpacity>
+          </View>
         </Card>
       )}
 
@@ -1669,5 +1829,69 @@ const styles = StyleSheet.create({
     fontSize: fontSize.body,
     textAlign: 'center',
     paddingVertical: spacing.md,
+  },
+  countdownCard: {
+    padding: spacing.md,
+    borderWidth: 1,
+    gap: spacing.xs,
+  },
+  countdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  countdownTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+  },
+  countdownValue: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+  },
+  checklistDivider: {
+    height: 1,
+    marginVertical: spacing.sm,
+  },
+  checklistTitle: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  checklistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  checklistLabel: {
+    fontSize: fontSize.body,
+    flex: 1,
+  },
+  checklistLabelDone: {
+    textDecorationLine: 'line-through',
+  },
+  checkInCard: {
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  checkInTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+  },
+  checkInActions: {
+    gap: spacing.sm,
+  },
+  checkInButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  checkInButtonText: {
+    color: '#ffffff',
+    fontSize: fontSize.body,
+    fontWeight: '700',
   },
 });

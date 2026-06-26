@@ -100,6 +100,7 @@ const DRIFT_THRESHOLD = 0.2; // 20% of viewport
 // in the viewport than we fetched. Zooming in re-queries a smaller bbox and
 // reveals the true count for that area.
 const BBOX_LIMIT = 50;
+const SAVED_SEARCHES_KEY = 'meetbook-saved-searches';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -595,6 +596,27 @@ export default function HomeScreen() {
 
   const filterCount = [activeFilters.category, activeFilters.condition, activeFilters.language].filter(Boolean).length;
 
+  // ── Save current search to AsyncStorage (saved-searches feature) ───────────
+  const handleSaveSearch = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const raw = await AsyncStorage.getItem(SAVED_SEARCHES_KEY);
+      const list = raw ? (JSON.parse(raw) as any[]) : [];
+      const newSearch = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        category: selectedCategory ?? activeFilters.category ?? null,
+        radius_km: activeFilters.radiusKm,
+        lat: mapRegion.latitude,
+        lng: mapRegion.longitude,
+        created_at: new Date().toISOString(),
+      };
+      await AsyncStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify([newSearch, ...list]));
+      toast.show('Arama kaydedildi', { variant: 'success' });
+    } catch {
+      toast.show('Kaydetme başarısız', { variant: 'error' });
+    }
+  }, [selectedCategory, activeFilters, mapRegion, toast]);
+
   // ── Chip select (with haptic) ──────────────────────────────────────────────
   const handleChipPress = useCallback((cat: BookCategory | null) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -985,6 +1007,17 @@ export default function HomeScreen() {
               <View style={[styles.filterBtn, { backgroundColor: isDark ? 'rgba(33,31,26,0.90)' : 'rgba(255,255,255,0.92)' }]}>
                 <Ionicons name="notifications" size={20} color={colors.primary} />
                 {unreadCount > 0 && <View style={styles.bellDot} testID="notifications-unread-dot" />}
+              </View>
+            </TouchableOpacity>
+
+            {/* Save current search → AsyncStorage (saved-searches feature) */}
+            <TouchableOpacity
+              onPress={handleSaveSearch}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              testID="save-search"
+            >
+              <View style={[styles.filterBtn, { backgroundColor: isDark ? 'rgba(33,31,26,0.90)' : 'rgba(255,255,255,0.92)' }]}>
+                <Ionicons name="bookmark-outline" size={20} color={colors.primary} />
               </View>
             </TouchableOpacity>
           </View>

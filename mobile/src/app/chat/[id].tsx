@@ -13,6 +13,7 @@ import {
   Animated,
   Dimensions,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -37,7 +38,8 @@ import {
 import { useShallow } from 'zustand/react/shallow';
 import { useChatStore } from '@/stores/chat-store';
 import { useAuthStore } from '@/stores/auth-store';
-import { getExchange } from '@/lib/api/client';
+import { getExchange, listMyBooks, type BookListResponse } from '@/lib/api/client';
+import { BookCover } from '@/components/ui/book-cover';
 
 // ---------------------------------------------------------------------------
 // Date separator helpers
@@ -108,6 +110,7 @@ export default function ChatDetailScreen() {
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showBookPicker, setShowBookPicker] = useState(false);
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<MessageView[]>([]);
@@ -147,6 +150,14 @@ export default function ChatDetailScreen() {
   const counterpartId = exchange?.counterpart?.id ?? chatSummary?.counterpart_id;
 
   const isOtherTyping = counterpartId && typingState[counterpartId];
+
+  // ---- My books (for book sharing picker) ----
+  const { data: myBooksData, isLoading: isLoadingBooks } = useQuery({
+    queryKey: ['my-books-picker'],
+    queryFn: () => listMyBooks({ limit: 100 }),
+    enabled: showBookPicker,
+  });
+  const myBooks = myBooksData?.items ?? [];
 
   // ---- Messages ----
   const {
@@ -259,6 +270,25 @@ export default function ChatDetailScreen() {
     setTimeout(() => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', exchangeId] });
       setIsSending(false);
+    }, 500);
+  };
+
+  // ---- Send book card ----
+  const handleSendBook = (book: BookListResponse['items'][number]) => {
+    if (!chatId) return;
+    const coverUrl = book.photos?.[0]?.thumbnail_url ?? book.photos?.[0]?.url ?? undefined;
+    sendMessage(chatId, '', null, 'book_card', {
+      book_id: book.id,
+      title: book.title,
+      author: book.author ?? undefined,
+      cover_url: coverUrl,
+      category: book.category,
+    });
+    setShowBookPicker(false);
+    setShowEmojiPicker(false);
+    scrollToBottom(true);
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', exchangeId] });
     }, 500);
   };
 
@@ -564,6 +594,17 @@ export default function ChatDetailScreen() {
           <Ionicons name="happy-outline" size={24} color={colors.primary} />
         </TouchableOpacity>
 
+        {/* Book share button */}
+        <TouchableOpacity
+          style={[styles.inputAction, { backgroundColor: colors.surfaceAlt }]}
+          onPress={() => setShowBookPicker(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Kitap paylaş"
+          testID="chat-book-share"
+        >
+          <Ionicons name="book-outline" size={22} color={colors.primary} />
+        </TouchableOpacity>
+
         {/* Text input */}
         <View style={[styles.inputWrapper, { backgroundColor: colors.background, borderColor: colors.border }]}>
           <TextInput
@@ -610,6 +651,61 @@ export default function ChatDetailScreen() {
           setShowEmojiPicker(false);
         }}
       />
+
+      {/* ---- Book picker ---- */}
+      <Modal visible={showBookPicker} transparent animationType="slide" onRequestClose={() => setShowBookPicker(false)}>
+        <TouchableOpacity style={styles.bookPickerOverlay} activeOpacity={1} onPress={() => setShowBookPicker(false)}>
+          <View
+            style={[styles.bookPickerContainer, { backgroundColor: colors.surface, ...shadows.sheet }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={[styles.handle, { backgroundColor: colors.border }]} />
+            <Text style={[styles.bookPickerTitle, { color: colors.text }]}>Kitap Paylaş</Text>
+
+            {isLoadingBooks ? (
+              <ActivityIndicator size="large" color={colors.primary} style={{ padding: spacing.md }} />
+            ) : myBooks.length === 0 ? (
+              <View style={styles.bookPickerEmpty}>
+                <Ionicons name="book-outline" size={36} color={colors.textMuted} />
+                <Text style={[styles.bookPickerEmptyText, { color: colors.textMuted }]}>
+                  Paylaşabileceğiniz kitap yok
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={myBooks}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.bookPickerList}
+                renderItem={({ item }) => {
+                  const coverUrl = item.photos?.[0]?.thumbnail_url ?? item.photos?.[0]?.url ?? null;
+                  return (
+                    <TouchableOpacity
+                      style={[styles.bookPickerItem, { borderBottomColor: colors.border }]}
+                      onPress={() => handleSendBook(item)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Paylaş: ${item.title}`}
+                      testID={`book-picker-item-${item.id}`}
+                    >
+                      <BookCover url={coverUrl} size={40} />
+                      <View style={styles.bookPickerInfo}>
+                        <Text style={[styles.bookPickerBookTitle, { color: colors.text }]} numberOfLines={1}>
+                          {item.title}
+                        </Text>
+                        {item.author && (
+                          <Text style={[styles.bookPickerAuthor, { color: colors.textMuted }]} numberOfLines={1}>
+                            {item.author}
+                          </Text>
+                        )}
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -845,5 +941,61 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.float,
+  },
+  // Book picker sheet
+  bookPickerOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  bookPickerContainer: {
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    maxHeight: '60%',
+    paddingBottom: 34,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  bookPickerTitle: {
+    fontSize: fontSize.title,
+    fontWeight: '700',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  bookPickerEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: spacing.sm,
+  },
+  bookPickerEmptyText: {
+    fontSize: fontSize.bodySm,
+  },
+  bookPickerList: {
+    paddingHorizontal: spacing.md,
+  },
+  bookPickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  bookPickerInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  bookPickerBookTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '600',
+  },
+  bookPickerAuthor: {
+    fontSize: fontSize.caption,
   },
 });

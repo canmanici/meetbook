@@ -109,6 +109,8 @@ export default function RootLayout() {
           <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="notifications" options={{ headerShown: false }} />
+          <Stack.Screen name="saved-searches" options={{ headerShown: false }} />
+          <Stack.Screen name="year-in-review" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack>
         <ServerErrorOverlay />

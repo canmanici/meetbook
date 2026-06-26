@@ -11,15 +11,25 @@ import {
   TouchableOpacity,
   RefreshControl,
   useColorScheme,
-  ActivityIndicator,
+  Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, Badge, BookCover, Skeleton, palette, pastels, spacing, fontSize, radius, shadows } from '@/components/ui';
 import { getUser, listMyBooks, searchNearbyBooks, type UserPublicProfile } from '@/lib/api/client';
-import { BOOK_CATEGORY_LABELS } from '@/constants/books';
+import { BOOK_CATEGORY_LABELS, type BookCategory } from '@/constants/books';
 import { computeCompatibility, extractCategories } from '@/lib/compatibility';
 import { Svg, Circle } from 'react-native-svg';
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  fiction: '📖',
+  non_fiction: '🧠',
+  textbook: '🎓',
+  children: '🧸',
+  comics: '💥',
+  poetry: '🪶',
+  other: '📚',
+};
 
 function CompatibilityRing({
   score,
@@ -123,6 +133,25 @@ export default function UserProfileScreen() {
     return result.hasSignal ? result : null;
   }, [myBooks, userBooks]);
 
+  // T50 — Reading identity card derived from this user's books.
+  const identity = useMemo(() => {
+    const counts: Record<string, number> = {};
+    let total = 0;
+    for (const b of userBooks as any[]) {
+      const c = (b.category || 'other') as string;
+      counts[c] = (counts[c] || 0) + 1;
+      total++;
+    }
+    const entries = Object.entries(counts)
+      .map(([cat, n]) => ({
+        cat: cat as BookCategory,
+        n,
+        pct: total ? Math.round((n / total) * 100) : 0,
+      }))
+      .sort((a, b) => b.n - a.n);
+    return { entries, total };
+  }, [userBooks]);
+
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -152,6 +181,10 @@ export default function UserProfileScreen() {
     ? ['#1C403A', '#10231F']
     : ['#15917A', '#0C5E50'];
 
+  const identityGradient: [string, string] = isDark
+    ? ['#3A2A6B', '#1B1338']
+    : ['#6B4EE0', '#3A1F8C'];
+
   const stats = [
     { value: profile.completed_exchanges, label: 'takas', icon: 'swap-horizontal' as const },
     { value: profile.loans_borrowed_count ?? 0, label: 'ödünç', icon: 'book' as const },
@@ -162,6 +195,22 @@ export default function UserProfileScreen() {
     },
     { value: profile.trust_score ?? 0, label: 'güven', icon: 'shield-checkmark' as const },
   ];
+
+  const shareIdentity = () => {
+    if (identity.total === 0) return;
+    const lines = identity.entries.map(
+      (e) => `${BOOK_CATEGORY_LABELS[e.cat] ?? e.cat}: %${e.pct}`,
+    );
+    Share.share({
+      message: `${profile.name}'in okuma kimliği\n${lines.join('\n')}\nMeetBook`,
+    });
+  };
+
+  // Chunk user books into rows of 2 for the shelf grid.
+  const bookRows: any[][] = [];
+  for (let i = 0; i < userBooks.length; i += 2) {
+    bookRows.push((userBooks as any[]).slice(i, i + 2));
+  }
 
   return (
     <ScrollView
@@ -234,9 +283,80 @@ export default function UserProfileScreen() {
         ))}
       </View>
 
-      {/* User's books */}
+      {/* T50 — Reading identity card */}
+      <View style={styles.identityWrap}>
+        <LinearGradient
+          colors={identityGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.identityCard}
+        >
+          <View style={styles.identityHeader}>
+            <View style={styles.identityTitleRow}>
+              <View style={styles.identityIconBadge}>
+                <Ionicons name="book" size={18} color="#fff" />
+              </View>
+              <View>
+                <Text style={styles.identityTitle}>Okuma Kimliği</Text>
+                <Text style={styles.identitySub}>
+                  {identity.total} kitap · {identity.entries.length} tür
+                </Text>
+              </View>
+            </View>
+            {identity.total > 0 && (
+              <TouchableOpacity
+                style={styles.identityShareBtn}
+                onPress={shareIdentity}
+                activeOpacity={0.7}
+                hitSlop={8}
+                testID="share-identity-button"
+              >
+                <Ionicons name="share-outline" size={18} color="#fff" />
+                <Text style={styles.identityShareText}>Paylaş</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {identity.total === 0 ? (
+            <Text style={styles.identityEmpty}>
+              Bu kullanıcı henüz kitap eklemedi
+            </Text>
+          ) : (
+            <>
+              <View style={styles.identityTop}>
+                <Text style={styles.identityBigPct}>
+                  {identity.entries[0].pct}%
+                </Text>
+                <Text style={styles.identityTopLabel}>
+                  {BOOK_CATEGORY_LABELS[identity.entries[0].cat]}
+                </Text>
+              </View>
+              <View style={styles.identityBars}>
+                {identity.entries.slice(0, 5).map((e) => (
+                  <View key={e.cat} style={styles.identityBarRow}>
+                    <Text style={styles.identityBarLabel}>
+                      {CATEGORY_EMOJI[e.cat] ?? '📚'} {BOOK_CATEGORY_LABELS[e.cat] ?? e.cat}
+                    </Text>
+                    <View style={styles.identityBarTrack}>
+                      <View
+                        style={[
+                          styles.identityBarFill,
+                          { width: `${Math.max(e.pct, 4)}%` },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.identityBarPct}>{e.pct}%</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+        </LinearGradient>
+      </View>
+
+      {/* T38 — Bookshelf grid */}
       <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Kitapları</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Kitaplığı</Text>
       </View>
 
       {userBooks.length === 0 ? (
@@ -247,39 +367,52 @@ export default function UserProfileScreen() {
           <Text style={[styles.emptyText, { color: colors.text }]}>Henüz kitap eklenmemiş</Text>
         </View>
       ) : (
-        <View style={[styles.booksCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          {userBooks.map((book, idx) => (
-            <TouchableOpacity
-              key={book.id}
-              style={[
-                styles.bookRow,
-                idx < userBooks.length - 1 && {
-                  borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: colors.border,
-                },
-              ]}
-              onPress={() => router.push(`/book/${book.id}`)}
-              activeOpacity={0.7}
-            >
-              {book.photos?.[0]?.url ? (
-                <BookCover url={book.photos[0].url} size={40} />
-              ) : (
-                <View style={[styles.bookThumb, styles.bookThumbEmpty, { backgroundColor: colors.surfaceAlt }]}>
-                  <Ionicons name="book-outline" size={20} color={colors.textMuted} />
-                </View>
-              )}
-              <View style={styles.bookInfo}>
-                <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={1}>
-                  {book.title}
-                </Text>
-                {book.author ? (
-                  <Text style={[styles.bookAuthor, { color: colors.textMuted }]} numberOfLines={1}>
-                    {book.author}
+        <View style={styles.shelfWrap}>
+          {bookRows.map((row, ri) => (
+            <View key={ri} style={styles.shelfRow}>
+              {row.map((book) => (
+                <TouchableOpacity
+                  key={book.id}
+                  testID={`book-cell-${book.id}`}
+                  style={[
+                    styles.shelfCell,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    shadows.card,
+                  ]}
+                  onPress={() => router.push(`/book/${book.id}`)}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.shelfCoverBox}>
+                    <BookCover url={book.photos?.[0]?.url} size={120} radius={radius.input} />
+                    <View
+                      style={[
+                        styles.shelfAvailBadge,
+                        { backgroundColor: book.is_available ? colors.success : colors.warning },
+                      ]}
+                    >
+                      <Text style={styles.shelfAvailText}>
+                        {book.is_available ? 'Mevcut' : 'Takasta'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text
+                    style={[styles.shelfTitle, { color: colors.text }]}
+                    numberOfLines={2}
+                  >
+                    {book.title}
                   </Text>
-                ) : null}
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
+                  {book.author ? (
+                    <Text
+                      style={[styles.shelfAuthor, { color: colors.textMuted }]}
+                      numberOfLines={1}
+                    >
+                      {book.author}
+                    </Text>
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+              {row.length === 1 && <View style={styles.shelfSpacer} />}
+            </View>
           ))}
         </View>
       )}
@@ -376,7 +509,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
     marginTop: -spacing.xxl,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   statCard: {
     flex: 1,
@@ -397,6 +530,8 @@ const styles = StyleSheet.create({
     fontSize: fontSize.bodySm,
     fontWeight: '600',
   },
+
+  // --- T38: Bookshelf grid ---
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -429,35 +564,163 @@ const styles = StyleSheet.create({
     fontSize: fontSize.body,
     fontWeight: '800',
   },
-  booksCard: {
+
+  // --- T50: Reading identity card ---
+  identityWrap: {
     marginHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
     borderRadius: radius.card,
-    borderWidth: 1,
     overflow: 'hidden',
+    ...shadows.float,
   },
-  bookRow: {
+  identityCard: {
+    padding: spacing.lg,
+  },
+  identityHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
   },
-  bookThumb: {
-    width: 40,
-    height: 56,
-    borderRadius: radius.input,
+  identityTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  bookThumbEmpty: {
+  identityIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.field,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  bookInfo: {
+  identityTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '900',
+    color: '#fff',
+    letterSpacing: -0.2,
+  },
+  identitySub: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: 1,
+  },
+  identityShareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  identityShareText: {
+    color: '#fff',
+    fontSize: fontSize.caption,
+    fontWeight: '800',
+  },
+  identityEmpty: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingVertical: spacing.md,
+  },
+  identityTop: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  identityBigPct: {
+    fontSize: fontSize.display,
+    fontWeight: '900',
+    color: '#fff',
+    letterSpacing: -1,
+  },
+  identityTopLabel: {
+    fontSize: fontSize.body,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.9)',
+  },
+  identityBars: {
+    gap: spacing.sm,
+  },
+  identityBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  identityBarLabel: {
+    width: 110,
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.92)',
+  },
+  identityBarTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    overflow: 'hidden',
+  },
+  identityBarFill: {
+    height: '100%',
+    borderRadius: radius.pill,
+    backgroundColor: '#fff',
+  },
+  identityBarPct: {
+    width: 34,
+    textAlign: 'right',
+    fontSize: fontSize.caption,
+    fontWeight: '800',
+    color: '#fff',
+  },
+
+  // --- T38: Bookshelf grid ---
+  shelfWrap: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+    gap: spacing.md,
+  },
+  shelfRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  shelfCell: {
+    flex: 1,
+    padding: spacing.sm,
+    borderRadius: radius.card,
+    borderWidth: 1,
+  },
+  shelfSpacer: {
     flex: 1,
   },
-  bookTitle: {
-    fontSize: fontSize.bodySm,
-    fontWeight: '700',
+  shelfCoverBox: {
+    alignItems: 'center',
+    marginBottom: spacing.sm,
   },
-  bookAuthor: {
+  shelfAvailBadge: {
+    marginTop: -14,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    alignSelf: 'center',
+  },
+  shelfAvailText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  shelfTitle: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '800',
+    lineHeight: 17,
+  },
+  shelfAuthor: {
     fontSize: fontSize.caption,
     fontWeight: '500',
     marginTop: 2,
