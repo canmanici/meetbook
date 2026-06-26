@@ -63,10 +63,13 @@ export default function MyBooksTab() {
     queryKey: ['books', 'me'],
     queryFn: ({ pageParam }) => listMyBooks({ cursor: pageParam, limit: 20 }),
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+    getNextPageParam: (lastPage) => lastPage?.next_cursor ?? undefined,
   });
 
-  const allBooks = useMemo(() => (data?.pages.flatMap((p) => p.items) ?? []) as BookOwnerView[], [data]);
+  const allBooks = useMemo(
+    () => (data?.pages.flatMap((p) => p?.items ?? []) ?? []) as BookOwnerView[],
+    [data],
+  );
 
   const filteredBooks = useMemo(() => {
     let books = allBooks;

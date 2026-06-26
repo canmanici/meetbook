@@ -44,7 +44,6 @@ const MENU_ITEMS = [
   { key: 'blocked', label: 'Engellenen Kullanıcılar', icon: 'ban' as const, tint: 'coral' as PastelName, route: '/settings/blocked-users' as const },
   { key: 'wishlist', label: 'İstek Listem', icon: 'heart' as const, tint: 'blush' as PastelName, route: '/wishlist' as const },
   { key: 'yir', label: 'Yılın Özeti', icon: 'sparkles' as const, tint: 'blush' as PastelName, route: '/year-in-review' as const },
-  { key: 'yir', label: 'Yılın Özeti', icon: 'sparkles' as const, tint: 'blush' as PastelName, route: '/year-in-review' as const },
   { key: 'settings', label: 'Ayarlar', icon: 'settings-sharp' as const, tint: 'sky' as PastelName, route: '/settings' as const },
 ] as const;
 
@@ -108,7 +107,7 @@ export default function ProfileScreen() {
   // Sync geofence radius from server
   useEffect(() => {
     const r = (meData as any)?.geofence_radius_km;
-    if (typeof r === 'number' && r >= 1 && r <= 100) {
+    if (typeof r === 'number' && r >= 1 && r <= 200) {
       setRadiusKm(r);
     }
   }, [meData]);
@@ -124,7 +123,7 @@ export default function ProfileScreen() {
   }, [params.edit, user?.name]);
 
   const { data: booksData } = useQuery({
-    queryKey: ['books', 'me'],
+    queryKey: ['books', 'me', 'flat'],
     queryFn: () => listMyBooks(),
   });
   const books = booksData?.items ?? [];
@@ -140,8 +139,8 @@ export default function ProfileScreen() {
     queryKey: ['passport', user?.id],
     queryFn: async () => {
       const [received, sent] = await Promise.all([
-        listExchanges({ role: 'received', status: 'completed', limit: 100 }),
-        listExchanges({ role: 'sent', status: 'completed', limit: 100 }),
+        listExchanges({ role: 'received', status: 'completed', limit: 50 }),
+        listExchanges({ role: 'sent', status: 'completed', limit: 50 }),
       ]);
       const seen = new Set<string>();
       const summaries = [...received.items, ...sent.items].filter((e) => {

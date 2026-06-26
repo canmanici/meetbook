@@ -92,7 +92,7 @@ export default function CreateClubScreen() {
 
   // Current user's real library.
   const { data: myBooksData, isLoading: myBooksLoading } = useQuery({
-    queryKey: ['books', 'me'],
+    queryKey: ['books', 'me', 'flat'],
     queryFn: () => listMyBooks({ limit: 50 }),
     retry: false,
   });
