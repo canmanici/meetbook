@@ -3,12 +3,24 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 2G
+        reservations:
+          memory: 512M
     image: postgis/postgis:16-3.4
     environment:
       POSTGRES_USER: meetbook
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: meetbook
+    command: >
+      postgres
+      -c shared_buffers=512MB
+      -c effective_cache_size=1536MB
+      -c maintenance_work_mem=128MB
+      -c wal_buffers=16MB
+      -c max_worker_processes=4
+      -c max_parallel_workers_per_gather=2
+      -c max_parallel_workers=4
+      -c random_page_cost=1.1
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +32,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes", "--appendfsync", "everysec"]
     volumes:
       - redisdata:/data
     healthcheck:
@@ -89,6 +101,7 @@ services:
       S3_BUCKET: meetbook-photos
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
+      UVICORN_WORKERS: "2"
       CORS_ORIGINS: https://canmanici.com
       GOOGLE_PLACES_KEY: ${GOOGLE_PLACES_KEY:-}
       SMS_PROVIDER_KEY: ${SMS_PROVIDER_KEY:-}
@@ -102,10 +115,15 @@ services:
       minio:
         condition: service_healthy
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: '2'
           memory: 1G
         reservations:
           memory: 512M

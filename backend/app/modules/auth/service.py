@@ -15,6 +15,7 @@ from app.core.security import (
     hash_token,
     verify_password,
 )
+from app.core.s3 import upload_photo as s3_upload_photo
 from app.core.throttle import LoginThrottle
 from app.modules.auth.models import UserStatus
 from app.modules.auth.repository import AuthRepository
@@ -252,6 +253,7 @@ class AuthService:
             id=user.id,
             email=user.email,
             name=user.name,
+            avatar_url=user.avatar_url,
             trusted_contact_name=user.trusted_contact_name,
             trusted_contact_phone=user.trusted_contact_phone,
             geofence_radius_km=user.geofence_radius_km,
@@ -300,5 +302,59 @@ class AuthService:
             user.trusted_contact_phone = body.trusted_contact_phone
         if "geofence_radius_km" in sent and body.geofence_radius_km is not None:
             user.geofence_radius_km = body.geofence_radius_km
+        if "name" in sent and body.name is not None:
+            user.name = body.name
         await self.session.commit()
         return await self.get_me(user_id)
+
+    async def delete_account(self, user_id: uuid.UUID, password: str) -> None:
+        user = await self.repo.get_user_by_id(user_id)
+        if user is None:
+            raise AuthError("Not found", 404)
+
+        # Verify password
+        credential = await self.repo.get_credential_by_user_id(user_id)
+        if credential and not verify_password(password, credential.password_hash):
+            raise AuthError("Password is incorrect", 401)
+
+        # Anonymize PII
+        user.email = f"deleted-{user.id}@anon"
+        user.name = "Silinmiş Hesap"
+        user.phone = None
+        user.trusted_contact_name = None
+        user.trusted_contact_phone = None
+        user.status = UserStatus.deleted
+        user.updated_at = datetime.now(UTC)
+
+        # Revoke all tokens
+        await self.repo.revoke_all_user_tokens(user.id)
+
+        await log_event(self.session, "account_deleted", user_id=user.id)
+        await self.session.commit()
+
+    async def upload_avatar(
+        self, user_id: uuid.UUID, file_bytes: bytes, content_type: str
+    ) -> str:
+        user = await self.repo.get_user_by_id(user_id)
+        if user is None:
+            raise AuthError("Not found", 404)
+
+        allowed_types = {"image/jpeg", "image/png", "image/webp"}
+        if content_type not in allowed_types:
+            raise AuthError("INVALID_IMAGE_FORMAT", 400)
+
+        if len(file_bytes) > 5 * 1024 * 1024:
+            raise AuthError("FILE_TOO_LARGE", 400)
+
+        # Upload to S3 with user_id as "folder"
+        from app.core.s3 import _upload_s3, _is_s3_configured, _upload_local
+
+        if _is_s3_configured():
+            url = await _upload_s3(user_id, f"avatar_{user_id}", file_bytes, content_type)
+        else:
+            url = await _upload_local(user_id, f"avatar_{user_id}", file_bytes)
+
+        user.avatar_url = url
+        user.updated_at = datetime.now(UTC)
+        await self.session.commit()
+        return url

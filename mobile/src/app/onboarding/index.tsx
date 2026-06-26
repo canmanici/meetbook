@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useOnboardingStore } from '@/stores/onboarding-store';
 import { router } from 'expo-router';
 import {
   View,
@@ -63,8 +63,10 @@ export default function OnboardingScreen() {
     setRequesting(true);
     try {
       await Location.requestForegroundPermissionsAsync();
-      await AsyncStorage.setItem('hasOnboarded', 'true');
-      router.replace('/tabs/home');
+      await useOnboardingStore.getState().complete();
+      // Route through index so it can pick auth vs tabs based on auth status.
+      // Going straight to /tabs/home deadlocks when the user isn't logged in.
+      router.replace('/');
     } finally {
       setRequesting(false);
     }

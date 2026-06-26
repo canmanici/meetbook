@@ -122,7 +122,7 @@ class PhotoReorderRequest(BaseModel):
 class BookSearchParams(BaseModel):
     lat: float | None = Field(default=None, ge=-90, le=90)
     lng: float | None = Field(default=None, ge=-180, le=180)
-    radius_km: float = Field(default=10.0, ge=0.1, le=100.0)
+    radius_km: float = Field(default=10.0, ge=0.1, le=200.0)
     category: BookCategory | None = None
     language: str | None = None
     condition: BookCondition | None = None
@@ -195,3 +195,17 @@ class ReorderDelta(BaseModel):
 
 class ReorderBody(BaseModel):
     reorders: list[ReorderDelta]
+
+
+class FailedBookCreate(BaseModel):
+    index: int
+    error: str
+
+
+class BookBulkCreateRequest(BaseModel):
+    books: list[BookCreateRequest] = Field(min_length=1, max_length=50)
+
+
+class BookBulkCreateResponse(BaseModel):
+    items: list[BookOwnerView]
+    failed: list[FailedBookCreate] = []

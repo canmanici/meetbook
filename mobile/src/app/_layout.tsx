@@ -1,7 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useSegments } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, View, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -12,11 +11,20 @@ import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { ServerErrorOverlay } from '@/components/server-error-overlay';
 import { OfflineBanner } from '@/components/offline-banner';
 import { getMe } from '@/lib/api/client';
+import { crashReporter } from '@/lib/crash-reporter';
 import { queryClient } from '@/lib/query-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useThemeStore } from '@/stores/theme-store';
+import { useOnboardingStore } from '@/stores/onboarding-store';
 
 export default function RootLayout() {
+  // Initialize crash reporter once on app start
+  const reporterInitialized = useRef(false);
+  if (!reporterInitialized.current) {
+    reporterInitialized.current = true;
+    crashReporter.initialize();
+  }
+
   const systemScheme = useColorScheme();
   const themePref = useThemeStore((s) => s.preference);
   const loadPreference = useThemeStore((s) => s.loadPreference);
@@ -28,19 +36,15 @@ export default function RootLayout() {
   const user = useAuthStore((state) => state.user);
   const bootstrap = useAuthStore((state) => state.bootstrap);
 
-  const [hasOnboarded, setHasOnboarded] = useState<boolean | null>(null);
+  const hasOnboarded = useOnboardingStore((s) => s.hasOnboarded);
+  const loadOnboarding = useOnboardingStore((s) => s.load);
   const segments = useSegments();
 
   useEffect(() => {
     bootstrap();
     loadPreference();
-  }, [bootstrap, loadPreference]);
-
-  useEffect(() => {
-    AsyncStorage.getItem('hasOnboarded').then((value) => {
-      setHasOnboarded(value === null ? false : value === 'true');
-    });
-  }, [segments]);
+    loadOnboarding();
+  }, [bootstrap, loadPreference, loadOnboarding]);
 
   // After bootstrap confirms tokens exist, fetch the user profile.
   // This is separate from bootstrap() to avoid circular dependencies
@@ -61,6 +65,19 @@ export default function RootLayout() {
         });
     }
   }, [status, user]);
+
+  // Track current user for crash context
+  useEffect(() => {
+    if (user?.id) {
+      crashReporter.setUser(user.id);
+    }
+  }, [user?.id]);
+
+  // Track screen changes for crash context
+  useEffect(() => {
+    const screen = segments.join('/') || 'root';
+    crashReporter.setCurrentScreen(screen);
+  }, [segments]);
 
   if (hasOnboarded === null) {
     return (

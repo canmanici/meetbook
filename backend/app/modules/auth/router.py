@@ -3,7 +3,7 @@
 import uuid
 
 import redis.asyncio as aioredis
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -13,6 +13,7 @@ from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
 from app.modules.auth.schemas import (
     AuthTokensResponse,
+    DeleteAccountRequest,
     LoginRequest,
     LogoutRequest,
     MeResponse,
@@ -131,6 +132,33 @@ async def update_me(
 ) -> MeResponse:
     try:
         return await service.update_me(user.id, body)
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.delete("/me", status_code=204)
+async def delete_my_account(
+    body: DeleteAccountRequest,
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> Response:
+    try:
+        await service.delete_account(user.id, body.password)
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return Response(status_code=204)
+
+
+@router.post("/me/avatar", response_model=dict)
+async def upload_my_avatar(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> dict:
+    contents = await file.read()
+    try:
+        url = await service.upload_avatar(user.id, contents, file.content_type or "image/jpeg")
+        return {"avatar_url": url}
     except AuthError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 

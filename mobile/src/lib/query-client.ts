@@ -3,8 +3,9 @@ import NetInfo from '@react-native-community/netinfo';
 
 export const queryClient = new QueryClient();
 
-onlineManager.setOnlineState(false);
+// v5 renamed setOnlineState → setOnline
+onlineManager.setOnline(false);
 
 NetInfo.addEventListener((state) => {
-  onlineManager.setOnlineState(!!state.isConnected);
+  onlineManager.setOnline(!!state.isConnected);
 });

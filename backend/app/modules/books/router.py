@@ -1,5 +1,6 @@
 """Books endpoints."""
 
+import json
 import logging
 import uuid
 
@@ -7,9 +8,12 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, Up
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
+from app.core.redis import bbox_cache_key, get_cached, set_cached
 from app.modules.auth.dependencies import get_current_user, get_verified_user
 from app.modules.auth.models import User
 from app.modules.books.schemas import (
+    BookBulkCreateRequest,
+    BookBulkCreateResponse,
     BookCreateRequest,
     BookListResponse,
     BookOwnerView,
@@ -38,7 +42,7 @@ def _get_service(session: AsyncSession = Depends(get_session)) -> BookService:
 async def search_books(
     lat: float | None = Query(default=None, ge=-90, le=90),
     lng: float | None = Query(default=None, ge=-180, le=180),
-    radius_km: float = Query(default=10.0, ge=0.1, le=100.0),
+    radius_km: float = Query(default=10.0, ge=0.1, le=200.0),
     category: str | None = Query(default=None),
     language: str | None = Query(default=None),
     condition: str | None = Query(default=None),
@@ -80,14 +84,30 @@ async def search_books_bbox(
     user: User = Depends(get_current_user),
     service: BookService = Depends(_get_service),
 ) -> BookSearchResponse:
+    cache_key = bbox_cache_key(
+        min_lat, max_lat, min_lng, max_lng,
+        category, language, condition, q, limit,
+    )
+    cache_key = f"{cache_key}:u{user.id}"
+
+    if not cursor and not q:
+        cached = await get_cached(cache_key)
+        if cached:
+            return BookSearchResponse(**json.loads(cached))
+
     try:
-        return await service.search_bbox(
+        result = await service.search_bbox(
             min_lat, max_lat, min_lng, max_lng,
             category, language, condition, q, limit, current_user_id=user.id,
             cursor=cursor,
         )
     except BookError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
+
+    if not cursor and not q:
+        await set_cached(cache_key, result.model_dump(), ttl_seconds=30)
+
+    return result
 
 
 @router.get("/clusters", response_model=ClusterResponse)
@@ -131,6 +151,18 @@ async def create_book(
 ) -> BookOwnerView:
     try:
         return await service.create_book(user.id, body)
+    except BookError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/bulk", response_model=BookBulkCreateResponse, status_code=201)
+async def bulk_create_books(
+    body: BookBulkCreateRequest,
+    user: User = Depends(get_verified_user),
+    service: BookService = Depends(_get_service),
+) -> BookBulkCreateResponse:
+    try:
+        return await service.bulk_create(user.id, body)
     except BookError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 

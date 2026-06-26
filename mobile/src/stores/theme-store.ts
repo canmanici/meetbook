@@ -14,13 +14,18 @@ const STORAGE_KEY = 'theme_preference';
 export const useThemeStore = create<ThemeState>((set) => ({
   preference: 'system',
   setPreference: (pref) => {
-    AsyncStorage.setItem(STORAGE_KEY, pref);
+    // Expo Go SDK 54: AsyncStorage unavailable — .catch() to prevent crash
+    AsyncStorage.setItem(STORAGE_KEY, pref).catch(() => {});
     set({ preference: pref });
   },
   loadPreference: async () => {
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    if (stored === 'system' || stored === 'light' || stored === 'dark') {
-      set({ preference: stored });
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      if (stored === 'system' || stored === 'light' || stored === 'dark') {
+        set({ preference: stored });
+      }
+    } catch {
+      // AsyncStorage unavailable in Expo Go — use default 'system'
     }
   },
 }));

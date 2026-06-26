@@ -1,5 +1,6 @@
 import { clearTokens, setTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
+import { crashReporter } from '@/lib/crash-reporter';
 
 import { emitApiError, messageForStatus } from './error-bus';
 import type { components, paths } from './schema';
@@ -111,6 +112,10 @@ async function rawRequest(
   }
   const duration = Date.now() - start;
   console.log(`[API] ${method} ${url} → ${res.status} (${duration}ms)`);
+  crashReporter.addBreadcrumb('api_call', `${method} ${url}`, {
+    status: res.status,
+    duration_ms: duration,
+  });
   return res;
 }
 
@@ -171,6 +176,17 @@ export async function authedRequest<T>(
 
   return parse<T>(res);
 }
+
+export const apiClient = {
+  async post(path: string, body: unknown) {
+    const { accessToken } = useAuthStore.getState();
+    return rawRequest(path, 'POST', body, accessToken);
+  },
+  async delete(path: string) {
+    const { accessToken } = useAuthStore.getState();
+    return rawRequest(path, 'DELETE', undefined, accessToken);
+  },
+};
 
 export async function register(body: RegisterBody): Promise<RegisterResponse> {
   return authedRequest<RegisterResponse>('/auth/register', 'POST', body);

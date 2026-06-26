@@ -14,6 +14,8 @@ class Settings(BaseSettings):
 
     env: str = "local"
     database_url: str
+    database_pool_size: int = 20
+    database_max_overflow: int = 30
     redis_url: str
     jwt_secret: str
     jwt_access_ttl_seconds: int = 15 * 60

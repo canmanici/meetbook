@@ -35,10 +35,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
-import * as Notifications from 'expo-notifications';
+// Lazy getter for expo-notifications — module-level require() triggers an
+// ERROR overlay in Expo Go (SDK 53+) even inside try-catch.  Loading on first
+// use avoids the problem entirely.
+let _Notifications: typeof import('expo-notifications') | null = null;
+let _notifLoadAttempted = false;
+function getNotifications(): typeof import('expo-notifications') | null {
+  if (_notifLoadAttempted) return _Notifications;
+  _notifLoadAttempted = true;
+  try {
+    _Notifications = require('expo-notifications');
+  } catch {
+    // Expected in Expo Go — no native module.
+  }
+  return _Notifications;
+}
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { crashReporter } from '@/lib/crash-reporter';
 import {
   Camera,
   type Region,
@@ -46,15 +61,15 @@ import {
   MLMap,
   MLGeoJSONSource,
   HeatmapLayer,
+  MAP_STYLE,
 } from '@/lib/map-adapter';
-import LIGHT_STYLE from '@/lib/map-styles/light.json';
-import DARK_STYLE from '@/lib/map-styles/dark.json';
 
 import { palette, spacing, fontSize, radius, shadows, type ThemeColors } from '@/components/ui/tokens';
 import { BookCard, BookCover, EmptyState, FilterSheet, type FilterState } from '@/components/ui';
 import { BookMarker, categoryColor, dominantCategoryColor, type BookCategory, type MarkerVariant } from '@/components/ui/book-marker';
 import {
   searchBboxBooks,
+  searchNearbyBooks,
   getBookClusters,
   getMe,
   updateGeofenceRadius,
@@ -72,6 +87,24 @@ import { SearchAreaPill } from '@/components/map/search-area-pill';
 import { RadiusCircle } from '@/components/map/radius-circle';
 import { UserLocationDot } from '@/components/map/user-location-dot';
 import QuickRadiusSheet from '@/components/map/quick-radius-sheet';
+// Lazy import — push-tokens uses expo-notifications which crashes
+// Expo Go. Dynamic import avoids module-level failure.
+const lazyRegisterPushToken = (): Promise<boolean> =>
+  import('@/lib/push-tokens').then((m) => m.registerPushToken());
+
+// ── Safe array map (crash guard + reporter) ─────────────────────────────────
+// If `arr` is unexpectedly undefined/falsy, we log the full context to crashReporter
+// (so the bug is findable in the logs) AND fall back to [] so the app doesn't crash.
+// Once we identify the root cause, this guard goes away.
+function safeMap<T, U>(arr: T[] | undefined | null, fn: (item: T, index: number) => U, label: string): U[] {
+  if (!arr) {
+    const err = new Error(`[Home] safeMap('${label}'): array is ${typeof arr}`);
+    console.error(err.message, { arr });
+    crashReporter.captureError(err, `safeMap_${label}`);
+    return [];
+  }
+  return arr.map(fn);
+}
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -91,6 +124,18 @@ const CATEGORIES: Array<{ value: BookCategory | null; label: string }> = [
 ];
 
 const MAP_TYPES: Array<'standard' | 'satellite' | 'hybrid'> = ['standard', 'satellite', 'hybrid'];
+
+// Haversine great-circle distance in km. Used to filter map results to the
+// active radius circle (the "km" filter).
+function distanceKmBetween(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
 const FRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
 const REGION_DEBOUNCE_MS = 300;
 const PILL_DEBOUNCE_MS = 500;
@@ -110,6 +155,19 @@ function regionToBbox(region: Region): BBoxParams {
     max_lat: region.latitude + region.latitudeDelta / 2,
     min_lng: region.longitude - region.longitudeDelta / 2,
     max_lng: region.longitude + region.longitudeDelta / 2,
+  };
+}
+
+// Convert a center point + radius (km) to a bounding box that fully contains
+// the circle. Used so the bbox query fetches everything within the radius.
+function radiusToBbox(lat: number, lng: number, radiusKm: number): BBoxParams {
+  const latDelta = radiusKm / 111;
+  const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+  return {
+    min_lat: lat - latDelta,
+    max_lat: lat + latDelta,
+    min_lng: lng - lngDelta,
+    max_lng: lng + lngDelta,
   };
 }
 
@@ -164,7 +222,18 @@ export default function HomeScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = palette[isDark ? 'dark' : 'light'];
-  const mapStyle = isDark ? DARK_STYLE : LIGHT_STYLE;
+  const [mapTypeIndex, setMapTypeIndex] = useState(0);
+
+  // MapLibre needs a GL style URL/JSON — not Google Maps' featureType/stylers
+  // format. Derive the MapTiler style from the active map type (eye button)
+  // and dark mode. Standard → streets-v2 (dark variant in dark mode);
+  // satellite/hybrid use MapTiler's imagery styles.
+  const mapStyle = (() => {
+    const base = MAP_TYPES[mapTypeIndex];
+    if (base === 'satellite') return MAP_STYLE.replace('streets-v2', 'satellite');
+    if (base === 'hybrid') return MAP_STYLE.replace('streets-v2', 'hybrid');
+    return isDark ? MAP_STYLE.replace('streets-v2', 'streets-v2-dark') : MAP_STYLE;
+  })();
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -177,7 +246,6 @@ export default function HomeScreen() {
   const [searchText, setSearchText] = useState('');
   const [selectedBook, setSelectedBook] = useState<PreviewBook | null>(null);
   const [showSearchPill, setShowSearchPill] = useState(false);
-  const [mapTypeIndex, setMapTypeIndex] = useState(0);
   const [sheetSnapIndex, setSheetSnapIndex] = useState(DEFAULT_SNAP_INDEX);
   const [sortBy, setSortBy] = useState<'distance' | 'newest'>('distance');
   const [filterVisible, setFilterVisible] = useState(false);
@@ -185,7 +253,6 @@ export default function HomeScreen() {
     category: null,
     condition: null,
     language: null,
-    radiusKm: 10,
   });
   const [mapRegion, setMapRegion] = useState<Region>({
     latitude: 41.0082,
@@ -238,34 +305,30 @@ export default function HomeScreen() {
 
   // ── Push permission banner (first launch only) ─────────────────────────────
   useEffect(() => {
-    AsyncStorage.getItem('hasAskedPushPermission').then((asked) => {
-      if (!asked) setShowPushBanner(true);
-    });
+    // Expo Go: AsyncStorage unavailable, .catch() to prevent crash
+    AsyncStorage.getItem('hasAskedPushPermission')
+      .then((asked) => {
+        if (!asked) setShowPushBanner(true);
+      })
+      .catch(() => {});
   }, []);
 
   const requestPushPermission = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    try {
-      const { status } = await Notifications.requestPermissionsAsync();
-      await AsyncStorage.setItem('hasAskedPushPermission', 'true');
+    if (!getNotifications()) {
+      await AsyncStorage.setItem('hasAskedPushPermission', 'true').catch(() => {});
       setShowPushBanner(false);
-      if (status === 'granted') {
-        try {
-          const token = await Notifications.getExpoPushTokenAsync();
-          // Send token to backend if API exists
-          void token;
-        } catch {
-          // Token fetch failed — permission still granted, ignore
-        }
-      }
-    } catch {
-      setShowPushBanner(false);
-      await AsyncStorage.setItem('hasAskedPushPermission', 'true');
+      return;
     }
+    try {
+      await lazyRegisterPushToken();
+    } catch {}
+    await AsyncStorage.setItem('hasAskedPushPermission', 'true').catch(() => {});
+    setShowPushBanner(false);
   }, []);
 
   const dismissPushBanner = useCallback(async () => {
-    await AsyncStorage.setItem('hasAskedPushPermission', 'true');
+    await AsyncStorage.setItem('hasAskedPushPermission', 'true').catch(() => {});
     setShowPushBanner(false);
   }, []);
 
@@ -306,13 +369,38 @@ export default function HomeScreen() {
 
   useEffect(() => {
     const r = (meData as any)?.geofence_radius_km;
-    if (typeof r === 'number' && r >= 1 && r <= 100) {
+    if (typeof r === 'number' && r >= 1 && r <= 200) {
       setGeofenceRadiusKm(r);
     }
   }, [meData]);
 
   // ── Bbox search (PRIMARY: feeds both sheet list AND markers) ──────────────
   const filterCategory = selectedCategory ?? activeFilters.category ?? undefined;
+
+  // ── Search mode: radius (location-based) vs viewport (bbox) ──────────────
+  // When the user has a known location AND has explicitly set a radius (via
+  // FilterSheet or QuickRadiusSheet), use /books/search with lat/lng/radius_km.
+  // This avoids the backend's 422 "alan çok geniş" bbox limit for large radii.
+  // Otherwise fall back to the viewport bbox query (pan/zoom mode).
+  const useRadiusMode = !!userLocation;
+
+  const radiusQuery = useQuery({
+    queryKey: ['books', 'radius', userLocation, geofenceRadiusKm, filterCategory, searchText, activeFilters.condition, activeFilters.language],
+    queryFn: () =>
+      searchNearbyBooks({
+        lat: userLocation!.lat,
+        lng: userLocation!.lng,
+        radius_km: geofenceRadiusKm,
+        category: filterCategory,
+        condition: activeFilters.condition ?? undefined,
+        language: activeFilters.language ?? undefined,
+        q: searchText || undefined,
+        limit: BBOX_LIMIT,
+      }),
+    enabled: useRadiusMode,
+    staleTime: 60_000,
+    retry: 1,
+  });
 
   const bboxQuery = useQuery({
     queryKey: ['books', 'bbox', queryBbox, filterCategory, searchText, activeFilters.condition, activeFilters.language],
@@ -335,11 +423,18 @@ export default function HomeScreen() {
         throw err;
       }
     },
-    enabled: !!queryBbox,
+    enabled: !useRadiusMode && !!queryBbox,
     staleTime: 60_000,
     retry: 1,
   });
-  const books = useMemo(() => bboxQuery.data?.items ?? [], [bboxQuery.data]);
+
+  const rawBooks = useMemo(
+    () => (useRadiusMode ? radiusQuery.data?.items : bboxQuery.data?.items) ?? [],
+    [useRadiusMode, radiusQuery.data, bboxQuery.data],
+  );
+  const isLoading = useRadiusMode ? radiusQuery.isLoading : bboxQuery.isLoading;
+
+  const books = useMemo(() => rawBooks, [rawBooks]);
 
   // ── Clusters (ENHANCEMENT: shelf markers, optional — fallback to bbox books) ─
   const clustersQuery = useQuery({
@@ -414,6 +509,8 @@ export default function HomeScreen() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
   }, [books, sortBy]);
+
+  const showSkeletons = isLoading || ((useRadiusMode ? radiusQuery.isFetching : bboxQuery.isFetching) && books.length === 0);
 
   // ── Marker tap → preview card (spec §3.5) ──────────────────────────────────
   const handleMarkerPress = useCallback(
@@ -526,7 +623,10 @@ export default function HomeScreen() {
 
     // Force refetch (bypass React Query cache even if bbox values are same)
     try {
-      await Promise.all([bboxQuery.refetch(), clustersQuery.refetch()]);
+      await Promise.all([
+        useRadiusMode ? radiusQuery.refetch() : bboxQuery.refetch(),
+        clustersQuery.refetch(),
+      ]);
     } catch {
       // Individual query errors already have their own toasts (422 handling, etc.)
     }
@@ -605,7 +705,7 @@ export default function HomeScreen() {
       const newSearch = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         category: selectedCategory ?? activeFilters.category ?? null,
-        radius_km: activeFilters.radiusKm,
+        radius_km: geofenceRadiusKm,
         lat: mapRegion.latitude,
         lng: mapRegion.longitude,
         created_at: new Date().toISOString(),
@@ -894,15 +994,15 @@ export default function HomeScreen() {
             </MLGeoJSONSource>
           )}
           {/* ── Individual book markers (singletons) ─────────────────────────── */}
-          {markerBooks.map((book) => {
+          {safeMap(markerBooks, (book) => {
             if (!book.public_location) return null;
             return renderSingleton(book);
-          })}
+          }, 'markerBooks')}
 
           {/* Shelf markers from backend clusters (30m grouping, §3.4 shelf variant) */}
-          {clusters.map((cluster) => (
+          {safeMap(clusters, (cluster) => (
             renderShelf(cluster)
-          ))}
+          ), 'clusters')}
 
           {/* Radius circle (geofence visualization, §3.8) */}
           {userLocation && (
@@ -930,15 +1030,15 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* ── Error overlay when bbox query fails (network/server error, bug H13) ── */}
-      {bboxQuery.isError && (
+      {/* ── Error overlay when book query fails (network/server error) ── */}
+      {(useRadiusMode ? radiusQuery.isError : bboxQuery.isError) && (
         <View style={styles.errorOverlay} pointerEvents="auto" testID="bbox-error">
           <Ionicons name="cloud-offline-outline" size={48} color="#FFFFFF" style={{ marginBottom: 12 }} />
           <Text style={styles.errorTitle}>Kitaplar yüklenemedi</Text>
           <Text style={styles.errorMessage}>İnternet bağlantınızı kontrol edin.</Text>
           <TouchableOpacity
             style={styles.errorRetryBtn}
-            onPress={() => bboxQuery.refetch()}
+            onPress={() => useRadiusMode ? radiusQuery.refetch() : bboxQuery.refetch()}
             testID="bbox-error-retry"
           >
             <Ionicons name="refresh" size={18} color="#FFFFFF" />
@@ -1087,8 +1187,6 @@ export default function HomeScreen() {
           onRecenter={recenterOnUser}
           onFilter={handleFilterPress}
           onCycleMapType={cycleMapType}
-          onToggleHeatmap={toggleHeatmap}
-          heatmapActive={showHeatmap}
           filterCount={filterCount}
           insets={insets}
           peekHeightPx={SHEET_PEEK_PX}
@@ -1119,11 +1217,40 @@ export default function HomeScreen() {
         renderListCard={renderListCard}
         header={sheetHeader}
         emptyComponent={
-          <EmptyState
-            message="Bu bölgede kitap yok"
-            description="Arama alanını genişlet veya filtreleri değiştir"
-            icon="library-outline"
-          />
+          (useRadiusMode ? radiusQuery.isError : bboxQuery.isError) ? (
+            <EmptyState
+              message="Kitaplar yüklenemedi"
+              description="İnternet bağlantınızı kontrol edin."
+              icon="cloud-offline-outline"
+            />
+          ) : showSkeletons ? (
+            <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+              {[...Array(5)].map((_, i) => (
+                <View
+                  key={i}
+                  style={[styles.miniCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
+                  <View style={[styles.miniCardCover, { backgroundColor: colors.surfaceAlt }]}>
+                    <View style={[styles.skeletonBox, { width: 48, height: 64, backgroundColor: colors.surfaceAlt }]} />
+                  </View>
+                  <View style={styles.miniCardInfo}>
+                    <View style={[styles.skeletonLine, { width: '70%', height: 14, backgroundColor: colors.surfaceAlt, marginBottom: 6 }]} />
+                    <View style={[styles.skeletonLine, { width: '40%', height: 12, backgroundColor: colors.surfaceAlt, marginBottom: 6 }]} />
+                    <View style={styles.miniCardMeta}>
+                      <View style={[styles.skeletonPill, { width: 50, height: 20, backgroundColor: colors.surfaceAlt }]} />
+                      <View style={[styles.skeletonLine, { width: 30, height: 12, backgroundColor: colors.surfaceAlt, marginLeft: 8 }]} />
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <EmptyState
+              message="Bu bölgede kitap yok"
+              description="Arama alanını genişlet veya filtreleri değiştir"
+              icon="library-outline"
+            />
+          )
         }
         keyExtractor={(item: BookSearchResult) => item.id}
         isDark={isDark}
@@ -1137,6 +1264,8 @@ export default function HomeScreen() {
           setActiveFilters(filters);
           setFilterVisible(false);
         }}
+        radiusKm={geofenceRadiusKm}
+        onRadiusChange={setGeofenceRadiusKm}
         resultCount={booksWithLocation.length}
         initialFilters={activeFilters}
       />
@@ -1464,5 +1593,15 @@ const styles = StyleSheet.create({
   modalSheet: {
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
+  },
+
+  skeletonBox: {
+    borderRadius: 4,
+  },
+  skeletonLine: {
+    borderRadius: 3,
+  },
+  skeletonPill: {
+    borderRadius: 10,
   },
 });

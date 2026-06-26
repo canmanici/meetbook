@@ -39,9 +39,14 @@ class PasswordResetConfirmRequest(BaseModel):
 
 
 class UpdateMeRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
     trusted_contact_name: str | None = Field(default=None, max_length=100)
     trusted_contact_phone: str | None = Field(default=None, max_length=20)
     geofence_radius_km: int | None = Field(default=None, ge=1, le=100)
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +94,7 @@ class MeResponse(BaseModel):
     id: uuid.UUID
     email: EmailStr
     name: str
+    avatar_url: str | None = None
     trusted_contact_name: str | None
     trusted_contact_phone: str | None
     geofence_radius_km: int = 10

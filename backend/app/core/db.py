@@ -22,8 +22,11 @@ _session_factory: async_sessionmaker[AsyncSession] | None = None
 def get_engine() -> AsyncEngine:
     global _engine, _session_factory
     if _engine is None:
+        settings = get_settings()
         _engine = create_async_engine(
-            get_settings().database_url,
+            settings.database_url,
+            pool_size=settings.database_pool_size,
+            max_overflow=settings.database_max_overflow,
             pool_pre_ping=True,
             pool_recycle=300,  # Recycle connections every 5min to avoid stale prepared stmts
         )

@@ -21,7 +21,23 @@ import { EXCHANGE_STATUS_LABELS, EXCHANGE_STATUS_VARIANTS } from '@/constants/ex
 import { Ionicons } from '@expo/vector-icons';
 
 type RequestTab = 'received' | 'sent';
-type StatusFilter = 'all' | 'pending' | 'accepted' | 'completed';
+type StatusFilter = 'all' | 'pending' | 'active' | 'completed' | 'cancelled';
+
+// Group the many exchange statuses into 4 user-facing buckets
+const ACTIVE_STATUSES = new Set([
+  'accepted', 'meetup_proposed', 'meetup_confirmed', 'completion_pending', 'lent', 'return_pending', 'overdue',
+]);
+const COMPLETED_STATUSES = new Set(['completed']);
+const CANCELLED_STATUSES = new Set(['rejected', 'cancelled', 'expired']);
+
+function matchesFilter(status: string, filter: StatusFilter): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'pending') return status === 'pending';
+  if (filter === 'active') return ACTIVE_STATUSES.has(status);
+  if (filter === 'completed') return COMPLETED_STATUSES.has(status);
+  if (filter === 'cancelled') return CANCELLED_STATUSES.has(status);
+  return true;
+}
 
 export default function RequestsScreen() {
   const scheme = useColorScheme();
@@ -39,8 +55,7 @@ export default function RequestsScreen() {
   });
 
   const items = data?.items ?? [];
-  const filteredItems =
-    statusFilter === 'all' ? items : items.filter((i) => i.status === statusFilter);
+  const filteredItems = items.filter((i) => matchesFilter(i.status, statusFilter));
 
   const tabs: { key: RequestTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'received', label: 'Gelen', icon: 'arrow-down-circle' },
@@ -50,8 +65,9 @@ export default function RequestsScreen() {
   const statusFilters: { key: StatusFilter; label: string }[] = [
     { key: 'all', label: 'Tümü' },
     { key: 'pending', label: 'Beklemede' },
-    { key: 'accepted', label: 'Onaylandı' },
+    { key: 'active', label: 'Aktif' },
     { key: 'completed', label: 'Tamamlandı' },
+    { key: 'cancelled', label: 'İptal/Red' },
   ];
 
   if (isError) {
@@ -70,6 +86,16 @@ export default function RequestsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      {/* Page header */}
+      <View style={[styles.pageHeader, { borderBottomColor: colors.border }]}>
+        <Text style={[styles.pageTitle, { color: colors.text }]}>Talepler</Text>
+        {items.length > 0 && (
+          <View style={[styles.pageCount, { backgroundColor: colors.primary + '18' }]}>
+            <Text style={[styles.pageCountText, { color: colors.primary }]}>{items.length}</Text>
+          </View>
+        )}
+      </View>
+
       {/* Tabs */}
       <View style={styles.tabContainer}>
         <View style={[styles.tabRow, { backgroundColor: colors.surfaceAlt }]}>
@@ -124,6 +150,7 @@ export default function RequestsScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.chipScroll}
         contentContainerStyle={styles.chipRow}
       >
         {statusFilters.map((filter) => {
@@ -378,6 +405,12 @@ function OutgoingRequestRow({
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <LinearGradient
+        colors={[colors.textMuted + '44', colors.textMuted + '22']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.cardAccent}
+      />
       <TouchableOpacity
         onPress={() => router.push(`/exchange/${item.id}`)}
         testID={`request-row-${item.id}`}
@@ -422,6 +455,29 @@ function OutgoingRequestRow({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  pageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  pageTitle: {
+    fontSize: fontSize.heading,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  pageCount: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+  },
+  pageCountText: {
+    fontSize: fontSize.caption,
+    fontWeight: '800',
   },
   tabContainer: {
     paddingHorizontal: spacing.lg,
@@ -469,10 +525,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
+  chipScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
   chipRow: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xs,
     gap: spacing.sm,
+    alignItems: 'center',
   },
   chip: {
     paddingVertical: spacing.sm - 2,

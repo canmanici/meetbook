@@ -19,6 +19,8 @@ from app.modules.auth.models import User
 from app.modules.books.isbn_lookup import lookup_isbn as isbn_lookup
 from app.modules.books.repository import BookRepository, BookRow, encode_cursor
 from app.modules.books.schemas import (
+    BookBulkCreateRequest,
+    BookBulkCreateResponse,
     BookCreateRequest,
     BookListResponse,
     BookOwnerView,
@@ -29,6 +31,7 @@ from app.modules.books.schemas import (
     BookUpdateRequest,
     ClusterPoint,
     ClusterResponse,
+    FailedBookCreate,
     ISBNLookupResponse,
     LocationInput,
     LocationOutput,
@@ -151,9 +154,69 @@ class BookService:
         )
         await self.session.commit()
 
+        await _notify_wishlist_matches(
+            session=self.session,
+            book_isbn=book.isbn,
+            book_title=book.title,
+            book_id=book.id,
+            owner_id=owner_id,
+        )
+
         owner_name = await self._get_owner_name(owner_id)
         row = BookRow(book=book, location=(lat, lng), public_location=(public_lat, public_lng))
         return _to_owner_view(row, owner_name)
+
+    async def bulk_create(
+        self, owner_id: uuid.UUID, body: BookBulkCreateRequest
+    ) -> BookBulkCreateResponse:
+        """Create multiple books in batch. Failed items are returned with error messages,
+        successful items are committed."""
+        items: list[BookOwnerView] = []
+        failed: list[FailedBookCreate] = []
+        owner_name = await self._get_owner_name(owner_id)
+
+        for idx, book_body in enumerate(body.books):
+            try:
+                lat, lng = book_body.location.lat, book_body.location.lng
+                if not in_turkey_bbox(lat, lng):
+                    failed.append(FailedBookCreate(index=idx, error="LOCATION_OUTSIDE_TURKEY"))
+                    continue
+
+                public_lat, public_lng = blur(lat, lng)
+                fields = book_body.model_dump(exclude={"location"})
+                book = await self.repo.create(
+                    owner_id,
+                    fields,
+                    location=make_point(lat, lng),
+                    public_location=make_point(public_lat, public_lng),
+                )
+
+                row = BookRow(
+                    book=book,
+                    location=(lat, lng),
+                    public_location=(public_lat, public_lng),
+                )
+                items.append(_to_owner_view(row, owner_name))
+
+            except BookError as e:
+                failed.append(FailedBookCreate(index=idx, error=e.message))
+            except Exception as e:
+                logger.exception("Bulk create failed at index %d: %s", idx, e)
+                failed.append(FailedBookCreate(index=idx, error="INTERNAL_ERROR"))
+
+        await self.session.commit()
+
+        for item in items:
+            if item.isbn:
+                await _notify_wishlist_matches(
+                    session=self.session,
+                    book_isbn=item.isbn,
+                    book_title=item.title,
+                    book_id=item.id,
+                    owner_id=owner_id,
+                )
+
+        return BookBulkCreateResponse(items=items, failed=failed)
 
     async def list_my_books(
         self, owner_id: uuid.UUID, cursor: str | None, limit: int
@@ -620,3 +683,73 @@ class BookService:
 
         result = await self.list_my_books(owner_id, None, 1000)
         return result.items
+
+
+async def _notify_wishlist_matches(
+    session,
+    book_isbn: str | None,
+    book_title: str,
+    book_id,
+    owner_id,
+) -> None:
+    """Notify users whose wishlist matches this newly listed book."""
+    if not book_isbn:
+        return
+
+    try:
+        from sqlalchemy import select
+        from app.modules.wishlist.models import WishlistItem
+        from app.modules.notifications.service import NotificationService
+        from app.modules.push_tokens.service import send_push_to_user, PushMessage
+        import logging
+        logger = logging.getLogger(__name__)
+
+        result = await session.execute(
+            select(WishlistItem.user_id).where(
+                WishlistItem.isbn == book_isbn,
+                WishlistItem.user_id != owner_id,
+            )
+        )
+        matched_user_ids = [row[0] for row in result.all()]
+
+        if not matched_user_ids:
+            return
+
+        notif_svc = NotificationService(session)
+
+        for user_id in matched_user_ids:
+            await notif_svc.create_notification(
+                user_id=user_id,
+                type_="wishlist_match",
+                payload={
+                    "book_id": str(book_id),
+                    "book_title": book_title,
+                    "isbn": book_isbn,
+                },
+            )
+
+            try:
+                await send_push_to_user(
+                    str(user_id),
+                    PushMessage(
+                        title="İstediğin Kitap Bulundu!",
+                        body=f'"{book_title}" yakınında listelendi.',
+                        data={
+                            "type": "wishlist_match",
+                            "book_id": str(book_id),
+                        },
+                    ),
+                    session=session,
+                )
+            except Exception as exc:
+                logger.warning("Failed to send wishlist push to user %s: %s", user_id, exc)
+
+        logger.info(
+            "Wishlist match: book=%s isbn=%s notified %d users",
+            book_id, book_isbn, len(matched_user_ids),
+        )
+
+    except Exception as exc:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.exception("Wishlist match notification failed: %s", exc)
