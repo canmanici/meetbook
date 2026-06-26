@@ -13,6 +13,7 @@ import {
   ScrollView,
   Share,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -51,6 +52,7 @@ import {
   type ExchangeDetail,
 } from '@/lib/api/client';
 import { buildMapLinks } from '@/lib/maps';
+import { startSafetyMode, stopSafetyMode } from '@/lib/safety';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -147,6 +149,9 @@ export default function ExchangeDetailScreen() {
   const [rateSheetVisible, setRateSheetVisible] = useState(false);
   const [ratingScore, setRatingScore] = useState(5);
   const [ratingComment, setRatingComment] = useState('');
+  const [safetyMode, setSafetyMode] = useState(false);
+  const [safetyStopAt, setSafetyStopAt] = useState<number | null>(null);
+  const [safetyCountdown, setSafetyCountdown] = useState('');
 
   const invalidate = async (updated: ExchangeDetail) => {
     queryClient.setQueryData(['exchanges', id], updated);
@@ -282,6 +287,28 @@ export default function ExchangeDetailScreen() {
   useEffect(() => {
     setSelectedOfferIndex(0);
   }, [exchange?.meetup?.proposed_by, exchange?.meetup?.updated_at]);
+
+  useEffect(() => {
+    if (!safetyStopAt) {
+      setSafetyCountdown('');
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.max(0, safetyStopAt - Date.now());
+      const totalSeconds = Math.floor(remaining / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      setSafetyCountdown(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+      if (remaining <= 0) {
+        setSafetyMode(false);
+        setSafetyStopAt(null);
+        stopSafetyMode();
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [safetyStopAt]);
 
   const acceptMeetupMutation = useMutation({
     mutationFn: ({ offerIndex, acknowledgeWarning }: { offerIndex: number; acknowledgeWarning: boolean }) =>
@@ -431,6 +458,27 @@ export default function ExchangeDetailScreen() {
       await Share.share({ message });
     } catch {
       // user dismissed the share sheet
+    }
+  };
+
+  const onToggleSafetyMode = async (enabled: boolean) => {
+    if (!meetup) return;
+    if (enabled) {
+      try {
+        await startSafetyMode(id, new Date(meetup.scheduled_at));
+        const stopAt = new Date(meetup.scheduled_at).getTime() + 30 * 60000;
+        setSafetyStopAt(stopAt);
+        setSafetyMode(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {
+        setSafetyMode(false);
+        setSafetyStopAt(null);
+        toast.show('Arka plan konum izni reddedildi', { variant: 'error' });
+      }
+    } else {
+      stopSafetyMode();
+      setSafetyMode(false);
+      setSafetyStopAt(null);
     }
   };
 
@@ -905,6 +953,43 @@ export default function ExchangeDetailScreen() {
           <Ionicons name="share-social" size={18} color={colors.surface} />
           <Text style={[styles.shareButtonText, { color: colors.surface }]}>Güvenilir Kişiyle Paylaş</Text>
         </TouchableOpacity>
+      )}
+
+      {/* Safety Companion Mode */}
+      {meetup && exchange.status === 'meetup_confirmed' && (
+        <Card
+          style={[styles.safetyCard, { backgroundColor: colors.info + '10', borderColor: colors.info + '40' }]}
+        >
+          <View style={styles.safetyToggleRow}>
+            <View style={styles.safetyToggleInfo}>
+              <Text style={[styles.safetyTitle, { color: colors.text }]}>Güvenlik Modu</Text>
+              <Text style={[styles.safetyDescription, { color: colors.textMuted }]}>
+                Buluşma süresince konumunuzu güvenilir kişinizle paylaşın.
+              </Text>
+            </View>
+            <Switch
+              value={safetyMode}
+              onValueChange={onToggleSafetyMode}
+              trackColor={{ false: colors.textMuted + '40', true: colors.info }}
+              thumbColor={safetyMode ? colors.surface : colors.surface}
+              testID="safety-mode-toggle"
+              accessibilityRole="switch"
+              accessibilityLabel="Güvenlik modu"
+            />
+          </View>
+          {safetyMode && (
+            <View style={[styles.safetyBadgeRow, { backgroundColor: colors.info + '20' }]}>
+              <Text style={[styles.safetyBadge, { color: colors.info }]} testID="safety-mode-badge">
+                🛡️ Güvenlik modu aktif
+              </Text>
+              {safetyCountdown ? (
+                <Text style={[styles.safetyCountdown, { color: colors.info }]}>
+                  Otomatik durma: {safetyCountdown}
+                </Text>
+              ) : null}
+            </View>
+          )}
+        </Card>
       )}
 
       {/* Completion Actions (trade mode) */}
@@ -1499,6 +1584,45 @@ const styles = StyleSheet.create({
   securityText: {
     fontSize: fontSize.bodySm,
     lineHeight: 18,
+  },
+  safetyCard: {
+    padding: spacing.md,
+    borderWidth: 1,
+    gap: spacing.sm,
+  },
+  safetyToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  safetyToggleInfo: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  safetyTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+  },
+  safetyDescription: {
+    fontSize: fontSize.bodySm,
+    lineHeight: 18,
+  },
+  safetyBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 8,
+    gap: spacing.sm,
+  },
+  safetyBadge: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+  },
+  safetyCountdown: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
   },
   shareButton: {
     flexDirection: 'row',

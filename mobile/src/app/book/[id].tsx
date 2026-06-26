@@ -24,6 +24,7 @@ import { ChipSelect } from '@/components/chip-select';
 import {
   Badge,
   BookCover,
+  BookJourney,
   Button,
   Card,
   InlineError,
@@ -727,6 +728,9 @@ export default function BookDetailScreen() {
             </ScrollView>
           </View>
         )}
+
+        {/* Bu Kitabın Yolculuğu — timeline of past handoffs (non-owners only) */}
+        {!isOwner && <BookJourney bookId={id!} />}
 
           {/* Stats Card — shown to both owner and non-owner now */}
           <View style={[styles.statsCard, { backgroundColor: colors.surface }]}>

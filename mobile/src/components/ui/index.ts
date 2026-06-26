@@ -39,3 +39,4 @@ export { BookCardMessage } from './book-card-message';
 export { SystemMessage } from './system-message';
 export { VoiceRecorder } from './voice-recorder';
 export { MessageInfoSheet } from './message-info-sheet';
+export { BookJourney } from './book-journey';

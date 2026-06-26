@@ -650,6 +650,25 @@ export default function ChatsScreen() {
           ) : null
         }
       />
+
+      {/* Book club FAB */}
+      <LinearGradient
+        colors={[colors.primary, isDark ? '#2EA88A' : '#0D5E4F']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.fab, { bottom: insets.bottom + spacing.xl }]}
+      >
+        <TouchableOpacity
+          onPress={() => router.push('/chat/club/create')}
+          style={styles.fabTouch}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Kitap kulübü oluştur"
+          testID="create-club-fab"
+        >
+          <Ionicons name="people" size={26} color="#fff" />
+        </TouchableOpacity>
+      </LinearGradient>
     </View>
   );
 }
@@ -914,5 +933,22 @@ const styles = StyleSheet.create({
   skeletonLine: {
     height: 12,
     borderRadius: 6,
+  },
+  // Book club FAB
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fabTouch: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

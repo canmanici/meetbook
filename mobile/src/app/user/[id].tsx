@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -15,9 +15,54 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar, BookCover, Skeleton, palette, pastels, spacing, fontSize, radius, shadows } from '@/components/ui';
-import { getUser, searchNearbyBooks, type UserPublicProfile } from '@/lib/api/client';
+import { Avatar, Badge, BookCover, Skeleton, palette, pastels, spacing, fontSize, radius, shadows } from '@/components/ui';
+import { getUser, listMyBooks, searchNearbyBooks, type UserPublicProfile } from '@/lib/api/client';
 import { BOOK_CATEGORY_LABELS } from '@/constants/books';
+import { computeCompatibility, extractCategories } from '@/lib/compatibility';
+import { Svg, Circle } from 'react-native-svg';
+
+function CompatibilityRing({
+  score,
+  size = 88,
+  strokeWidth = 8,
+  color = '#fff',
+  trackColor = 'rgba(255,255,255,0.28)',
+}: {
+  score: number;
+  size?: number;
+  strokeWidth?: number;
+  color?: string;
+  trackColor?: string;
+}) {
+  const clamped = Math.max(0, Math.min(100, score));
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (clamped / 100) * circumference;
+  const center = size / 2;
+  return (
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      <Svg
+        width={size}
+        height={size}
+        style={{ position: 'absolute', top: 0, left: 0, transform: [{ rotate: '-90deg' }] }}
+      >
+        <Circle cx={center} cy={center} r={radius} stroke={trackColor} strokeWidth={strokeWidth} fill="none" />
+        <Circle
+          cx={center}
+          cy={center}
+          r={radius}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeDasharray={`${circumference} ${circumference}`}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          fill="none"
+        />
+      </Svg>
+      <Text style={{ color, fontSize: fontSize.title, fontWeight: '900' }}>{score}%</Text>
+    </View>
+  );
+}
 
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -48,12 +93,18 @@ export default function UserProfileScreen() {
     enabled: !!id,
   });
 
+  const { data: myBooksData } = useQuery({
+    queryKey: ['my-books'],
+    queryFn: () => listMyBooks({ limit: 50 }),
+  });
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['user', id] }),
         queryClient.invalidateQueries({ queryKey: ['user-books', id] }),
+        queryClient.invalidateQueries({ queryKey: ['my-books'] }),
       ]);
     } finally {
       setRefreshing(false);
@@ -61,6 +112,16 @@ export default function UserProfileScreen() {
   }, [queryClient, id]);
 
   const userBooks = booksData?.items ?? [];
+  const myBooks = myBooksData?.items ?? [];
+
+  const compatibility = useMemo(() => {
+    if (!userBooks.length || !myBooks.length) return null;
+    const result = computeCompatibility(
+      extractCategories(myBooks),
+      extractCategories(userBooks),
+    );
+    return result.hasSignal ? result : null;
+  }, [myBooks, userBooks]);
 
   if (isLoading) {
     return (
@@ -139,6 +200,20 @@ export default function UserProfileScreen() {
             <Text style={styles.ratingText}>
               {profile.rating_average.toFixed(1)} ({profile.rating_count} değerlendirme)
             </Text>
+          </View>
+        )}
+        {compatibility && (
+          <View style={styles.compatRow}>
+            <CompatibilityRing score={compatibility.score} />
+            <Text style={styles.compatLabel}>{compatibility.score}% okuma zevki uyumu</Text>
+            {compatibility.isTwin && (
+              <Badge
+                text="Kitap İkizi!"
+                variant="primary"
+                style={styles.twinBadge}
+                testID="book-twin-badge"
+              />
+            )}
           </View>
         )}
       </LinearGradient>
@@ -280,6 +355,21 @@ const styles = StyleSheet.create({
     fontSize: fontSize.bodySm,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.9)',
+  },
+  compatRow: {
+    alignItems: 'center',
+    marginTop: spacing.md,
+    gap: spacing.xs,
+  },
+  compatLabel: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.92)',
+  },
+  twinBadge: {
+    backgroundColor: '#fff',
+    alignSelf: 'center',
+    marginTop: spacing.xs,
   },
   statsRow: {
     flexDirection: 'row',
