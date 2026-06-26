@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { palette, fontSize } from '@/components/ui/tokens';
 import { listExchanges } from '@/lib/api/client';
+import { listChats } from '@/lib/api/chat';
 
 const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   home: 'home',
@@ -65,6 +66,13 @@ export function AppTabs() {
   });
   const pendingCount = receivedData?.items?.length ?? 0;
 
+  const { data: chatsData } = useQuery({
+    queryKey: ['chats', 'badge'],
+    queryFn: () => listChats(),
+    refetchInterval: 30000,
+  });
+  const unreadCount = chatsData?.items?.reduce((sum, c) => sum + (c.unread_count || 0), 0) ?? 0;
+
   return (
       <Tabs
       screenOptions={{
@@ -117,7 +125,7 @@ export function AppTabs() {
         options={{
           title: 'Mesajlar',
           tabBarButtonTestID: 'chats-tab',
-          tabBarIcon: ({ color, focused }) => <TabIcon name="chats" color={color} focused={focused} pillColor={colors.primarySoft} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="chats" color={color} focused={focused} pillColor={colors.primarySoft} badgeCount={unreadCount > 0 ? unreadCount : undefined} />,
         }}
       />
       <Tabs.Screen

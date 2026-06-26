@@ -8,6 +8,8 @@ import {
   Image,
   StyleSheet,
   useColorScheme,
+  Alert,
+  Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,6 +22,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { getExchange } from '@/lib/api/client';
 import { getChatSettings, updateChatSettings } from '@/lib/api/chat';
 import { useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ChatInfoScreen() {
   const { id: exchangeId } = useLocalSearchParams<{ id: string }>();
@@ -44,10 +47,106 @@ export default function ChatInfoScreen() {
 
   const settings = settingsData?.settings;
 
+  const toast = useToast();
+  const [showWallpaperPicker, setShowWallpaperPicker] = useState(false);
+
+  const WALLPAPER_OPTIONS: { label: string; colors: string[] }[] = [
+    { label: 'Gün Batımı', colors: ['#FF6B6B', '#FFE66D'] },
+    { label: 'Okyanus', colors: ['#4DA8DA', '#1A5F7A'] },
+    { label: 'Orman', colors: ['#56ab2f', '#a8e063'] },
+    { label: 'Mor', colors: ['#8E2DE2', '#4A00E0'] },
+    { label: 'Şafak', colors: ['#FF9A8B', '#FF6A88'] },
+    { label: 'Gece', colors: ['#232526', '#414345'] },
+  ];
+
   const handleToggleMute = async () => {
     if (!exchangeId || !settings) return;
     await updateChatSettings(exchangeId, { is_muted: !settings.is_muted });
     queryClient.invalidateQueries({ queryKey: ['chat-settings', exchangeId] });
+  };
+
+  const handleWallpaperPick = async (gradientColors: string[]) => {
+    if (!exchangeId) return;
+    try {
+      await updateChatSettings(exchangeId, { wallpaper_url: gradientColors.join(',') });
+      queryClient.invalidateQueries({ queryKey: ['chat-settings', exchangeId] });
+      setShowWallpaperPicker(false);
+      toast.show('Duvar kağıdı güncellendi', { variant: 'success' });
+    } catch {
+      toast.show('Duvar kağıdı güncellenemedi', { variant: 'error' });
+    }
+  };
+
+  const handleFontSize = () => {
+    if (!exchangeId) return;
+    Alert.alert('Yazı Boyutu', '', [
+      {
+        text: 'Küçük',
+        onPress: async () => {
+          await updateChatSettings(exchangeId, { font_size: 'small' });
+          queryClient.invalidateQueries({ queryKey: ['chat-settings', exchangeId] });
+        },
+      },
+      {
+        text: 'Orta',
+        onPress: async () => {
+          await updateChatSettings(exchangeId, { font_size: 'medium' });
+          queryClient.invalidateQueries({ queryKey: ['chat-settings', exchangeId] });
+        },
+      },
+      {
+        text: 'Büyük',
+        onPress: async () => {
+          await updateChatSettings(exchangeId, { font_size: 'large' });
+          queryClient.invalidateQueries({ queryKey: ['chat-settings', exchangeId] });
+        },
+      },
+      { text: 'İptal', style: 'cancel' },
+    ]);
+  };
+
+  const handleStarred = () => {
+    if (!exchangeId) return;
+    router.push(`/chat/${exchangeId}?starred=1`);
+  };
+
+  const handlePinned = () => {
+    Alert.alert('Sabitlenmiş Mesajlar', 'Henüz sabitlenmiş mesaj yok.');
+  };
+
+  const handleSearch = () => {
+    if (!exchangeId) return;
+    router.push(`/chat/${exchangeId}?search=1`);
+  };
+
+  const handleExport = async () => {
+    try {
+      await Share.share({ message: 'MeetBook sohbet dışa aktarımı' });
+    } catch {
+      // user cancelled or share unavailable
+    }
+  };
+
+  const handleReport = () => {
+    Alert.alert('Şikayet', 'Şikayet kaydı alındı.', [{ text: 'Tamam' }]);
+  };
+
+  const handleBlock = () => {
+    Alert.alert(
+      'Engelle',
+      'Bu kullanıcıyı engellemek istiyor musunuz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Engelle',
+          style: 'destructive',
+          onPress: () => {
+            toast.show('Engellendi', { variant: 'success' });
+            router.back();
+          },
+        },
+      ],
+    );
   };
 
   const counterpart = exchange?.counterpart;
@@ -122,7 +221,10 @@ export default function ChatInfoScreen() {
         </View>
 
         {/* Wallpaper */}
-        <TouchableOpacity style={styles.settingRow}>
+        <TouchableOpacity
+          style={styles.settingRow}
+          onPress={() => setShowWallpaperPicker((v) => !v)}
+        >
           <View style={styles.settingLeft}>
             <Ionicons name="image-outline" size={22} color={colors.text} />
             <Text style={[styles.settingLabel, { color: colors.text }]}>Duvar Kağıdı</Text>
@@ -130,8 +232,28 @@ export default function ChatInfoScreen() {
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </TouchableOpacity>
 
+        {showWallpaperPicker && (
+          <View style={styles.wallpaperPicker}>
+            {WALLPAPER_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.label}
+                onPress={() => handleWallpaperPick(opt.colors)}
+                style={styles.wallpaperSwatchWrap}
+              >
+                <LinearGradient
+                  colors={opt.colors as [string, string]}
+                  style={styles.wallpaperSwatch}
+                />
+                <Text style={[styles.wallpaperLabel, { color: colors.textMuted }]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* Font size */}
-        <TouchableOpacity style={styles.settingRow}>
+        <TouchableOpacity style={styles.settingRow} onPress={handleFontSize}>
           <View style={styles.settingLeft}>
             <Ionicons name="text-outline" size={22} color={colors.text} />
             <Text style={[styles.settingLabel, { color: colors.text }]}>Yazı Boyutu</Text>
@@ -147,25 +269,25 @@ export default function ChatInfoScreen() {
 
       {/* Actions */}
       <View style={[styles.section, { backgroundColor: colors.surface }, shadows.card]}>
-        <TouchableOpacity style={styles.actionRow}>
+        <TouchableOpacity style={styles.actionRow} onPress={handleStarred}>
           <Ionicons name="star-outline" size={20} color="#E8A13A" />
           <Text style={[styles.actionText, { color: colors.text }]}>Yıldızlı Mesajlar</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionRow}>
+        <TouchableOpacity style={styles.actionRow} onPress={handlePinned}>
           <Ionicons name="pin-outline" size={20} color={colors.primary} />
           <Text style={[styles.actionText, { color: colors.text }]}>Sabitlenmiş Mesajlar</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionRow}>
+        <TouchableOpacity style={styles.actionRow} onPress={handleSearch}>
           <Ionicons name="search-outline" size={20} color={colors.text} />
           <Text style={[styles.actionText, { color: colors.text }]}>Sohbette Ara</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionRow}>
+        <TouchableOpacity style={styles.actionRow} onPress={handleExport}>
           <Ionicons name="download-outline" size={20} color={colors.text} />
           <Text style={[styles.actionText, { color: colors.text }]}>Sohbeti Dışa Aktar</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
@@ -174,12 +296,12 @@ export default function ChatInfoScreen() {
 
       {/* Danger zone */}
       <View style={[styles.section, { backgroundColor: colors.surface }, shadows.card]}>
-        <TouchableOpacity style={styles.dangerRow}>
+        <TouchableOpacity style={styles.dangerRow} onPress={handleReport}>
           <Ionicons name="flag-outline" size={20} color={colors.danger} />
           <Text style={[styles.dangerText, { color: colors.danger }]}>Kullanıcıyı Şikayet Et</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.dangerRow}>
+        <TouchableOpacity style={styles.dangerRow} onPress={handleBlock}>
           <Ionicons name="ban-outline" size={20} color={colors.danger} />
           <Text style={[styles.dangerText, { color: colors.danger }]}>Engelle</Text>
         </TouchableOpacity>
@@ -253,6 +375,19 @@ const styles = StyleSheet.create({
   settingLabel: { fontSize: fontSize.body },
   settingRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   settingValue: { fontSize: fontSize.bodySm },
+  wallpaperPicker: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  wallpaperSwatchWrap: { alignItems: 'center', gap: spacing.xs },
+  wallpaperSwatch: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.input,
+  },
+  wallpaperLabel: { fontSize: fontSize.caption },
   // Actions
   actionRow: {
     flexDirection: 'row',

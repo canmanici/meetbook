@@ -1,12 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import {
   View,
   Text,
+  TextInput,
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -17,7 +20,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, Skeleton, palette, pastels, spacing, fontSize, radius, shadows } from '@/components/ui';
-import { getMe, getUser, listMyBooks, logout, updateGeofenceRadius } from '@/lib/api/client';
+import { getMe, getUser, listMyBooks, logout, updateGeofenceRadius, updateMe } from '@/lib/api/client';
 import QuickRadiusSheet from '@/components/map/quick-radius-sheet';
 import { clearTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
@@ -47,6 +50,16 @@ export default function ProfileScreen() {
   const toast = useToast();
   const queryClient = useQueryClient();
 
+  const setUser = useAuthStore((s) => s.setUser);
+  const params = useLocalSearchParams<{ edit?: string }>();
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editAvatarUri, setEditAvatarUri] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
+  const [isSaving, setIsSaving] = useState(false);
+  const autoEditDoneRef = useRef(false);
+
   const { isLoading: meLoading, data: meData } = useQuery({
     queryKey: ['me'],
     queryFn: () => getMe(),
@@ -59,6 +72,16 @@ export default function ProfileScreen() {
       setRadiusKm(r);
     }
   }, [meData]);
+
+  // Auto-enter edit mode when navigated with ?edit=1
+  useEffect(() => {
+    if (params.edit === '1' && !autoEditDoneRef.current && user?.name) {
+      autoEditDoneRef.current = true;
+      setEditName(user.name);
+      setEditAvatarUri(null);
+      setIsEditing(true);
+    }
+  }, [params.edit, user?.name]);
 
   const { data: booksData } = useQuery({
     queryKey: ['books', 'me'],
@@ -79,6 +102,64 @@ export default function ProfileScreen() {
     await clearTokens();
     clearSession();
     router.replace('/auth/login');
+  };
+
+  const enterEdit = () => {
+    setEditName(user?.name ?? '');
+    setEditAvatarUri(null);
+    setIsEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditName('');
+    setEditAvatarUri(null);
+  };
+
+  const pickAvatar = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      toast.show('Galeri izni gerekli', { variant: 'error' });
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.85,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (!result.canceled && result.assets?.[0]) {
+      setEditAvatarUri(result.assets[0].uri);
+    }
+  };
+
+  const saveProfile = async () => {
+    const trimmed = editName.trim();
+    if (!trimmed) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      toast.show('İsim boş olamaz', { variant: 'error' });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await updateMe({ name: trimmed } as any);
+      if (editAvatarUri) {
+        console.warn('[profile] avatar upload endpoint not available — keeping URI locally');
+        setAvatarUrl(editAvatarUri);
+      }
+      if (user) setUser({ ...user, name: trimmed });
+      await queryClient.invalidateQueries({ queryKey: ['me'] });
+      if (user?.id) await queryClient.invalidateQueries({ queryKey: ['user', user.id] });
+      setIsEditing(false);
+      setEditAvatarUri(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      toast.show('Profil güncellendi', { variant: 'success' });
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      toast.show('Profil güncellenemedi', { variant: 'error' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (meLoading && !user) {
@@ -121,10 +202,77 @@ export default function ProfileScreen() {
         end={{ x: 1, y: 1 }}
         style={[styles.hero, { paddingTop: insets.top + spacing.xl }]}
       >
-        <View style={styles.heroAvatar}>
-          <Avatar name={displayName} size="large" verified={false} />
-        </View>
-        <Text style={styles.heroName}>{displayName}</Text>
+        {!isEditing ? (
+          <TouchableOpacity
+            style={[styles.editBtn, { top: insets.top + spacing.sm }]}
+            onPress={enterEdit}
+            hitSlop={8}
+            activeOpacity={0.7}
+            testID="profile-edit-button"
+          >
+            <Ionicons name="create-outline" size={20} color="#fff" />
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.editActions, { top: insets.top + spacing.sm }]}>
+            <TouchableOpacity
+              style={[styles.editActionBtn, { backgroundColor: 'rgba(255,255,255,0.18)' }]}
+              onPress={cancelEdit}
+              hitSlop={8}
+              disabled={isSaving}
+              activeOpacity={0.7}
+              testID="profile-cancel-button"
+            >
+              <Ionicons name="close" size={20} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.editActionBtn, { backgroundColor: 'rgba(255,255,255,0.92)' }]}
+              onPress={saveProfile}
+              hitSlop={8}
+              disabled={isSaving}
+              activeOpacity={0.7}
+              testID="profile-save-button"
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color={gradientColors[0]} />
+              ) : (
+                <Ionicons name="checkmark" size={22} color={gradientColors[0]} />
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={styles.heroAvatar}
+          onPress={isEditing ? pickAvatar : undefined}
+          activeOpacity={0.85}
+          disabled={!isEditing}
+        >
+          <Avatar
+            name={isEditing ? (editName || ' ') : displayName}
+            imageUrl={isEditing ? (editAvatarUri ?? avatarUrl) : avatarUrl}
+            size="large"
+            verified={false}
+          />
+          {isEditing && (
+            <View style={styles.avatarCameraBadge}>
+              <Ionicons name="camera" size={16} color="#fff" />
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {isEditing ? (
+          <TextInput
+            style={styles.heroNameInput}
+            value={editName}
+            onChangeText={setEditName}
+            placeholder="İsim"
+            placeholderTextColor="rgba(255,255,255,0.6)"
+            maxLength={60}
+            testID="profile-name-input"
+          />
+        ) : (
+          <Text style={styles.heroName}>{displayName}</Text>
+        )}
         <Text style={styles.heroEmail}>{displayEmail}</Text>
       </LinearGradient>
 
@@ -297,6 +445,54 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.35)',
     borderRadius: radius.pill,
     padding: 3,
+  },
+  editBtn: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editActions: {
+    position: 'absolute',
+    right: spacing.lg,
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  editActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarCameraBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  heroNameInput: {
+    width: 260,
+    fontSize: fontSize.heading,
+    fontWeight: '900',
+    color: '#fff',
+    marginTop: spacing.md,
+    letterSpacing: -0.3,
+    textAlign: 'center',
+    borderBottomWidth: 1.5,
+    borderBottomColor: 'rgba(255,255,255,0.6)',
+    paddingBottom: 4,
   },
   heroName: {
     fontSize: fontSize.heading,

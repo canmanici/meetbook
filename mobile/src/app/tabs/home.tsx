@@ -47,7 +47,7 @@ import {
 } from '@/lib/map-adapter';
 
 import { palette, spacing, fontSize, radius, shadows, type ThemeColors } from '@/components/ui/tokens';
-import { BookCard, FilterSheet, type FilterState } from '@/components/ui';
+import { BookCard, EmptyState, FilterSheet, type FilterState } from '@/components/ui';
 import { BookMarker, categoryColor, dominantCategoryColor, type BookCategory, type MarkerVariant } from '@/components/ui/book-marker';
 import {
   searchBboxBooks,
@@ -671,12 +671,16 @@ export default function HomeScreen() {
   const sheetHeader = useMemo(
     () => (
       <View style={styles.sheetHeader}>
-        <Text style={[styles.sheetResultCount, { color: colors.text }]}>
-          <Text style={{ color: colors.primary, fontWeight: '800' }}>
-            {booksWithLocation.length}{countCapped ? '+' : ''}
+        {booksWithLocation.length > 0 ? (
+          <Text style={[styles.sheetResultCount, { color: colors.text }]}>
+            <Text style={{ color: colors.primary, fontWeight: '800' }}>
+              {booksWithLocation.length}{countCapped ? '+' : ''}
+            </Text>
+            {' '}kitap bulundu
           </Text>
-          {' '}kitap bulundu
-        </Text>
+        ) : (
+          <View />
+        )}
         <View style={styles.sheetSortPills}>
           <TouchableOpacity
             style={[
@@ -929,6 +933,13 @@ export default function HomeScreen() {
         renderMiniCard={renderMiniCard}
         renderListCard={renderListCard}
         header={sheetHeader}
+        emptyComponent={
+          <EmptyState
+            message="Bu bölgede kitap yok"
+            description="Arama alanını genişlet veya filtreleri değiştir"
+            icon="library-outline"
+          />
+        }
         keyExtractor={(item: BookSearchResult) => item.id}
         isDark={isDark}
       />
