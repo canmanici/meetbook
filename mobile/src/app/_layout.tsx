@@ -13,10 +13,14 @@ import { ServerErrorOverlay } from '@/components/server-error-overlay';
 import { getMe } from '@/lib/api/client';
 import { queryClient } from '@/lib/query-client';
 import { useAuthStore } from '@/stores/auth-store';
+import { useThemeStore } from '@/stores/theme-store';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const systemScheme = useColorScheme();
+  const themePref = useThemeStore((s) => s.preference);
+  const loadPreference = useThemeStore((s) => s.loadPreference);
+  const effectiveScheme = themePref === 'system' ? systemScheme : themePref;
+  const isDark = effectiveScheme === 'dark';
   const colors = palette[isDark ? 'dark' : 'light'];
 
   const status = useAuthStore((state) => state.status);
@@ -28,7 +32,8 @@ export default function RootLayout() {
 
   useEffect(() => {
     bootstrap();
-  }, [bootstrap]);
+    loadPreference();
+  }, [bootstrap, loadPreference]);
 
   useEffect(() => {
     AsyncStorage.getItem('hasOnboarded').then((value) => {

@@ -333,7 +333,7 @@ export default function ChatDetailScreen() {
     >
       {/* ---- Header ---- */}
       <View style={[styles.header, { backgroundColor: colors.surface, paddingTop: insets.top + spacing.xs, ...shadows.card }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Geri">
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
 
@@ -361,6 +361,8 @@ export default function ChatDetailScreen() {
             }
           }}
           testID="chat-search-toggle"
+          accessibilityRole="button"
+          accessibilityLabel={isSearchMode ? 'Aramayı kapat' : 'Ara'}
         >
           <Ionicons name={isSearchMode ? 'close' : 'search'} size={22} color={colors.textMuted} />
         </TouchableOpacity>
@@ -368,6 +370,8 @@ export default function ChatDetailScreen() {
           style={styles.headerAction}
           onPress={() => router.push(`/chat/info/${exchangeId}`)}
           testID="chat-info-button"
+          accessibilityRole="button"
+          accessibilityLabel="Sohbet bilgileri"
         >
           <Ionicons name="ellipsis-vertical" size={20} color={colors.textMuted} />
         </TouchableOpacity>
@@ -389,7 +393,7 @@ export default function ChatDetailScreen() {
             autoFocus
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <TouchableOpacity onPress={() => setSearchQuery('')} accessibilityRole="button" accessibilityLabel="Aramayı temizle">
               <Ionicons name="close-circle" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           )}
@@ -430,6 +434,8 @@ export default function ChatDetailScreen() {
                 }
                 clearSearch();
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Arama sonucuna git"
             >
               <Text style={[styles.searchResultText, { color: colors.text }]} numberOfLines={2}>
                 {msg.text}
@@ -488,7 +494,7 @@ export default function ChatDetailScreen() {
               {replyingTo.text}
             </Text>
           </View>
-          <TouchableOpacity onPress={() => setReplyingTo(null)} style={styles.replyBarClose}>
+          <TouchableOpacity onPress={() => setReplyingTo(null)} style={styles.replyBarClose} accessibilityRole="button" accessibilityLabel="Yanıttan vazgeç">
             <Ionicons name="close" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
@@ -509,6 +515,8 @@ export default function ChatDetailScreen() {
         <TouchableOpacity
           style={[styles.inputAction, { backgroundColor: colors.surfaceAlt }]}
           onPress={() => setShowEmojiPicker(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Emoji seç"
         >
           <Ionicons name="happy-outline" size={24} color={colors.primary} />
         </TouchableOpacity>
@@ -535,6 +543,8 @@ export default function ChatDetailScreen() {
             onPress={handleSend}
             disabled={!chatId || isSending}
             testID="send-button"
+            accessibilityRole="button"
+            accessibilityLabel="Gönder"
           >
             <LinearGradient
               colors={[colors.primary, isDark ? '#2EA88A' : '#0D5E4F']}

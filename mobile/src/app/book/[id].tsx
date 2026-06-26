@@ -499,7 +499,9 @@ export default function BookDetailScreen() {
             <TouchableOpacity
               style={styles.glassButton}
               onPress={() => router.back()}
-              testID="back-button">
+              testID="back-button"
+              accessibilityRole="button"
+              accessibilityLabel="Geri">
               <Ionicons name="arrow-back" size={20} color="#fff" />
             </TouchableOpacity>
             <View style={styles.galleryTopRight}>
@@ -508,13 +510,17 @@ export default function BookDetailScreen() {
                   <TouchableOpacity
                     style={styles.glassButton}
                     onPress={() => setEditing(true)}
-                    testID="gallery-edit-button">
+                    testID="gallery-edit-button"
+                    accessibilityRole="button"
+                    accessibilityLabel="Düzenle">
                     <Ionicons name="pencil" size={18} color="#fff" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.glassButton}
                     onPress={onDelete}
-                    testID="gallery-delete-button">
+                    testID="gallery-delete-button"
+                    accessibilityRole="button"
+                    accessibilityLabel="Sil">
                     <Ionicons name="trash" size={18} color="#fff" />
                   </TouchableOpacity>
                 </>
@@ -527,7 +533,9 @@ export default function BookDetailScreen() {
                       favoriteMutation.mutate();
                     }}
                     disabled={favoriteMutation.isPending}
-                    testID="favorite-button">
+                    testID="favorite-button"
+                    accessibilityRole="button"
+                    accessibilityLabel={isFavorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}>
                     <Ionicons
                       name={isFavorite ? 'heart' : 'heart-outline'}
                       size={20}
@@ -543,7 +551,9 @@ export default function BookDetailScreen() {
                         message: `${parts.join(' — ')} · MeetBook'ta buldum!`,
                       });
                     }}
-                    testID="share-button">
+                    testID="share-button"
+                    accessibilityRole="button"
+                    accessibilityLabel="Paylaş">
                     <Ionicons name="share-outline" size={20} color="#fff" />
                   </TouchableOpacity>
                 </>
@@ -685,7 +695,9 @@ export default function BookDetailScreen() {
             <TouchableOpacity
               style={[styles.profileButton, { borderColor: colors.primary }]}
               onPress={() => router.push(`/user/${book.owner_id}`)}
-              testID="profile-button">
+              testID="profile-button"
+              accessibilityRole="button"
+              accessibilityLabel="Profili görüntüle">
               <Text style={[styles.profileButtonText, { color: colors.primary }]}>Profil</Text>
             </TouchableOpacity>
           </View>
@@ -730,6 +742,8 @@ export default function BookDetailScreen() {
                 Linking.openURL(url);
               }}
               testID="show-on-map-button"
+              accessibilityRole="button"
+              accessibilityLabel="Haritada göster"
             >
               <Text style={[styles.mapLink, { color: colors.primary }]}>Haritada Göster</Text>
             </TouchableOpacity>
@@ -807,7 +821,9 @@ export default function BookDetailScreen() {
               requestMutation.mutate();
             }}
             disabled={requestMutation.isPending || (mode === 'borrow' && loanDurationDays == null)}
-            testID="request-exchange-button">
+            testID="request-exchange-button"
+            accessibilityRole="button"
+            accessibilityLabel={mode === 'borrow' ? 'Ödünç iste' : 'Takas iste'}>
             <LinearGradient
               colors={[colors.success, colors.primary]}
               start={{ x: 0, y: 0 }}
@@ -905,6 +921,8 @@ function PendingRequestsSection({ bookId, colors, queryClient }: { bookId: strin
                   }}
                   disabled={acceptMutation.isPending}
                   testID={`accept-exchange-${exchange.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel="Talebi kabul et"
                 >
                   <Ionicons name="checkmark" size={18} color={colors.success} />
                 </TouchableOpacity>
@@ -916,6 +934,8 @@ function PendingRequestsSection({ bookId, colors, queryClient }: { bookId: strin
                   }}
                   disabled={rejectMutation.isPending}
                   testID={`reject-exchange-${exchange.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel="Talebi reddet"
                 >
                   <Ionicons name="close" size={18} color={colors.danger} />
                 </TouchableOpacity>
@@ -929,6 +949,8 @@ function PendingRequestsSection({ bookId, colors, queryClient }: { bookId: strin
                 }]}
                 onPress={() => router.push(`/exchange/${exchange.id}`)}
                 testID={`view-exchange-${exchange.id}`}
+                accessibilityRole="button"
+                accessibilityLabel="Talebi görüntüle"
               >
                 <Text style={[styles.pendingStatusText, {
                   color: exchange.status === 'accepted' ? colors.success :

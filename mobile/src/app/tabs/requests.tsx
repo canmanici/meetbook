@@ -72,6 +72,8 @@ export default function RequestsScreen() {
                   isActive && styles.tabActive,
                 ]}
                 testID={`tab-${tab.key}`}
+                accessibilityRole="button"
+                accessibilityLabel={tab.key === 'received' ? 'Gelen talepler' : 'Giden talepler'}
               >
                 {isActive && (
                   <LinearGradient
@@ -188,6 +190,8 @@ function IncomingRequestRow({
         onPress={() => router.push(`/exchange/${item.id}`)}
         testID={`request-row-${item.id}`}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Talep detayını görüntüle"
       >
         <View style={styles.cardContent}>
           {/* Avatar + Info */}
@@ -249,6 +253,8 @@ function IncomingRequestRow({
             disabled={acceptMutation.isPending || rejectMutation.isPending}
             activeOpacity={0.85}
             testID={`accept-${item.id}`}
+            accessibilityRole="button"
+            accessibilityLabel="Talebi kabul et"
           >
             <LinearGradient
               colors={[colors.primary, colors.primary + 'CC']}
@@ -269,6 +275,8 @@ function IncomingRequestRow({
             disabled={acceptMutation.isPending || rejectMutation.isPending}
             activeOpacity={0.7}
             testID={`reject-${item.id}`}
+            accessibilityRole="button"
+            accessibilityLabel="Talebi reddet"
           >
             <Ionicons name="close-circle-outline" size={18} color={colors.danger} />
             <Text style={[styles.rejectButtonText, { color: colors.danger }]}>Reddet</Text>
@@ -296,6 +304,8 @@ function OutgoingRequestRow({
         onPress={() => router.push(`/exchange/${item.id}`)}
         testID={`request-row-${item.id}`}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Talep detayını görüntüle"
       >
         <View style={styles.cardContent}>
           <View style={styles.cardTop}>

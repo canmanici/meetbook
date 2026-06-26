@@ -121,6 +121,8 @@ export default function WishlistScreen() {
           }}
           disabled={!isbn.trim() || addMutation.isPending}
           testID="wishlist-add-button"
+          accessibilityRole="button"
+          accessibilityLabel="İstek listesine ekle"
         >
           <Ionicons name="add" size={24} color={colors.surface} />
         </TouchableOpacity>
@@ -187,6 +189,8 @@ export default function WishlistScreen() {
                     removeMutation.mutate(item.id);
                   }}
                   testID={`wishlist-remove-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel="İstek listesinden çıkar"
                 >
                   <Ionicons name="trash-outline" size={18} color={colors.danger} />
                 </TouchableOpacity>
@@ -207,6 +211,8 @@ export default function WishlistScreen() {
                       style={[styles.matchCard, { backgroundColor: colors.surface }]}
                       onPress={() => router.push(`/book/${match.id}`)}
                       testID={`match-card-${match.id}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Eşleşen kitabı görüntüle: ${match.title}`}
                     >
                       <View style={[styles.matchCover, { backgroundColor: colors.textMuted + '30' }]}>
                         {match.photos?.[0]?.url ? (
@@ -235,6 +241,8 @@ export default function WishlistScreen() {
                           style={[styles.exchangeButton, { backgroundColor: colors.primary }]}
                           onPress={() => router.push(`/book/${match.id}`)}
                           testID={`exchange-request-${match.id}`}
+                          accessibilityRole="button"
+                          accessibilityLabel="Takas iste"
                         >
                           <Text style={styles.exchangeButtonText}>Takas İste</Text>
                         </TouchableOpacity>

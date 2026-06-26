@@ -174,6 +174,8 @@ const ChatItem = React.memo<ChatItemProps>(
         ]}
         onPress={() => onPress(item.exchange_id)}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.counterpart_name} ile sohbeti aç`}
       >
         {hasUnread && <View style={[styles.unreadAccent, { backgroundColor: colors.primary }]} />}
 
@@ -469,7 +471,7 @@ export default function ChatsScreen() {
             testID="chat-search-input"
           />
           {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery('')} style={styles.searchClear}>
+            <TouchableOpacity onPress={() => setQuery('')} style={styles.searchClear} accessibilityRole="button" accessibilityLabel="Aramayı temizle">
               <Ionicons name="close-circle" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
@@ -488,6 +490,8 @@ export default function ChatsScreen() {
                 onPress={() => setFilter(f.key)}
                 style={[styles.filterTab, active && styles.filterTabActive]}
                 activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={f.key === 'all' ? 'Tüm sohbetler' : 'Okunmamış sohbetler'}
               >
                 {active && (
                   <LinearGradient

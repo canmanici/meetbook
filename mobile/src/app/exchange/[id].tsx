@@ -414,6 +414,8 @@ export default function ExchangeDetailScreen() {
               onPress={() => setReportSheetVisible(true)}
               style={styles.counterpartActionButton}
               testID="report-user-button"
+              accessibilityRole="button"
+              accessibilityLabel="Kullanıcıyı bildir"
             >
               <Ionicons name="flag-outline" size={20} color={colors.textMuted} />
             </TouchableOpacity>
@@ -435,6 +437,8 @@ export default function ExchangeDetailScreen() {
               }}
               style={styles.counterpartActionButton}
               testID="block-user-button"
+              accessibilityRole="button"
+              accessibilityLabel="Kullanıcıyı engelle"
             >
               <Ionicons name="ban-outline" size={20} color={colors.danger} />
             </TouchableOpacity>
@@ -464,6 +468,8 @@ export default function ExchangeDetailScreen() {
             style={[styles.chatButton, { backgroundColor: colors.primary }]}
             onPress={() => router.push(`/chat/${exchange.id}`)}
             testID="chat-button"
+            accessibilityRole="button"
+            accessibilityLabel="Mesaj gönder"
           >
             <Ionicons name="chatbubble" size={20} color="#ffffff" />
             <Text style={styles.chatButtonText}>Mesaj Gönder</Text>
@@ -498,6 +504,8 @@ export default function ExchangeDetailScreen() {
             }}
             disabled={pending}
             testID="accept-button"
+            accessibilityRole="button"
+            accessibilityLabel="Talebi kabul et"
           >
             {acceptMutation.isPending ? (
               <ActivityIndicator color={colors.surface} />
@@ -513,6 +521,8 @@ export default function ExchangeDetailScreen() {
             }}
             disabled={pending}
             testID="reject-button"
+            accessibilityRole="button"
+            accessibilityLabel="Talebi reddet"
           >
             {rejectMutation.isPending ? (
               <ActivityIndicator color={colors.danger} />
@@ -556,6 +566,8 @@ export default function ExchangeDetailScreen() {
                           },
                         ]}
                         testID={`meetup-offer-${index}`}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Buluşma seçeneği: ${offer.place_name}`}
                       >
                         <View style={styles.placeHeader}>
                           <Ionicons
@@ -653,6 +665,8 @@ export default function ExchangeDetailScreen() {
                     onPress={onAcceptMeetup}
                     disabled={meetupPending}
                     testID="accept-meetup-button"
+                    accessibilityRole="button"
+                    accessibilityLabel="Buluşmayı onayla"
                   >
                     {meetupPending ? (
                       <ActivityIndicator color={colors.surface} />
@@ -668,6 +682,8 @@ export default function ExchangeDetailScreen() {
                     }}
                     disabled={meetupPending}
                     testID="reject-meetup-button"
+                    accessibilityRole="button"
+                    accessibilityLabel="Buluşmayı reddet"
                   >
                     {rejectMeetupMutation.isPending ? (
                       <ActivityIndicator color={colors.danger} />
@@ -777,6 +793,8 @@ export default function ExchangeDetailScreen() {
           style={[styles.shareButton, { backgroundColor: colors.info }]}
           onPress={onShareWithTrustedContact}
           testID="share-trusted-contact-button"
+          accessibilityRole="button"
+          accessibilityLabel="Güvenilir kişiyle paylaş"
         >
           <Ionicons name="share-social" size={18} color={colors.surface} />
           <Text style={[styles.shareButtonText, { color: colors.surface }]}>Güvenilir Kişiyle Paylaş</Text>
@@ -794,6 +812,8 @@ export default function ExchangeDetailScreen() {
             }}
             disabled={pending}
             testID="complete-button"
+            accessibilityRole="button"
+            accessibilityLabel="Takası tamamla"
           >
             {completeMutation.isPending ? (
               <ActivityIndicator color={colors.surface} />
@@ -826,6 +846,8 @@ export default function ExchangeDetailScreen() {
             }}
             disabled={lendMutation.isPending}
             testID="lend-button"
+            accessibilityRole="button"
+            accessibilityLabel="Teslim edildi"
           >
             {lendMutation.isPending ? (
               <ActivityIndicator color={colors.surface} />
@@ -847,6 +869,8 @@ export default function ExchangeDetailScreen() {
             }}
             disabled={returnMutation.isPending}
             testID="return-button"
+            accessibilityRole="button"
+            accessibilityLabel="İade et"
           >
             {returnMutation.isPending ? (
               <ActivityIndicator color={colors.surface} />
@@ -868,6 +892,8 @@ export default function ExchangeDetailScreen() {
             }}
             disabled={confirmReturnMutation.isPending}
             testID="confirm-return-button"
+            accessibilityRole="button"
+            accessibilityLabel="İadeyi onayla"
           >
             {confirmReturnMutation.isPending ? (
               <ActivityIndicator color={colors.surface} />
@@ -977,6 +1003,8 @@ export default function ExchangeDetailScreen() {
             }}
             disabled={pending}
             testID="confirm-completion-button"
+            accessibilityRole="button"
+            accessibilityLabel="Tamamlandığını onayla"
           >
             {confirmMutation.isPending ? (
               <ActivityIndicator color={colors.surface} />
@@ -1009,6 +1037,8 @@ export default function ExchangeDetailScreen() {
             }}
             disabled={pending}
             testID="cancel-button"
+            accessibilityRole="button"
+            accessibilityLabel="İptal et"
           >
             {cancelMutation.isPending ? (
               <ActivityIndicator color={colors.danger} />
@@ -1067,6 +1097,8 @@ export default function ExchangeDetailScreen() {
               key={value}
               onPress={() => setRatingScore(value)}
               testID={`rating-star-${value}`}
+              accessibilityRole="button"
+              accessibilityLabel={`${value} yıldız`}
             >
               <Ionicons
                 name={value <= ratingScore ? 'star' : 'star-outline'}
