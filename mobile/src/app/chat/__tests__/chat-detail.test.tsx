@@ -105,4 +105,19 @@ describe('ChatDetailScreen', () => {
     // After pressing, search should clear (result list disappears)
     await waitFor(() => expect(queryByTestId('search-result-msg-9')).toBeNull());
   });
+
+  it('does not render a mic button when input is empty', async () => {
+    const { queryByTestId, findByTestId } = renderChat();
+    // Wait for the chat to render
+    await findByTestId('chat-input');
+    // No mic button should be present
+    expect(queryByTestId('mic-button')).toBeNull();
+  });
+
+  it('shows send button when input has text', async () => {
+    const { findByTestId } = renderChat();
+    const input = await findByTestId('chat-input');
+    fireEvent.changeText(input, 'hello');
+    expect(await findByTestId('send-button')).toBeTruthy();
+  });
 });

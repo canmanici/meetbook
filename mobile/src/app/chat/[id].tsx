@@ -512,6 +512,7 @@ export default function ChatDetailScreen() {
         <View style={[styles.inputWrapper, { backgroundColor: colors.background, borderColor: colors.border }]}>
           <TextInput
             ref={inputRef}
+            testID="chat-input"
             style={[styles.textInput, { color: colors.text }]}
             placeholder="Mesaj yaz..."
             placeholderTextColor={colors.textMuted}
@@ -528,6 +529,7 @@ export default function ChatDetailScreen() {
             style={styles.sendBtn}
             onPress={handleSend}
             disabled={!chatId || isSending}
+            testID="send-button"
           >
             <LinearGradient
               colors={[colors.primary, isDark ? '#2EA88A' : '#0D5E4F']}
@@ -538,11 +540,7 @@ export default function ChatDetailScreen() {
               <Ionicons name="send" size={18} color="#ffffff" />
             </LinearGradient>
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={[styles.inputAction, { backgroundColor: colors.surfaceAlt }]}>
-            <Ionicons name="mic" size={22} color={colors.primary} />
-          </TouchableOpacity>
-        )}
+        ) : null}
       </View>
 
       {/* ---- Emoji picker ---- */}
