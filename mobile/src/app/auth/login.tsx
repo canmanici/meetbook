@@ -8,6 +8,8 @@ import { ApiError, login } from '@/lib/api/client';
 import { setTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const colors = palette[colorScheme === 'dark' ? 'dark' : 'light'];
@@ -18,7 +20,8 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const canSubmit = email.length > 0 && password.length > 0 && !loading;
+  const emailInvalid = email.length > 0 && !EMAIL_RE.test(email);
+  const canSubmit = email.length > 0 && !emailInvalid && password.length > 0 && !loading;
 
   const onSubmit = async () => {
     setError(null);
@@ -68,6 +71,7 @@ export default function LoginScreen() {
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
+            error={emailInvalid ? 'Geçerli bir e-posta adresi girin' : undefined}
           />
           <Input
             label="Şifre"
@@ -80,6 +84,9 @@ export default function LoginScreen() {
           <Button onPress={onSubmit} disabled={!canSubmit} loading={loading}>
             Giriş yap
           </Button>
+          <Link href="/auth/forgot-password" style={[styles.forgotLink, { color: colors.textMuted }]}>
+            Şifremi Unuttum
+          </Link>
         </View>
 
         <View style={styles.linkRow}>
@@ -137,5 +144,11 @@ const styles = StyleSheet.create({
   link: {
     fontSize: fontSize.bodySm,
     fontWeight: '700',
+  },
+  forgotLink: {
+    textAlign: 'center',
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+    marginTop: spacing.xs,
   },
 });

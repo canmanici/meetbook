@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -199,6 +200,7 @@ export default function BookDetailScreen() {
     if (!location) {
       return;
     }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setError(null);
     setSaving(true);
     try {
@@ -253,6 +255,7 @@ export default function BookDetailScreen() {
   };
 
   const onDelete = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert('Kitabı sil', 'Bu kitabı silmek istediğine emin misin?', [
       { text: 'Vazgeç', style: 'cancel' },
       {
@@ -519,7 +522,10 @@ export default function BookDetailScreen() {
                 <>
                   <TouchableOpacity
                     style={styles.glassButton}
-                    onPress={() => favoriteMutation.mutate()}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      favoriteMutation.mutate();
+                    }}
                     disabled={favoriteMutation.isPending}
                     testID="favorite-button">
                     <Ionicons
@@ -694,6 +700,7 @@ export default function BookDetailScreen() {
             <Button
               variant="secondary"
               onPress={async () => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 await updateBook(id, { is_available: !book.is_available });
                 await queryClient.invalidateQueries({ queryKey: ['books', id] });
               }}
@@ -795,7 +802,10 @@ export default function BookDetailScreen() {
         <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.textMuted + '15' }]}>
           <TouchableOpacity
             style={styles.exchangeButton}
-            onPress={() => requestMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              requestMutation.mutate();
+            }}
             disabled={requestMutation.isPending || (mode === 'borrow' && loanDurationDays == null)}
             testID="request-exchange-button">
             <LinearGradient
@@ -889,7 +899,10 @@ function PendingRequestsSection({ bookId, colors, queryClient }: { bookId: strin
               <View style={styles.pendingActions}>
                 <TouchableOpacity
                   style={[styles.pendingAcceptBtn, { backgroundColor: colors.success + '20' }]}
-                  onPress={() => acceptMutation.mutate(exchange.id)}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    acceptMutation.mutate(exchange.id);
+                  }}
                   disabled={acceptMutation.isPending}
                   testID={`accept-exchange-${exchange.id}`}
                 >
@@ -897,7 +910,10 @@ function PendingRequestsSection({ bookId, colors, queryClient }: { bookId: strin
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.pendingRejectBtn, { backgroundColor: colors.danger + '20' }]}
-                  onPress={() => rejectMutation.mutate(exchange.id)}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    rejectMutation.mutate(exchange.id);
+                  }}
                   disabled={rejectMutation.isPending}
                   testID={`reject-exchange-${exchange.id}`}
                 >

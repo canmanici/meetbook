@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { MapView, Marker, type LatLng, type MapPressEvent, type MapViewRef } from '@/lib/map-adapter';
 
 import { Button, InlineError, palette, spacing } from '@/components/ui';
@@ -16,6 +16,8 @@ const ISTANBUL_REGION = {
 
 export default function LocationPickerScreen() {
   const setPickedLocation = useBookDraftStore((state) => state.setPickedLocation);
+  const scheme = useColorScheme();
+  const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
 
   const [marker, setMarker] = useState<LatLng | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,10 +59,10 @@ export default function LocationPickerScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <MapView
         ref={mapRef}
-        style={styles.map}
+        style={[styles.map, { backgroundColor: colors.background }]}
         initialRegion={ISTANBUL_REGION}
         onPress={onMapPress}
         testID="location-picker-map">
@@ -68,9 +70,9 @@ export default function LocationPickerScreen() {
       </MapView>
       <View style={styles.controls}>
         {locationLoading && (
-          <View style={styles.locationLoadingCard}>
-            <ActivityIndicator size="small" color={palette.light.primary} />
-            <Text style={styles.locationLoadingText}>Konum yükleniyor...</Text>
+          <View style={[styles.locationLoadingCard, { backgroundColor: colors.surface }]}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={[styles.locationLoadingText, { color: colors.textMuted }]}>Konum yükleniyor...</Text>
           </View>
         )}
         {!locationLoading && error && <InlineError message={error} />}
@@ -101,11 +103,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     padding: spacing.md,
-    backgroundColor: palette.light.surface,
     borderRadius: 8,
   },
   locationLoadingText: {
     fontSize: 13,
-    color: palette.light.textMuted,
   },
 });

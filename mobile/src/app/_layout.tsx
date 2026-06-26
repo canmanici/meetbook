@@ -1,8 +1,9 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
-import { useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Stack, useSegments } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, View, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useColorScheme } from 'react-native';
 
 import { ToastProvider } from '@/components/ui/toast-provider';
 import { palette } from '@/components/ui/tokens';
@@ -22,9 +23,18 @@ export default function RootLayout() {
   const user = useAuthStore((state) => state.user);
   const bootstrap = useAuthStore((state) => state.bootstrap);
 
+  const [hasOnboarded, setHasOnboarded] = useState<boolean | null>(null);
+  const segments = useSegments();
+
   useEffect(() => {
     bootstrap();
   }, [bootstrap]);
+
+  useEffect(() => {
+    AsyncStorage.getItem('hasOnboarded').then((value) => {
+      setHasOnboarded(value === null ? false : value === 'true');
+    });
+  }, [segments]);
 
   // After bootstrap confirms tokens exist, fetch the user profile.
   // This is separate from bootstrap() to avoid circular dependencies
@@ -46,6 +56,19 @@ export default function RootLayout() {
     }
   }, [status, user]);
 
+  if (hasOnboarded === null) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <QueryClientProvider client={queryClient}>
+          <AnimatedSplashOverlay />
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        </QueryClientProvider>
+      </GestureHandlerRootView>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
@@ -63,10 +86,13 @@ export default function RootLayout() {
           },
         }}
       >
-        <Stack.Protected guard={status === 'unauthenticated'}>
+        <Stack.Protected guard={hasOnboarded === false}>
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+        </Stack.Protected>
+        <Stack.Protected guard={hasOnboarded === true && status === 'unauthenticated'}>
           <Stack.Screen name="auth" options={{ headerShown: false }} />
         </Stack.Protected>
-        <Stack.Protected guard={status === 'authenticated'}>
+        <Stack.Protected guard={hasOnboarded === true && status === 'authenticated'}>
           <Stack.Screen name="tabs" options={{ headerShown: false }} />
           <Stack.Screen name="book" options={{ headerShown: false }} />
           <Stack.Screen name="exchange" options={{ headerShown: false }} />
@@ -75,6 +101,7 @@ export default function RootLayout() {
           <Stack.Screen name="settings" options={{ headerShown: false }} />
           <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack>
         <ServerErrorOverlay />

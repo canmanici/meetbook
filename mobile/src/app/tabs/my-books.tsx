@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -171,6 +172,7 @@ export default function MyBooksTab() {
 
       switch (key) {
         case 'toggle':
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           toggleMutation.mutate(book);
           break;
         case 'edit':
@@ -185,6 +187,7 @@ export default function MyBooksTab() {
           setQrBook(book);
           break;
         case 'delete':
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           undoDelete.deleteItem(book);
           break;
       }
@@ -375,10 +378,12 @@ export default function MyBooksTab() {
         <BulkSelectFab
           count={bulk.count}
           onDelete={() => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             bulkDeleteMutation.mutate(Array.from(bulk.selectedIds));
             bulk.exit();
           }}
           onToggleAvailability={(setAvailable) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             bulkToggleMutation.mutate({ ids: Array.from(bulk.selectedIds), setAvailable });
             bulk.exit();
           }}

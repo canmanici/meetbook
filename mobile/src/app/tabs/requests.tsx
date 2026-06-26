@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -241,7 +242,10 @@ function IncomingRequestRow({
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={styles.acceptButtonWrap}
-            onPress={() => acceptMutation.mutate(item.id)}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              acceptMutation.mutate(item.id);
+            }}
             disabled={acceptMutation.isPending || rejectMutation.isPending}
             activeOpacity={0.85}
             testID={`accept-${item.id}`}
@@ -258,7 +262,10 @@ function IncomingRequestRow({
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.rejectButtonWrap, { borderColor: colors.danger + '40' }]}
-            onPress={() => rejectMutation.mutate(item.id)}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              rejectMutation.mutate(item.id);
+            }}
             disabled={acceptMutation.isPending || rejectMutation.isPending}
             activeOpacity={0.7}
             testID={`reject-${item.id}`}

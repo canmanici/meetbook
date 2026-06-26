@@ -42,9 +42,10 @@ import {
   Camera,
   type Region,
   MAPLIBRE_AVAILABLE,
-  MAP_STYLE,
   MLMap,
 } from '@/lib/map-adapter';
+import LIGHT_STYLE from '@/lib/map-styles/light.json';
+import DARK_STYLE from '@/lib/map-styles/dark.json';
 
 import { palette, spacing, fontSize, radius, shadows, type ThemeColors } from '@/components/ui/tokens';
 import { BookCard, EmptyState, FilterSheet, type FilterState } from '@/components/ui';
@@ -54,6 +55,7 @@ import {
   getBookClusters,
   getMe,
   updateGeofenceRadius,
+  listNotifications,
   type BBoxParams,
   type BookSearchResult,
   type ClusterPoint,
@@ -158,6 +160,7 @@ export default function HomeScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = palette[isDark ? 'dark' : 'light'];
+  const mapStyle = isDark ? DARK_STYLE : LIGHT_STYLE;
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -250,6 +253,17 @@ export default function HomeScreen() {
     queryFn: getMe,
     staleTime: Infinity,
   });
+
+  // ── Notifications (unread badge on home bell) ──────────────────────────────
+  const { data: notificationsData } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: listNotifications,
+    staleTime: 30_000,
+  });
+  const unreadCount = useMemo(
+    () => (notificationsData?.items ?? []).filter((n) => !n.read_at).length,
+    [notificationsData],
+  );
 
   useEffect(() => {
     const r = (meData as any)?.geofence_radius_km;
@@ -722,7 +736,7 @@ export default function HomeScreen() {
           style={styles.map}
           logo={false}
           attribution={false}
-          mapStyle={MAP_STYLE}
+          mapStyle={mapStyle}
           onRegionDidChange={(event: any) => {
             const geo = event.geometry;
             if (geo) {
@@ -851,6 +865,18 @@ export default function HomeScreen() {
                     <Text style={styles.filterBadgeText}>{filterCount}</Text>
                   </View>
                 )}
+              </View>
+            </TouchableOpacity>
+
+            {/* Bell icon → /notifications, with unread dot */}
+            <TouchableOpacity
+              onPress={() => router.push('/notifications')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              testID="notifications-bell"
+            >
+              <View style={[styles.filterBtn, { backgroundColor: isDark ? 'rgba(33,31,26,0.90)' : 'rgba(255,255,255,0.92)' }]}>
+                <Ionicons name="notifications" size={20} color={colors.primary} />
+                {unreadCount > 0 && <View style={styles.bellDot} testID="notifications-unread-dot" />}
               </View>
             </TouchableOpacity>
           </View>
@@ -1100,6 +1126,18 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '800',
+  },
+  // Bell unread dot (top-right of the bell button)
+  bellDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#F2766B',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
 
   // Chip row (glassmorphism)

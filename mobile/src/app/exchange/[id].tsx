@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -320,6 +321,7 @@ export default function ExchangeDetailScreen() {
   const chosenOffer = meetup?.offers[selectedOfferIndex];
 
   const onAcceptMeetup = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const requiresAck =
       chosenOffer?.validation_status === 'warning' &&
       !(meetup?.proposer_acknowledged && meetup?.other_acknowledged);
@@ -331,6 +333,7 @@ export default function ExchangeDetailScreen() {
   };
 
   const onAcknowledgeMeetupSafety = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     acceptMeetupMutation.mutate({ offerIndex: selectedOfferIndex, acknowledgeWarning: true });
   };
 
@@ -416,6 +419,7 @@ export default function ExchangeDetailScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                 Alert.alert(
                   'Kullanıcıyı Engelle',
                   'Bu kullanıcıyı engellemek istiyor musunuz? Bloklanmış kullanıcılar sizi göremez ve kitapları sizden gizlenir.',
@@ -488,7 +492,10 @@ export default function ExchangeDetailScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.acceptButton, { backgroundColor: colors.primary }]}
-            onPress={() => acceptMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              acceptMutation.mutate();
+            }}
             disabled={pending}
             testID="accept-button"
           >
@@ -500,7 +507,10 @@ export default function ExchangeDetailScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.rejectButton, { borderColor: colors.danger }]}
-            onPress={() => rejectMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              rejectMutation.mutate();
+            }}
             disabled={pending}
             testID="reject-button"
           >
@@ -652,7 +662,10 @@ export default function ExchangeDetailScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.rejectButton, { borderColor: colors.danger }]}
-                    onPress={() => rejectMeetupMutation.mutate()}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      rejectMeetupMutation.mutate();
+                    }}
                     disabled={meetupPending}
                     testID="reject-meetup-button"
                   >
@@ -775,7 +788,10 @@ export default function ExchangeDetailScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.acceptButton, { backgroundColor: colors.primary }]}
-            onPress={() => completeMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              completeMutation.mutate();
+            }}
             disabled={pending}
             testID="complete-button"
           >
@@ -804,7 +820,10 @@ export default function ExchangeDetailScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.acceptButton, { backgroundColor: colors.primary }]}
-            onPress={() => lendMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              lendMutation.mutate();
+            }}
             disabled={lendMutation.isPending}
             testID="lend-button"
           >
@@ -822,7 +841,10 @@ export default function ExchangeDetailScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.acceptButton, { backgroundColor: colors.primary }]}
-            onPress={() => returnMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              returnMutation.mutate();
+            }}
             disabled={returnMutation.isPending}
             testID="return-button"
           >
@@ -840,7 +862,10 @@ export default function ExchangeDetailScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.acceptButton, { backgroundColor: colors.primary }]}
-            onPress={() => confirmReturnMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              confirmReturnMutation.mutate();
+            }}
             disabled={confirmReturnMutation.isPending}
             testID="confirm-return-button"
           >
@@ -878,7 +903,10 @@ export default function ExchangeDetailScreen() {
               />
               <Button
                 variant="secondary"
-                onPress={() => requestExtensionMutation.mutate()}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  requestExtensionMutation.mutate();
+                }}
                 loading={requestExtensionMutation.isPending}
                 testID="request-extension-button"
               >
@@ -897,7 +925,10 @@ export default function ExchangeDetailScreen() {
           </Text>
           <View style={styles.actions}>
             <Button
-              onPress={() => approveExtensionMutation.mutate()}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                approveExtensionMutation.mutate();
+              }}
               loading={approveExtensionMutation.isPending}
               testID="approve-extension-button"
             >
@@ -905,7 +936,10 @@ export default function ExchangeDetailScreen() {
             </Button>
             <Button
               variant="ghost"
-              onPress={() => rejectExtensionMutation.mutate()}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                rejectExtensionMutation.mutate();
+              }}
               loading={rejectExtensionMutation.isPending}
               testID="reject-extension-button"
             >
@@ -937,7 +971,10 @@ export default function ExchangeDetailScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.acceptButton, { backgroundColor: colors.primary }]}
-            onPress={() => confirmMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              confirmMutation.mutate();
+            }}
             disabled={pending}
             testID="confirm-completion-button"
           >
@@ -966,7 +1003,10 @@ export default function ExchangeDetailScreen() {
           </Text>
           <TouchableOpacity
             style={[styles.cancelButton, { borderColor: colors.danger }]}
-            onPress={() => cancelMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              cancelMutation.mutate();
+            }}
             disabled={pending}
             testID="cancel-button"
           >
@@ -1004,7 +1044,10 @@ export default function ExchangeDetailScreen() {
           testID="report-reason-input"
         />
         <Button
-          onPress={() => reportMutation.mutate()}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            reportMutation.mutate();
+          }}
           disabled={reportReason.trim().length === 0}
           loading={reportMutation.isPending}
           testID="submit-report-button"
@@ -1044,7 +1087,10 @@ export default function ExchangeDetailScreen() {
           testID="rating-comment-input"
         />
         <Button
-          onPress={() => ratingMutation.mutate()}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            ratingMutation.mutate();
+          }}
           loading={ratingMutation.isPending}
           testID="submit-rating-button"
         >

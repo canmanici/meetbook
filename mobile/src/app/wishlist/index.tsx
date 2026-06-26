@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
@@ -114,6 +115,7 @@ export default function WishlistScreen() {
           style={[styles.addButton, { backgroundColor: colors.primary }]}
           onPress={() => {
             if (isbn.trim()) {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               addMutation.mutate(buildAddPayload(isbn));
             }
           }}
@@ -180,7 +182,10 @@ export default function WishlistScreen() {
                 </View>
                 <TouchableOpacity
                   style={[styles.removeButton, { backgroundColor: colors.danger + '15' }]}
-                  onPress={() => removeMutation.mutate(item.id)}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    removeMutation.mutate(item.id);
+                  }}
                   testID={`wishlist-remove-${item.id}`}
                 >
                   <Ionicons name="trash-outline" size={18} color={colors.danger} />
