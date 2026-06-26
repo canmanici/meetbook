@@ -1,16 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { MapView, Marker } from '@/lib/map-adapter';
 import {
   ActivityIndicator,
   Alert,
   Linking,
+  RefreshControl,
   ScrollView,
   Share,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -19,8 +22,9 @@ import {
 } from 'react-native';
 
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { Avatar, Badge, Button, Card, SafetySheet, Sheet, TimelineStep, TrustBadge, palette, spacing, fontSize, radius } from '@/components/ui';
+import { Avatar, Badge, Button, Card, BookCover, SafetySheet, Sheet, Skeleton, TimelineStep, TrustBadge, palette, spacing, fontSize, radius } from '@/components/ui';
 import { ChipSelect } from '@/components/chip-select';
 import { BOOK_CATEGORY_LABELS, BOOK_CONDITION_LABELS } from '@/constants/books';
 import { EXCHANGE_STATUS_LABELS, EXCHANGE_STATUS_VARIANTS } from '@/constants/exchanges';
@@ -49,6 +53,8 @@ import {
   type ExchangeDetail,
 } from '@/lib/api/client';
 import { buildMapLinks } from '@/lib/maps';
+import { startSafetyMode, stopSafetyMode } from '@/lib/safety';
+import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth-store';
 
 type StepStatus = 'done' | 'active' | 'pending';
@@ -112,7 +118,9 @@ export default function ExchangeDetailScreen() {
   const scheme = useColorScheme();
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
   const queryClient = useQueryClient();
+  const toast = useToast();
   const userId = useAuthStore((state) => state.user?.id);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { data: exchange, isLoading, error } = useQuery({
     queryKey: ['exchanges', id],
@@ -124,12 +132,36 @@ export default function ExchangeDetailScreen() {
     queryFn: () => getMe(),
   });
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['exchanges', id] }),
+        queryClient.invalidateQueries({ queryKey: ['me'] }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient, id]);
+
   const [meetupSafetySheetVisible, setMeetupSafetySheetVisible] = useState(false);
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
   const [reportReason, setReportReason] = useState('');
   const [rateSheetVisible, setRateSheetVisible] = useState(false);
   const [ratingScore, setRatingScore] = useState(5);
   const [ratingComment, setRatingComment] = useState('');
+  const [safetyMode, setSafetyMode] = useState(false);
+  const [safetyStopAt, setSafetyStopAt] = useState<number | null>(null);
+  const [safetyCountdown, setSafetyCountdown] = useState('');
+
+  // T41: post-meetup check-in
+  const [checkInDismissed, setCheckInDismissed] = useState(false);
+  // T42: meetup countdown + prep checklist
+  const [now, setNow] = useState(() => Date.now());
+  const [checklist, setChecklist] = useState<boolean[]>([false, false, false]);
+
+  const CHECKLIST_ITEMS = ['Kitabı hazırla', 'Telefonun şarjı dolu', 'Arkadaşına haber ver'];
+  const checklistKey = id ? `@meetbook_checklist_${id}` : null;
 
   const invalidate = async (updated: ExchangeDetail) => {
     queryClient.setQueryData(['exchanges', id], updated);
@@ -137,16 +169,45 @@ export default function ExchangeDetailScreen() {
     await queryClient.invalidateQueries({ queryKey: ['exchanges', 'received'] });
   };
 
-  const acceptMutation = useMutation({ mutationFn: () => acceptExchange(id), onSuccess: invalidate });
-  const rejectMutation = useMutation({ mutationFn: () => rejectExchange(id), onSuccess: invalidate });
-  const cancelMutation = useMutation({ mutationFn: () => cancelExchange(id), onSuccess: invalidate });
+  const acceptMutation = useMutation({
+    mutationFn: () => acceptExchange(id),
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Talep kabul edildi', { variant: 'success' });
+    },
+    onError: () => toast.show('Talep kabul edilemedi', { variant: 'error' }),
+  });
+  const rejectMutation = useMutation({
+    mutationFn: () => rejectExchange(id),
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Talep reddedildi', { variant: 'success' });
+    },
+    onError: () => toast.show('Talep reddedilemedi', { variant: 'error' }),
+  });
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelExchange(id),
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Takas iptal edildi', { variant: 'success' });
+    },
+    onError: () => toast.show('Takas iptal edilemedi', { variant: 'error' }),
+  });
   const completeMutation = useMutation({
     mutationFn: () => completeExchange(id),
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Takas tamamlandı', { variant: 'success' });
+    },
+    onError: () => toast.show('Takas tamamlanamadı', { variant: 'error' }),
   });
   const confirmMutation = useMutation({
     mutationFn: () => confirmExchangeCompletion(id),
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Tamamlandı onaylandı', { variant: 'success' });
+    },
+    onError: () => toast.show('Onay gönderilemedi', { variant: 'error' }),
   });
 
   // --- Borrow / lending lifecycle ---
@@ -156,7 +217,7 @@ export default function ExchangeDetailScreen() {
   const captureLoanPhoto = async (): Promise<string | null> => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('İzin gerekli', 'Fotoğraf çekmek için kamera izni gerekiyor.');
+      toast.show('Fotoğraf çekmek için kamera izni gerekiyor', { variant: 'error' });
       return null;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
@@ -172,10 +233,13 @@ export default function ExchangeDetailScreen() {
       if (!photoUrl) throw new Error('PHOTO_REQUIRED');
       return lendExchange(id, photoUrl);
     },
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Teslim edildi', { variant: 'success' });
+    },
     onError: (err) => {
       if ((err as Error).message !== 'PHOTO_REQUIRED') {
-        Alert.alert('Hata', 'İşlem tamamlanamadı. Lütfen tekrar deneyin.');
+        toast.show('İşlem tamamlanamadı. Lütfen tekrar deneyin.', { variant: 'error' });
       }
     },
   });
@@ -185,28 +249,47 @@ export default function ExchangeDetailScreen() {
       if (!photoUrl) throw new Error('PHOTO_REQUIRED');
       return returnExchange(id, photoUrl);
     },
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('İade bildirildi', { variant: 'success' });
+    },
     onError: (err) => {
       if ((err as Error).message !== 'PHOTO_REQUIRED') {
-        Alert.alert('Hata', 'İşlem tamamlanamadı. Lütfen tekrar deneyin.');
+        toast.show('İşlem tamamlanamadı. Lütfen tekrar deneyin.', { variant: 'error' });
       }
     },
   });
   const confirmReturnMutation = useMutation({
     mutationFn: () => confirmExchangeReturn(id),
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('İade onaylandı', { variant: 'success' });
+    },
+    onError: () => toast.show('İade onaylanamadı', { variant: 'error' }),
   });
   const requestExtensionMutation = useMutation({
     mutationFn: () => requestExchangeExtension(id, Number(extensionDays)),
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Uzatma isteği gönderildi', { variant: 'success' });
+    },
+    onError: () => toast.show('Uzatma isteği gönderilemedi', { variant: 'error' }),
   });
   const approveExtensionMutation = useMutation({
     mutationFn: () => approveExchangeExtension(id),
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Uzatma onaylandı', { variant: 'success' });
+    },
+    onError: () => toast.show('Uzatma onaylanamadı', { variant: 'error' }),
   });
   const rejectExtensionMutation = useMutation({
     mutationFn: () => rejectExchangeExtension(id),
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Uzatma reddedildi', { variant: 'success' });
+    },
+    onError: () => toast.show('Uzatma reddedilemedi', { variant: 'error' }),
   });
 
   const [selectedOfferIndex, setSelectedOfferIndex] = useState(0);
@@ -215,27 +298,95 @@ export default function ExchangeDetailScreen() {
     setSelectedOfferIndex(0);
   }, [exchange?.meetup?.proposed_by, exchange?.meetup?.updated_at]);
 
+  useEffect(() => {
+    if (!safetyStopAt) {
+      setSafetyCountdown('');
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.max(0, safetyStopAt - Date.now());
+      const totalSeconds = Math.floor(remaining / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      setSafetyCountdown(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+      if (remaining <= 0) {
+        setSafetyMode(false);
+        setSafetyStopAt(null);
+        stopSafetyMode();
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [safetyStopAt]);
+
+  // T42: countdown timer — tick every second while a meetup is confirmed
+  const meetupScheduledAt = exchange?.meetup?.scheduled_at;
+  useEffect(() => {
+    if (!meetupScheduledAt || exchange?.status !== 'meetup_confirmed') return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [meetupScheduledAt, exchange?.status]);
+
+  // T42: load prep checklist from AsyncStorage per exchange
+  useEffect(() => {
+    if (!checklistKey || !meetupScheduledAt || exchange?.status !== 'meetup_confirmed') return;
+    AsyncStorage.getItem(checklistKey)
+      .then((stored) => {
+        if (!stored) return;
+        try {
+          const parsed = JSON.parse(stored) as unknown;
+          if (Array.isArray(parsed) && parsed.length === CHECKLIST_ITEMS.length) {
+            setChecklist(parsed as boolean[]);
+          }
+        } catch {
+          // ignore malformed payload
+        }
+      })
+      .catch(() => undefined);
+  }, [checklistKey, meetupScheduledAt, exchange?.status]);
+
+  const toggleChecklistItem = useCallback(
+    (index: number) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setChecklist((prev) => {
+        const next = prev.map((value, i) => (i === index ? !value : value));
+        if (checklistKey) {
+          AsyncStorage.setItem(checklistKey, JSON.stringify(next)).catch(() => undefined);
+        }
+        return next;
+      });
+    },
+    [checklistKey],
+  );
+
   const acceptMeetupMutation = useMutation({
     mutationFn: ({ offerIndex, acknowledgeWarning }: { offerIndex: number; acknowledgeWarning: boolean }) =>
       acceptMeetup(id, { offer_index: offerIndex, acknowledge_warning: acknowledgeWarning }),
-    onSuccess: (updated) => {
+    onSuccess: async (updated) => {
       setMeetupSafetySheetVisible(false);
-      return invalidate(updated);
+      await invalidate(updated);
+      toast.show('Buluşma onaylandı', { variant: 'success' });
     },
+    onError: () => toast.show('Buluşma onaylanamadı', { variant: 'error' }),
   });
   const rejectMeetupMutation = useMutation({
     mutationFn: () => rejectMeetup(id),
-    onSuccess: invalidate,
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Buluşma reddedildi', { variant: 'success' });
+    },
+    onError: () => toast.show('Buluşma reddedilemedi', { variant: 'error' }),
   });
 
   const blockMutation = useMutation({
     mutationFn: (counterpartId: string) => blockUser({ user_id: counterpartId }),
     onSuccess: () => {
-      Alert.alert('Kullanıcı engellendi', 'Bu kullanıcıyı bir daha göremeyeceksiniz.');
+      toast.show('Kullanıcı engellendi', { variant: 'success' });
       router.back();
     },
     onError: () => {
-      Alert.alert('Hata', 'Kullanıcı engellenemedi. Lütfen tekrar deneyin.');
+      toast.show('Kullanıcı engellenemedi', { variant: 'error' });
     },
   });
 
@@ -244,10 +395,10 @@ export default function ExchangeDetailScreen() {
     onSuccess: () => {
       setReportSheetVisible(false);
       setReportReason('');
-      Alert.alert('Bildirim alındı', 'Bildiriminiz moderasyon ekibine iletildi.');
+      toast.show('Bildirim alındı', { variant: 'success' });
     },
     onError: () => {
-      Alert.alert('Hata', 'Bildirim gönderilemedi. Lütfen tekrar deneyin.');
+      toast.show('Bildirim gönderilemedi', { variant: 'error' });
     },
   });
 
@@ -257,26 +408,30 @@ export default function ExchangeDetailScreen() {
       setRateSheetVisible(false);
       setRatingComment('');
       setRatingScore(5);
-      Alert.alert('Teşekkürler', 'Değerlendirmeniz kaydedildi.');
+      toast.show('Değerlendirmeniz kaydedildi', { variant: 'success' });
     },
     onError: (err: unknown) => {
       if (err instanceof ApiError && err.status === 409) {
         const detail = (err.body as { detail?: string })?.detail;
         if (detail === 'ALREADY_RATED') {
           setRateSheetVisible(false);
-          Alert.alert('Zaten değerlendirildi', 'Bu takası daha önce değerlendirdiniz.');
+          toast.show('Bu takası daha önce değerlendirdiniz', { variant: 'error' });
           return;
         }
       }
-      Alert.alert('Hata', 'Değerlendirme gönderilemedi. Lütfen tekrar deneyin.');
+      toast.show('Değerlendirme gönderilemedi', { variant: 'error' });
     },
   });
 
   if (isLoading) {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={{ padding: spacing.md }}
+      >
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
+      </ScrollView>
     );
   }
 
@@ -301,7 +456,19 @@ export default function ExchangeDetailScreen() {
 
   const chosenOffer = meetup?.offers[selectedOfferIndex];
 
+  const meetupHistory = meetup
+    ? [...meetup.offers].sort(
+        (a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime(),
+      )
+    : [];
+  const meetupProposerName = meetup
+    ? meetup.proposed_by === userId
+      ? me?.name ?? 'Sen'
+      : exchange.counterpart.name
+    : '';
+
   const onAcceptMeetup = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const requiresAck =
       chosenOffer?.validation_status === 'warning' &&
       !(meetup?.proposer_acknowledged && meetup?.other_acknowledged);
@@ -313,6 +480,7 @@ export default function ExchangeDetailScreen() {
   };
 
   const onAcknowledgeMeetupSafety = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     acceptMeetupMutation.mutate({ offerIndex: selectedOfferIndex, acknowledgeWarning: true });
   };
 
@@ -343,25 +511,69 @@ export default function ExchangeDetailScreen() {
     }
   };
 
+  const onToggleSafetyMode = async (enabled: boolean) => {
+    if (!meetup) return;
+    if (enabled) {
+      try {
+        await startSafetyMode(id, new Date(meetup.scheduled_at));
+        const stopAt = new Date(meetup.scheduled_at).getTime() + 30 * 60000;
+        setSafetyStopAt(stopAt);
+        setSafetyMode(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {
+        setSafetyMode(false);
+        setSafetyStopAt(null);
+        toast.show('Arka plan konum izni reddedildi', { variant: 'error' });
+      }
+    } else {
+      stopSafetyMode();
+      setSafetyMode(false);
+      setSafetyStopAt(null);
+    }
+  };
+
   const coverUrl = exchange.book.photos?.[0]?.url;
+
+  // T41/T42: time-based derived state for countdown + post-meetup check-in
+  const meetupTimeMs = meetup ? new Date(meetup.scheduled_at).getTime() : 0;
+  const oneHourAfterMeetupMs = meetupTimeMs + 60 * 60 * 1000;
+  const isMeetupConfirmed = exchange.status === 'meetup_confirmed' && !!meetup;
+  const showMeetupCountdown = isMeetupConfirmed && now < meetupTimeMs;
+  const showPostMeetupCheckIn = isMeetupConfirmed && now >= oneHourAfterMeetupMs && !checkInDismissed;
+
+  const remainingMs = Math.max(0, meetupTimeMs - now);
+  const countdownDays = Math.floor(remainingMs / 86400000);
+  const countdownHours = Math.floor((remainingMs % 86400000) / 3600000);
+  const countdownMinutes = Math.floor((remainingMs % 3600000) / 60000);
+
+  const onCheckInResponse = (response: 'success' | 'neutral' | 'danger') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (response === 'danger') {
+      setCheckInDismissed(true);
+      setReportSheetVisible(true);
+      return;
+    }
+    if (response === 'success') {
+      toast.show('Teşekkürler! Güven puanına katkı sağlandı', { variant: 'success' });
+    }
+    setCheckInDismissed(true);
+  };
 
   return (
     <ScrollView
+      testID="exchange-scroll"
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+      }
     >
       {/* Book + Counterpart Card */}
       <Card style={styles.bookCounterpartCard}>
         <View style={styles.bookRow}>
-          {coverUrl ? (
-            <View style={styles.coverContainer}>
-              <Text style={[styles.coverPlaceholder, { color: colors.textMuted }]}>📖</Text>
-            </View>
-          ) : (
-            <View style={[styles.coverContainer, { backgroundColor: colors.textMuted + '20' }]}>
-              <Ionicons name="book-outline" size={32} color={colors.textMuted} />
-            </View>
-          )}
+          <View style={styles.coverContainer}>
+            <BookCover url={coverUrl} size={64} />
+          </View>
           <View style={styles.bookInfo}>
             <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
               {exchange.book.title}
@@ -395,11 +607,14 @@ export default function ExchangeDetailScreen() {
               onPress={() => setReportSheetVisible(true)}
               style={styles.counterpartActionButton}
               testID="report-user-button"
+              accessibilityRole="button"
+              accessibilityLabel="Kullanıcıyı bildir"
             >
               <Ionicons name="flag-outline" size={20} color={colors.textMuted} />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                 Alert.alert(
                   'Kullanıcıyı Engelle',
                   'Bu kullanıcıyı engellemek istiyor musunuz? Bloklanmış kullanıcılar sizi göremez ve kitapları sizden gizlenir.',
@@ -415,6 +630,8 @@ export default function ExchangeDetailScreen() {
               }}
               style={styles.counterpartActionButton}
               testID="block-user-button"
+              accessibilityRole="button"
+              accessibilityLabel="Kullanıcıyı engelle"
             >
               <Ionicons name="ban-outline" size={20} color={colors.danger} />
             </TouchableOpacity>
@@ -444,6 +661,8 @@ export default function ExchangeDetailScreen() {
             style={[styles.chatButton, { backgroundColor: colors.primary }]}
             onPress={() => router.push(`/chat/${exchange.id}`)}
             testID="chat-button"
+            accessibilityRole="button"
+            accessibilityLabel="Mesaj gönder"
           >
             <Ionicons name="chatbubble" size={20} color="#ffffff" />
             <Text style={styles.chatButtonText}>Mesaj Gönder</Text>
@@ -472,9 +691,14 @@ export default function ExchangeDetailScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.acceptButton, { backgroundColor: colors.primary }]}
-            onPress={() => acceptMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              acceptMutation.mutate();
+            }}
             disabled={pending}
             testID="accept-button"
+            accessibilityRole="button"
+            accessibilityLabel="Talebi kabul et"
           >
             {acceptMutation.isPending ? (
               <ActivityIndicator color={colors.surface} />
@@ -484,9 +708,14 @@ export default function ExchangeDetailScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.rejectButton, { borderColor: colors.danger }]}
-            onPress={() => rejectMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              rejectMutation.mutate();
+            }}
             disabled={pending}
             testID="reject-button"
+            accessibilityRole="button"
+            accessibilityLabel="Talebi reddet"
           >
             {rejectMutation.isPending ? (
               <ActivityIndicator color={colors.danger} />
@@ -530,6 +759,8 @@ export default function ExchangeDetailScreen() {
                           },
                         ]}
                         testID={`meetup-offer-${index}`}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Buluşma seçeneği: ${offer.place_name}`}
                       >
                         <View style={styles.placeHeader}>
                           <Ionicons
@@ -627,6 +858,8 @@ export default function ExchangeDetailScreen() {
                     onPress={onAcceptMeetup}
                     disabled={meetupPending}
                     testID="accept-meetup-button"
+                    accessibilityRole="button"
+                    accessibilityLabel="Buluşmayı onayla"
                   >
                     {meetupPending ? (
                       <ActivityIndicator color={colors.surface} />
@@ -636,9 +869,14 @@ export default function ExchangeDetailScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.rejectButton, { borderColor: colors.danger }]}
-                    onPress={() => rejectMeetupMutation.mutate()}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      rejectMeetupMutation.mutate();
+                    }}
                     disabled={meetupPending}
                     testID="reject-meetup-button"
+                    accessibilityRole="button"
+                    accessibilityLabel="Buluşmayı reddet"
                   >
                     {rejectMeetupMutation.isPending ? (
                       <ActivityIndicator color={colors.danger} />
@@ -730,6 +968,127 @@ export default function ExchangeDetailScreen() {
         </Card>
       )}
 
+      {/* T42: Meetup countdown + prep checklist */}
+      {showMeetupCountdown && (
+        <Card
+          style={[styles.countdownCard, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '40' }]}
+        >
+          <View style={styles.countdownHeader}>
+            <Ionicons name="time-outline" size={20} color={colors.primary} />
+            <Text style={[styles.countdownTitle, { color: colors.primary }]}>Buluşmaya Kalan Süre</Text>
+          </View>
+          <Text style={[styles.countdownValue, { color: colors.text }]} testID="meetup-countdown-value">
+            Buluşmaya {countdownDays} gün {countdownHours} saat {countdownMinutes} dakika
+          </Text>
+
+          <View style={[styles.checklistDivider, { backgroundColor: colors.textMuted + '20' }]} />
+          <Text style={[styles.checklistTitle, { color: colors.text }]}>Hazırlık Listesi</Text>
+          {CHECKLIST_ITEMS.map((label, index) => {
+            const checked = checklist[index];
+            return (
+              <TouchableOpacity
+                key={index}
+                onPress={() => toggleChecklistItem(index)}
+                style={styles.checklistRow}
+                testID={`prep-checklist-item-${index}`}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked }}
+                accessibilityLabel={label}
+              >
+                <Ionicons
+                  name={checked ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={checked ? colors.primary : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.checklistLabel,
+                    { color: checked ? colors.text : colors.textMuted },
+                    checked && styles.checklistLabelDone,
+                  ]}
+                >
+                  {checked ? '☑' : '☐'} {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </Card>
+      )}
+
+      {/* T41: Post-meetup check-in */}
+      {showPostMeetupCheckIn && (
+        <Card style={styles.checkInCard}>
+          <Text style={[styles.checkInTitle, { color: colors.text }]} testID="post-meetup-checkin-card">
+            Buluşma nasıl geçti?
+          </Text>
+          <View style={styles.checkInActions}>
+            <TouchableOpacity
+              onPress={() => onCheckInResponse('success')}
+              style={[styles.checkInButton, { backgroundColor: colors.success }]}
+              testID="checkin-success-button"
+              accessibilityRole="button"
+              accessibilityLabel="Harikaydı"
+            >
+              <Text style={styles.checkInButtonText}>Harikaydı</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => onCheckInResponse('neutral')}
+              style={[styles.checkInButton, { backgroundColor: colors.textMuted }]}
+              testID="checkin-neutral-button"
+              accessibilityRole="button"
+              accessibilityLabel="İdare eder"
+            >
+              <Text style={styles.checkInButtonText}>İdare eder</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => onCheckInResponse('danger')}
+              style={[styles.checkInButton, { backgroundColor: colors.danger }]}
+              testID="checkin-danger-button"
+              accessibilityRole="button"
+              accessibilityLabel="Sorun oldu"
+            >
+              <Text style={styles.checkInButtonText}>Sorun oldu</Text>
+            </TouchableOpacity>
+          </View>
+        </Card>
+      )}
+
+      {/* Meetup Offer History */}
+      {meetupHistory.length > 0 && (
+        <Card style={styles.historyCard}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Teklif Geçmişi</Text>
+          {meetupHistory.map((offer, i) => (
+            <View
+              key={i}
+              style={[styles.historyRow, { borderColor: colors.textMuted + '20' }]}
+              testID={`meetup-history-row-${i}`}
+            >
+              <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+              <Text
+                style={[styles.historyText, { color: colors.text }]}
+                numberOfLines={1}
+              >
+                {meetupProposerName} • {offer.place_name}
+              </Text>
+              <Text style={[styles.historyDate, { color: colors.textMuted }]}>
+                {formatDate(offer.scheduled_at)}
+              </Text>
+              <Badge
+                text={MEETUP_VALIDATION_LABELS[offer.validation_status]}
+                variant={
+                  offer.validation_status === 'auto'
+                    ? 'success'
+                    : offer.validation_status === 'rejected'
+                      ? 'danger'
+                      : 'warning'
+                }
+                testID={`meetup-history-badge-${i}`}
+              />
+            </View>
+          ))}
+        </Card>
+      )}
+
       {/* Security Tip Card */}
       <Card style={[styles.securityCard, { backgroundColor: colors.success + '10', borderColor: colors.success + '40' }]}>
         <View style={styles.securityHeader}>
@@ -748,10 +1107,49 @@ export default function ExchangeDetailScreen() {
           style={[styles.shareButton, { backgroundColor: colors.info }]}
           onPress={onShareWithTrustedContact}
           testID="share-trusted-contact-button"
+          accessibilityRole="button"
+          accessibilityLabel="Güvenilir kişiyle paylaş"
         >
           <Ionicons name="share-social" size={18} color={colors.surface} />
           <Text style={[styles.shareButtonText, { color: colors.surface }]}>Güvenilir Kişiyle Paylaş</Text>
         </TouchableOpacity>
+      )}
+
+      {/* Safety Companion Mode */}
+      {meetup && exchange.status === 'meetup_confirmed' && (
+        <Card
+          style={[styles.safetyCard, { backgroundColor: colors.info + '10', borderColor: colors.info + '40' }]}
+        >
+          <View style={styles.safetyToggleRow}>
+            <View style={styles.safetyToggleInfo}>
+              <Text style={[styles.safetyTitle, { color: colors.text }]}>Güvenlik Modu</Text>
+              <Text style={[styles.safetyDescription, { color: colors.textMuted }]}>
+                Buluşma süresince konumunuzu güvenilir kişinizle paylaşın.
+              </Text>
+            </View>
+            <Switch
+              value={safetyMode}
+              onValueChange={onToggleSafetyMode}
+              trackColor={{ false: colors.textMuted + '40', true: colors.info }}
+              thumbColor={safetyMode ? colors.surface : colors.surface}
+              testID="safety-mode-toggle"
+              accessibilityRole="switch"
+              accessibilityLabel="Güvenlik modu"
+            />
+          </View>
+          {safetyMode && (
+            <View style={[styles.safetyBadgeRow, { backgroundColor: colors.info + '20' }]}>
+              <Text style={[styles.safetyBadge, { color: colors.info }]} testID="safety-mode-badge">
+                🛡️ Güvenlik modu aktif
+              </Text>
+              {safetyCountdown ? (
+                <Text style={[styles.safetyCountdown, { color: colors.info }]}>
+                  Otomatik durma: {safetyCountdown}
+                </Text>
+              ) : null}
+            </View>
+          )}
+        </Card>
       )}
 
       {/* Completion Actions (trade mode) */}
@@ -759,9 +1157,14 @@ export default function ExchangeDetailScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.acceptButton, { backgroundColor: colors.primary }]}
-            onPress={() => completeMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              completeMutation.mutate();
+            }}
             disabled={pending}
             testID="complete-button"
+            accessibilityRole="button"
+            accessibilityLabel="Takası tamamla"
           >
             {completeMutation.isPending ? (
               <ActivityIndicator color={colors.surface} />
@@ -788,9 +1191,14 @@ export default function ExchangeDetailScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.acceptButton, { backgroundColor: colors.primary }]}
-            onPress={() => lendMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              lendMutation.mutate();
+            }}
             disabled={lendMutation.isPending}
             testID="lend-button"
+            accessibilityRole="button"
+            accessibilityLabel="Teslim edildi"
           >
             {lendMutation.isPending ? (
               <ActivityIndicator color={colors.surface} />
@@ -806,9 +1214,14 @@ export default function ExchangeDetailScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.acceptButton, { backgroundColor: colors.primary }]}
-            onPress={() => returnMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              returnMutation.mutate();
+            }}
             disabled={returnMutation.isPending}
             testID="return-button"
+            accessibilityRole="button"
+            accessibilityLabel="İade et"
           >
             {returnMutation.isPending ? (
               <ActivityIndicator color={colors.surface} />
@@ -824,9 +1237,14 @@ export default function ExchangeDetailScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.acceptButton, { backgroundColor: colors.primary }]}
-            onPress={() => confirmReturnMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              confirmReturnMutation.mutate();
+            }}
             disabled={confirmReturnMutation.isPending}
             testID="confirm-return-button"
+            accessibilityRole="button"
+            accessibilityLabel="İadeyi onayla"
           >
             {confirmReturnMutation.isPending ? (
               <ActivityIndicator color={colors.surface} />
@@ -862,7 +1280,10 @@ export default function ExchangeDetailScreen() {
               />
               <Button
                 variant="secondary"
-                onPress={() => requestExtensionMutation.mutate()}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  requestExtensionMutation.mutate();
+                }}
                 loading={requestExtensionMutation.isPending}
                 testID="request-extension-button"
               >
@@ -881,7 +1302,10 @@ export default function ExchangeDetailScreen() {
           </Text>
           <View style={styles.actions}>
             <Button
-              onPress={() => approveExtensionMutation.mutate()}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                approveExtensionMutation.mutate();
+              }}
               loading={approveExtensionMutation.isPending}
               testID="approve-extension-button"
             >
@@ -889,7 +1313,10 @@ export default function ExchangeDetailScreen() {
             </Button>
             <Button
               variant="ghost"
-              onPress={() => rejectExtensionMutation.mutate()}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                rejectExtensionMutation.mutate();
+              }}
               loading={rejectExtensionMutation.isPending}
               testID="reject-extension-button"
             >
@@ -921,9 +1348,14 @@ export default function ExchangeDetailScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.acceptButton, { backgroundColor: colors.primary }]}
-            onPress={() => confirmMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              confirmMutation.mutate();
+            }}
             disabled={pending}
             testID="confirm-completion-button"
+            accessibilityRole="button"
+            accessibilityLabel="Tamamlandığını onayla"
           >
             {confirmMutation.isPending ? (
               <ActivityIndicator color={colors.surface} />
@@ -950,9 +1382,14 @@ export default function ExchangeDetailScreen() {
           </Text>
           <TouchableOpacity
             style={[styles.cancelButton, { borderColor: colors.danger }]}
-            onPress={() => cancelMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              cancelMutation.mutate();
+            }}
             disabled={pending}
             testID="cancel-button"
+            accessibilityRole="button"
+            accessibilityLabel="İptal et"
           >
             {cancelMutation.isPending ? (
               <ActivityIndicator color={colors.danger} />
@@ -988,7 +1425,10 @@ export default function ExchangeDetailScreen() {
           testID="report-reason-input"
         />
         <Button
-          onPress={() => reportMutation.mutate()}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            reportMutation.mutate();
+          }}
           disabled={reportReason.trim().length === 0}
           loading={reportMutation.isPending}
           testID="submit-report-button"
@@ -1008,6 +1448,8 @@ export default function ExchangeDetailScreen() {
               key={value}
               onPress={() => setRatingScore(value)}
               testID={`rating-star-${value}`}
+              accessibilityRole="button"
+              accessibilityLabel={`${value} yıldız`}
             >
               <Ionicons
                 name={value <= ratingScore ? 'star' : 'star-outline'}
@@ -1028,7 +1470,10 @@ export default function ExchangeDetailScreen() {
           testID="rating-comment-input"
         />
         <Button
-          onPress={() => ratingMutation.mutate()}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            ratingMutation.mutate();
+          }}
           loading={ratingMutation.isPending}
           testID="submit-rating-button"
         >
@@ -1221,6 +1666,24 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.sm,
   },
+  historyCard: {
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    borderBottomWidth: 1,
+  },
+  historyText: {
+    flex: 1,
+    fontSize: fontSize.bodySm,
+  },
+  historyDate: {
+    fontSize: fontSize.caption,
+  },
   offersList: {
     gap: spacing.sm,
   },
@@ -1282,6 +1745,45 @@ const styles = StyleSheet.create({
     fontSize: fontSize.bodySm,
     lineHeight: 18,
   },
+  safetyCard: {
+    padding: spacing.md,
+    borderWidth: 1,
+    gap: spacing.sm,
+  },
+  safetyToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  safetyToggleInfo: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  safetyTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+  },
+  safetyDescription: {
+    fontSize: fontSize.bodySm,
+    lineHeight: 18,
+  },
+  safetyBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 8,
+    gap: spacing.sm,
+  },
+  safetyBadge: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+  },
+  safetyCountdown: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
+  },
   shareButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1327,5 +1829,69 @@ const styles = StyleSheet.create({
     fontSize: fontSize.body,
     textAlign: 'center',
     paddingVertical: spacing.md,
+  },
+  countdownCard: {
+    padding: spacing.md,
+    borderWidth: 1,
+    gap: spacing.xs,
+  },
+  countdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  countdownTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+  },
+  countdownValue: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+  },
+  checklistDivider: {
+    height: 1,
+    marginVertical: spacing.sm,
+  },
+  checklistTitle: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  checklistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  checklistLabel: {
+    fontSize: fontSize.body,
+    flex: 1,
+  },
+  checklistLabelDone: {
+    textDecorationLine: 'line-through',
+  },
+  checkInCard: {
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  checkInTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+  },
+  checkInActions: {
+    gap: spacing.sm,
+  },
+  checkInButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  checkInButtonText: {
+    color: '#ffffff',
+    fontSize: fontSize.body,
+    fontWeight: '700',
   },
 });

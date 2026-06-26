@@ -28,8 +28,8 @@ from app.modules.books.models import Book, BookPhoto
 S3_ENDPOINT = "http://minio:9000"
 S3_EXTERNAL = "http://192.168.8.199:9100"
 S3_BUCKET = "meetbook-photos"
-S3_ACCESS = "meetbook_minio"
-S3_SECRET = "meetbook_minio_dev"
+S3_ACCESS = os.environ.get("S3_ACCESS_KEY", "meetbook_minio")
+S3_SECRET = os.environ.get("S3_SECRET_KEY", "meetbook_minio_dev")
 
 OPENLIB_SEARCH = "https://openlibrary.org/search.json"
 COVER_ID_TPL = "https://covers.openlibrary.org/b/id/{cover_id}-L.jpg"

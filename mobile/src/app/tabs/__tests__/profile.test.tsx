@@ -63,6 +63,10 @@ function renderWithQueryClient(ui: React.ReactElement) {
   );
 }
 
+function renderProfile() {
+  return renderWithQueryClient(<ProfileScreen />);
+}
+
 describe('ProfileScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -169,5 +173,10 @@ describe('ProfileScreen', () => {
     fireEvent.press(await findByTestId('add-book-button'));
 
     expect(router.push).toHaveBeenCalledWith('/book/new');
+  });
+
+  it('does not show a dead "Güvendiğim Kişi" menu item', async () => {
+    const { queryByText } = renderProfile();
+    await waitFor(() => expect(queryByText('Güvendiğim Kişi')).toBeNull());
   });
 });

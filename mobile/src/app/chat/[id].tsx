@@ -12,6 +12,8 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  ScrollView,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -24,6 +26,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { MessageBubble } from '@/components/ui/message-bubble';
 import { TypingIndicator } from '@/components/ui/typing-indicator';
 import { EmojiPicker } from '@/components/ui/emoji-picker';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   getMessages,
   listChats,
@@ -35,7 +38,8 @@ import {
 import { useShallow } from 'zustand/react/shallow';
 import { useChatStore } from '@/stores/chat-store';
 import { useAuthStore } from '@/stores/auth-store';
-import { getExchange } from '@/lib/api/client';
+import { getExchange, listMyBooks, type BookListResponse } from '@/lib/api/client';
+import { BookCover } from '@/components/ui/book-cover';
 
 // ---------------------------------------------------------------------------
 // Date separator helpers
@@ -106,6 +110,7 @@ export default function ChatDetailScreen() {
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showBookPicker, setShowBookPicker] = useState(false);
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<MessageView[]>([]);
@@ -145,6 +150,14 @@ export default function ChatDetailScreen() {
   const counterpartId = exchange?.counterpart?.id ?? chatSummary?.counterpart_id;
 
   const isOtherTyping = counterpartId && typingState[counterpartId];
+
+  // ---- My books (for book sharing picker) ----
+  const { data: myBooksData, isLoading: isLoadingBooks } = useQuery({
+    queryKey: ['my-books-picker'],
+    queryFn: () => listMyBooks({ limit: 100 }),
+    enabled: showBookPicker,
+  });
+  const myBooks = myBooksData?.items ?? [];
 
   // ---- Messages ----
   const {
@@ -192,6 +205,21 @@ export default function ChatDetailScreen() {
     }
     return items;
   }, [rawMessages, isOtherTyping]);
+
+  // ---- Smart reply suggestions ----
+  const suggestions = useMemo<string[]>(() => {
+    if (inputText.trim().length > 0) return [];
+    const lastIncoming = [...rawMessages]
+      .reverse()
+      .find((m) => m.sender_id !== currentUserId);
+    if (!lastIncoming) return ['Tamam', 'Ne zaman?', 'Nerede?'];
+    const text = (lastIncoming.text ?? '').toLocaleLowerCase('tr');
+    const has = (...keys: string[]) => keys.some((k) => text.includes(k));
+    if (has('saat', 'vakit', 'zaman')) return ['14:00 olur', 'Hangi saat?'];
+    if (has('nerede', 'yer', 'nerde')) return ['Sen nerede istersin?', "Kafe'de buluşalım"];
+    if (text.includes('?')) return ['Evet', 'Hayır', 'Tabi'];
+    return ['Tamam', 'Ne zaman?', 'Nerede?'];
+  }, [rawMessages, currentUserId, inputText]);
 
   // ---- Mark as read ----
   useEffect(() => {
@@ -242,6 +270,25 @@ export default function ChatDetailScreen() {
     setTimeout(() => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', exchangeId] });
       setIsSending(false);
+    }, 500);
+  };
+
+  // ---- Send book card ----
+  const handleSendBook = (book: BookListResponse['items'][number]) => {
+    if (!chatId) return;
+    const coverUrl = book.photos?.[0]?.thumbnail_url ?? book.photos?.[0]?.url ?? undefined;
+    sendMessage(chatId, '', null, 'book_card', {
+      book_id: book.id,
+      title: book.title,
+      author: book.author ?? undefined,
+      cover_url: coverUrl,
+      category: book.category,
+    });
+    setShowBookPicker(false);
+    setShowEmojiPicker(false);
+    scrollToBottom(true);
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', exchangeId] });
     }, 500);
   };
 
@@ -332,7 +379,7 @@ export default function ChatDetailScreen() {
     >
       {/* ---- Header ---- */}
       <View style={[styles.header, { backgroundColor: colors.surface, paddingTop: insets.top + spacing.xs, ...shadows.card }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Geri">
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
 
@@ -359,10 +406,19 @@ export default function ChatDetailScreen() {
               setIsSearchMode(true);
             }
           }}
+          testID="chat-search-toggle"
+          accessibilityRole="button"
+          accessibilityLabel={isSearchMode ? 'Aramayı kapat' : 'Ara'}
         >
           <Ionicons name={isSearchMode ? 'close' : 'search'} size={22} color={colors.textMuted} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.headerAction}>
+        <TouchableOpacity
+          style={styles.headerAction}
+          onPress={() => router.push(`/chat/info/${exchangeId}`)}
+          testID="chat-info-button"
+          accessibilityRole="button"
+          accessibilityLabel="Sohbet bilgileri"
+        >
           <Ionicons name="ellipsis-vertical" size={20} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
@@ -383,7 +439,7 @@ export default function ChatDetailScreen() {
             autoFocus
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <TouchableOpacity onPress={() => setSearchQuery('')} accessibilityRole="button" accessibilityLabel="Aramayı temizle">
               <Ionicons name="close-circle" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           )}
@@ -409,11 +465,23 @@ export default function ChatDetailScreen() {
           {searchResults.slice(0, 10).map((msg) => (
             <TouchableOpacity
               key={msg.id}
+              testID={`search-result-${msg.id}`}
               style={[styles.searchResultItem, { borderBottomColor: colors.border }]}
               onPress={() => {
-                // TODO: scroll to message
+                // Find the message in the flattened list and scroll to it
+                const flat = isSearchMode ? listData : listData;
+                const index = flat.findIndex((item) => item.key === msg.id);
+                if (index >= 0 && flatListRef.current) {
+                  try {
+                    flatListRef.current.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+                  } catch {
+                    // index out of range (message not in loaded pages) — ignore
+                  }
+                }
                 clearSearch();
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Arama sonucuna git"
             >
               <Text style={[styles.searchResultText, { color: colors.text }]} numberOfLines={2}>
                 {msg.text}
@@ -442,7 +510,11 @@ export default function ChatDetailScreen() {
         }
         ListEmptyComponent={
           isLoading ? (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 100 }} />
+            <View style={{ padding: spacing.md }}>
+              <Skeleton variant="list-item" />
+              <Skeleton variant="list-item" />
+              <Skeleton variant="list-item" />
+            </View>
           ) : (
             <View style={styles.emptyState}>
               <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
@@ -468,9 +540,36 @@ export default function ChatDetailScreen() {
               {replyingTo.text}
             </Text>
           </View>
-          <TouchableOpacity onPress={() => setReplyingTo(null)} style={styles.replyBarClose}>
+          <TouchableOpacity onPress={() => setReplyingTo(null)} style={styles.replyBarClose} accessibilityRole="button" accessibilityLabel="Yanıttan vazgeç">
             <Ionicons name="close" size={18} color={colors.textMuted} />
           </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ---- Smart reply chips ---- */}
+      {suggestions.length > 0 && (
+        <View style={[styles.chipsRow, { backgroundColor: colors.surface }]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipsContent}
+          >
+            {suggestions.map((s) => (
+              <TouchableOpacity
+                key={s}
+                style={[styles.chip, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
+                onPress={() => {
+                  setInputText(s);
+                  inputRef.current?.focus();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Öneri: ${s}`}
+                testID={`suggestion-chip-${s}`}
+              >
+                <Text style={[styles.chipText, { color: colors.text }]}>{s}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
       )}
 
@@ -489,14 +588,28 @@ export default function ChatDetailScreen() {
         <TouchableOpacity
           style={[styles.inputAction, { backgroundColor: colors.surfaceAlt }]}
           onPress={() => setShowEmojiPicker(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Emoji seç"
         >
           <Ionicons name="happy-outline" size={24} color={colors.primary} />
+        </TouchableOpacity>
+
+        {/* Book share button */}
+        <TouchableOpacity
+          style={[styles.inputAction, { backgroundColor: colors.surfaceAlt }]}
+          onPress={() => setShowBookPicker(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Kitap paylaş"
+          testID="chat-book-share"
+        >
+          <Ionicons name="book-outline" size={22} color={colors.primary} />
         </TouchableOpacity>
 
         {/* Text input */}
         <View style={[styles.inputWrapper, { backgroundColor: colors.background, borderColor: colors.border }]}>
           <TextInput
             ref={inputRef}
+            testID="chat-input"
             style={[styles.textInput, { color: colors.text }]}
             placeholder="Mesaj yaz..."
             placeholderTextColor={colors.textMuted}
@@ -513,6 +626,9 @@ export default function ChatDetailScreen() {
             style={styles.sendBtn}
             onPress={handleSend}
             disabled={!chatId || isSending}
+            testID="send-button"
+            accessibilityRole="button"
+            accessibilityLabel="Gönder"
           >
             <LinearGradient
               colors={[colors.primary, isDark ? '#2EA88A' : '#0D5E4F']}
@@ -523,11 +639,7 @@ export default function ChatDetailScreen() {
               <Ionicons name="send" size={18} color="#ffffff" />
             </LinearGradient>
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={[styles.inputAction, { backgroundColor: colors.surfaceAlt }]}>
-            <Ionicons name="mic" size={22} color={colors.primary} />
-          </TouchableOpacity>
-        )}
+        ) : null}
       </View>
 
       {/* ---- Emoji picker ---- */}
@@ -539,6 +651,61 @@ export default function ChatDetailScreen() {
           setShowEmojiPicker(false);
         }}
       />
+
+      {/* ---- Book picker ---- */}
+      <Modal visible={showBookPicker} transparent animationType="slide" onRequestClose={() => setShowBookPicker(false)}>
+        <TouchableOpacity style={styles.bookPickerOverlay} activeOpacity={1} onPress={() => setShowBookPicker(false)}>
+          <View
+            style={[styles.bookPickerContainer, { backgroundColor: colors.surface, ...shadows.sheet }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={[styles.handle, { backgroundColor: colors.border }]} />
+            <Text style={[styles.bookPickerTitle, { color: colors.text }]}>Kitap Paylaş</Text>
+
+            {isLoadingBooks ? (
+              <ActivityIndicator size="large" color={colors.primary} style={{ padding: spacing.md }} />
+            ) : myBooks.length === 0 ? (
+              <View style={styles.bookPickerEmpty}>
+                <Ionicons name="book-outline" size={36} color={colors.textMuted} />
+                <Text style={[styles.bookPickerEmptyText, { color: colors.textMuted }]}>
+                  Paylaşabileceğiniz kitap yok
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={myBooks}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.bookPickerList}
+                renderItem={({ item }) => {
+                  const coverUrl = item.photos?.[0]?.thumbnail_url ?? item.photos?.[0]?.url ?? null;
+                  return (
+                    <TouchableOpacity
+                      style={[styles.bookPickerItem, { borderBottomColor: colors.border }]}
+                      onPress={() => handleSendBook(item)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Paylaş: ${item.title}`}
+                      testID={`book-picker-item-${item.id}`}
+                    >
+                      <BookCover url={coverUrl} size={40} />
+                      <View style={styles.bookPickerInfo}>
+                        <Text style={[styles.bookPickerBookTitle, { color: colors.text }]} numberOfLines={1}>
+                          {item.title}
+                        </Text>
+                        {item.author && (
+                          <Text style={[styles.bookPickerAuthor, { color: colors.textMuted }]} numberOfLines={1}>
+                            {item.author}
+                          </Text>
+                        )}
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -708,6 +875,27 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
     marginLeft: spacing.xs,
   },
+  // Smart reply chips
+  chipsRow: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  chipsContent: {
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '500',
+  },
   // Input bar
   inputBar: {
     flexDirection: 'row',
@@ -753,5 +941,61 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.float,
+  },
+  // Book picker sheet
+  bookPickerOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  bookPickerContainer: {
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    maxHeight: '60%',
+    paddingBottom: 34,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  bookPickerTitle: {
+    fontSize: fontSize.title,
+    fontWeight: '700',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  bookPickerEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: spacing.sm,
+  },
+  bookPickerEmptyText: {
+    fontSize: fontSize.bodySm,
+  },
+  bookPickerList: {
+    paddingHorizontal: spacing.md,
+  },
+  bookPickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  bookPickerInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  bookPickerBookTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '600',
+  },
+  bookPickerAuthor: {
+    fontSize: fontSize.caption,
   },
 });

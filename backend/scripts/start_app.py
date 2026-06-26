@@ -421,7 +421,6 @@ def main() -> int:
             log_elapsed("Recovery succeeded (upgrade head created tables).")
         else:
             # Tables still missing — check if there's any data to protect
-            import asyncio
             from sqlalchemy.ext.asyncio import create_async_engine
             from sqlalchemy import text
 
@@ -471,7 +470,7 @@ def main() -> int:
     # connections bound to that dead loop.  Dropping the reference forces
     # get_engine() to create a new engine on uvicorn's event loop.
     from app.core.db import reset_engine
-    reset_engine()
+    asyncio.run(reset_engine())
     log_elapsed("DB engine reset (ready for uvicorn event loop).")
 
     # Phase 6: Start uvicorn (blocking, never returns)

@@ -1,5 +1,6 @@
 """Hourly worker: reveal ratings that have timed out (14 days unrevealed)."""
 
+import logging
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.ratings.models import REVEAL_TIMEOUT_DAYS
 from app.modules.ratings.repository import RatingRepository
 from app.modules.ratings.service import RatingService
+
+logger = logging.getLogger(__name__)
 
 
 async def reveal_overdue_ratings(session: AsyncSession) -> int:
@@ -21,10 +24,16 @@ async def reveal_overdue_ratings(session: AsyncSession) -> int:
 
     now = datetime.now(UTC)
     revealed = 0
-    for rating in overdue:
-        rating.revealed_at = now
-        await service.update_aggregate(rating.rated_user)
-        revealed += 1
+    for i, rating in enumerate(overdue):
+        try:
+            rating.revealed_at = now
+            await service.update_aggregate(rating.rated_user)
+            revealed += 1
+        except Exception:
+            logger.exception("Failed to reveal rating %s", rating.id)
+
+        if (i + 1) % 50 == 0:
+            await session.commit()
 
     await session.commit()
     return revealed

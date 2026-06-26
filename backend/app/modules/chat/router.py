@@ -1,8 +1,11 @@
 """Chat REST + WebSocket endpoints — full-featured WhatsApp-grade API."""
 
 import json
+import logging
 import uuid
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -102,7 +105,12 @@ async def toggle_star(
     user: User = Depends(get_current_user),
     service: ChatService = Depends(_get_service),
 ) -> dict:
-    """Toggle star on a message."""
+    """Toggle star on a message (own exchange only)."""
+    msg = await service.repo.get_message_by_id(message_id)
+    if msg is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if not await service.repo.is_participant(msg.chat_id, user.id):
+        raise HTTPException(status_code=403, detail="Not a participant of this chat")
     result = await service.repo.toggle_star(message_id)
     await service.session.commit()
     return {"starred": result}
@@ -115,7 +123,12 @@ async def toggle_pin(
     user: User = Depends(get_current_user),
     service: ChatService = Depends(_get_service),
 ) -> dict:
-    """Toggle pin on a message."""
+    """Toggle pin on a message (own exchange only)."""
+    msg = await service.repo.get_message_by_id(message_id)
+    if msg is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if not await service.repo.is_participant(msg.chat_id, user.id):
+        raise HTTPException(status_code=403, detail="Not a participant of this chat")
     result = await service.repo.toggle_pin(message_id)
     await service.session.commit()
     return {"pinned": result}
@@ -275,7 +288,7 @@ async def websocket_endpoint(
         except json.JSONDecodeError:
             await service._ws_error(ws, "Invalid JSON")
         except Exception:
-            pass
+            logger.exception("WebSocket message handler error")
         finally:
             ConnectionManager.disconnect(user_id, ws)
             await ConnectionManager.set_last_seen(user_id)

@@ -158,6 +158,10 @@ export default function NewBookScreen() {
   const canSubmit = canNext();
 
   const onSubmit = async () => {
+    if (!title.trim()) {
+      setError('Lütfen kitap adı girin');
+      return;
+    }
     if (!marker || photos.length === 0) {
       return;
     }
@@ -198,6 +202,21 @@ export default function NewBookScreen() {
       case 0:
         return (
           <View style={styles.stepContent}>
+            <TouchableOpacity
+              onPress={() => router.push('/book/shelf-scan')}
+              style={[styles.shelfScanButton, { backgroundColor: colors.primarySoft, borderColor: colors.primary }]}
+              testID="shelf-scan-link">
+              <Ionicons name="library-outline" size={22} color={colors.primary} />
+              <View style={styles.shelfScanTextWrap}>
+                <Text style={[styles.shelfScanTitle, { color: colors.primary }]}>
+                  📚 Rafı Tara (Toplu Kitap Ekle)
+                </Text>
+                <Text style={[styles.shelfScanSubtitle, { color: colors.textMuted }]}>
+                  Kitaplıktaki kitapları kamerayla tek tek tarayarak hızlıca ekleyin.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+            </TouchableOpacity>
             <PhotoPicker photos={photos} onPhotosChange={setPhotos} />
             <Card style={{ ...styles.tipCard, backgroundColor: colors.surface }}>
               <Text style={[styles.tipTitle, { color: colors.text }]}>İpucu</Text>
@@ -496,6 +515,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   privacyText: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  shelfScanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  shelfScanTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  shelfScanTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  shelfScanSubtitle: {
     fontSize: 12,
     lineHeight: 16,
   },

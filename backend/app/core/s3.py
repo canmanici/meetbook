@@ -1,9 +1,11 @@
 """Photo storage — S3 when configured, local filesystem fallback."""
 
 import logging
-import os
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from app.core.config import get_settings
 
@@ -11,12 +13,33 @@ logger = logging.getLogger(__name__)
 
 LOCAL_STORAGE_DIR = Path("/app/media/book_photos")
 
-_session = None
-
 
 def _is_s3_configured() -> bool:
     settings = get_settings()
     return bool(settings.s3_bucket and settings.s3_access_key)
+
+
+@asynccontextmanager
+async def get_s3_client() -> AsyncIterator[Any]:
+    """Shared S3 client context manager used by lifespan, storage proxy, and uploads.
+
+    Usage:
+        async with get_s3_client() as client:
+            await client.put_object(Bucket=..., Key=..., Body=...)
+    """
+    import aioboto3
+    from botocore.config import Config
+
+    settings = get_settings()
+    session = aioboto3.Session()
+    async with session.client(
+        "s3",
+        endpoint_url=settings.s3_endpoint or None,
+        aws_access_key_id=settings.s3_access_key,
+        aws_secret_access_key=settings.s3_secret_key,
+        config=Config(signature_version="s3v4"),
+    ) as client:
+        yield client
 
 
 async def upload_photo(
@@ -86,23 +109,10 @@ async def _delete_local(url: str) -> None:
 async def _upload_s3(
     book_id: uuid.UUID, filename: str, file_bytes: bytes, content_type: str
 ) -> str:
-    import aioboto3
-    from botocore.config import Config
-
-    global _session
-    if _session is None:
-        _session = aioboto3.Session()
-
     settings = get_settings()
     key = f"books/{book_id}/{filename}"
 
-    async with _session.client(
-        "s3",
-        endpoint_url=settings.s3_endpoint or None,
-        aws_access_key_id=settings.s3_access_key,
-        aws_secret_access_key=settings.s3_secret_key,
-        config=Config(signature_version="s3v4"),
-    ) as client:
+    async with get_s3_client() as client:
         await client.put_object(
             Bucket=settings.s3_bucket,
             Key=key,
@@ -110,7 +120,6 @@ async def _upload_s3(
             ContentType=content_type,
         )
 
-    # Use external-facing URL (mobile needs to reach this)
     external = settings.s3_external_endpoint or settings.s3_endpoint
     if external:
         return f"{external}/{settings.s3_bucket}/{key}"
@@ -118,23 +127,10 @@ async def _upload_s3(
 
 
 async def _delete_s3(url: str) -> None:
-    import aioboto3
-    from botocore.config import Config
-
-    global _session
-    if _session is None:
-        _session = aioboto3.Session()
-
     settings = get_settings()
     key = _extract_key(url, settings.s3_bucket)
 
-    async with _session.client(
-        "s3",
-        endpoint_url=settings.s3_endpoint or None,
-        aws_access_key_id=settings.s3_access_key,
-        aws_secret_access_key=settings.s3_secret_key,
-        config=Config(signature_version="s3v4"),
-    ) as client:
+    async with get_s3_client() as client:
         await client.delete_object(Bucket=settings.s3_bucket, Key=key)
 
 

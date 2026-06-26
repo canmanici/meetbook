@@ -17,6 +17,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useShallow } from 'zustand/react/shallow';
+import { Swipeable } from 'react-native-gesture-handler';
+import { useToast } from '@/hooks/use-toast';
 
 import {
   palette,
@@ -66,7 +68,7 @@ function formatTime(dateStr: string): string {
   return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
 }
 
-type SectionKey = 'new' | 'today' | 'yesterday' | 'thisweek' | 'earlier';
+type SectionKey = 'pinned' | 'new' | 'today' | 'yesterday' | 'thisweek' | 'earlier';
 
 function sectionKeyFor(dateStr: string | null): SectionKey {
   if (!dateStr) return 'new';
@@ -82,6 +84,7 @@ function sectionKeyFor(dateStr: string | null): SectionKey {
 }
 
 const SECTION_ORDER: { key: SectionKey; title: string }[] = [
+  { key: 'pinned', title: 'Sabitlenenler' },
   { key: 'new', title: 'Yeni Sohbetler' },
   { key: 'today', title: 'Bugün' },
   { key: 'yesterday', title: 'Dün' },
@@ -113,6 +116,40 @@ function pastelForName(name: string): PastelName {
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
   return PASTEL_KEYS[Math.abs(h) % PASTEL_KEYS.length];
 }
+
+// ---------------------------------------------------------------------------
+// Swipe action backgrounds — left = archive (orange), right = pin (blue).
+// Defined at module scope so they stay referentially stable across renders.
+// ---------------------------------------------------------------------------
+
+const renderLeftActions = () => (
+  <View
+    style={{
+      backgroundColor: '#FF9500',
+      justifyContent: 'center',
+      paddingLeft: 20,
+      flex: 1,
+    }}
+  >
+    <Ionicons name="archive" size={24} color="#fff" />
+    <Text style={{ color: '#fff', fontSize: 12 }}>Arşivle</Text>
+  </View>
+);
+
+const renderRightActions = () => (
+  <View
+    style={{
+      backgroundColor: '#007AFF',
+      justifyContent: 'center',
+      alignItems: 'flex-end',
+      paddingRight: 20,
+      flex: 1,
+    }}
+  >
+    <Ionicons name="pin" size={24} color="#fff" />
+    <Text style={{ color: '#fff', fontSize: 12 }}>Sabitle</Text>
+  </View>
+);
 
 // ---------------------------------------------------------------------------
 // PulseDot — animated status dot for the connection pill.
@@ -174,6 +211,8 @@ const ChatItem = React.memo<ChatItemProps>(
         ]}
         onPress={() => onPress(item.exchange_id)}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.counterpart_name} ile sohbeti aç`}
       >
         {hasUnread && <View style={[styles.unreadAccent, { backgroundColor: colors.primary }]} />}
 
@@ -320,11 +359,14 @@ export default function ChatsScreen() {
 
   const [filter, setFilter] = useState<FilterKey>('all');
   const [query, setQuery] = useState('');
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+  const toast = useToast();
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['chats'],
     queryFn: listChats,
     refetchInterval: 15000,
+    retry: false,
   });
 
   useFocusEffect(
@@ -353,13 +395,20 @@ export default function ChatsScreen() {
     });
 
     const buckets: Record<SectionKey, ChatSummary[]> = {
+      pinned: [],
       new: [],
       today: [],
       yesterday: [],
       thisweek: [],
       earlier: [],
     };
-    for (const c of filtered) buckets[sectionKeyFor(c.last_message_at)].push(c);
+    for (const c of filtered) {
+      if (pinnedIds.includes(c.chat_id)) {
+        buckets.pinned.push(c);
+      } else {
+        buckets[sectionKeyFor(c.last_message_at)].push(c);
+      }
+    }
 
     // Sort each bucket by last_message_at desc (new chats sink within "new").
     const sortFn = (a: ChatSummary, b: ChatSummary) => {
@@ -374,11 +423,26 @@ export default function ChatsScreen() {
       title: s.title,
       data: buckets[s.key],
     }));
-  }, [allChats, filter, query]);
+  }, [allChats, filter, query, pinnedIds]);
 
   const handlePress = useCallback((exchangeId: string) => {
     router.push(`/chat/${exchangeId}`);
   }, [router]);
+
+  const handleArchive = useCallback(
+    (_chatId: string) => {
+      toast.show('Sohbet arşivlendi', { variant: 'info' });
+    },
+    [toast],
+  );
+
+  const handlePin = useCallback(
+    (chatId: string) => {
+      setPinnedIds((prev) => (prev.includes(chatId) ? prev : [chatId, ...prev]));
+      toast.show('Sohbet sabitlendi', { variant: 'success' });
+    },
+    [toast],
+  );
 
   const renderItem = useCallback(
     ({ item }: { item: ChatSummary }) => {
@@ -388,17 +452,39 @@ export default function ChatsScreen() {
         ([uid, t]) => t && uid !== currentUserId,
       );
       return (
-        <ChatItem
-          item={item}
-          isOnline={isOnline}
-          isTyping={isTyping}
-          colors={colors}
-          isDark={isDark}
-          onPress={handlePress}
-        />
+        <Swipeable
+          renderLeftActions={renderLeftActions}
+          renderRightActions={renderRightActions}
+          onSwipeableOpen={(direction, swipeable) => {
+            swipeable.close();
+            if (direction === 'left') {
+              handleArchive(item.chat_id);
+            } else {
+              handlePin(item.chat_id);
+            }
+          }}
+        >
+          <ChatItem
+            item={item}
+            isOnline={isOnline}
+            isTyping={isTyping}
+            colors={colors}
+            isDark={isDark}
+            onPress={handlePress}
+          />
+        </Swipeable>
       );
     },
-    [presence, typing, currentUserId, colors, isDark, handlePress],
+    [
+      presence,
+      typing,
+      currentUserId,
+      colors,
+      isDark,
+      handlePress,
+      handleArchive,
+      handlePin,
+    ],
   );
 
   const renderSectionHeader = useCallback(
@@ -415,6 +501,20 @@ export default function ChatsScreen() {
     { key: 'all', label: 'Tümü', count: allChats.length },
     { key: 'unread', label: 'Okunmamış', count: totalUnread },
   ];
+
+  if (isError) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+        <EmptyState
+          message="Sohbetler yüklenemedi"
+          description="Bağlantınızı kontrol edip tekrar deneyin."
+          actionLabel="Tekrar Dene"
+          onAction={() => refetch()}
+          icon="cloud-offline"
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -454,7 +554,7 @@ export default function ChatsScreen() {
             testID="chat-search-input"
           />
           {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery('')} style={styles.searchClear}>
+            <TouchableOpacity onPress={() => setQuery('')} style={styles.searchClear} accessibilityRole="button" accessibilityLabel="Aramayı temizle">
               <Ionicons name="close-circle" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
@@ -473,6 +573,8 @@ export default function ChatsScreen() {
                 onPress={() => setFilter(f.key)}
                 style={[styles.filterTab, active && styles.filterTabActive]}
                 activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={f.key === 'all' ? 'Tüm sohbetler' : 'Okunmamış sohbetler'}
               >
                 {active && (
                   <LinearGradient
@@ -548,6 +650,25 @@ export default function ChatsScreen() {
           ) : null
         }
       />
+
+      {/* Book club FAB */}
+      <LinearGradient
+        colors={[colors.primary, isDark ? '#2EA88A' : '#0D5E4F']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.fab, { bottom: insets.bottom + spacing.xl }]}
+      >
+        <TouchableOpacity
+          onPress={() => router.push('/chat/club/create')}
+          style={styles.fabTouch}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Kitap kulübü oluştur"
+          testID="create-club-fab"
+        >
+          <Ionicons name="people" size={26} color="#fff" />
+        </TouchableOpacity>
+      </LinearGradient>
     </View>
   );
 }
@@ -812,5 +933,22 @@ const styles = StyleSheet.create({
   skeletonLine: {
     height: 12,
     borderRadius: 6,
+  },
+  // Book club FAB
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fabTouch: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

@@ -83,12 +83,51 @@ class ChatRepository:
             .subquery()
         )
 
+        unread_subq = (
+            select(func.count())
+            .where(
+                Message.chat_id == Chat.id,
+                Message.sender_id != user_id,
+                Message.read_at.is_(None),
+                Message.deleted_at.is_(None),
+            )
+            .correlate(Chat)
+            .scalar_subquery()
+        )
+
+        last_text_subq = (
+            select(Message.text)
+            .where(
+                Message.chat_id == Chat.id,
+                Message.deleted_at.is_(None),
+            )
+            .order_by(Message.created_at.desc())
+            .limit(1)
+            .correlate(Chat)
+            .scalar_subquery()
+        )
+
+        last_type_subq = (
+            select(Message.message_type)
+            .where(
+                Message.chat_id == Chat.id,
+                Message.deleted_at.is_(None),
+            )
+            .order_by(Message.created_at.desc())
+            .limit(1)
+            .correlate(Chat)
+            .scalar_subquery()
+        )
+
         stmt = (
             select(
                 Chat.id.label("chat_id"),
                 ExchangeRequest.id.label("exchange_id"),
                 ExchangeRequest.requested_by,
                 ExchangeRequest.requested_to,
+                unread_subq.label("unread_count"),
+                last_text_subq.label("last_message_text"),
+                last_type_subq.label("last_message_type"),
                 last_msg_sub.c.last_msg_at,
             )
             .select_from(Chat)
@@ -111,33 +150,14 @@ class ChatRepository:
             counterpart_id = (
                 row.requested_to if row.requested_by == user_id else row.requested_by
             )
-            unread = await self._count_unread(row.chat_id, user_id)
-
-            last_text = None
-            last_type = "text"
-            if row.last_msg_at is not None:
-                msg_result = await self.session.execute(
-                    select(Message.text, Message.message_type)
-                    .where(
-                        Message.chat_id == row.chat_id,
-                        Message.deleted_at.is_(None),
-                    )
-                    .order_by(Message.created_at.desc())
-                    .limit(1)
-                )
-                last_row = msg_result.first()
-                if last_row:
-                    last_text = last_row[0]
-                    last_type = last_row[1]
-
             chats.append({
                 "chat_id": row.chat_id,
                 "exchange_id": row.exchange_id,
                 "counterpart_id": counterpart_id,
-                "last_message": last_text,
-                "last_message_type": last_type,
+                "last_message": row.last_message_text,
+                "last_message_type": row.last_message_type or "text",
                 "last_message_at": row.last_msg_at,
-                "unread_count": unread,
+                "unread_count": row.unread_count or 0,
             })
 
         return chats

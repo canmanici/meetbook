@@ -175,6 +175,8 @@ async def upload_loan_photo(
     service: ExchangeService = Depends(_get_service),
 ) -> LoanPhotoResponse:
     file_bytes = await file.read()
+    if len(file_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Photo too large (max 10MB)")
     try:
         url = await service.upload_loan_photo(
             exchange_id, user.id, file_bytes, file.content_type or "image/jpeg"

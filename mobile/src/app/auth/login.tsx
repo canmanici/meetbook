@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Link, router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Button, InlineError, Input, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
 import { ApiError, login } from '@/lib/api/client';
 import { setTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
@@ -18,7 +20,8 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const canSubmit = email.length > 0 && password.length > 0 && !loading;
+  const emailInvalid = email.length > 0 && !EMAIL_RE.test(email);
+  const canSubmit = email.length > 0 && !emailInvalid && password.length > 0 && !loading;
 
   const onSubmit = async () => {
     setError(null);
@@ -43,46 +46,56 @@ export default function LoginScreen() {
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}>
-      <View style={styles.hero}>
-        <View style={[styles.logo, { backgroundColor: colors.primary }, shadows.float, { shadowColor: colors.primary }]}>
-          <Ionicons name="swap-horizontal" size={38} color="#fff" />
+    <KeyboardAvoidingView
+      testID="auth-keyboard-view"
+      style={{ flex: 1, backgroundColor: colors.background }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}>
+        <View style={styles.hero}>
+          <View style={[styles.logo, { backgroundColor: colors.primary }, shadows.float, { shadowColor: colors.primary }]}>
+            <Ionicons name="swap-horizontal" size={38} color="#fff" />
+          </View>
+          <Text style={[styles.brand, { color: colors.text }]}>MeetBook</Text>
+          <Text style={[styles.tagline, { color: colors.textMuted }]}>
+            Yakınındaki kitapseverlerle takas yap
+          </Text>
         </View>
-        <Text style={[styles.brand, { color: colors.text }]}>MeetBook</Text>
-        <Text style={[styles.tagline, { color: colors.textMuted }]}>
-          Yakınındaki kitapseverlerle takas yap
-        </Text>
-      </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
-        <Input
-          label="E-posta"
-          placeholder="ornek@eposta.com"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-        />
-        <Input
-          label="Şifre"
-          placeholder="Şifreniz"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        {error && <InlineError message={error} />}
-        <Button onPress={onSubmit} disabled={!canSubmit} loading={loading}>
-          Giriş yap
-        </Button>
-      </View>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
+          <Input
+            label="E-posta"
+            placeholder="ornek@eposta.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            error={emailInvalid ? 'Geçerli bir e-posta adresi girin' : undefined}
+          />
+          <Input
+            label="Şifre"
+            placeholder="Şifreniz"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+          {error && <InlineError message={error} />}
+          <Button onPress={onSubmit} disabled={!canSubmit} loading={loading}>
+            Giriş yap
+          </Button>
+          <Link href="/auth/forgot-password" style={[styles.forgotLink, { color: colors.textMuted }]}>
+            Şifremi Unuttum
+          </Link>
+        </View>
 
-      <View style={styles.linkRow}>
-        <Link href="/auth/register" style={[styles.link, { color: colors.primary }]}>
-          Hesabın yok mu? Kayıt ol
-        </Link>
-      </View>
-    </ScrollView>
+        <View style={styles.linkRow}>
+          <Link href="/auth/register" style={[styles.link, { color: colors.primary }]}>
+            Hesabın yok mu? Kayıt ol
+          </Link>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -131,5 +144,11 @@ const styles = StyleSheet.create({
   link: {
     fontSize: fontSize.bodySm,
     fontWeight: '700',
+  },
+  forgotLink: {
+    textAlign: 'center',
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+    marginTop: spacing.xs,
   },
 });

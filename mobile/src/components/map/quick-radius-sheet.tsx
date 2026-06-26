@@ -10,7 +10,7 @@ import Slider from "@react-native-community/slider";
 import { palette, spacing, fontSize, radius, shadows } from "../ui/tokens";
 
 const RADIUS_MIN = 1;
-const RADIUS_MAX = 100;
+const RADIUS_MAX = 200;
 
 interface QuickRadiusSheetProps {
   currentRadiusKm: number;

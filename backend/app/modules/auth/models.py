@@ -63,6 +63,7 @@ class User(Base):
     # Admin manual override of the computed trust score (0-100). Null → use computed value.
     trust_score_override = Column(Numeric(5, 2), nullable=True)
     geofence_radius_km = Column(Integer, nullable=False, default=10, server_default="10")
+    avatar_url = Column(String(500), nullable=True)
     is_admin = Column(Boolean, nullable=False, default=False)
 
     # Relationships

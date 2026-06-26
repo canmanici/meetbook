@@ -10,7 +10,7 @@
  *   - searchBboxBooks(bbox) → sheet list (full book data)
  *   - "Search this area" → re-query visible bbox (§3.7)
  *   - Marker tap → preview card (no navigation) + sheet snaps to peek (§3.5)
- *   - Long-press map → "Add book here" confirmation (§3.9)
+ *   - Long-press map → map style picker (Standart / Uydu / Hibrit)
  *   - Radius circle = geofence radius from user settings (§3.8, §4.5)
  *   - QuickRadiusSheet from radius chip → PATCH /auth/me (§4.5)
  *   - Debounced mapRegion 300ms (bug #5), pill 500ms (§3.7)
@@ -25,7 +25,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Image,
   Alert,
   Modal,
   Dimensions,
@@ -36,24 +35,45 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
+// Lazy getter for expo-notifications — module-level require() triggers an
+// ERROR overlay in Expo Go (SDK 53+) even inside try-catch.  Loading on first
+// use avoids the problem entirely.
+let _Notifications: typeof import('expo-notifications') | null = null;
+let _notifLoadAttempted = false;
+function getNotifications(): typeof import('expo-notifications') | null {
+  if (_notifLoadAttempted) return _Notifications;
+  _notifLoadAttempted = true;
+  try {
+    _Notifications = require('expo-notifications');
+  } catch {
+    // Expected in Expo Go — no native module.
+  }
+  return _Notifications;
+}
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { crashReporter } from '@/lib/crash-reporter';
 import {
   Camera,
   type Region,
   MAPLIBRE_AVAILABLE,
-  MAP_STYLE,
   MLMap,
+  MLGeoJSONSource,
+  HeatmapLayer,
+  MAP_STYLE,
 } from '@/lib/map-adapter';
 
 import { palette, spacing, fontSize, radius, shadows, type ThemeColors } from '@/components/ui/tokens';
-import { BookCard, FilterSheet, type FilterState } from '@/components/ui';
+import { BookCard, BookCover, EmptyState, FilterSheet, type FilterState } from '@/components/ui';
 import { BookMarker, categoryColor, dominantCategoryColor, type BookCategory, type MarkerVariant } from '@/components/ui/book-marker';
 import {
   searchBboxBooks,
+  searchNearbyBooks,
   getBookClusters,
   getMe,
   updateGeofenceRadius,
+  listNotifications,
   type BBoxParams,
   type BookSearchResult,
   type ClusterPoint,
@@ -67,6 +87,24 @@ import { SearchAreaPill } from '@/components/map/search-area-pill';
 import { RadiusCircle } from '@/components/map/radius-circle';
 import { UserLocationDot } from '@/components/map/user-location-dot';
 import QuickRadiusSheet from '@/components/map/quick-radius-sheet';
+// Lazy import — push-tokens uses expo-notifications which crashes
+// Expo Go. Dynamic import avoids module-level failure.
+const lazyRegisterPushToken = (): Promise<boolean> =>
+  import('@/lib/push-tokens').then((m) => m.registerPushToken());
+
+// ── Safe array map (crash guard + reporter) ─────────────────────────────────
+// If `arr` is unexpectedly undefined/falsy, we log the full context to crashReporter
+// (so the bug is findable in the logs) AND fall back to [] so the app doesn't crash.
+// Once we identify the root cause, this guard goes away.
+function safeMap<T, U>(arr: T[] | undefined | null, fn: (item: T, index: number) => U, label: string): U[] {
+  if (!arr) {
+    const err = new Error(`[Home] safeMap('${label}'): array is ${typeof arr}`);
+    console.error(err.message, { arr });
+    crashReporter.captureError(err, `safeMap_${label}`);
+    return [];
+  }
+  return arr.map(fn);
+}
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -86,6 +124,18 @@ const CATEGORIES: Array<{ value: BookCategory | null; label: string }> = [
 ];
 
 const MAP_TYPES: Array<'standard' | 'satellite' | 'hybrid'> = ['standard', 'satellite', 'hybrid'];
+
+// Haversine great-circle distance in km. Used to filter map results to the
+// active radius circle (the "km" filter).
+function distanceKmBetween(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
 const FRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
 const REGION_DEBOUNCE_MS = 300;
 const PILL_DEBOUNCE_MS = 500;
@@ -95,6 +145,7 @@ const DRIFT_THRESHOLD = 0.2; // 20% of viewport
 // in the viewport than we fetched. Zooming in re-queries a smaller bbox and
 // reveals the true count for that area.
 const BBOX_LIMIT = 50;
+const SAVED_SEARCHES_KEY = 'meetbook-saved-searches';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -104,6 +155,19 @@ function regionToBbox(region: Region): BBoxParams {
     max_lat: region.latitude + region.latitudeDelta / 2,
     min_lng: region.longitude - region.longitudeDelta / 2,
     max_lng: region.longitude + region.longitudeDelta / 2,
+  };
+}
+
+// Convert a center point + radius (km) to a bounding box that fully contains
+// the circle. Used so the bbox query fetches everything within the radius.
+function radiusToBbox(lat: number, lng: number, radiusKm: number): BBoxParams {
+  const latDelta = radiusKm / 111;
+  const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+  return {
+    min_lat: lat - latDelta,
+    max_lat: lat + latDelta,
+    min_lng: lng - lngDelta,
+    max_lng: lng + lngDelta,
   };
 }
 
@@ -158,6 +222,18 @@ export default function HomeScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = palette[isDark ? 'dark' : 'light'];
+  const [mapTypeIndex, setMapTypeIndex] = useState(0);
+
+  // MapLibre needs a GL style URL/JSON — not Google Maps' featureType/stylers
+  // format. Derive the MapTiler style from the active map type (eye button)
+  // and dark mode. Standard → streets-v2 (dark variant in dark mode);
+  // satellite/hybrid use MapTiler's imagery styles.
+  const mapStyle = (() => {
+    const base = MAP_TYPES[mapTypeIndex];
+    if (base === 'satellite') return MAP_STYLE.replace('streets-v2', 'satellite');
+    if (base === 'hybrid') return MAP_STYLE.replace('streets-v2', 'hybrid');
+    return isDark ? MAP_STYLE.replace('streets-v2', 'streets-v2-dark') : MAP_STYLE;
+  })();
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -170,7 +246,6 @@ export default function HomeScreen() {
   const [searchText, setSearchText] = useState('');
   const [selectedBook, setSelectedBook] = useState<PreviewBook | null>(null);
   const [showSearchPill, setShowSearchPill] = useState(false);
-  const [mapTypeIndex, setMapTypeIndex] = useState(0);
   const [sheetSnapIndex, setSheetSnapIndex] = useState(DEFAULT_SNAP_INDEX);
   const [sortBy, setSortBy] = useState<'distance' | 'newest'>('distance');
   const [filterVisible, setFilterVisible] = useState(false);
@@ -178,7 +253,6 @@ export default function HomeScreen() {
     category: null,
     condition: null,
     language: null,
-    radiusKm: 10,
   });
   const [mapRegion, setMapRegion] = useState<Region>({
     latitude: 41.0082,
@@ -188,6 +262,8 @@ export default function HomeScreen() {
   });
   const [showRadiusSheet, setShowRadiusSheet] = useState(false);
   const [geofenceRadiusKm, setGeofenceRadiusKm] = useState(10);
+  const [showPushBanner, setShowPushBanner] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const mapRef = useRef<any>(null);
@@ -227,6 +303,35 @@ export default function HomeScreen() {
     })();
   }, []);
 
+  // ── Push permission banner (first launch only) ─────────────────────────────
+  useEffect(() => {
+    // Expo Go: AsyncStorage unavailable, .catch() to prevent crash
+    AsyncStorage.getItem('hasAskedPushPermission')
+      .then((asked) => {
+        if (!asked) setShowPushBanner(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  const requestPushPermission = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (!getNotifications()) {
+      await AsyncStorage.setItem('hasAskedPushPermission', 'true').catch(() => {});
+      setShowPushBanner(false);
+      return;
+    }
+    try {
+      await lazyRegisterPushToken();
+    } catch {}
+    await AsyncStorage.setItem('hasAskedPushPermission', 'true').catch(() => {});
+    setShowPushBanner(false);
+  }, []);
+
+  const dismissPushBanner = useCallback(async () => {
+    await AsyncStorage.setItem('hasAskedPushPermission', 'true').catch(() => {});
+    setShowPushBanner(false);
+  }, []);
+
   // ── Fly camera to user location once GPS resolves ──────────────────────────
   const hasFlownToLocation = useRef(false);
   useEffect(() => {
@@ -251,15 +356,51 @@ export default function HomeScreen() {
     staleTime: Infinity,
   });
 
+  // ── Notifications (unread badge on home bell) ──────────────────────────────
+  const { data: notificationsData } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: listNotifications,
+    staleTime: 30_000,
+  });
+  const unreadCount = useMemo(
+    () => (notificationsData?.items ?? []).filter((n) => !n.read_at).length,
+    [notificationsData],
+  );
+
   useEffect(() => {
     const r = (meData as any)?.geofence_radius_km;
-    if (typeof r === 'number' && r >= 1 && r <= 100) {
+    if (typeof r === 'number' && r >= 1 && r <= 200) {
       setGeofenceRadiusKm(r);
     }
   }, [meData]);
 
   // ── Bbox search (PRIMARY: feeds both sheet list AND markers) ──────────────
   const filterCategory = selectedCategory ?? activeFilters.category ?? undefined;
+
+  // ── Search mode: radius (location-based) vs viewport (bbox) ──────────────
+  // When the user has a known location AND has explicitly set a radius (via
+  // FilterSheet or QuickRadiusSheet), use /books/search with lat/lng/radius_km.
+  // This avoids the backend's 422 "alan çok geniş" bbox limit for large radii.
+  // Otherwise fall back to the viewport bbox query (pan/zoom mode).
+  const useRadiusMode = !!userLocation;
+
+  const radiusQuery = useQuery({
+    queryKey: ['books', 'radius', userLocation, geofenceRadiusKm, filterCategory, searchText, activeFilters.condition, activeFilters.language],
+    queryFn: () =>
+      searchNearbyBooks({
+        lat: userLocation!.lat,
+        lng: userLocation!.lng,
+        radius_km: geofenceRadiusKm,
+        category: filterCategory,
+        condition: activeFilters.condition ?? undefined,
+        language: activeFilters.language ?? undefined,
+        q: searchText || undefined,
+        limit: BBOX_LIMIT,
+      }),
+    enabled: useRadiusMode,
+    staleTime: 60_000,
+    retry: 1,
+  });
 
   const bboxQuery = useQuery({
     queryKey: ['books', 'bbox', queryBbox, filterCategory, searchText, activeFilters.condition, activeFilters.language],
@@ -282,11 +423,18 @@ export default function HomeScreen() {
         throw err;
       }
     },
-    enabled: !!queryBbox,
+    enabled: !useRadiusMode && !!queryBbox,
     staleTime: 60_000,
     retry: 1,
   });
-  const books = useMemo(() => bboxQuery.data?.items ?? [], [bboxQuery.data]);
+
+  const rawBooks = useMemo(
+    () => (useRadiusMode ? radiusQuery.data?.items : bboxQuery.data?.items) ?? [],
+    [useRadiusMode, radiusQuery.data, bboxQuery.data],
+  );
+  const isLoading = useRadiusMode ? radiusQuery.isLoading : bboxQuery.isLoading;
+
+  const books = useMemo(() => rawBooks, [rawBooks]);
 
   // ── Clusters (ENHANCEMENT: shelf markers, optional — fallback to bbox books) ─
   const clustersQuery = useQuery({
@@ -315,6 +463,39 @@ export default function HomeScreen() {
     [clustersSingletons, books],
   );
 
+  // ── Heatmap source data (book density, §toggle) ────────────────────────────
+  // Builds a GeoJSON FeatureCollection of Points from singleton markers +
+  // backend cluster centroids. Cluster points carry a `weight` equal to the
+  // cluster count so dense shelves contribute more to the heatmap.
+  const heatmapGeoJSON = useMemo(() => {
+    const features: Array<{
+      type: 'Feature';
+      geometry: { type: 'Point'; coordinates: [number, number] };
+      properties: { weight: number };
+    }> = [];
+    for (const book of markerBooks) {
+      const loc = book.public_location;
+      if (loc && loc.lat != null && loc.lng != null) {
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [loc.lng, loc.lat] },
+          properties: { weight: 1 },
+        });
+      }
+    }
+    for (const cluster of clusters) {
+      const c = cluster.centroid;
+      if (c && c.lat != null && c.lng != null) {
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [c.lng, c.lat] },
+          properties: { weight: cluster.count },
+        });
+      }
+    }
+    return { type: 'FeatureCollection' as const, features };
+  }, [markerBooks, clusters]);
+
   // ── Bug #6: count books WITH location ──────────────────────────────────────
   const booksWithLocation = useMemo(
     () => books.filter((b) => b.public_location && b.public_location.lat != null),
@@ -328,6 +509,8 @@ export default function HomeScreen() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
   }, [books, sortBy]);
+
+  const showSkeletons = isLoading || ((useRadiusMode ? radiusQuery.isFetching : bboxQuery.isFetching) && books.length === 0);
 
   // ── Marker tap → preview card (spec §3.5) ──────────────────────────────────
   const handleMarkerPress = useCallback(
@@ -440,7 +623,10 @@ export default function HomeScreen() {
 
     // Force refetch (bypass React Query cache even if bbox values are same)
     try {
-      await Promise.all([bboxQuery.refetch(), clustersQuery.refetch()]);
+      await Promise.all([
+        useRadiusMode ? radiusQuery.refetch() : bboxQuery.refetch(),
+        clustersQuery.refetch(),
+      ]);
     } catch {
       // Individual query errors already have their own toasts (422 handling, etc.)
     }
@@ -451,6 +637,12 @@ export default function HomeScreen() {
   const cycleMapType = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setMapTypeIndex((prev) => (prev + 1) % MAP_TYPES.length);
+  }, []);
+
+  // ── Toggle book density heatmap ─────────────────────────────────────────────
+  const toggleHeatmap = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowHeatmap((prev) => !prev);
   }, []);
 
   // ── Region change: debounced state + drift pill (bugs #5, §3.7) ────────────
@@ -503,6 +695,27 @@ export default function HomeScreen() {
   }, []);
 
   const filterCount = [activeFilters.category, activeFilters.condition, activeFilters.language].filter(Boolean).length;
+
+  // ── Save current search to AsyncStorage (saved-searches feature) ───────────
+  const handleSaveSearch = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const raw = await AsyncStorage.getItem(SAVED_SEARCHES_KEY);
+      const list = raw ? (JSON.parse(raw) as any[]) : [];
+      const newSearch = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        category: selectedCategory ?? activeFilters.category ?? null,
+        radius_km: geofenceRadiusKm,
+        lat: mapRegion.latitude,
+        lng: mapRegion.longitude,
+        created_at: new Date().toISOString(),
+      };
+      await AsyncStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify([newSearch, ...list]));
+      toast.show('Arama kaydedildi', { variant: 'success' });
+    } catch {
+      toast.show('Kaydetme başarısız', { variant: 'error' });
+    }
+  }, [selectedCategory, activeFilters, mapRegion, toast]);
 
   // ── Chip select (with haptic) ──────────────────────────────────────────────
   const handleChipPress = useCallback((cat: BookCategory | null) => {
@@ -599,7 +812,7 @@ export default function HomeScreen() {
         >
           <View style={[styles.miniCardCover, { backgroundColor: colors.surfaceAlt }]}>
             {coverUrl ? (
-              <Image source={{ uri: coverUrl }} style={styles.miniCardCoverImg} resizeMode="cover" />
+              <BookCover url={coverUrl} size={48} />
             ) : (
               <View style={styles.miniCardPlaceholder}>
                 <Text style={[styles.miniCardPlaceholderText, { color: colors.textMuted }]}>
@@ -671,12 +884,16 @@ export default function HomeScreen() {
   const sheetHeader = useMemo(
     () => (
       <View style={styles.sheetHeader}>
-        <Text style={[styles.sheetResultCount, { color: colors.text }]}>
-          <Text style={{ color: colors.primary, fontWeight: '800' }}>
-            {booksWithLocation.length}{countCapped ? '+' : ''}
+        {booksWithLocation.length > 0 ? (
+          <Text style={[styles.sheetResultCount, { color: colors.text }]}>
+            <Text style={{ color: colors.primary, fontWeight: '800' }}>
+              {booksWithLocation.length}{countCapped ? '+' : ''}
+            </Text>
+            {' '}kitap bulundu
           </Text>
-          {' '}kitap bulundu
-        </Text>
+        ) : (
+          <View />
+        )}
         <View style={styles.sheetSortPills}>
           <TouchableOpacity
             style={[
@@ -718,7 +935,7 @@ export default function HomeScreen() {
           style={styles.map}
           logo={false}
           attribution={false}
-          mapStyle={MAP_STYLE}
+          mapStyle={mapStyle}
           onRegionDidChange={(event: any) => {
             const geo = event.geometry;
             if (geo) {
@@ -745,16 +962,47 @@ export default function HomeScreen() {
               zoom: deltaToZoom(mapRegion.latitudeDelta),
             }}
           />
+          {/* ── Book density heatmap (toggle, blue→green→yellow→red) ─────────── */}
+          {showHeatmap && (
+            <MLGeoJSONSource id="book-density-source" data={heatmapGeoJSON}>
+              <HeatmapLayer
+                id="book-density-heatmap"
+                type="heatmap"
+                sourceID="book-density-source"
+                paint={{
+                  // Smooth radius that grows with zoom for a consistent on-screen blob
+                  'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 8, 9, 40],
+                  // Cluster points weigh by book count; singletons weigh 1
+                  'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0, 10, 1],
+                  // Intensity ramps with zoom so low-zoom areas stay readable
+                  'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 9, 3],
+                  // Density gradient: blue (sparse) → green → yellow → red (dense)
+                  'heatmap-color': [
+                    'interpolate',
+                    ['linear'],
+                    ['heatmap-density'],
+                    0, 'rgba(0,0,255,0)',
+                    0.2, 'rgba(0,0,255,0.55)',
+                    0.4, 'rgba(0,200,40,0.65)',
+                    0.6, 'rgba(255,215,0,0.8)',
+                    0.8, 'rgba(255,45,0,0.9)',
+                    1, 'rgba(150,0,0,1)',
+                  ],
+                  'heatmap-opacity': 0.9,
+                }}
+              />
+            </MLGeoJSONSource>
+          )}
           {/* ── Individual book markers (singletons) ─────────────────────────── */}
-          {markerBooks.map((book) => {
+          {safeMap(markerBooks, (book) => {
             if (!book.public_location) return null;
             return renderSingleton(book);
-          })}
+          }, 'markerBooks')}
 
           {/* Shelf markers from backend clusters (30m grouping, §3.4 shelf variant) */}
-          {clusters.map((cluster) => (
+          {safeMap(clusters, (cluster) => (
             renderShelf(cluster)
-          ))}
+          ), 'clusters')}
 
           {/* Radius circle (geofence visualization, §3.8) */}
           {userLocation && (
@@ -779,6 +1027,23 @@ export default function HomeScreen() {
           <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 14, textAlign: 'center' }}>
             Harita goruntusu icin{'\n'}Development Build gereklidir
           </Text>
+        </View>
+      )}
+
+      {/* ── Error overlay when book query fails (network/server error) ── */}
+      {(useRadiusMode ? radiusQuery.isError : bboxQuery.isError) && (
+        <View style={styles.errorOverlay} pointerEvents="auto" testID="bbox-error">
+          <Ionicons name="cloud-offline-outline" size={48} color="#FFFFFF" style={{ marginBottom: 12 }} />
+          <Text style={styles.errorTitle}>Kitaplar yüklenemedi</Text>
+          <Text style={styles.errorMessage}>İnternet bağlantınızı kontrol edin.</Text>
+          <TouchableOpacity
+            style={styles.errorRetryBtn}
+            onPress={() => useRadiusMode ? radiusQuery.refetch() : bboxQuery.refetch()}
+            testID="bbox-error-retry"
+          >
+            <Ionicons name="refresh" size={18} color="#FFFFFF" />
+            <Text style={styles.errorRetryText}>Tekrar Dene</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -832,6 +1097,29 @@ export default function HomeScreen() {
                 )}
               </View>
             </TouchableOpacity>
+
+            {/* Bell icon → /notifications, with unread dot */}
+            <TouchableOpacity
+              onPress={() => router.push('/notifications')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              testID="notifications-bell"
+            >
+              <View style={[styles.filterBtn, { backgroundColor: isDark ? 'rgba(33,31,26,0.90)' : 'rgba(255,255,255,0.92)' }]}>
+                <Ionicons name="notifications" size={20} color={colors.primary} />
+                {unreadCount > 0 && <View style={styles.bellDot} testID="notifications-unread-dot" />}
+              </View>
+            </TouchableOpacity>
+
+            {/* Save current search → AsyncStorage (saved-searches feature) */}
+            <TouchableOpacity
+              onPress={handleSaveSearch}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              testID="save-search"
+            >
+              <View style={[styles.filterBtn, { backgroundColor: isDark ? 'rgba(33,31,26,0.90)' : 'rgba(255,255,255,0.92)' }]}>
+                <Ionicons name="bookmark-outline" size={20} color={colors.primary} />
+              </View>
+            </TouchableOpacity>
           </View>
 
           {/* Chip row — vision: rgba(255,255,255,0.92), active chip solid #11806B */}
@@ -867,6 +1155,22 @@ export default function HomeScreen() {
               );
             })}
           </ScrollView>
+
+          {/* Push permission banner (first launch, dismissible) */}
+          {showPushBanner && (
+            <View style={[styles.pushBanner, { backgroundColor: colors.primarySoft }]} testID="push-banner">
+              <Ionicons name="notifications" size={20} color={colors.primary} />
+              <Text style={[styles.pushBannerText, { color: colors.text }]}>
+                Bildirimleri açın, yeni talepleri anında öğrenin
+              </Text>
+              <TouchableOpacity onPress={requestPushPermission} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} testID="push-allow">
+                <Text style={[styles.pushAllow, { color: colors.primary }]}>İzin Ver</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={dismissPushBanner} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} testID="push-dismiss">
+                <Ionicons name="close" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* "Search this area" pill (§3.7) */}
@@ -912,6 +1216,42 @@ export default function HomeScreen() {
         renderMiniCard={renderMiniCard}
         renderListCard={renderListCard}
         header={sheetHeader}
+        emptyComponent={
+          (useRadiusMode ? radiusQuery.isError : bboxQuery.isError) ? (
+            <EmptyState
+              message="Kitaplar yüklenemedi"
+              description="İnternet bağlantınızı kontrol edin."
+              icon="cloud-offline-outline"
+            />
+          ) : showSkeletons ? (
+            <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+              {[...Array(5)].map((_, i) => (
+                <View
+                  key={i}
+                  style={[styles.miniCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
+                  <View style={[styles.miniCardCover, { backgroundColor: colors.surfaceAlt }]}>
+                    <View style={[styles.skeletonBox, { width: 48, height: 64, backgroundColor: colors.surfaceAlt }]} />
+                  </View>
+                  <View style={styles.miniCardInfo}>
+                    <View style={[styles.skeletonLine, { width: '70%', height: 14, backgroundColor: colors.surfaceAlt, marginBottom: 6 }]} />
+                    <View style={[styles.skeletonLine, { width: '40%', height: 12, backgroundColor: colors.surfaceAlt, marginBottom: 6 }]} />
+                    <View style={styles.miniCardMeta}>
+                      <View style={[styles.skeletonPill, { width: 50, height: 20, backgroundColor: colors.surfaceAlt }]} />
+                      <View style={[styles.skeletonLine, { width: 30, height: 12, backgroundColor: colors.surfaceAlt, marginLeft: 8 }]} />
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <EmptyState
+              message="Bu bölgede kitap yok"
+              description="Arama alanını genişlet veya filtreleri değiştir"
+              icon="library-outline"
+            />
+          )
+        }
         keyExtractor={(item: BookSearchResult) => item.id}
         isDark={isDark}
       />
@@ -924,6 +1264,8 @@ export default function HomeScreen() {
           setActiveFilters(filters);
           setFilterVisible(false);
         }}
+        radiusKm={geofenceRadiusKm}
+        onRadiusChange={setGeofenceRadiusKm}
         resultCount={booksWithLocation.length}
         initialFilters={activeFilters}
       />
@@ -954,6 +1296,43 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { ...StyleSheet.absoluteFillObject },
+
+  // Error overlay (bug H13: network failure / server error)
+  errorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingHorizontal: spacing.xl,
+  },
+  errorTitle: {
+    color: '#FFFFFF',
+    fontSize: fontSize.title,
+    fontWeight: '800',
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: fontSize.body,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  errorRetryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.pill,
+  },
+  errorRetryText: {
+    color: '#FFFFFF',
+    fontSize: fontSize.body,
+    fontWeight: '700',
+  },
 
   // Dimming overlay (§3.4 selection state)
   dimOverlay: {
@@ -1036,6 +1415,18 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '800',
   },
+  // Bell unread dot (top-right of the bell button)
+  bellDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#F2766B',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
 
   // Chip row (glassmorphism)
   chipRow: {
@@ -1063,6 +1454,29 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: fontSize.bodySm,
     fontWeight: '600',
+  },
+
+  // Push permission banner (first launch, dismissible)
+  pushBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.card,
+    gap: spacing.sm,
+    ...shadows.card,
+  },
+  pushBannerText: {
+    flex: 1,
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+  },
+  pushAllow: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '800',
   },
 
   // Sheet header (bug #6: count booksWithLocation)
@@ -1179,5 +1593,15 @@ const styles = StyleSheet.create({
   modalSheet: {
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
+  },
+
+  skeletonBox: {
+    borderRadius: 4,
+  },
+  skeletonLine: {
+    borderRadius: 3,
+  },
+  skeletonPill: {
+    borderRadius: 10,
   },
 });

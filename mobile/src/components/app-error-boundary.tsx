@@ -3,6 +3,8 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 
+import { crashReporter } from '@/lib/crash-reporter';
+
 interface Props {
   children: React.ReactNode;
 }
@@ -27,8 +29,11 @@ export class AppErrorBoundary extends React.Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: unknown) {
-    console.log('[AppErrorBoundary] caught render error:', error);
+  componentDidCatch(error: unknown, info: React.ErrorInfo) {
+    // Report to our crash endpoint
+    crashReporter.captureError(error, 'AppErrorBoundary');
+    // Keep existing console.error for dev visibility
+    console.error('AppErrorBoundary caught:', error, info);
   }
 
   reset = () => {

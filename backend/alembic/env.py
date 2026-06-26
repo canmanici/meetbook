@@ -17,6 +17,10 @@ from app.modules.chat import models as chat_models  # noqa: F401
 from app.modules.ratings import models as ratings_models  # noqa: F401
 from app.modules.reports import models as reports_models  # noqa: F401
 from app.modules.notifications import models as notifications_models  # noqa: F401
+from app.modules.geofence import models as geofence_models  # noqa: F401
+from app.modules.crash_reports import models as crash_reports_models  # noqa: F401
+from app.modules.push_tokens import models as push_tokens_models  # noqa: F401
+from app.modules.saved_searches import models as saved_searches_models  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url)
@@ -27,10 +31,22 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def include_object(obj, name: str, type_: str, reflected: bool, compare_to) -> bool:
+    """Exclude PostGIS TIGER/extension tables from autogenerate detection.
+    
+    These tables are managed by the PostGIS extension, not by our app.
+    Without this filter, alembic autogenerate would try to drop them.
+    """
+    if type_ == "table" and reflected and name not in target_metadata.tables:
+        return False
+    return True
+
+
 def run_migrations_offline() -> None:
     context.configure(
         url=config.get_main_option("sqlalchemy.url"),
         target_metadata=target_metadata,
+        include_object=include_object,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -39,7 +55,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:  # type: ignore[no-untyped-def]
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=include_object,
+    )
     with context.begin_transaction():
         context.run_migrations()
 

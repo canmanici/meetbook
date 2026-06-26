@@ -1,20 +1,34 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Image,
+  RefreshControl,
   useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 
 import { Input, EmptyState, Skeleton, Badge, palette, spacing, radius, fontSize, shadows } from '@/components/ui';
 import { getWishlist, addToWishlist, removeFromWishlist, getWishlistMatches, WishlistItem } from '@/lib/api/client';
+
+// ISBN-10 or ISBN-13 (digits, optionally with hyphens, with optional 978/979 prefix)
+const ISBN_RE = /^(?:97[89][- ]?)?(?:\d[- ]?){9}[\dX]$/;
+
+function buildAddPayload(input: string): { isbn: string } | { title: string } {
+  const trimmed = input.trim();
+  const cleaned = trimmed.replace(/[- ]/g, '');
+  if (/^\d{9}[\dX]$/.test(cleaned) || /^\d{13}$/.test(cleaned)) {
+    return { isbn: cleaned };
+  }
+  return { title: trimmed };
+}
 
 export default function WishlistScreen() {
   const scheme = useColorScheme();
@@ -23,18 +37,27 @@ export default function WishlistScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [isbn, setIsbn] = useState('');
-  const [title, setTitle] = useState('');
-  const [author, setAuthor] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const { data: wishlistData, isLoading: wishlistLoading } = useQuery({
+  const { data: wishlistData, isLoading: wishlistLoading, isError: wishlistError, refetch: refetchWishlist } = useQuery({
     queryKey: ['wishlist'],
     queryFn: getWishlist,
+    retry: false,
   });
 
-  const { data: matchesData, isLoading: matchesLoading } = useQuery({
+  const { data: matchesData, isLoading: matchesLoading, refetch: refetchMatches } = useQuery({
     queryKey: ['wishlist-matches'],
     queryFn: getWishlistMatches,
   });
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchWishlist(), refetchMatches()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchWishlist, refetchMatches]);
 
   const addMutation = useMutation({
     mutationFn: addToWishlist,
@@ -42,8 +65,6 @@ export default function WishlistScreen() {
       queryClient.invalidateQueries({ queryKey: ['wishlist'] });
       queryClient.invalidateQueries({ queryKey: ['wishlist-matches'] });
       setIsbn('');
-      setTitle('');
-      setAuthor('');
     },
   });
 
@@ -61,6 +82,20 @@ export default function WishlistScreen() {
   const hasMatch = (itemIsbn: string): boolean => {
     return matches.some((m) => m.isbn === itemIsbn);
   };
+
+  if (wishlistError) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+        <EmptyState
+          message="İstek listesi yüklenemedi"
+          description="Bağlantınızı kontrol edip tekrar deneyin."
+          actionLabel="Tekrar Dene"
+          onAction={() => refetchWishlist()}
+          icon="cloud-offline"
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -80,23 +115,26 @@ export default function WishlistScreen() {
           style={[styles.addButton, { backgroundColor: colors.primary }]}
           onPress={() => {
             if (isbn.trim()) {
-              addMutation.mutate({
-                isbn: isbn.trim(),
-                title: title.trim() || undefined,
-                author: author.trim() || undefined,
-              });
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              addMutation.mutate(buildAddPayload(isbn));
             }
           }}
           disabled={!isbn.trim() || addMutation.isPending}
           testID="wishlist-add-button"
+          accessibilityRole="button"
+          accessibilityLabel="İstek listesine ekle"
         >
           <Ionicons name="add" size={24} color={colors.surface} />
         </TouchableOpacity>
       </View>
 
       <ScrollView
+        testID="wishlist-scroll"
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+        }
       >
         {wishlistLoading || matchesLoading ? (
           <>
@@ -146,8 +184,13 @@ export default function WishlistScreen() {
                 </View>
                 <TouchableOpacity
                   style={[styles.removeButton, { backgroundColor: colors.danger + '15' }]}
-                  onPress={() => removeMutation.mutate(item.id)}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    removeMutation.mutate(item.id);
+                  }}
                   testID={`wishlist-remove-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel="İstek listesinden çıkar"
                 >
                   <Ionicons name="trash-outline" size={18} color={colors.danger} />
                 </TouchableOpacity>
@@ -168,13 +211,17 @@ export default function WishlistScreen() {
                       style={[styles.matchCard, { backgroundColor: colors.surface }]}
                       onPress={() => router.push(`/book/${match.id}`)}
                       testID={`match-card-${match.id}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Eşleşen kitabı görüntüle: ${match.title}`}
                     >
                       <View style={[styles.matchCover, { backgroundColor: colors.textMuted + '30' }]}>
                         {match.photos?.[0]?.url ? (
                           <Image
                             source={{ uri: match.photos[0].url }}
                             style={styles.matchCoverImage}
-                            resizeMode="cover"
+                            contentFit="cover"
+                            cachePolicy="memory-disk"
+                            transition={200}
                           />
                         ) : (
                           <Ionicons name="book-outline" size={20} color={colors.textMuted} />
@@ -196,8 +243,10 @@ export default function WishlistScreen() {
                           style={[styles.exchangeButton, { backgroundColor: colors.primary }]}
                           onPress={() => router.push(`/book/${match.id}`)}
                           testID={`exchange-request-${match.id}`}
+                          accessibilityRole="button"
+                          accessibilityLabel="Takas iste"
                         >
-                          <Text style={styles.exchangeButtonText}>exchange iste</Text>
+                          <Text style={styles.exchangeButtonText}>Takas İste</Text>
                         </TouchableOpacity>
                       </View>
                     </TouchableOpacity>

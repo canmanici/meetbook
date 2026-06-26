@@ -1,15 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
   Image,
   Linking,
+  RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -20,11 +23,14 @@ import {
 import { ChipSelect } from '@/components/chip-select';
 import {
   Badge,
+  BookCover,
+  BookJourney,
   Button,
   Card,
   InlineError,
   Input,
   palette,
+  Skeleton,
   spacing,
   fontSize,
   radius,
@@ -41,7 +47,8 @@ import {
   type BookCategory,
   type BookCondition,
 } from '@/constants/books';
-import { addFavorite, ApiError, createExchange, deleteBook, getBook, incrementBookView, listExchanges, lookupISBN, removeFavorite, updateBook } from '@/lib/api/client';
+import { addFavorite, ApiError, createExchange, deleteBook, getBook, incrementBookView, listExchanges, lookupISBN, removeFavorite, searchNearbyBooks, updateBook } from '@/lib/api/client';
+import { formatDistance } from '@/lib/format';
 import { DatePicker } from '@/components/ui/date-time-picker';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth-store';
@@ -56,6 +63,20 @@ export default function BookDetailScreen() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const galleryRef = useRef<ScrollView>(null);
+  const formInitialized = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['books', id] }),
+        queryClient.invalidateQueries({ queryKey: ['exchanges', 'received'] }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient, id]);
 
   const pickedLocation = useBookDraftStore((state) => state.pickedLocation);
   const clearPickedLocation = useBookDraftStore((state) => state.clearPickedLocation);
@@ -69,6 +90,20 @@ export default function BookDetailScreen() {
 
   const user = useAuthStore((state) => state.user);
   const isOwner = !!book && !!user && book.owner_id === user.id;
+
+  const { data: similarBooks } = useQuery({
+    queryKey: ['books', 'similar', book?.id],
+    queryFn: () => searchNearbyBooks({ category: book!.category, limit: 5 }),
+    enabled: !!book && !isOwner,
+    select: (data) => data.items.filter((b) => b.id !== id),
+  });
+
+  const { data: ownerBooks } = useQuery({
+    queryKey: ['books', 'owner', book?.owner_id],
+    queryFn: () => searchNearbyBooks({ owner_id: book!.owner_id, limit: 10 }),
+    enabled: !!book && !isOwner,
+    select: (data) => data.items.filter((b) => b.id !== id),
+  });
 
   const [editing, setEditing] = useState(false);
   const { edit: editParam } = useLocalSearchParams<{ edit?: string }>();
@@ -132,18 +167,24 @@ export default function BookDetailScreen() {
   }).data;
 
   useEffect(() => {
-    if (book && isOwner && 'location' in book) {
-      setTitle(book.title);
-      setAuthor(book.author ?? '');
-      setIsbn(book.isbn ?? '');
-      setDescription(book.description ?? '');
-      setCategory(book.category);
-      setLanguage(book.language);
-      setCondition(book.condition);
-      setIsAvailable(book.is_available);
-      setLocation(book.location);
+    if (editing && !formInitialized.current) {
+      formInitialized.current = true;
+      if (book) {
+        setTitle(book.title || '');
+        setAuthor(book.author ?? '');
+        setIsbn(book.isbn ?? '');
+        setDescription(book.description ?? '');
+        setCategory(book.category);
+        setLanguage(book.language);
+        setCondition(book.condition);
+        setIsAvailable(book.is_available);
+        setLocation(book.location);
+      }
     }
-  }, [book, isOwner]);
+    if (!editing) {
+      formInitialized.current = false;
+    }
+  }, [editing, book, isOwner]);
 
   useEffect(() => {
     if (pickedLocation) {
@@ -175,6 +216,7 @@ export default function BookDetailScreen() {
     if (!location) {
       return;
     }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setError(null);
     setSaving(true);
     try {
@@ -229,6 +271,7 @@ export default function BookDetailScreen() {
   };
 
   const onDelete = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert('Kitabı sil', 'Bu kitabı silmek istediğine emin misin?', [
       { text: 'Vazgeç', style: 'cancel' },
       {
@@ -304,9 +347,13 @@ export default function BookDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={{ padding: spacing.md }}
+      >
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
+      </ScrollView>
     );
   }
 
@@ -418,13 +465,18 @@ export default function BookDetailScreen() {
 
   const photos = 'photos' in book ? book.photos : [];
   const year = book.created_at ? new Date(book.created_at).getFullYear() : null;
+  const distanceLabel = !isOwner ? formatDistance((book as any).distance_km) : null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
+        testID="book-scroll"
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+        }>
         {/* Photo Gallery */}
         <View style={styles.galleryContainer}>
           {photos.length > 0 ? (
@@ -463,7 +515,9 @@ export default function BookDetailScreen() {
             <TouchableOpacity
               style={styles.glassButton}
               onPress={() => router.back()}
-              testID="back-button">
+              testID="back-button"
+              accessibilityRole="button"
+              accessibilityLabel="Geri">
               <Ionicons name="arrow-back" size={20} color="#fff" />
             </TouchableOpacity>
             <View style={styles.galleryTopRight}>
@@ -472,13 +526,17 @@ export default function BookDetailScreen() {
                   <TouchableOpacity
                     style={styles.glassButton}
                     onPress={() => setEditing(true)}
-                    testID="gallery-edit-button">
+                    testID="gallery-edit-button"
+                    accessibilityRole="button"
+                    accessibilityLabel="Düzenle">
                     <Ionicons name="pencil" size={18} color="#fff" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.glassButton}
                     onPress={onDelete}
-                    testID="gallery-delete-button">
+                    testID="gallery-delete-button"
+                    accessibilityRole="button"
+                    accessibilityLabel="Sil">
                     <Ionicons name="trash" size={18} color="#fff" />
                   </TouchableOpacity>
                 </>
@@ -486,9 +544,14 @@ export default function BookDetailScreen() {
                 <>
                   <TouchableOpacity
                     style={styles.glassButton}
-                    onPress={() => favoriteMutation.mutate()}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      favoriteMutation.mutate();
+                    }}
                     disabled={favoriteMutation.isPending}
-                    testID="favorite-button">
+                    testID="favorite-button"
+                    accessibilityRole="button"
+                    accessibilityLabel={isFavorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}>
                     <Ionicons
                       name={isFavorite ? 'heart' : 'heart-outline'}
                       size={20}
@@ -497,8 +560,16 @@ export default function BookDetailScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.glassButton}
-                    onPress={() => {}}
-                    testID="share-button">
+                    onPress={() => {
+                      const parts = [book.title];
+                      if (book.author) parts.push(book.author);
+                      Share.share({
+                        message: `${parts.join(' — ')} · MeetBook'ta buldum!`,
+                      });
+                    }}
+                    testID="share-button"
+                    accessibilityRole="button"
+                    accessibilityLabel="Paylaş">
                     <Ionicons name="share-outline" size={20} color="#fff" />
                   </TouchableOpacity>
                 </>
@@ -552,10 +623,12 @@ export default function BookDetailScreen() {
                 </Text>
               ) : null}
             </View>
-            <View style={[styles.distanceBadge, { backgroundColor: colors.success + '20' }]}>
-              <Ionicons name="location" size={12} color={colors.success} />
-              <Text style={[styles.distanceText, { color: colors.success }]}>2.4 km</Text>
-            </View>
+            {distanceLabel && (
+              <View style={[styles.distanceBadge, { backgroundColor: colors.success + '20' }]}>
+                <Ionicons name="location" size={12} color={colors.success} />
+                <Text style={[styles.distanceText, { color: colors.success }]}>{distanceLabel}</Text>
+              </View>
+            )}
           </View>
 
           {/* Stats row */}
@@ -592,6 +665,72 @@ export default function BookDetailScreen() {
             </View>
           ) : null}
         </View>
+
+        {/* Yakınındaki Benzer Kitaplar */}
+        {!isOwner && similarBooks && similarBooks.length > 0 && (
+          <View style={[styles.similarSection, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.similarTitle, { color: colors.text }]}>
+              Yakınındaki Benzer Kitaplar
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.similarList}
+            >
+              {similarBooks.map((b) => (
+                <TouchableOpacity
+                  key={b.id}
+                  style={styles.similarItem}
+                  onPress={() => router.push(`/book/${b.id}`)}
+                  activeOpacity={0.7}>
+                  <BookCover url={b.photos?.[0]?.url} size={80} />
+                  <Text
+                    style={[styles.similarItemTitle, { color: colors.text }]}
+                    numberOfLines={2}>
+                    {b.title}
+                  </Text>
+                  {b.distance_km ? (
+                    <Text style={[styles.similarItemDistance, { color: colors.textMuted }]}>
+                      {b.distance_km} km
+                    </Text>
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* {owner_name}'in Diğer Kitapları */}
+        {!isOwner && ownerBooks && ownerBooks.length > 0 && (
+          <View style={[styles.similarSection, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.similarTitle, { color: colors.text }]}>
+              {book.owner_name ? `${book.owner_name}'in Diğer Kitapları` : 'Diğer Kitapları'}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.similarList}
+            >
+              {ownerBooks.map((b) => (
+                <TouchableOpacity
+                  key={b.id}
+                  style={styles.similarItem}
+                  onPress={() => router.push(`/book/${b.id}`)}
+                  activeOpacity={0.7}>
+                  <BookCover url={b.photos?.[0]?.url} size={80} />
+                  <Text
+                    style={[styles.similarItemTitle, { color: colors.text }]}
+                    numberOfLines={2}>
+                    {b.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Bu Kitabın Yolculuğu — timeline of past handoffs (non-owners only) */}
+        {!isOwner && <BookJourney bookId={id!} />}
 
           {/* Stats Card — shown to both owner and non-owner now */}
           <View style={[styles.statsCard, { backgroundColor: colors.surface }]}>
@@ -638,7 +777,9 @@ export default function BookDetailScreen() {
             <TouchableOpacity
               style={[styles.profileButton, { borderColor: colors.primary }]}
               onPress={() => router.push(`/user/${book.owner_id}`)}
-              testID="profile-button">
+              testID="profile-button"
+              accessibilityRole="button"
+              accessibilityLabel="Profili görüntüle">
               <Text style={[styles.profileButtonText, { color: colors.primary }]}>Profil</Text>
             </TouchableOpacity>
           </View>
@@ -653,6 +794,7 @@ export default function BookDetailScreen() {
             <Button
               variant="secondary"
               onPress={async () => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 await updateBook(id, { is_available: !book.is_available });
                 await queryClient.invalidateQueries({ queryKey: ['books', id] });
               }}
@@ -682,6 +824,8 @@ export default function BookDetailScreen() {
                 Linking.openURL(url);
               }}
               testID="show-on-map-button"
+              accessibilityRole="button"
+              accessibilityLabel="Haritada göster"
             >
               <Text style={[styles.mapLink, { color: colors.primary }]}>Haritada Göster</Text>
             </TouchableOpacity>
@@ -754,9 +898,14 @@ export default function BookDetailScreen() {
         <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.textMuted + '15' }]}>
           <TouchableOpacity
             style={styles.exchangeButton}
-            onPress={() => requestMutation.mutate()}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              requestMutation.mutate();
+            }}
             disabled={requestMutation.isPending || (mode === 'borrow' && loanDurationDays == null)}
-            testID="request-exchange-button">
+            testID="request-exchange-button"
+            accessibilityRole="button"
+            accessibilityLabel={mode === 'borrow' ? 'Ödünç iste' : 'Takas iste'}>
             <LinearGradient
               colors={[colors.success, colors.primary]}
               start={{ x: 0, y: 0 }}
@@ -848,17 +997,27 @@ function PendingRequestsSection({ bookId, colors, queryClient }: { bookId: strin
               <View style={styles.pendingActions}>
                 <TouchableOpacity
                   style={[styles.pendingAcceptBtn, { backgroundColor: colors.success + '20' }]}
-                  onPress={() => acceptMutation.mutate(exchange.id)}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    acceptMutation.mutate(exchange.id);
+                  }}
                   disabled={acceptMutation.isPending}
                   testID={`accept-exchange-${exchange.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel="Talebi kabul et"
                 >
                   <Ionicons name="checkmark" size={18} color={colors.success} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.pendingRejectBtn, { backgroundColor: colors.danger + '20' }]}
-                  onPress={() => rejectMutation.mutate(exchange.id)}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    rejectMutation.mutate(exchange.id);
+                  }}
                   disabled={rejectMutation.isPending}
                   testID={`reject-exchange-${exchange.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel="Talebi reddet"
                 >
                   <Ionicons name="close" size={18} color={colors.danger} />
                 </TouchableOpacity>
@@ -872,6 +1031,8 @@ function PendingRequestsSection({ bookId, colors, queryClient }: { bookId: strin
                 }]}
                 onPress={() => router.push(`/exchange/${exchange.id}`)}
                 testID={`view-exchange-${exchange.id}`}
+                accessibilityRole="button"
+                accessibilityLabel="Talebi görüntüle"
               >
                 <Text style={[styles.pendingStatusText, {
                   color: exchange.status === 'accepted' ? colors.success :
@@ -1098,6 +1259,37 @@ const styles = StyleSheet.create({
   descriptionText: {
     fontSize: fontSize.body,
     lineHeight: 22,
+  },
+
+  // Similar books section
+  similarSection: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.sheet,
+  },
+  similarTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '600',
+    marginBottom: spacing.md,
+  },
+  similarList: {
+    paddingVertical: spacing.xs,
+  },
+  similarItem: {
+    width: 80,
+    marginRight: spacing.md,
+    gap: spacing.xs,
+  },
+  similarItemTitle: {
+    fontSize: fontSize.caption,
+    fontWeight: '500',
+    lineHeight: 14,
+    marginTop: spacing.xs,
+  },
+  similarItemDistance: {
+    fontSize: fontSize.caption,
+    marginTop: 2,
   },
 
   // Owner Card

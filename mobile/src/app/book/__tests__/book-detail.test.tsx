@@ -1,7 +1,8 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, Share } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '@/components/ui/toast-provider';
 
 import { deleteBook, getBook, updateBook } from '@/lib/api/client';
 import { useBookDraftStore } from '@/stores/book-draft-store';
@@ -59,6 +60,7 @@ const PUBLIC_BOOK = {
   condition: 'worn' as const,
   is_available: false,
   public_location: { lat: 39.93, lng: 32.86 },
+  distance_km: 3.7,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 };
@@ -68,7 +70,9 @@ function renderWithQueryClient(ui: React.ReactElement) {
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>{ui}</ToastProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -223,5 +227,52 @@ describe('BookDetailScreen', () => {
       'Kitap silinirken bir hata oluştu. Lütfen tekrar deneyin.',
     );
     expect(router.back).not.toHaveBeenCalled();
+  });
+
+  it('share button calls Share.share with book title and author', async () => {
+    jest.clearAllMocks();
+    const { Share } = require('react-native');
+    Share.share = jest.fn().mockResolvedValue({ action: 'shared' });
+
+    const { getBook } = require('@/lib/api/client');
+    getBook.mockResolvedValue(PUBLIC_BOOK);
+    useAuthStore.setState({ user: { id: 'user-1', name: 'Me', email: 'me@example.com' } as any });
+
+    const { findByTestId } = renderWithQueryClient(<BookDetailScreen />);
+    // Wait for book to load (non-owner of PUBLIC_BOOK which has owner_id 'user-2')
+    const shareBtn = await findByTestId('share-button');
+    await waitFor(() => expect(shareBtn.props.disabled).toBeFalsy());
+
+    fireEvent.press(shareBtn);
+
+    await waitFor(() => expect(Share.share).toHaveBeenCalled());
+    const callArg = Share.share.mock.calls[0][0];
+    expect(callArg.message).toContain('Beyaz Diş');
+    expect(callArg.message).toContain('Jack London');
+  });
+
+  it('shows real distance from distance_km, not hardcoded 2.4 km', async () => {
+    jest.clearAllMocks();
+    const { getBook } = require('@/lib/api/client');
+    getBook.mockResolvedValue(PUBLIC_BOOK);
+    useAuthStore.setState({ user: { id: 'user-1', name: 'Me', email: 'me@example.com' } as any });
+
+    const { findByText, queryByText } = renderWithQueryClient(<BookDetailScreen />);
+    await waitFor(() => expect(getBook).toHaveBeenCalled());
+
+    expect(await findByText('3.7 km')).toBeTruthy();
+    expect(queryByText('2.4 km')).toBeNull();
+  });
+
+  it('shows skeleton cards while loading (not a bare spinner)', async () => {
+    jest.clearAllMocks();
+    const { getBook } = require('@/lib/api/client');
+    // Never resolves → stays in loading state
+    getBook.mockReturnValue(new Promise(() => {}));
+    useAuthStore.setState({ user: { id: 'user-1', name: 'Me', email: 'me@example.com' } as any });
+
+    const { findAllByTestId, queryByTestId } = renderWithQueryClient(<BookDetailScreen />);
+    expect((await findAllByTestId('skeleton-card')).length).toBeGreaterThanOrEqual(1);
+    expect(queryByTestId('loading-spinner')).toBeNull();
   });
 });

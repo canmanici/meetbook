@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
 import BottomSheet from '@gorhom/bottom-sheet';
+import { BookCover } from './book-cover';
 import { palette } from './tokens';
 
 export interface BookPreviewData {
@@ -46,7 +47,7 @@ export function BottomSheetPreview({
         <View style={styles.content}>
           <View style={styles.bookRow}>
             {book.coverUrl ? (
-              <Image source={{ uri: book.coverUrl }} style={styles.cover} />
+              <BookCover url={book.coverUrl} size={64} />
             ) : (
               <View style={[styles.cover, { backgroundColor: colors.textMuted + '30' }]} />
             )}

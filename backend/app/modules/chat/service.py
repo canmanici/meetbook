@@ -26,6 +26,8 @@ from app.modules.chat.schemas import (
     ReactionView,
     WSOutgoing,
 )
+from app.modules.notifications.service import NotificationService
+from app.modules.push_tokens.service import PushMessage, send_push_to_user
 
 TICKET_TTL_SECONDS = 30
 MESSAGE_LIMIT = 2000
@@ -549,6 +551,47 @@ class ChatService:
 
         await ConnectionManager.broadcast_to_chat(chat_id, payload, repo=self.repo)
         await publish_message(chat_id, payload)
+
+        # ── Push + in-app notifications for offline members ──────────────
+        try:
+            notif_svc = NotificationService(self.session)
+            sender_user = await auth_repo.get_user_by_id(ws_user_id)
+            sender_name = sender_user.name if sender_user else ""
+            member_ids = [exchange.requested_by, exchange.requested_to]
+            for member_id in member_ids:
+                if member_id == ws_user_id:
+                    continue
+                member_conns = _connections.get(member_id)
+                is_online = member_conns is not None and len(member_conns) > 0
+                await notif_svc.create_notification(
+                    user_id=member_id,
+                    type_="new_message",
+                    payload={
+                        "chat_id": str(chat_id),
+                        "sender_id": str(ws_user_id),
+                        "sender_name": sender_name,
+                        "preview": text[:100] if text else "",
+                    },
+                )
+                if not is_online:
+                    try:
+                        await send_push_to_user(
+                            str(member_id),
+                            PushMessage(
+                                title="Yeni Mesaj",
+                                body=text[:120] if text else "Yeni bir mesajınız var",
+                                data={
+                                    "type": "new_message",
+                                    "chat_id": str(chat_id),
+                                },
+                            ),
+                            session=self.session,
+                        )
+                    except Exception as exc:
+                        logger.warning("Push send failed for user %s: %s", member_id, exc)
+            await self.session.commit()
+        except Exception:
+            logger.exception("Failed to create push notifications for new message")
 
     async def handle_typing(
         self, ws_user_id: uuid.UUID, chat_id: uuid.UUID, is_typing: bool

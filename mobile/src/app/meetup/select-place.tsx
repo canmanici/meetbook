@@ -233,7 +233,7 @@ export default function SelectMeetupPlaceScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <MapView
-        style={styles.map}
+        style={[styles.map, { backgroundColor: colors.background }]}
         initialRegion={ISTANBUL_REGION}
         onPress={onMapPress}
         testID="select-place-map"
@@ -269,7 +269,7 @@ export default function SelectMeetupPlaceScreen() {
             testID="place-suggestions-list"
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={styles.suggestionRow}
+                style={[styles.suggestionRow, { borderBottomColor: colors.border }]}
                 onPress={() => onSelectSuggestion(item)}
                 testID={`place-suggestion-${item.place_id}`}
               >
@@ -412,7 +412,6 @@ const styles = StyleSheet.create({
   suggestionRow: {
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   suggestedPlaces: {
     gap: spacing.xs,

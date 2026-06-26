@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useColorScheme, Modal, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,7 +9,6 @@ export interface FilterState {
   category: string | null;
   condition: string | null;
   language: string | null;
-  radiusKm: number;
 }
 
 interface FilterSheetProps {
@@ -18,6 +17,10 @@ interface FilterSheetProps {
   onApply: (filters: FilterState) => void;
   resultCount: number;
   initialFilters?: FilterState;
+  // Radius is kept separate from FilterState so geofenceRadiusKm stays the
+  // single source of truth — no sync between two states needed.
+  radiusKm: number;
+  onRadiusChange: (km: number) => void;
 }
 
 const CATEGORIES = [
@@ -39,15 +42,24 @@ const LANGUAGES = [
   { value: 'tr', label: 'Türkçe' },
   { value: 'en', label: 'English' },
 ];
-const RADIUS_PRESETS = [1, 5, 10, 25, 50, 100];
+const RADIUS_PRESETS = [1, 5, 10, 25, 50, 100, 200];
 
-export function FilterSheet({ visible, onClose, onApply, resultCount, initialFilters }: FilterSheetProps) {
+export function FilterSheet({ visible, onClose, onApply, resultCount, initialFilters, radiusKm, onRadiusChange }: FilterSheetProps) {
   const scheme = useColorScheme();
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
 
   const [filters, setFilters] = useState<FilterState>(
-    initialFilters ?? { category: null, condition: null, language: null, radiusKm: 10 },
+    initialFilters ?? { category: null, condition: null, language: null },
   );
+  const [localRadius, setLocalRadius] = useState(radiusKm);
+
+  // Sync when sheet opens
+  useEffect(() => {
+    if (visible) {
+      if (initialFilters) setFilters(initialFilters);
+      setLocalRadius(radiusKm);
+    }
+  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleFilter = useCallback(
     (key: keyof FilterState, value: string) => {
@@ -60,7 +72,8 @@ export function FilterSheet({ visible, onClose, onApply, resultCount, initialFil
   );
 
   const resetFilters = useCallback(() => {
-    setFilters({ category: null, condition: null, language: null, radiusKm: 10 });
+    setFilters({ category: null, condition: null, language: null });
+    setLocalRadius(10);
   }, []);
 
   const activeCount = [filters.category, filters.condition, filters.language].filter(Boolean).length;
@@ -209,21 +222,21 @@ export function FilterSheet({ visible, onClose, onApply, resultCount, initialFil
             {/* Radius selector — slider + preset buttons */}
             <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Arama Yarıçapı</Text>
             <View style={styles.radiusContainer}>
-              <Text style={[styles.radiusValue, { color: colors.primary }]}>{filters.radiusKm} km</Text>
+              <Text style={[styles.radiusValue, { color: colors.primary }]}>{localRadius} km</Text>
               <Slider
                 style={styles.slider}
                 minimumValue={1}
-                maximumValue={100}
+                maximumValue={200}
                 step={1}
-                value={filters.radiusKm}
-                onValueChange={(val) => setFilters((prev) => ({ ...prev, radiusKm: Math.round(val) }))}
+                value={localRadius}
+                onValueChange={(val) => setLocalRadius(Math.round(val))}
                 minimumTrackTintColor={colors.primary}
                 maximumTrackTintColor={colors.textMuted}
                 thumbTintColor={colors.primary}
               />
               <View style={styles.radiusPresets}>
                 {RADIUS_PRESETS.map((r) => {
-                  const isActive = filters.radiusKm === r;
+                  const isActive = localRadius === r;
                   return (
                     <TouchableOpacity
                       key={r}
@@ -231,7 +244,7 @@ export function FilterSheet({ visible, onClose, onApply, resultCount, initialFil
                         styles.presetBtn,
                         { backgroundColor: isActive ? colors.primary : colors.surfaceAlt, borderColor: isActive ? colors.primary : colors.border },
                       ]}
-                      onPress={() => setFilters((prev) => ({ ...prev, radiusKm: r }))}
+                      onPress={() => setLocalRadius(r)}
                     >
                       <Text style={[styles.presetText, { color: isActive ? '#fff' : colors.text }]}>
                         {r} km
@@ -253,7 +266,7 @@ export function FilterSheet({ visible, onClose, onApply, resultCount, initialFil
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.applyBtnWrap}
-              onPress={() => onApply(filters)}
+              onPress={() => { onRadiusChange(localRadius); onApply(filters); }}
             >
               <LinearGradient
                 colors={[colors.primary, colors.primary + 'CC']}

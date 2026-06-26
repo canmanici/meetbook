@@ -30,6 +30,5 @@ async def log_event(
         )
         session.add(entry)
         await session.flush()
-        await session.commit()
     except Exception:
         logger.exception("Failed to write audit log for event: %s", event_type)

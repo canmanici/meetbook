@@ -1,5 +1,6 @@
 import { clearTokens, setTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
+import { crashReporter } from '@/lib/crash-reporter';
 
 import { emitApiError, messageForStatus } from './error-bus';
 import type { components, paths } from './schema';
@@ -16,6 +17,8 @@ export class ApiError extends Error {
     this.body = body;
   }
 }
+
+let refreshPromise: Promise<void> | null = null;
 
 type RegisterBody =
   paths['/api/v1/auth/register']['post']['requestBody']['content']['application/json'];
@@ -85,7 +88,9 @@ async function rawRequest(
         .join('&')
     : '';
   const url = `${BASE_URL}${path}${search ? `?${search}` : ''}`;
-  console.log(`[API] ${method} ${url}${body !== undefined ? ` body=${JSON.stringify(body)}` : ''}`);
+  if (__DEV__) {
+    console.log(`[API] ${method} ${url}${body !== undefined ? ` body=${JSON.stringify(body)}` : ''}`);
+  }
   const start = Date.now();
   let res: Response;
   try {
@@ -107,6 +112,10 @@ async function rawRequest(
   }
   const duration = Date.now() - start;
   console.log(`[API] ${method} ${url} → ${res.status} (${duration}ms)`);
+  crashReporter.addBreadcrumb('api_call', `${method} ${url}`, {
+    status: res.status,
+    duration_ms: duration,
+  });
   return res;
 }
 
@@ -144,18 +153,21 @@ export async function authedRequest<T>(
 
   if (res.status === 401 && accessToken && allowRetry) {
     if (refreshToken) {
-      try {
-        const tokens = await refresh({ refresh_token: refreshToken });
-        await setTokens(tokens.access_token, tokens.refresh_token);
-        useAuthStore.setState({
-          accessToken: tokens.access_token,
-          refreshToken: tokens.refresh_token,
+      if (!refreshPromise) {
+        refreshPromise = (async () => {
+          const tokens = await refresh({ refresh_token: refreshToken });
+          await setTokens(tokens.access_token, tokens.refresh_token);
+          useAuthStore.setState({
+            accessToken: tokens.access_token,
+            refreshToken: tokens.refresh_token,
+          });
+        })().finally(() => {
+          refreshPromise = null;
         });
-        return authedRequest<T>(path, method, body, { allowRetry: false, query });
-      } catch {
-        await clearTokens();
-        clearSession();
       }
+      await refreshPromise;
+      const currentToken = useAuthStore.getState().accessToken;
+      return authedRequest<T>(path, method, body, { allowRetry: false, query });
     } else {
       await clearTokens();
       clearSession();
@@ -164,6 +176,17 @@ export async function authedRequest<T>(
 
   return parse<T>(res);
 }
+
+export const apiClient = {
+  async post(path: string, body: unknown) {
+    const { accessToken } = useAuthStore.getState();
+    return rawRequest(path, 'POST', body, accessToken);
+  },
+  async delete(path: string) {
+    const { accessToken } = useAuthStore.getState();
+    return rawRequest(path, 'DELETE', undefined, accessToken);
+  },
+};
 
 export async function register(body: RegisterBody): Promise<RegisterResponse> {
   return authedRequest<RegisterResponse>('/auth/register', 'POST', body);
@@ -205,13 +228,14 @@ export async function listNearbyBooks(params: {
 }
 
 export async function searchNearbyBooks(params: {
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
   radius_km?: number;
   category?: string;
   language?: string;
   condition?: string;
   q?: string;
+  owner_id?: string;
   limit?: number;
   cursor?: string;
 }): Promise<{
@@ -723,6 +747,13 @@ export async function getMe(): Promise<MeResponse> {
 
 export async function updateMe(body: UpdateMeBody): Promise<MeResponse> {
   return authedRequest<MeResponse>('/auth/me', 'PATCH', body);
+}
+
+// KVKK account deletion — anonymizes PII server-side. Backend endpoint may not
+// exist yet; callers should surface errors gracefully and keep the confirmation
+// flow intact so the legal UX is shipped regardless of backend readiness.
+export async function deleteAccount(body: { password: string }): Promise<void> {
+  return authedRequest<void>('/auth/me', 'DELETE', body);
 }
 
 // ---------------------------------------------------------------------------

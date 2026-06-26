@@ -6,6 +6,8 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import redis.asyncio as aioredis
+from sqlalchemy import select
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.geo import in_turkey_bbox, make_point
@@ -226,6 +228,9 @@ class ExchangeService:
 
         # Single active loan rule: a borrower may hold only one borrowed book at a time.
         if body.mode is ExchangeMode.borrow:
+            await self.session.execute(
+                select(User).where(User.id == current_user_id).with_for_update()
+            )
             if await self.repo.has_active_loan_as_borrower(current_user_id):
                 raise ExchangeError("ACTIVE_LOAN_EXISTS", 409)
 
@@ -303,12 +308,16 @@ class ExchangeService:
             if book_row is not None:
                 await self.books_repo.update(book_row.book, {"is_available": False})
 
-            requester = await self.auth_repo.get_user_by_id(request.requested_by)
-            owner = await self.auth_repo.get_user_by_id(request.requested_to)
-            if requester is not None:
-                requester.completed_exchanges += 1
-            if owner is not None:
-                owner.completed_exchanges += 1
+            await self.session.execute(
+                update(User)
+                .where(User.id == request.requested_by)
+                .values(completed_exchanges=User.completed_exchanges + 1)
+            )
+            await self.session.execute(
+                update(User)
+                .where(User.id == request.requested_to)
+                .values(completed_exchanges=User.completed_exchanges + 1)
+            )
 
         await self.session.commit()
         return await self._to_detail(request, current_user_id)
@@ -413,18 +422,23 @@ class ExchangeService:
         if book_row is not None:
             await self.books_repo.update(book_row.book, {"is_available": True})
 
-        # Update borrower trust counters + both parties' completed counter.
-        borrower = await self.auth_repo.get_user_by_id(request.requested_by)
-        owner = await self.auth_repo.get_user_by_id(request.requested_to)
-        if borrower is not None:
-            borrower.loans_borrowed_count += 1
-            if request.returned_on_time:
-                borrower.loans_returned_on_time += 1
-            else:
-                borrower.loans_returned_late += 1
-            borrower.completed_exchanges += 1
-        if owner is not None:
-            owner.completed_exchanges += 1
+        borrower_updates = {
+            "loans_borrowed_count": User.loans_borrowed_count + 1,
+            "completed_exchanges": User.completed_exchanges + 1,
+        }
+        if request.returned_on_time:
+            borrower_updates["loans_returned_on_time"] = User.loans_returned_on_time + 1
+        else:
+            borrower_updates["loans_returned_late"] = User.loans_returned_late + 1
+
+        await self.session.execute(
+            update(User).where(User.id == request.requested_by).values(**borrower_updates)
+        )
+        await self.session.execute(
+            update(User)
+            .where(User.id == request.requested_to)
+            .values(completed_exchanges=User.completed_exchanges + 1)
+        )
 
         await self.session.commit()
         return await self._to_detail(request, current_user_id)

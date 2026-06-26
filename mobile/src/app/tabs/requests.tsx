@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -9,16 +10,34 @@ import {
   ScrollView,
   StyleSheet,
   useColorScheme,
-  Alert,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useToast } from '@/hooks/use-toast';
 import { Badge, EmptyState, Skeleton, TrustBadge, palette, spacing, fontSize, radius, type ThemeColors } from '@/components/ui';
 import { acceptExchange, rejectExchange, listExchanges, type ExchangeSummary } from '@/lib/api/client';
 import { EXCHANGE_STATUS_LABELS, EXCHANGE_STATUS_VARIANTS } from '@/constants/exchanges';
 import { Ionicons } from '@expo/vector-icons';
 
 type RequestTab = 'received' | 'sent';
+type StatusFilter = 'all' | 'pending' | 'active' | 'completed' | 'cancelled';
+
+// Group the many exchange statuses into 4 user-facing buckets
+const ACTIVE_STATUSES = new Set([
+  'accepted', 'meetup_proposed', 'meetup_confirmed', 'completion_pending', 'lent', 'return_pending', 'overdue',
+]);
+const COMPLETED_STATUSES = new Set(['completed']);
+const CANCELLED_STATUSES = new Set(['rejected', 'cancelled', 'expired']);
+
+function matchesFilter(status: string, filter: StatusFilter): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'pending') return status === 'pending';
+  if (filter === 'active') return ACTIVE_STATUSES.has(status);
+  if (filter === 'completed') return COMPLETED_STATUSES.has(status);
+  if (filter === 'cancelled') return CANCELLED_STATUSES.has(status);
+  return true;
+}
 
 export default function RequestsScreen() {
   const scheme = useColorScheme();
@@ -27,21 +46,56 @@ export default function RequestsScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<RequestTab>('received');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['exchanges', activeTab],
     queryFn: () => listExchanges({ role: activeTab }),
+    retry: false,
   });
 
   const items = data?.items ?? [];
+  const filteredItems = items.filter((i) => matchesFilter(i.status, statusFilter));
 
   const tabs: { key: RequestTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'received', label: 'Gelen', icon: 'arrow-down-circle' },
     { key: 'sent', label: 'Giden', icon: 'arrow-up-circle' },
   ];
 
+  const statusFilters: { key: StatusFilter; label: string }[] = [
+    { key: 'all', label: 'Tümü' },
+    { key: 'pending', label: 'Beklemede' },
+    { key: 'active', label: 'Aktif' },
+    { key: 'completed', label: 'Tamamlandı' },
+    { key: 'cancelled', label: 'İptal/Red' },
+  ];
+
+  if (isError) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+        <EmptyState
+          message="Talepler yüklenemedi"
+          description="Bağlantınızı kontrol edip tekrar deneyin."
+          actionLabel="Tekrar Dene"
+          onAction={() => refetch()}
+          icon="cloud-offline"
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      {/* Page header */}
+      <View style={[styles.pageHeader, { borderBottomColor: colors.border }]}>
+        <Text style={[styles.pageTitle, { color: colors.text }]}>Talepler</Text>
+        {items.length > 0 && (
+          <View style={[styles.pageCount, { backgroundColor: colors.primary + '18' }]}>
+            <Text style={[styles.pageCountText, { color: colors.primary }]}>{items.length}</Text>
+          </View>
+        )}
+      </View>
+
       {/* Tabs */}
       <View style={styles.tabContainer}>
         <View style={[styles.tabRow, { backgroundColor: colors.surfaceAlt }]}>
@@ -56,6 +110,8 @@ export default function RequestsScreen() {
                   isActive && styles.tabActive,
                 ]}
                 testID={`tab-${tab.key}`}
+                accessibilityRole="button"
+                accessibilityLabel={tab.key === 'received' ? 'Gelen talepler' : 'Giden talepler'}
               >
                 {isActive && (
                   <LinearGradient
@@ -90,6 +146,41 @@ export default function RequestsScreen() {
         </View>
       </View>
 
+      {/* Status filter chips */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipScroll}
+        contentContainerStyle={styles.chipRow}
+      >
+        {statusFilters.map((filter) => {
+          const isActive = statusFilter === filter.key;
+          return (
+            <TouchableOpacity
+              key={filter.key}
+              onPress={() => setStatusFilter(filter.key)}
+              style={[
+                styles.chip,
+                { backgroundColor: isActive ? colors.primary : colors.surfaceAlt, borderColor: isActive ? colors.primary : colors.border },
+              ]}
+              testID={`status-filter-${filter.key}`}
+              accessibilityRole="button"
+              accessibilityLabel={`${filter.label} talepleri filtrele`}
+              accessibilityState={{ selected: isActive }}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: isActive ? '#fff' : colors.textMuted },
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       {/* Content */}
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {isLoading ? (
@@ -98,20 +189,22 @@ export default function RequestsScreen() {
             <Skeleton variant="list-item" />
             <Skeleton variant="list-item" />
           </>
-        ) : items.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <EmptyState
-            message={activeTab === 'received' ? 'Henüz gelen talep yok' : 'Henüz giden talep yok'}
-            description="Yakınındaki kitaplardan birini iste!"
+            message={items.length === 0
+              ? (activeTab === 'received' ? 'Henüz gelen talep yok' : 'Henüz giden talep yok')
+              : 'Bu filtreye uygun talep yok'}
+            description={items.length === 0 ? 'Yakınındaki kitaplardan birini iste!' : 'Farklı bir filtre deneyin.'}
             icon={activeTab === 'received' ? 'arrow-down-circle' : 'arrow-up-circle'}
-            actionLabel="Kitaplara Göz At"
-            onAction={() => router.push('/tabs/home')}
+            actionLabel={items.length === 0 ? 'Kitaplara Göz At' : undefined}
+            onAction={items.length === 0 ? () => router.push('/tabs/home') : undefined}
           />
         ) : activeTab === 'received' ? (
-          items.map((item) => (
+          filteredItems.map((item) => (
             <IncomingRequestRow key={item.id} item={item} colors={colors} queryClient={queryClient} />
           ))
         ) : (
-          items.map((item) => (
+          filteredItems.map((item) => (
             <OutgoingRequestRow key={item.id} item={item} colors={colors} />
           ))
         )}
@@ -119,6 +212,20 @@ export default function RequestsScreen() {
     </View>
   );
 }
+
+const renderLeftActions = () => (
+  <View style={{ backgroundColor: '#34C759', justifyContent: 'center', paddingLeft: 20, flex: 1 }}>
+    <Ionicons name="checkmark" size={24} color="#fff" />
+    <Text style={{ color: '#fff', fontSize: 12 }}>Kabul Et</Text>
+  </View>
+);
+
+const renderRightActions = () => (
+  <View style={{ backgroundColor: '#FF3B30', justifyContent: 'center', alignItems: 'flex-end', paddingRight: 20, flex: 1 }}>
+    <Ionicons name="close" size={24} color="#fff" />
+    <Text style={{ color: '#fff', fontSize: 12 }}>Reddet</Text>
+  </View>
+);
 
 function IncomingRequestRow({
   item,
@@ -129,6 +236,7 @@ function IncomingRequestRow({
   colors: ThemeColors;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const toast = useToast();
   const createdAt = new Date(item.created_at);
   const statusLabel = EXCHANGE_STATUS_LABELS[item.status] ?? item.status;
   const statusVariant = EXCHANGE_STATUS_VARIANTS[item.status] ?? 'info';
@@ -138,12 +246,11 @@ function IncomingRequestRow({
     mutationFn: acceptExchange,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['exchanges', 'received'] });
-      Alert.alert('Onaylandı', 'Talep onaylandı.', [
-        { text: 'Tamam', onPress: () => router.push(`/exchange/${data.id}`) }
-      ]);
+      toast.show('Talep kabul edildi', { variant: 'success' });
+      router.push(`/exchange/${data.id}`);
     },
     onError: () => {
-      Alert.alert('Hata', 'Talep onaylanamadı.');
+      toast.show('Talep kabul edilemedi', { variant: 'error' });
     },
   });
 
@@ -151,14 +258,29 @@ function IncomingRequestRow({
     mutationFn: rejectExchange,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['exchanges', 'received'] });
-      Alert.alert('Reddedildi', 'Talep reddedildi.');
+      toast.show('Talep reddedildi', { variant: 'success' });
     },
     onError: () => {
-      Alert.alert('Hata', 'Talep reddedilemedi.');
+      toast.show('Talep reddedilemedi', { variant: 'error' });
     },
   });
 
   return (
+    <Swipeable
+      renderLeftActions={isPending ? renderLeftActions : undefined}
+      renderRightActions={isPending ? renderRightActions : undefined}
+      onSwipeableOpen={(direction, swipeable) => {
+        swipeable.close();
+        if (acceptMutation.isPending || rejectMutation.isPending) return;
+        if (direction === 'left') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          acceptMutation.mutate(item.id);
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          rejectMutation.mutate(item.id);
+        }
+      }}
+    >
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       {/* Top accent line */}
       <LinearGradient
@@ -172,6 +294,8 @@ function IncomingRequestRow({
         onPress={() => router.push(`/exchange/${item.id}`)}
         testID={`request-row-${item.id}`}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Talep detayını görüntüle"
       >
         <View style={styles.cardContent}>
           {/* Avatar + Info */}
@@ -226,10 +350,15 @@ function IncomingRequestRow({
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={styles.acceptButtonWrap}
-            onPress={() => acceptMutation.mutate(item.id)}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              acceptMutation.mutate(item.id);
+            }}
             disabled={acceptMutation.isPending || rejectMutation.isPending}
             activeOpacity={0.85}
             testID={`accept-${item.id}`}
+            accessibilityRole="button"
+            accessibilityLabel="Talebi kabul et"
           >
             <LinearGradient
               colors={[colors.primary, colors.primary + 'CC']}
@@ -243,10 +372,15 @@ function IncomingRequestRow({
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.rejectButtonWrap, { borderColor: colors.danger + '40' }]}
-            onPress={() => rejectMutation.mutate(item.id)}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              rejectMutation.mutate(item.id);
+            }}
             disabled={acceptMutation.isPending || rejectMutation.isPending}
             activeOpacity={0.7}
             testID={`reject-${item.id}`}
+            accessibilityRole="button"
+            accessibilityLabel="Talebi reddet"
           >
             <Ionicons name="close-circle-outline" size={18} color={colors.danger} />
             <Text style={[styles.rejectButtonText, { color: colors.danger }]}>Reddet</Text>
@@ -254,6 +388,7 @@ function IncomingRequestRow({
         </View>
       )}
     </View>
+    </Swipeable>
   );
 }
 
@@ -270,10 +405,18 @@ function OutgoingRequestRow({
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <LinearGradient
+        colors={[colors.textMuted + '44', colors.textMuted + '22']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.cardAccent}
+      />
       <TouchableOpacity
         onPress={() => router.push(`/exchange/${item.id}`)}
         testID={`request-row-${item.id}`}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Talep detayını görüntüle"
       >
         <View style={styles.cardContent}>
           <View style={styles.cardTop}>
@@ -312,6 +455,29 @@ function OutgoingRequestRow({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  pageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  pageTitle: {
+    fontSize: fontSize.heading,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  pageCount: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+  },
+  pageCountText: {
+    fontSize: fontSize.caption,
+    fontWeight: '800',
   },
   tabContainer: {
     paddingHorizontal: spacing.lg,
@@ -358,6 +524,26 @@ const styles = StyleSheet.create({
   tabBadgeText: {
     fontSize: 11,
     fontWeight: '800',
+  },
+  chipScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  chipRow: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  chip: {
+    paddingVertical: spacing.sm - 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
   },
   content: {
     flex: 1,

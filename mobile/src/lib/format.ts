@@ -45,3 +45,8 @@ export function formatStats(views: number, favorites: number): string {
   if (favorites > 0) parts.push(`${favorites} favori`);
   return parts.join(' · ');
 }
+
+export function formatDistance(km: number | null | undefined): string | null {
+  if (km == null || !Number.isFinite(km)) return null;
+  return `${km} km`;
+}
