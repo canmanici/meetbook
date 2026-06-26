@@ -47,6 +47,10 @@ export const MLMap: any = MAPLIBRE_AVAILABLE ? ML.Map : null;
 export const MLMarker: any = MAPLIBRE_AVAILABLE ? ML.Marker : null;
 export const MLGeoJSONSource: any = MAPLIBRE_AVAILABLE ? ML.GeoJSONSource : null;
 export const MLLayer: any = MAPLIBRE_AVAILABLE ? ML.Layer : null;
+// HeatmapLayer is the same native Layer component, aliased for semantic
+// clarity when used with type="heatmap". MapLibre's Layer supports the
+// "heatmap" layer type and heatmap-* paint properties.
+export const HeatmapLayer: any = MAPLIBRE_AVAILABLE ? ML.Layer : View;
 
 // ── Types matching react-native-maps ───────────────────────────────────────
 

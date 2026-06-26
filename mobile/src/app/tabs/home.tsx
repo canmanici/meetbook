@@ -44,6 +44,8 @@ import {
   type Region,
   MAPLIBRE_AVAILABLE,
   MLMap,
+  MLGeoJSONSource,
+  HeatmapLayer,
 } from '@/lib/map-adapter';
 import LIGHT_STYLE from '@/lib/map-styles/light.json';
 import DARK_STYLE from '@/lib/map-styles/dark.json';
@@ -193,6 +195,7 @@ export default function HomeScreen() {
   const [showRadiusSheet, setShowRadiusSheet] = useState(false);
   const [geofenceRadiusKm, setGeofenceRadiusKm] = useState(10);
   const [showPushBanner, setShowPushBanner] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const mapRef = useRef<any>(null);
@@ -364,6 +367,39 @@ export default function HomeScreen() {
     [clustersSingletons, books],
   );
 
+  // ── Heatmap source data (book density, §toggle) ────────────────────────────
+  // Builds a GeoJSON FeatureCollection of Points from singleton markers +
+  // backend cluster centroids. Cluster points carry a `weight` equal to the
+  // cluster count so dense shelves contribute more to the heatmap.
+  const heatmapGeoJSON = useMemo(() => {
+    const features: Array<{
+      type: 'Feature';
+      geometry: { type: 'Point'; coordinates: [number, number] };
+      properties: { weight: number };
+    }> = [];
+    for (const book of markerBooks) {
+      const loc = book.public_location;
+      if (loc && loc.lat != null && loc.lng != null) {
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [loc.lng, loc.lat] },
+          properties: { weight: 1 },
+        });
+      }
+    }
+    for (const cluster of clusters) {
+      const c = cluster.centroid;
+      if (c && c.lat != null && c.lng != null) {
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [c.lng, c.lat] },
+          properties: { weight: cluster.count },
+        });
+      }
+    }
+    return { type: 'FeatureCollection' as const, features };
+  }, [markerBooks, clusters]);
+
   // ── Bug #6: count books WITH location ──────────────────────────────────────
   const booksWithLocation = useMemo(
     () => books.filter((b) => b.public_location && b.public_location.lat != null),
@@ -500,6 +536,12 @@ export default function HomeScreen() {
   const cycleMapType = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setMapTypeIndex((prev) => (prev + 1) % MAP_TYPES.length);
+  }, []);
+
+  // ── Toggle book density heatmap ─────────────────────────────────────────────
+  const toggleHeatmap = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowHeatmap((prev) => !prev);
   }, []);
 
   // ── Region change: debounced state + drift pill (bugs #5, §3.7) ────────────
@@ -798,6 +840,37 @@ export default function HomeScreen() {
               zoom: deltaToZoom(mapRegion.latitudeDelta),
             }}
           />
+          {/* ── Book density heatmap (toggle, blue→green→yellow→red) ─────────── */}
+          {showHeatmap && (
+            <MLGeoJSONSource id="book-density-source" data={heatmapGeoJSON}>
+              <HeatmapLayer
+                id="book-density-heatmap"
+                type="heatmap"
+                sourceID="book-density-source"
+                paint={{
+                  // Smooth radius that grows with zoom for a consistent on-screen blob
+                  'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 8, 9, 40],
+                  // Cluster points weigh by book count; singletons weigh 1
+                  'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0, 10, 1],
+                  // Intensity ramps with zoom so low-zoom areas stay readable
+                  'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 9, 3],
+                  // Density gradient: blue (sparse) → green → yellow → red (dense)
+                  'heatmap-color': [
+                    'interpolate',
+                    ['linear'],
+                    ['heatmap-density'],
+                    0, 'rgba(0,0,255,0)',
+                    0.2, 'rgba(0,0,255,0.55)',
+                    0.4, 'rgba(0,200,40,0.65)',
+                    0.6, 'rgba(255,215,0,0.8)',
+                    0.8, 'rgba(255,45,0,0.9)',
+                    1, 'rgba(150,0,0,1)',
+                  ],
+                  'heatmap-opacity': 0.9,
+                }}
+              />
+            </MLGeoJSONSource>
+          )}
           {/* ── Individual book markers (singletons) ─────────────────────────── */}
           {markerBooks.map((book) => {
             if (!book.public_location) return null;
@@ -981,6 +1054,8 @@ export default function HomeScreen() {
           onRecenter={recenterOnUser}
           onFilter={handleFilterPress}
           onCycleMapType={cycleMapType}
+          onToggleHeatmap={toggleHeatmap}
+          heatmapActive={showHeatmap}
           filterCount={filterCount}
           insets={insets}
           peekHeightPx={SHEET_PEEK_PX}

@@ -733,6 +733,13 @@ export async function updateMe(body: UpdateMeBody): Promise<MeResponse> {
   return authedRequest<MeResponse>('/auth/me', 'PATCH', body);
 }
 
+// KVKK account deletion — anonymizes PII server-side. Backend endpoint may not
+// exist yet; callers should surface errors gracefully and keep the confirmation
+// flow intact so the legal UX is shipped regardless of backend readiness.
+export async function deleteAccount(body: { password: string }): Promise<void> {
+  return authedRequest<void>('/auth/me', 'DELETE', body);
+}
+
 // ---------------------------------------------------------------------------
 // User public profile
 // ---------------------------------------------------------------------------

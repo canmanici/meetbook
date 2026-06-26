@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -193,6 +194,21 @@ export default function ChatDetailScreen() {
     }
     return items;
   }, [rawMessages, isOtherTyping]);
+
+  // ---- Smart reply suggestions ----
+  const suggestions = useMemo<string[]>(() => {
+    if (inputText.trim().length > 0) return [];
+    const lastIncoming = [...rawMessages]
+      .reverse()
+      .find((m) => m.sender_id !== currentUserId);
+    if (!lastIncoming) return ['Tamam', 'Ne zaman?', 'Nerede?'];
+    const text = (lastIncoming.text ?? '').toLocaleLowerCase('tr');
+    const has = (...keys: string[]) => keys.some((k) => text.includes(k));
+    if (has('saat', 'vakit', 'zaman')) return ['14:00 olur', 'Hangi saat?'];
+    if (has('nerede', 'yer', 'nerde')) return ['Sen nerede istersin?', "Kafe'de buluşalım"];
+    if (text.includes('?')) return ['Evet', 'Hayır', 'Tabi'];
+    return ['Tamam', 'Ne zaman?', 'Nerede?'];
+  }, [rawMessages, currentUserId, inputText]);
 
   // ---- Mark as read ----
   useEffect(() => {
@@ -500,6 +516,33 @@ export default function ChatDetailScreen() {
         </View>
       )}
 
+      {/* ---- Smart reply chips ---- */}
+      {suggestions.length > 0 && (
+        <View style={[styles.chipsRow, { backgroundColor: colors.surface }]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipsContent}
+          >
+            {suggestions.map((s) => (
+              <TouchableOpacity
+                key={s}
+                style={[styles.chip, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
+                onPress={() => {
+                  setInputText(s);
+                  inputRef.current?.focus();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Öneri: ${s}`}
+                testID={`suggestion-chip-${s}`}
+              >
+                <Text style={[styles.chipText, { color: colors.text }]}>{s}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {/* ---- Input bar ---- */}
       <View
         style={[
@@ -735,6 +778,27 @@ const styles = StyleSheet.create({
   replyBarClose: {
     padding: spacing.xs,
     marginLeft: spacing.xs,
+  },
+  // Smart reply chips
+  chipsRow: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  chipsContent: {
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '500',
   },
   // Input bar
   inputBar: {

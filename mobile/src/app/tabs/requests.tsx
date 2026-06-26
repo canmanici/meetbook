@@ -21,6 +21,7 @@ import { EXCHANGE_STATUS_LABELS, EXCHANGE_STATUS_VARIANTS } from '@/constants/ex
 import { Ionicons } from '@expo/vector-icons';
 
 type RequestTab = 'received' | 'sent';
+type StatusFilter = 'all' | 'pending' | 'accepted' | 'completed';
 
 export default function RequestsScreen() {
   const scheme = useColorScheme();
@@ -29,6 +30,7 @@ export default function RequestsScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<RequestTab>('received');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['exchanges', activeTab],
@@ -37,10 +39,19 @@ export default function RequestsScreen() {
   });
 
   const items = data?.items ?? [];
+  const filteredItems =
+    statusFilter === 'all' ? items : items.filter((i) => i.status === statusFilter);
 
   const tabs: { key: RequestTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'received', label: 'Gelen', icon: 'arrow-down-circle' },
     { key: 'sent', label: 'Giden', icon: 'arrow-up-circle' },
+  ];
+
+  const statusFilters: { key: StatusFilter; label: string }[] = [
+    { key: 'all', label: 'Tümü' },
+    { key: 'pending', label: 'Beklemede' },
+    { key: 'accepted', label: 'Onaylandı' },
+    { key: 'completed', label: 'Tamamlandı' },
   ];
 
   if (isError) {
@@ -109,6 +120,40 @@ export default function RequestsScreen() {
         </View>
       </View>
 
+      {/* Status filter chips */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipRow}
+      >
+        {statusFilters.map((filter) => {
+          const isActive = statusFilter === filter.key;
+          return (
+            <TouchableOpacity
+              key={filter.key}
+              onPress={() => setStatusFilter(filter.key)}
+              style={[
+                styles.chip,
+                { backgroundColor: isActive ? colors.primary : colors.surfaceAlt, borderColor: isActive ? colors.primary : colors.border },
+              ]}
+              testID={`status-filter-${filter.key}`}
+              accessibilityRole="button"
+              accessibilityLabel={`${filter.label} talepleri filtrele`}
+              accessibilityState={{ selected: isActive }}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: isActive ? '#fff' : colors.textMuted },
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       {/* Content */}
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {isLoading ? (
@@ -117,20 +162,22 @@ export default function RequestsScreen() {
             <Skeleton variant="list-item" />
             <Skeleton variant="list-item" />
           </>
-        ) : items.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <EmptyState
-            message={activeTab === 'received' ? 'Henüz gelen talep yok' : 'Henüz giden talep yok'}
-            description="Yakınındaki kitaplardan birini iste!"
+            message={items.length === 0
+              ? (activeTab === 'received' ? 'Henüz gelen talep yok' : 'Henüz giden talep yok')
+              : 'Bu filtreye uygun talep yok'}
+            description={items.length === 0 ? 'Yakınındaki kitaplardan birini iste!' : 'Farklı bir filtre deneyin.'}
             icon={activeTab === 'received' ? 'arrow-down-circle' : 'arrow-up-circle'}
-            actionLabel="Kitaplara Göz At"
-            onAction={() => router.push('/tabs/home')}
+            actionLabel={items.length === 0 ? 'Kitaplara Göz At' : undefined}
+            onAction={items.length === 0 ? () => router.push('/tabs/home') : undefined}
           />
         ) : activeTab === 'received' ? (
-          items.map((item) => (
+          filteredItems.map((item) => (
             <IncomingRequestRow key={item.id} item={item} colors={colors} queryClient={queryClient} />
           ))
         ) : (
-          items.map((item) => (
+          filteredItems.map((item) => (
             <OutgoingRequestRow key={item.id} item={item} colors={colors} />
           ))
         )}
@@ -421,6 +468,21 @@ const styles = StyleSheet.create({
   tabBadgeText: {
     fontSize: 11,
     fontWeight: '800',
+  },
+  chipRow: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
+    gap: spacing.sm,
+  },
+  chip: {
+    paddingVertical: spacing.sm - 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
   },
   content: {
     flex: 1,

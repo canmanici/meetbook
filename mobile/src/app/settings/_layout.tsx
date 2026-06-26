@@ -5,6 +5,7 @@ export default function SettingsLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="trusted-contact" options={{ title: 'Güvendiğim Kişi' }} />
       <Stack.Screen name="data-export" options={{ title: 'Verilerimi İndir' }} />
+      <Stack.Screen name="delete-account" options={{ title: 'Hesabımı Sil' }} />
     </Stack>
   );
 }

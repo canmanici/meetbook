@@ -161,6 +161,15 @@ export default function SettingsScreen() {
               <Text style={[styles.rowLabel, { color: colors.text }]}>Verilerimi İndir</Text>
               <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
             </TouchableOpacity>
+            <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => router.push('/settings/delete-account' as any)}
+              activeOpacity={0.6}
+            >
+              <Text style={[styles.rowLabel, { color: colors.danger }]}>Hesabımı Sil</Text>
+              <Text style={[styles.chevron, { color: colors.danger }]}>›</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
