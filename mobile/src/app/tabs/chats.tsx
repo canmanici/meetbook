@@ -321,10 +321,11 @@ export default function ChatsScreen() {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [query, setQuery] = useState('');
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['chats'],
     queryFn: listChats,
     refetchInterval: 15000,
+    retry: false,
   });
 
   useFocusEffect(
@@ -415,6 +416,20 @@ export default function ChatsScreen() {
     { key: 'all', label: 'Tümü', count: allChats.length },
     { key: 'unread', label: 'Okunmamış', count: totalUnread },
   ];
+
+  if (isError) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+        <EmptyState
+          message="Sohbetler yüklenemedi"
+          description="Bağlantınızı kontrol edip tekrar deneyin."
+          actionLabel="Tekrar Dene"
+          onAction={() => refetch()}
+          icon="cloud-offline"
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>

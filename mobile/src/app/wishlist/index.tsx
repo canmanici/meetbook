@@ -38,9 +38,10 @@ export default function WishlistScreen() {
   const [isbn, setIsbn] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data: wishlistData, isLoading: wishlistLoading, refetch: refetchWishlist } = useQuery({
+  const { data: wishlistData, isLoading: wishlistLoading, isError: wishlistError, refetch: refetchWishlist } = useQuery({
     queryKey: ['wishlist'],
     queryFn: getWishlist,
+    retry: false,
   });
 
   const { data: matchesData, isLoading: matchesLoading, refetch: refetchMatches } = useQuery({
@@ -80,6 +81,20 @@ export default function WishlistScreen() {
   const hasMatch = (itemIsbn: string): boolean => {
     return matches.some((m) => m.isbn === itemIsbn);
   };
+
+  if (wishlistError) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+        <EmptyState
+          message="İstek listesi yüklenemedi"
+          description="Bağlantınızı kontrol edip tekrar deneyin."
+          actionLabel="Tekrar Dene"
+          onAction={() => refetchWishlist()}
+          icon="cloud-offline"
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>

@@ -93,4 +93,15 @@ describe('RequestsScreen', () => {
       expect(listExchanges).toHaveBeenCalledWith({ role: 'received' });
     });
   });
+
+  it('shows error state with retry when listExchanges fails', async () => {
+    (listExchanges as jest.Mock).mockRejectedValueOnce(new Error('network'));
+    (listExchanges as jest.Mock).mockResolvedValueOnce({ items: [] });
+
+    const { findByText, findByTestId } = renderWithQueryClient(<RequestsScreen />);
+    expect(await findByText(/yüklenemedi/i)).toBeTruthy();
+    const retryBtn = await findByTestId('empty-state-action');
+    fireEvent.press(retryBtn);
+    await waitFor(() => expect(listExchanges).toHaveBeenCalledTimes(2));
+  });
 });

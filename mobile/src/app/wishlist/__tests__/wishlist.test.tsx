@@ -91,3 +91,22 @@ describe('WishlistScreen pull-to-refresh', () => {
     await waitFor(() => expect(getWishlist).toHaveBeenCalledTimes(2));
   });
 });
+
+describe('WishlistScreen error state', () => {
+  beforeEach(() => {
+    const { getWishlist } = require('@/lib/api/client');
+    getWishlist.mockClear();
+    getWishlist.mockResolvedValue({ items: [] });
+  });
+
+  it('shows error state with retry when getWishlist fails', async () => {
+    const { getWishlist } = require('@/lib/api/client');
+    getWishlist.mockRejectedValueOnce(new Error('network'));
+    getWishlist.mockResolvedValueOnce({ items: [] });
+
+    const { findByText, findByTestId } = renderWishlist();
+    expect(await findByText(/yüklenemedi/i)).toBeTruthy();
+    fireEvent.press(await findByTestId('empty-state-action'));
+    await waitFor(() => expect(getWishlist).toHaveBeenCalledTimes(2));
+  });
+});

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
@@ -33,6 +33,25 @@ describe('BlockedUsersScreen pull-to-refresh', () => {
     await waitFor(() => expect(listBlockedUsers).toHaveBeenCalledTimes(1));
     const scroll = await findByTestId('blocked-scroll');
     scroll.props.refreshControl.props.onRefresh();
+    await waitFor(() => expect(listBlockedUsers).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe('BlockedUsersScreen error state', () => {
+  beforeEach(() => {
+    const { listBlockedUsers } = require('@/lib/api/client');
+    listBlockedUsers.mockClear();
+    listBlockedUsers.mockResolvedValue({ items: [] });
+  });
+
+  it('shows error state with retry when listBlockedUsers fails', async () => {
+    const { listBlockedUsers } = require('@/lib/api/client');
+    listBlockedUsers.mockRejectedValueOnce(new Error('network'));
+    listBlockedUsers.mockResolvedValueOnce({ items: [] });
+
+    const { findByText, findByTestId } = renderBlockedUsers();
+    expect(await findByText(/yüklenemedi/i)).toBeTruthy();
+    fireEvent.press(await findByTestId('empty-state-action'));
     await waitFor(() => expect(listBlockedUsers).toHaveBeenCalledTimes(2));
   });
 });

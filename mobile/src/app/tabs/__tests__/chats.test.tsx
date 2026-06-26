@@ -145,4 +145,14 @@ describe('ChatsScreen', () => {
       expect(queryByText('Mehmet Demir')).toBeNull();
     });
   });
+
+  it('shows error state with retry when listChats fails', async () => {
+    (listChats as jest.Mock).mockRejectedValueOnce(new Error('network'));
+    (listChats as jest.Mock).mockResolvedValueOnce({ items: [] });
+
+    const { findByText, findByTestId } = renderWithQueryClient(<ChatsScreen />);
+    expect(await findByText(/yüklenemedi/i)).toBeTruthy();
+    fireEvent.press(await findByTestId('empty-state-action'));
+    await waitFor(() => expect(listChats).toHaveBeenCalledTimes(2));
+  });
 });

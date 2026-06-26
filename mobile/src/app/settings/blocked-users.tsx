@@ -16,9 +16,10 @@ export default function BlockedUsersScreen() {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['blocked-users'],
     queryFn: () => listBlockedUsers(),
+    retry: false,
   });
   const items = data?.items ?? [];
 
@@ -50,6 +51,20 @@ export default function BlockedUsersScreen() {
       ],
     );
   };
+
+  if (isError) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+        <EmptyState
+          message="Engellenen kullanıcılar yüklenemedi"
+          description="Bağlantınızı kontrol edip tekrar deneyin."
+          actionLabel="Tekrar Dene"
+          onAction={() => refetch()}
+          icon="cloud-offline"
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>

@@ -28,9 +28,10 @@ export default function RequestsScreen() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<RequestTab>('received');
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['exchanges', activeTab],
     queryFn: () => listExchanges({ role: activeTab }),
+    retry: false,
   });
 
   const items = data?.items ?? [];
@@ -39,6 +40,20 @@ export default function RequestsScreen() {
     { key: 'received', label: 'Gelen', icon: 'arrow-down-circle' },
     { key: 'sent', label: 'Giden', icon: 'arrow-up-circle' },
   ];
+
+  if (isError) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+        <EmptyState
+          message="Talepler yüklenemedi"
+          description="Bağlantınızı kontrol edip tekrar deneyin."
+          actionLabel="Tekrar Dene"
+          onAction={() => refetch()}
+          icon="cloud-offline"
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
