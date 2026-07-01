@@ -52,7 +52,7 @@ function getNotifications(): typeof import('expo-notifications') | null {
 }
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { crashReporter } from '@/lib/crash-reporter';
 import {
   Camera,
@@ -80,6 +80,7 @@ import {
 } from '@/lib/api/client';
 import { useFavoritesStore } from '@/stores/favorites';
 import { useToast } from '@/hooks/use-toast';
+import { useShadowBlocked } from '@/hooks/use-shadow-blocked';
 import BookBottomSheet, { DEFAULT_SNAP_INDEX } from '@/components/map/book-bottom-sheet';
 import MarkerPreviewCard, { type PreviewBook } from '@/components/map/marker-preview-card';
 import { RightControls } from '@/components/map/right-controls';
@@ -137,6 +138,8 @@ function distanceKmBetween(lat1: number, lng1: number, lat2: number, lng2: numbe
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 const FRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
+// F12: recency indicator — 1-7 day window ("Bu hafta" blue dot).
+const RECENCY_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const REGION_DEBOUNCE_MS = 300;
 const PILL_DEBOUNCE_MS = 500;
 const DRIFT_THRESHOLD = 0.2; // 20% of viewport
@@ -146,6 +149,8 @@ const DRIFT_THRESHOLD = 0.2; // 20% of viewport
 // reveals the true count for that area.
 const BBOX_LIMIT = 50;
 const SAVED_SEARCHES_KEY = 'meetbook-saved-searches';
+// F11: AsyncStorage key for the last map viewport (lat/lng/zoom deltas).
+const SAVED_MAP_REGION_KEY = 'saved_map_region';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -195,6 +200,40 @@ function getFreshAgeHours(book: BookSearchResult): number | undefined {
   return undefined;
 }
 
+// F12: recency indicator for book cards/previews.
+//   <24h   → "Yeni"      (green dot, colors.success)
+//   1-7 gün → "Bu hafta"  (blue dot, colors.info)
+//   7+ gün  → null (no indicator — stale listings render normally)
+// Only shown on individual book cards/previews, never on cluster/shelf markers.
+type RecencyColorKey = 'success' | 'info';
+interface RecencyIndicator {
+  label: string;
+  colorKey: RecencyColorKey;
+}
+function getRecency(book: BookSearchResult): RecencyIndicator | null {
+  const ageMs = Date.now() - new Date(book.created_at).getTime();
+  if (ageMs < FRESH_WINDOW_MS) return { label: 'Yeni', colorKey: 'success' };
+  if (ageMs < RECENCY_WEEK_MS) return { label: 'Bu hafta', colorKey: 'info' };
+  return null;
+}
+
+// F11: persist the last map viewport to AsyncStorage so the next launch
+// resumes where the user left off. AsyncStorage may be unavailable in Expo Go
+// — failures are swallowed (non-fatal).
+async function saveMapRegion(region: Region) {
+  try {
+    await AsyncStorage.setItem(
+      SAVED_MAP_REGION_KEY,
+      JSON.stringify({
+        latitude: region.latitude,
+        longitude: region.longitude,
+        latitudeDelta: region.latitudeDelta,
+        longitudeDelta: region.longitudeDelta,
+      }),
+    );
+  } catch {}
+}
+
 function buildPreviewBook(book: BookSearchResult, isFavorited: boolean): PreviewBook {
   const owner = (book as any).owner; // spec §4.3: might not exist yet
   return {
@@ -238,6 +277,15 @@ export default function HomeScreen() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const favoritesStore = useFavoritesStore();
+  const { shadowBlocked, reload: reloadShadowBlocked } = useShadowBlocked();
+
+  // Shadow-blocked list is local (AsyncStorage); refresh on focus so books
+  // from newly shadow-blocked users are hidden when returning from a chat.
+  useFocusEffect(
+    useCallback(() => {
+      reloadShadowBlocked();
+    }, [reloadShadowBlocked]),
+  );
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -276,10 +324,35 @@ export default function HomeScreen() {
   const lastQueriedZoomRef = useRef<number | null>(null);
   const regionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pillDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // F11: whether a saved map viewport was restored this launch (skip fly-to-user).
+  const hasSavedRegionRef = useRef(false);
+  // F11: debounce ref for persisting the map viewport to AsyncStorage.
+  const regionSaveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Location + initial bbox ────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
+      // F11: restore the last saved map viewport (lat/lng/zoom) if present so
+      // the user resumes where they left off. Falls back to the user's GPS.
+      let savedRegion: Region | null = null;
+      try {
+        const raw = await AsyncStorage.getItem(SAVED_MAP_REGION_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (
+            typeof parsed?.latitude === 'number' &&
+            typeof parsed?.longitude === 'number' &&
+            typeof parsed?.latitudeDelta === 'number' &&
+            typeof parsed?.longitudeDelta === 'number'
+          ) {
+            savedRegion = parsed as Region;
+          }
+        }
+      } catch {
+        // AsyncStorage unavailable (Expo Go) — non-fatal
+      }
+      hasSavedRegionRef.current = savedRegion !== null;
+
       const { status } = await Location.requestForegroundPermissionsAsync();
       let userLoc: { lat: number; lng: number };
       if (status === 'granted') {
@@ -290,7 +363,8 @@ export default function HomeScreen() {
         userLoc = { lat: 41.0082, lng: 28.9784 };
       }
       setUserLocation(userLoc);
-      const initialRegion: Region = {
+      // Use the saved viewport when available; otherwise center on the user.
+      const initialRegion: Region = savedRegion ?? {
         latitude: userLoc.lat,
         longitude: userLoc.lng,
         latitudeDelta: 0.15,
@@ -298,7 +372,7 @@ export default function HomeScreen() {
       };
       setMapRegion(initialRegion);
       setQueryBbox(regionToBbox(initialRegion));
-      lastQueriedCenterRef.current = userLoc;
+      lastQueriedCenterRef.current = { lat: initialRegion.latitude, lng: initialRegion.longitude };
       lastQueriedZoomRef.current = initialRegion.latitudeDelta;
     })();
   }, []);
@@ -337,6 +411,9 @@ export default function HomeScreen() {
   useEffect(() => {
     if (userLocation && cameraRef.current && !hasFlownToLocation.current) {
       hasFlownToLocation.current = true;
+      // F11: don't yank the camera to the user's location when we just restored
+      // a saved viewport — let the user resume where they left off.
+      if (hasSavedRegionRef.current) return;
       // Brief delay so the map has time to finish loading MapTiler tiles
       const t = setTimeout(() => {
         cameraRef.current?.flyTo({
@@ -434,7 +511,13 @@ export default function HomeScreen() {
   );
   const isLoading = useRadiusMode ? radiusQuery.isLoading : bboxQuery.isLoading;
 
-  const books = useMemo(() => rawBooks, [rawBooks]);
+  // F19: Shadow block — hide books owned by shadow-blocked users so their
+  // content is silently filtered from the blocker's home/search results.
+  const books = useMemo(() => {
+    if (shadowBlocked.length === 0) return rawBooks;
+    const blocked = new Set(shadowBlocked);
+    return rawBooks.filter((b) => !blocked.has(b.owner_id));
+  }, [rawBooks, shadowBlocked]);
 
   // ── Clusters (ENHANCEMENT: shelf markers, optional — fallback to bbox books) ─
   const clustersQuery = useQuery({
@@ -452,7 +535,13 @@ export default function HomeScreen() {
     retry: 0, // don't retry — if it fails, we fall back to bbox books for markers
   });
   const clusters = useMemo(() => clustersQuery.data?.clusters ?? [], [clustersQuery.data]);
-  const clustersSingletons = useMemo(() => clustersQuery.data?.singletons ?? [], [clustersQuery.data]);
+  // F19: filter shadow-blocked owners from singleton markers too.
+  const clustersSingletons = useMemo(() => {
+    const singletons = clustersQuery.data?.singletons ?? [];
+    if (shadowBlocked.length === 0) return singletons;
+    const blocked = new Set(shadowBlocked);
+    return singletons.filter((b) => !blocked.has(b.owner_id));
+  }, [clustersQuery.data, shadowBlocked]);
   const clustersSucceeded = clustersQuery.isSuccess && clustersQuery.data !== undefined;
 
   // Markers: use clusters singletons if any exist, otherwise fall back to ALL
@@ -621,17 +710,17 @@ export default function HomeScreen() {
 
     toast.show('Konumunuz aranıyor...', { variant: 'info' });
 
-    // Force refetch (bypass React Query cache even if bbox values are same)
+    // Force refetch (bypass React Query cache even if bbox values are same).
+    // clustersQuery NOT refetched here — it's in the queryKey so it auto-refetches
+    // on re-render after setQueryBbox. Explicit refetch causes a race condition
+    // where the queryFn reads the stale (null) bbox → 422 on /books/clusters.
     try {
-      await Promise.all([
-        useRadiusMode ? radiusQuery.refetch() : bboxQuery.refetch(),
-        clustersQuery.refetch(),
-      ]);
+      await (useRadiusMode ? radiusQuery.refetch() : bboxQuery.refetch());
     } catch {
       // Individual query errors already have their own toasts (422 handling, etc.)
     }
     toast.show('Konum bulundu!', { variant: 'success' });
-  }, [userLocation, bboxQuery, clustersQuery, toast]);
+  }, [userLocation, bboxQuery, toast]);
 
   // ── Cycle map type ─────────────────────────────────────────────────────────
   const cycleMapType = useCallback(() => {
@@ -645,6 +734,16 @@ export default function HomeScreen() {
     setShowHeatmap((prev) => !prev);
   }, []);
 
+  // ── F11: debounce-save the map viewport to AsyncStorage ──────────────────────
+  // Persists once the map settles (REGION_DEBOUNCE_MS after the last frame) so
+  // the next launch resumes here instead of snapping back to the user's GPS.
+  const scheduleSaveRegion = useCallback((region: Region) => {
+    if (regionSaveDebounceRef.current) clearTimeout(regionSaveDebounceRef.current);
+    regionSaveDebounceRef.current = setTimeout(() => {
+      saveMapRegion(region);
+    }, REGION_DEBOUNCE_MS);
+  }, []);
+
   // ── Region change: debounced state + drift pill (bugs #5, §3.7) ────────────
   const handleRegionChangeComplete = useCallback(
     (region: Region) => {
@@ -652,6 +751,8 @@ export default function HomeScreen() {
       if (regionDebounceRef.current) clearTimeout(regionDebounceRef.current);
       regionDebounceRef.current = setTimeout(() => {
         setMapRegion(region);
+        // F11: persist the settled viewport so it can be restored next launch.
+        scheduleSaveRegion(region);
       }, REGION_DEBOUNCE_MS);
 
       // §3.7: 500ms debounce on pill visibility + 20% drift threshold.
@@ -675,7 +776,7 @@ export default function HomeScreen() {
         }
       }, PILL_DEBOUNCE_MS);
     },
-    [],
+    [scheduleSaveRegion],
   );
 
   // ── "Search this area" → re-query bbox (§3.7, §4.1) ────────────────────────
@@ -804,6 +905,8 @@ export default function HomeScreen() {
   const renderMiniCard = useCallback(
     ({ item }: { item: BookSearchResult }) => {
       const coverUrl = item.photos?.[0]?.thumbnail_url ?? item.photos?.[0]?.url;
+      // F12: recency indicator — "Yeni" (<24h, green) / "Bu hafta" (1-7d, blue).
+      const recency = getRecency(item);
       return (
         <TouchableOpacity
           style={[styles.miniCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -834,6 +937,17 @@ export default function HomeScreen() {
                   {formatDistance(item.distance_km)}
                 </Text>
               </View>
+              {recency && (
+                <View
+                  style={[styles.miniCardRecency, { backgroundColor: colors[recency.colorKey] + '20' }]}
+                  testID={`mini-card-recency-${item.id}`}
+                >
+                  <View style={[styles.miniCardRecencyDot, { backgroundColor: colors[recency.colorKey] }]} />
+                  <Text style={[styles.miniCardRecencyText, { color: colors[recency.colorKey] }]}>
+                    {recency.label}
+                  </Text>
+                </View>
+              )}
               <Text style={[styles.miniCardCond, { color: colors.textMuted }]}>
                 {item.condition}
               </Text>
@@ -942,12 +1056,15 @@ export default function HomeScreen() {
               const [lng, lat] = geo.coordinates;
               const zoom = event.properties?.zoom ?? 12;
               const delta = 360 / Math.pow(2, zoom);
-              setMapRegion({
+              const region: Region = {
                 latitude: lat,
                 longitude: lng,
                 latitudeDelta: delta,
                 longitudeDelta: delta,
-              });
+              };
+              setMapRegion(region);
+              // F11: persist the settled viewport (debounced) for next launch.
+              scheduleSaveRegion(region);
             }
           }}
           onPress={() => {
@@ -1563,6 +1680,24 @@ const styles = StyleSheet.create({
   miniCardCond: {
     fontSize: 11,
     fontWeight: '500',
+  },
+  // F12: recency indicator badge on mini cards ("Yeni" / "Bu hafta")
+  miniCardRecency: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  miniCardRecencyDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  miniCardRecencyText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 
   // Supercluster bubble

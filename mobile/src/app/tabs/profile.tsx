@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -43,6 +44,7 @@ const MENU_ITEMS = [
   { key: 'trusted', label: 'Güvendiğim Kişi', icon: 'shield-checkmark' as const, tint: 'mint' as PastelName, route: '/settings/trusted-contact' as const },
   { key: 'blocked', label: 'Engellenen Kullanıcılar', icon: 'ban' as const, tint: 'coral' as PastelName, route: '/settings/blocked-users' as const },
   { key: 'wishlist', label: 'İstek Listem', icon: 'heart' as const, tint: 'blush' as PastelName, route: '/wishlist' as const },
+  { key: 'favorites', label: 'Favorilerim', icon: 'heart' as const, tint: 'coral' as PastelName, route: '/wishlist/favorites' as const },
   { key: 'yir', label: 'Yılın Özeti', icon: 'sparkles' as const, tint: 'blush' as PastelName, route: '/year-in-review' as const },
   { key: 'settings', label: 'Ayarlar', icon: 'settings-sharp' as const, tint: 'sky' as PastelName, route: '/settings' as const },
 ] as const;
@@ -58,6 +60,10 @@ const CATEGORY_EMOJI: Record<string, string> = {
 };
 
 const TR_MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+const TR_DAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+const CURRENT_YEAR = new Date().getFullYear();
+const DEFAULT_READING_GOAL = 12;
+const readingGoalKey = (year: number) => `reading_goal_${year}`;
 
 function formatStampDate(iso: string): string {
   const d = new Date(iso);
@@ -99,6 +105,10 @@ export default function ProfileScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const autoEditDoneRef = useRef(false);
 
+  const [readingGoal, setReadingGoal] = useState(DEFAULT_READING_GOAL);
+  const [goalInput, setGoalInput] = useState('');
+  const [showGoalModal, setShowGoalModal] = useState(false);
+
   const { isLoading: meLoading, data: meData } = useQuery({
     queryKey: ['me'],
     queryFn: () => getMe(),
@@ -122,6 +132,16 @@ export default function ProfileScreen() {
     }
   }, [params.edit, user?.name]);
 
+  // F04 — load yearly reading goal from AsyncStorage.
+  useEffect(() => {
+    AsyncStorage.getItem(readingGoalKey(CURRENT_YEAR))
+      .then((v) => {
+        const n = v ? parseInt(v, 10) : NaN;
+        if (Number.isFinite(n) && n > 0) setReadingGoal(n);
+      })
+      .catch(() => undefined);
+  }, []);
+
   const { data: booksData } = useQuery({
     queryKey: ['books', 'me', 'flat'],
     queryFn: () => listMyBooks(),
@@ -131,6 +151,25 @@ export default function ProfileScreen() {
   const { data: profile } = useQuery({
     queryKey: ['user', user?.id],
     queryFn: () => getUser(user!.id),
+    enabled: !!user?.id,
+  });
+
+  // F03/F04/F20 — completed exchanges (both roles) for yearly stats, goal & habits.
+  const { data: yearlyExchanges } = useQuery({
+    queryKey: ['exchanges', 'yearly', user?.id],
+    queryFn: async () => {
+      const [sent, received] = await Promise.all([
+        listExchanges({ role: 'sent', status: 'completed', limit: 50 }),
+        listExchanges({ role: 'received', status: 'completed', limit: 50 }),
+      ]);
+      const seen = new Set<string>();
+      const merged = [...sent.items, ...received.items].filter((e) => {
+        if (seen.has(e.id)) return false;
+        seen.add(e.id);
+        return true;
+      });
+      return merged;
+    },
     enabled: !!user?.id,
   });
 
@@ -183,6 +222,93 @@ export default function ProfileScreen() {
       .sort((a, b) => b.n - a.n);
     return { entries, total };
   }, [books]);
+
+  // F03/F04/F20 — derive yearly stats, streak & habits from completed exchanges.
+  const yearlyStats = useMemo(() => {
+    const all = (yearlyExchanges ?? []) as any[];
+    const thisYear = all.filter((e) => {
+      const d = new Date(e.updated_at);
+      return !isNaN(d.getTime()) && d.getFullYear() === CURRENT_YEAR;
+    });
+
+    // F03 — Kitap: completed exchanges this year.
+    const bookCount = thisYear.length;
+
+    // F03 — Kilometre: sum of distance_km when the field is available.
+    let kmTotal = 0;
+    let kmAvailable = false;
+    for (const e of thisYear) {
+      const km = (e as any).distance_km;
+      if (typeof km === 'number' && km >= 0) {
+        kmTotal += km;
+        kmAvailable = true;
+      }
+    }
+
+    // F03 — Kişi: unique counterpart ids met this year.
+    const counterparts = new Set<string>();
+    for (const e of thisYear) {
+      if (e.counterpart?.id) counterparts.add(e.counterpart.id);
+    }
+
+    // F04 — Streak: consecutive months (back from current) with ≥1 completed exchange.
+    const monthsActive = new Set<string>();
+    for (const e of all) {
+      const d = new Date(e.updated_at);
+      if (!isNaN(d.getTime())) monthsActive.add(`${d.getFullYear()}-${d.getMonth()}`);
+    }
+    let streak = 0;
+    const now = new Date();
+    let y = now.getFullYear();
+    let m = now.getMonth();
+    while (monthsActive.has(`${y}-${m}`)) {
+      streak += 1;
+      m -= 1;
+      if (m < 0) {
+        m = 11;
+        y -= 1;
+      }
+    }
+
+    // F20 — Day-of-week & category breakdown (this year).
+    const dayCounts = [0, 0, 0, 0, 0, 0, 0];
+    const catCounts: Record<string, number> = {};
+    for (const e of thisYear) {
+      const d = new Date(e.updated_at);
+      if (!isNaN(d.getTime())) dayCounts[d.getDay()] += 1;
+      const c = (e.book?.category ?? 'other') as string;
+      catCounts[c] = (catCounts[c] || 0) + 1;
+    }
+    const dayMax = Math.max(1, ...dayCounts);
+    const dayEntries = TR_DAYS.map((label, i) => ({
+      label,
+      count: dayCounts[i],
+      pct: Math.round((dayCounts[i] / dayMax) * 100),
+    }));
+    const topDayIdx = dayCounts.reduce((best, c, i) => (c > dayCounts[best] ? i : best), 0);
+
+    const catEntries = Object.entries(catCounts)
+      .map(([cat, n]) => ({ cat: cat as BookCategory, n }))
+      .sort((a, b) => b.n - a.n);
+    const catMax = Math.max(1, ...catEntries.map((c) => c.n));
+    const catTotal = thisYear.length;
+
+    return {
+      bookCount,
+      kmTotal: kmAvailable ? Math.round(kmTotal) : null,
+      peopleCount: counterparts.size,
+      streak,
+      dayEntries,
+      topDayLabel: TR_DAYS[topDayIdx],
+      topDayCount: dayCounts[topDayIdx],
+      catEntries: catEntries.map((c) => ({
+        ...c,
+        pct: Math.round((c.n / catMax) * 100),
+        sharePct: catTotal ? Math.round((c.n / catTotal) * 100) : 0,
+      })),
+      catTotal,
+    };
+  }, [yearlyExchanges]);
 
   const handleLogout = async () => {
     try {
@@ -262,6 +388,30 @@ export default function ProfileScreen() {
     Share.share({
       message: `${displayName}'in okuma kimliği\n${lines.join('\n')}\nMeetBook`,
     });
+  };
+
+  // F04 — reading goal editing.
+  const openGoalEditor = () => {
+    setGoalInput(String(readingGoal));
+    setShowGoalModal(true);
+  };
+
+  const saveGoal = async () => {
+    const n = parseInt(goalInput, 10);
+    if (!Number.isFinite(n) || n <= 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      toast.show('Geçerli bir sayı gir', { variant: 'error' });
+      return;
+    }
+    setReadingGoal(n);
+    setShowGoalModal(false);
+    try {
+      await AsyncStorage.setItem(readingGoalKey(CURRENT_YEAR), String(n));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      toast.show('Hedef kaydedildi', { variant: 'success' });
+    } catch {
+      // AsyncStorage unavailable (e.g. Expo Go) — value kept in memory only.
+    }
   };
 
   if (meLoading && !user) {
@@ -402,6 +552,153 @@ export default function ProfileScreen() {
             </Text>
           </View>
         ))}
+      </View>
+
+      {/* F03 — Yearly reading stats */}
+      <View style={styles.yearlySection}>
+        <Text style={[styles.yearlyHeader, { color: colors.text }]}>Bu yıl</Text>
+        <View style={styles.yearlyStatsRow}>
+          <View style={[styles.yearlyCard, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
+            <Ionicons name="book" size={18} color={colors.primary} />
+            <Text style={[styles.yearlyStatValue, { color: colors.text }]}>{yearlyStats.bookCount}</Text>
+            <Text style={[styles.yearlyStatLabel, { color: colors.textMuted }]}>Kitap</Text>
+          </View>
+          <View style={[styles.yearlyCard, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
+            <Ionicons name="navigate" size={18} color={colors.primary} />
+            <Text style={[styles.yearlyStatValue, { color: colors.text }]}>
+              {yearlyStats.kmTotal !== null ? `${yearlyStats.kmTotal}` : '—'}
+            </Text>
+            <Text style={[styles.yearlyStatLabel, { color: colors.textMuted }]}>Kilometre</Text>
+          </View>
+          <View style={[styles.yearlyCard, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
+            <Ionicons name="people" size={18} color={colors.primary} />
+            <Text style={[styles.yearlyStatValue, { color: colors.text }]}>{yearlyStats.peopleCount}</Text>
+            <Text style={[styles.yearlyStatLabel, { color: colors.textMuted }]}>Kişi</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* F04 — Reading goal & streak */}
+      <View style={[styles.goalCard, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
+        <View style={styles.goalHeader}>
+          <View style={styles.goalTitleRow}>
+            <View style={[styles.goalIconChip, { backgroundColor: colors.primarySoft }]}>
+              <Ionicons name="flag" size={16} color={colors.primary} />
+            </View>
+            <View>
+              <Text style={[styles.goalTitle, { color: colors.text }]}>Okuma Hedefi</Text>
+              <Text style={[styles.goalSub, { color: colors.textMuted }]}>
+                {yearlyStats.bookCount} / {readingGoal} kitap
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.goalEditBtn, { backgroundColor: colors.primarySoft }]}
+            onPress={openGoalEditor}
+            activeOpacity={0.7}
+            hitSlop={8}
+            testID="edit-reading-goal-button"
+          >
+            <Ionicons name="create-outline" size={14} color={colors.primary} />
+            <Text style={[styles.goalEditText, { color: colors.primary }]}>Düzenle</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.goalBarTrack, { backgroundColor: colors.border }]}>
+          <View
+            style={[
+              styles.goalBarFill,
+              {
+                width: `${Math.min(100, readingGoal > 0 ? (yearlyStats.bookCount / readingGoal) * 100 : 0)}%`,
+                backgroundColor: colors.primary,
+              },
+            ]}
+          />
+        </View>
+
+        <View style={styles.goalFooter}>
+          <Text style={[styles.goalPct, { color: colors.text }]}>
+            %{readingGoal > 0 ? Math.min(100, Math.round((yearlyStats.bookCount / readingGoal) * 100)) : 0}
+          </Text>
+          <View style={styles.streakBadge}>
+            <Text style={styles.streakEmoji}>🔥</Text>
+            <Text style={[styles.streakText, { color: colors.text }]}>
+              {yearlyStats.streak} ay
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* F20 — Reading habits dashboard */}
+      <View style={[styles.habitsCard, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
+        <View style={styles.habitsHeader}>
+          <View style={styles.habitsTitleRow}>
+            <View style={[styles.habitsIconChip, { backgroundColor: colors.primarySoft }]}>
+              <Ionicons name="bar-chart" size={16} color={colors.primary} />
+            </View>
+            <Text style={[styles.habitsTitle, { color: colors.text }]}>Okuma Alışkanlıkları</Text>
+          </View>
+        </View>
+
+        {yearlyStats.catTotal === 0 ? (
+          <Text style={[styles.habitsEmpty, { color: colors.textMuted }]}>
+            Bu yıl tamamlanan takas yok
+          </Text>
+        ) : (
+          <>
+            <Text style={[styles.habitsSectionLabel, { color: colors.textMuted }]}>
+              En aktif gün:{' '}
+              <Text style={{ color: colors.text, fontWeight: '800' }}>
+                {yearlyStats.topDayLabel}
+              </Text>
+            </Text>
+            <View style={styles.habitsBars}>
+              {yearlyStats.dayEntries.map((d) => (
+                <View key={d.label} style={styles.habitsBarCol}>
+                  <View style={[styles.habitsBarTrack, { backgroundColor: colors.border }]}>
+                    <View
+                      style={[
+                        styles.habitsBarFill,
+                        {
+                          width: `${Math.max(d.pct, d.count > 0 ? 6 : 0)}%`,
+                          backgroundColor: colors.primary,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.habitsBarLabel, { color: colors.textMuted }]}>{d.label}</Text>
+                </View>
+              ))}
+            </View>
+
+            <Text style={[styles.habitsSectionLabel, { color: colors.textMuted, marginTop: spacing.md }]}>
+              En çok:{' '}
+              <Text style={{ color: colors.text, fontWeight: '800' }}>
+                {yearlyStats.catEntries[0]
+                  ? (BOOK_CATEGORY_LABELS[yearlyStats.catEntries[0].cat] ?? yearlyStats.catEntries[0].cat)
+                  : '—'}
+              </Text>
+            </Text>
+            <View style={styles.habitsCatBars}>
+              {yearlyStats.catEntries.slice(0, 4).map((c) => (
+                <View key={c.cat} style={styles.habitsCatRow}>
+                  <Text style={[styles.habitsCatLabel, { color: colors.text }]}>
+                    {CATEGORY_EMOJI[c.cat] ?? '📚'} {BOOK_CATEGORY_LABELS[c.cat] ?? c.cat}
+                  </Text>
+                  <View style={[styles.habitsCatTrack, { backgroundColor: colors.border }]}>
+                    <View
+                      style={[
+                        styles.habitsCatFill,
+                        { width: `${Math.max(c.pct, 4)}%`, backgroundColor: colors.primary },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.habitsCatPct, { color: colors.textMuted }]}>{c.sharePct}%</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
       </View>
 
       {/* T50 — Reading identity card */}
@@ -675,6 +972,50 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
+      {/* F04 — Goal edit modal */}
+      <Modal
+        visible={showGoalModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowGoalModal(false)}
+      >
+        <View style={styles.goalModalOverlay}>
+          <View style={[styles.goalModalCard, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.goalModalTitle, { color: colors.text }]}>Okuma Hedefi</Text>
+            <Text style={[styles.goalModalSub, { color: colors.textMuted }]}>
+              {CURRENT_YEAR} yılı için hedefin
+            </Text>
+            <TextInput
+              style={[styles.goalModalInput, { color: colors.text, borderColor: colors.border }]}
+              value={goalInput}
+              onChangeText={setGoalInput}
+              placeholder="örn. 24"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="numeric"
+              autoFocus
+              testID="reading-goal-input"
+            />
+            <View style={styles.goalModalActions}>
+              <TouchableOpacity
+                style={[styles.goalModalBtn, { borderColor: colors.border }]}
+                onPress={() => setShowGoalModal(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.goalModalBtnText, { color: colors.textMuted }]}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.goalModalBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                onPress={saveGoal}
+                activeOpacity={0.7}
+                testID="save-reading-goal-button"
+              >
+                <Text style={styles.goalModalBtnTextPrimary}>Kaydet</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <TouchableOpacity
         style={[styles.logoutBtn, { backgroundColor: colors.danger + '14' }]}
         onPress={handleLogout}
@@ -797,6 +1138,269 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: fontSize.bodySm,
     fontWeight: '600',
+  },
+
+  // --- F03/F04/F20: Yearly stats, goal & habits ---
+  yearlySection: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  yearlyHeader: {
+    fontSize: fontSize.title,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+    marginBottom: spacing.sm,
+  },
+  yearlyStatsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  yearlyCard: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    borderRadius: radius.card,
+    borderWidth: 1,
+  },
+  yearlyStatValue: {
+    fontSize: fontSize.title,
+    fontWeight: '900',
+  },
+  yearlyStatLabel: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
+  },
+
+  goalCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.card,
+    borderWidth: 1,
+  },
+  goalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  goalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  goalIconChip: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.field,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  goalTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '900',
+    letterSpacing: -0.2,
+  },
+  goalSub: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  goalEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+  },
+  goalEditText: {
+    fontSize: fontSize.caption,
+    fontWeight: '800',
+  },
+  goalBarTrack: {
+    height: 10,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+  },
+  goalBarFill: {
+    height: '100%',
+    borderRadius: radius.pill,
+  },
+  goalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+  },
+  goalPct: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '800',
+  },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  streakEmoji: {
+    fontSize: 16,
+  },
+  streakText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '800',
+  },
+
+  habitsCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+    padding: spacing.lg,
+    borderRadius: radius.card,
+    borderWidth: 1,
+  },
+  habitsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  habitsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  habitsIconChip: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.field,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  habitsTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '900',
+    letterSpacing: -0.2,
+  },
+  habitsEmpty: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingVertical: spacing.md,
+  },
+  habitsSectionLabel: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+  },
+  habitsBars: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+    height: 64,
+  },
+  habitsBarCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  habitsBarTrack: {
+    width: '100%',
+    height: 40,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  habitsBarFill: {
+    height: '100%',
+    borderRadius: radius.pill,
+  },
+  habitsBarLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  habitsCatBars: {
+    gap: spacing.sm,
+  },
+  habitsCatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  habitsCatLabel: {
+    width: 110,
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+  },
+  habitsCatTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+  },
+  habitsCatFill: {
+    height: '100%',
+    borderRadius: radius.pill,
+  },
+  habitsCatPct: {
+    width: 34,
+    textAlign: 'right',
+    fontSize: fontSize.caption,
+    fontWeight: '800',
+  },
+
+  // --- F04: Goal edit modal ---
+  goalModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  goalModalCard: {
+    width: '100%',
+    borderRadius: radius.card,
+    padding: spacing.lg,
+  },
+  goalModalTitle: {
+    fontSize: fontSize.title,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
+  goalModalSub: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '500',
+    marginTop: 2,
+    marginBottom: spacing.md,
+  },
+  goalModalInput: {
+    borderWidth: 1,
+    borderRadius: radius.field,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: fontSize.body,
+    fontWeight: '700',
+  },
+  goalModalActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  goalModalBtn: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.button,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  goalModalBtnText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '800',
+  },
+  goalModalBtnTextPrimary: {
+    color: '#fff',
+    fontSize: fontSize.bodySm,
+    fontWeight: '800',
   },
 
   // --- T50: Reading identity card ---

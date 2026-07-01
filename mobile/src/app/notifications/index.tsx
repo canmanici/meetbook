@@ -7,11 +7,14 @@
  *   - exchange-like   → /exchange/{exchange_id|id}
  *   - chat-like       → /chat/{chat_id|id}
  *   - book-like       → /book/{book_id|id}
+ *   - year_in_review  → /year-in-review (star accent, gold border)
+ *   - book_twin       → /user/{twin_user_id} (people accent, green border)
  *   - report/broadcast/admin → no navigation (informational)
  *
  * Backend types currently emitted: geofence_match, report_resolved,
- * admin_broadcast. Payload is a free-form object; we read title/message/body/
- * book_title when present and fall back to type-derived defaults.
+ * admin_broadcast, year_in_review, book_twin. Payload is a free-form object;
+ * we read title/message/body/book_title/twin_name/completed_count when present
+ * and fall back to type-derived defaults.
  */
 import { useCallback, useMemo } from 'react';
 import {
@@ -58,10 +61,20 @@ function formatRelative(iso: string): string {
   return `${Math.floor(day / 365)} yıl önce`;
 }
 
-type NotifKind = 'exchange' | 'chat' | 'book' | 'report' | 'broadcast' | 'none';
+type NotifKind =
+  | 'exchange'
+  | 'chat'
+  | 'book'
+  | 'report'
+  | 'broadcast'
+  | 'year_review'
+  | 'twin'
+  | 'none';
 
 function kindFor(type: string): NotifKind {
   const t = type.toLowerCase();
+  if (t === 'year_in_review' || t.includes('year_review')) return 'year_review';
+  if (t === 'book_twin' || t.includes('twin')) return 'twin';
   if (t.includes('exchange') || t.includes('swap') || t.includes('trade')) return 'exchange';
   if (t.includes('chat') || t.includes('message')) return 'chat';
   if (t.includes('geofence') || t.includes('book') || t.includes('wishlist')) return 'book';
@@ -82,6 +95,10 @@ function iconFor(kind: NotifKind): React.ComponentProps<typeof Ionicons>['name']
       return 'flag';
     case 'broadcast':
       return 'megaphone';
+    case 'year_review':
+      return 'star';
+    case 'twin':
+      return 'people';
     default:
       return 'notifications';
   }
@@ -99,6 +116,10 @@ function defaultTitle(type: string): string {
       return 'Şikayetiniz Çözüldü';
     case 'broadcast':
       return 'Duyuru';
+    case 'year_review':
+      return 'Yılın Özeti';
+    case 'twin':
+      return 'Kitap İkizi';
     default:
       return 'Bildirim';
   }
@@ -118,6 +139,19 @@ function defaultBody(type: string, payload: Record<string, unknown>): string {
     }
     case 'broadcast':
       return '';
+    case 'year_review': {
+      const count = payload.completed_count as number | undefined;
+      if (typeof count === 'number' && count > 0) {
+        return `Bu yıl ${count} kitap takası tamamladın. Özeti görmek için dokun.`;
+      }
+      return 'Yıl boyunca seninle olan kitap yolculuğunu keşfet.';
+    }
+    case 'twin': {
+      const name = payload.twin_name as string | undefined;
+      return name
+        ? `${name} ile benzer kitap zevkleriniz var. Profili görmek için dokun.`
+        : 'Benzer kitap zevklerine sahip bir kullanıcıyla eşleştin.';
+    }
     default:
       return '';
   }
@@ -126,6 +160,13 @@ function defaultBody(type: string, payload: Record<string, unknown>): string {
 function navTargetFor(item: NotificationItem): string | null {
   const p = (item.payload ?? {}) as Record<string, unknown>;
   switch (kindFor(item.type)) {
+    case 'year_review':
+      // Year-in-review screen reads the current user's exchanges; no id param.
+      return '/year-in-review';
+    case 'twin': {
+      const id = (p.twin_user_id as string) ?? (p.id as string);
+      return id ? `/user/${id}` : null;
+    }
     case 'exchange': {
       const id = (p.exchange_id as string) ?? (p.id as string);
       return id ? `/exchange/${id}` : null;
@@ -198,21 +239,36 @@ export default function NotificationsScreen() {
       const { title, body } = textFor(item);
       const unread = !item.read_at;
       const icon = iconFor(kind);
+
+      // Celebratory / social types get a persistent colored accent.
+      const specialAccent =
+        kind === 'year_review'
+          ? colors.warning
+          : kind === 'twin'
+            ? colors.success
+            : null;
+
       const iconColor =
-        kind === 'report'
+        specialAccent ??
+        (kind === 'report'
           ? colors.warning
           : kind === 'broadcast'
             ? colors.accent
             : kind === 'exchange'
               ? colors.info
-              : colors.primary;
+              : colors.primary);
+
+      // Unread items get a primary left border + soft tint; special types keep
+      // their accent border even once read so they stay visually distinct.
+      const accentBorder = specialAccent ?? (unread ? colors.primary : null);
 
       return (
         <TouchableOpacity
           style={[
             styles.item,
             { backgroundColor: colors.surface, borderColor: colors.border },
-            unread && { backgroundColor: colors.primarySoft, borderLeftColor: colors.primary },
+            unread && { backgroundColor: colors.primarySoft },
+            accentBorder && { borderLeftColor: accentBorder },
           ]}
           onPress={() => handlePress(item)}
           activeOpacity={0.7}

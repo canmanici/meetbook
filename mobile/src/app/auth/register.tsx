@@ -49,7 +49,7 @@ export default function RegisterScreen() {
         accessToken: result.access_token,
         refreshToken: result.refresh_token,
       });
-      router.replace('/tabs/home');
+      router.replace('/personality-books');
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setError('Bu e-posta zaten kayıtlı.');

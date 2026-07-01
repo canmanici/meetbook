@@ -1,6 +1,7 @@
 """Pydantic schemas for auth endpoints."""
 
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -43,6 +44,10 @@ class UpdateMeRequest(BaseModel):
     trusted_contact_name: str | None = Field(default=None, max_length=100)
     trusted_contact_phone: str | None = Field(default=None, max_length=20)
     geofence_radius_km: int | None = Field(default=None, ge=1, le=100)
+    # B11: per-event push notification preferences (event_name -> bool)
+    notification_settings: dict = Field(default_factory=dict)
+    # B17: smart rules to auto-accept matching exchange requests
+    auto_accept_rules: list = Field(default_factory=list)
 
 
 class DeleteAccountRequest(BaseModel):
@@ -98,3 +103,41 @@ class MeResponse(BaseModel):
     trusted_contact_name: str | None
     trusted_contact_phone: str | None
     geofence_radius_km: int = 10
+    notification_settings: dict = {}
+    auto_accept_rules: list = []
+
+
+# ---------------------------------------------------------------------------
+# B12: Active sessions / devices
+# ---------------------------------------------------------------------------
+
+
+class SessionView(BaseModel):
+    id: uuid.UUID
+    device_info: dict | None
+    created_at: datetime
+    is_current: bool = False
+
+
+class SessionListResponse(BaseModel):
+    items: list[SessionView]
+
+
+# ---------------------------------------------------------------------------
+# B25: Vouching system
+# ---------------------------------------------------------------------------
+
+
+class VouchRequest(BaseModel):
+    note: str | None = Field(default=None, max_length=500)
+
+
+class VouchView(BaseModel):
+    voucher_id: uuid.UUID
+    vouchee_id: uuid.UUID
+    note: str | None = None
+    created_at: datetime
+
+
+class VouchListResponse(BaseModel):
+    items: list[VouchView]

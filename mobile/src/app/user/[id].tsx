@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import {
   View,
@@ -12,13 +12,16 @@ import {
   RefreshControl,
   useColorScheme,
   Share,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar, Badge, BookCover, Skeleton, palette, pastels, spacing, fontSize, radius, shadows } from '@/components/ui';
-import { getUser, listMyBooks, searchNearbyBooks, type UserPublicProfile } from '@/lib/api/client';
+import { Avatar, Badge, BookCover, Sheet, Skeleton, palette, pastels, spacing, fontSize, radius, shadows } from '@/components/ui';
+import { authedRequest, getUser, listMyBooks, searchNearbyBooks, type UserPublicProfile } from '@/lib/api/client';
 import { BOOK_CATEGORY_LABELS, type BookCategory } from '@/constants/books';
 import { computeCompatibility, extractCategories } from '@/lib/compatibility';
+import { useToast } from '@/hooks/use-toast';
+import { useAuthStore } from '@/stores/auth-store';
 import { Svg, Circle } from 'react-native-svg';
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -29,6 +32,14 @@ const CATEGORY_EMOJI: Record<string, string> = {
   comics: '💥',
   poetry: '🪶',
   other: '📚',
+};
+
+// B25: vouch shape returned by /auth/users/{id}/vouches.
+type VouchView = {
+  voucher_id: string;
+  vouchee_id: string;
+  note: string | null;
+  created_at: string;
 };
 
 function CompatibilityRing({
@@ -108,6 +119,41 @@ export default function UserProfileScreen() {
     queryFn: () => listMyBooks({ limit: 50 }),
   });
 
+  // B25: vouching — current user, vouches list, and create mutation.
+  const currentUser = useAuthStore((s) => s.user);
+  const isSelf = currentUser?.id === id;
+  const toast = useToast();
+  const [vouchSheetVisible, setVouchSheetVisible] = useState(false);
+  const [vouchNote, setVouchNote] = useState('');
+
+  const { data: vouchesData } = useQuery({
+    queryKey: ['user-vouches', id],
+    queryFn: () =>
+      authedRequest<{ items: VouchView[] }>(`/auth/users/${id}/vouches`, 'GET', undefined),
+    enabled: !!id,
+  });
+  const vouches = vouchesData?.items ?? [];
+  const hasVouched = vouches.some((v) => v.voucher_id === currentUser?.id);
+
+  const vouchMutation = useMutation({
+    mutationFn: (note: string) =>
+      authedRequest<VouchView>(`/auth/users/${id}/vouch`, 'POST', { note: note || null }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-vouches', id] });
+      toast.show('Kefil oldunuz!', { variant: 'success' });
+      setVouchSheetVisible(false);
+      setVouchNote('');
+    },
+    onError: (err: any) => {
+      const msg = err?.body?.detail ?? 'Kefil olunamadı';
+      toast.show(typeof msg === 'string' ? msg : 'Kefil olunamadı', { variant: 'error' });
+    },
+  });
+
+  const handleVouch = () => {
+    vouchMutation.mutate(vouchNote.trim());
+  };
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -115,6 +161,7 @@ export default function UserProfileScreen() {
         queryClient.invalidateQueries({ queryKey: ['user', id] }),
         queryClient.invalidateQueries({ queryKey: ['user-books', id] }),
         queryClient.invalidateQueries({ queryKey: ['my-books'] }),
+        queryClient.invalidateQueries({ queryKey: ['user-vouches', id] }),
       ]);
     } finally {
       setRefreshing(false);
@@ -283,6 +330,77 @@ export default function UserProfileScreen() {
         ))}
       </View>
 
+      {/* B25: Vouching section */}
+      <View style={styles.vouchSection}>
+        <View style={styles.vouchHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Kefiller</Text>
+          {vouches.length > 0 && (
+            <View style={[styles.vouchCount, { backgroundColor: colors.primary + '18' }]}>
+              <Text style={[styles.vouchCountText, { color: colors.primary }]}>{vouches.length}</Text>
+            </View>
+          )}
+        </View>
+
+        {!isSelf && !hasVouched && (
+          <TouchableOpacity
+            style={[styles.vouchBtn, { borderColor: colors.primary + '40' }]}
+            onPress={() => setVouchSheetVisible(true)}
+            activeOpacity={0.7}
+            testID="vouch-button"
+            accessibilityRole="button"
+            accessibilityLabel="Kefil ol"
+          >
+            <Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />
+            <Text style={[styles.vouchBtnText, { color: colors.primary }]}>Kefil Ol</Text>
+          </TouchableOpacity>
+        )}
+        {!isSelf && hasVouched && (
+          <View style={[styles.vouchedBadge, { backgroundColor: colors.primary + '12' }]}>
+            <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+            <Text style={[styles.vouchedText, { color: colors.primary }]}>
+              Bu kullanıcı için kefil oldunuz
+            </Text>
+          </View>
+        )}
+
+        {vouches.length > 0 ? (
+          <View style={[styles.vouchList, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
+            {vouches.map((v, idx) => (
+              <View key={v.voucher_id}>
+                {idx > 0 ? (
+                  <View style={[styles.vouchDivider, { backgroundColor: colors.border }]} />
+                ) : null}
+                <View style={styles.vouchItem}>
+                  <View style={[styles.vouchAvatar, { backgroundColor: colors.primary + '20' }]}>
+                    <Ionicons name="shield-checkmark" size={16} color={colors.primary} />
+                  </View>
+                  <View style={styles.vouchContent}>
+                    <Text style={[styles.vouchName, { color: colors.text }]}>
+                      {v.voucher_id === currentUser?.id ? 'Sen' : 'Kullanıcı'}
+                    </Text>
+                    {v.note ? (
+                      <Text style={[styles.vouchNote, { color: colors.textMuted }]} numberOfLines={2}>
+                        {v.note}
+                      </Text>
+                    ) : null}
+                    <Text style={[styles.vouchDate, { color: colors.textMuted }]}>
+                      {new Date(v.created_at).toLocaleDateString('tr-TR')}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={[styles.vouchEmpty, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="shield-outline" size={24} color={colors.textMuted} />
+            <Text style={[styles.vouchEmptyText, { color: colors.textMuted }]}>
+              Henüz kefil yok
+            </Text>
+          </View>
+        )}
+      </View>
+
       {/* T50 — Reading identity card */}
       <View style={styles.identityWrap}>
         <LinearGradient
@@ -416,6 +534,52 @@ export default function UserProfileScreen() {
           ))}
         </View>
       )}
+
+      {/* B25: Vouch sheet */}
+      <Sheet
+        visible={vouchSheetVisible}
+        onClose={() => {
+          setVouchSheetVisible(false);
+          setVouchNote('');
+        }}
+        style={{ backgroundColor: colors.surface }}
+      >
+        <View testID="vouch-sheet">
+          <Text style={[styles.vouchSheetTitle, { color: colors.text }]}>Kefil Ol</Text>
+          <Text style={[styles.vouchSheetSub, { color: colors.textMuted }]}>
+            {profile.name} için güvenilirliğini onayla
+          </Text>
+          <TextInput
+            value={vouchNote}
+            onChangeText={setVouchNote}
+            placeholder="İsteğe bağlı not ekleyin..."
+            placeholderTextColor={colors.textMuted}
+            multiline
+            autoFocus
+            maxLength={500}
+            style={[
+              styles.vouchInput,
+              { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceAlt },
+            ]}
+            testID="vouch-note-input"
+            accessibilityLabel="Kefil notu"
+          />
+          <TouchableOpacity
+            onPress={handleVouch}
+            disabled={vouchMutation.isPending}
+            activeOpacity={0.85}
+            style={[
+              styles.vouchSubmitBtn,
+              { backgroundColor: colors.primary, opacity: vouchMutation.isPending ? 0.5 : 1 },
+            ]}
+            testID="vouch-submit-btn"
+            accessibilityRole="button"
+            accessibilityLabel="Kefil olmayı onayla"
+          >
+            <Text style={styles.vouchSubmitText}>Kefil Ol</Text>
+          </TouchableOpacity>
+        </View>
+      </Sheet>
     </ScrollView>
   );
 }
@@ -724,5 +888,131 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     fontWeight: '500',
     marginTop: 2,
+  },
+
+  // --- B25: Vouching ---
+  vouchSection: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+    gap: spacing.sm,
+  },
+  vouchHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  vouchCount: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+  },
+  vouchCountText: {
+    fontSize: fontSize.caption,
+    fontWeight: '800',
+  },
+  vouchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1.5,
+    borderRadius: radius.button,
+    paddingVertical: spacing.sm + 2,
+  },
+  vouchBtnText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '800',
+  },
+  vouchedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: radius.button,
+    paddingVertical: spacing.sm + 2,
+  },
+  vouchedText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+  },
+  vouchList: {
+    borderRadius: radius.card,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  vouchDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: spacing.md,
+  },
+  vouchItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  vouchAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vouchContent: {
+    flex: 1,
+    gap: 2,
+  },
+  vouchName: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '800',
+  },
+  vouchNote: {
+    fontSize: fontSize.caption,
+    lineHeight: 18,
+  },
+  vouchDate: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  vouchEmpty: {
+    borderRadius: radius.card,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+  },
+  vouchEmptyText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+  },
+  // B25: vouch sheet
+  vouchSheetTitle: {
+    fontSize: fontSize.title,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
+  vouchSheetSub: {
+    fontSize: fontSize.caption,
+    marginTop: 2,
+    marginBottom: spacing.md,
+  },
+  vouchInput: {
+    borderWidth: 1,
+    borderRadius: radius.field,
+    padding: spacing.sm + 2,
+    minHeight: 96,
+    textAlignVertical: 'top',
+    fontSize: fontSize.bodySm,
+  },
+  vouchSubmitBtn: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.button,
+    marginTop: spacing.md,
+  },
+  vouchSubmitText: {
+    color: '#fff',
+    fontSize: fontSize.bodySm,
+    fontWeight: '800',
   },
 });

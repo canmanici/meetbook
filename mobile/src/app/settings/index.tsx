@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   View,
   Text,
@@ -9,18 +10,24 @@ import {
   useColorScheme,
   Alert,
   Linking,
+  Platform,
+  Switch,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { palette, spacing, fontSize, radius } from '@/components/ui';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth-store';
 import { clearTokens } from '@/lib/secure-store';
-import { logout } from '@/lib/api/client';
+import { authedRequest, getMe, logout, updateMe } from '@/lib/api/client';
 
 const THEME_KEY = 'theme_preference';
 const IMG_CACHE_PREFIX = '@meetbook_img_';
+const ANDROID_PACKAGE = 'com.canmanici.meetbook';
+const IOS_APP_ID = 'idYOUR_APP_ID';
 
 type ThemePref = 'system' | 'light' | 'dark';
 
@@ -30,6 +37,32 @@ const THEME_LABEL: Record<ThemePref, string> = {
   dark: 'Karanlık',
 };
 
+// B11: push notification event toggles shown to the user.
+const NOTIFICATION_EVENTS: { key: string; label: string }[] = [
+  { key: 'new_exchange_request', label: 'Yeni takas isteği' },
+  { key: 'new_message', label: 'Mesaj' },
+  { key: 'meetup_reminder', label: 'Buluşma hatırlatma' },
+  { key: 'book_favorited', label: 'Kitapın beğenildi' },
+  { key: 'wishlist_match', label: 'İstek listem bulundu' },
+];
+
+// B12: active session shape returned by /auth/me/sessions.
+type SessionItem = {
+  id: string;
+  device_info: { platform?: string; os?: string; device?: string; [k: string]: any } | null;
+  created_at: string;
+  is_current: boolean;
+};
+
+function describeDevice(info: SessionItem['device_info']): string {
+  if (!info) return 'Bilinmeyen cihaz';
+  const parts: string[] = [];
+  if (info.platform) parts.push(info.platform);
+  else if (info.os) parts.push(info.os);
+  if (info.device) parts.push(info.device);
+  return parts.length ? parts.join(' · ') : 'Bu cihaz';
+}
+
 export default function SettingsScreen() {
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
@@ -38,6 +71,73 @@ export default function SettingsScreen() {
   const toast = useToast();
 
   const [themePref, setThemePrefState] = useState<ThemePref>('system');
+
+  const queryClient = useQueryClient();
+
+  // B11: fetch the current user (incl. notification_settings) and sessions.
+  const { data: meData } = useQuery({ queryKey: ['me'], queryFn: () => getMe() });
+  const notificationSettings: Record<string, boolean> =
+    (meData as any)?.notification_settings ?? {};
+
+  const { data: sessionsData, isLoading: sessionsLoading } = useQuery({
+    queryKey: ['me', 'sessions'],
+    queryFn: () => authedRequest<{ items: SessionItem[] }>('/auth/me/sessions', 'GET', undefined),
+  });
+  const sessions = sessionsData?.items ?? [];
+
+  const handleToggleNotification = useCallback(
+    (key: string, value: boolean) => {
+      const next = { ...notificationSettings, [key]: value };
+      updateMe({ notification_settings: next } as any)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['me'] });
+        })
+        .catch(() => {
+          toast.show('Tercih kaydedilemedi', { variant: 'error' });
+        });
+    },
+    [notificationSettings, queryClient, toast],
+  );
+
+  const handleRevokeSession = useCallback(
+    (sessionId: string) => {
+      Alert.alert(
+        'Cihazı Çıkış Yap',
+        'Bu cihazdaki oturum sonlandırılsın mı?',
+        [
+          { text: 'İptal', style: 'cancel' },
+          {
+            text: 'Çıkış Yap',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await authedRequest(`/auth/me/sessions/${sessionId}`, 'DELETE', undefined);
+                queryClient.invalidateQueries({ queryKey: ['me', 'sessions'] });
+                toast.show('Oturum sonlandırıldı', { variant: 'success' });
+              } catch {
+                toast.show('Oturum sonlandırılamadı', { variant: 'error' });
+              }
+            },
+          },
+        ],
+      );
+    },
+    [queryClient, toast],
+  );
+
+  const [exporting, setExporting] = useState(false);
+  const handleExportHistory = useCallback(async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await authedRequest('/auth/me/reading-history/export', 'GET', undefined);
+      toast.show('Okuma geçmişiniz hazır', { variant: 'success' });
+    } catch {
+      toast.show('Dışa aktarma başarısız', { variant: 'error' });
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, toast]);
 
   useEffect(() => {
     AsyncStorage.getItem(THEME_KEY)
@@ -131,6 +231,50 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleClearImageCache = () => {
+    Alert.alert(
+      'Görsel Önbelleğini Temizle',
+      'Görsel önbelleğini temizlemek istediğinize emin misiniz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Temizle',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await Image.clearMemoryCache();
+              await Image.clearDiskCache();
+              toast.show('Görsel önbelleği temizlendi', { variant: 'success' });
+            } catch {
+              toast.show('Görsel önbelleği temizlenemedi', { variant: 'error' });
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleRateApp = async () => {
+    const storeUrl =
+      Platform.OS === 'android'
+        ? `market://details?id=${ANDROID_PACKAGE}`
+        : `itms-apps://itunes.apple.com/app/${IOS_APP_ID}`;
+    const fallbackUrl =
+      Platform.OS === 'android'
+        ? `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`
+        : `https://apps.apple.com/app/${IOS_APP_ID}`;
+    try {
+      const supported = await Linking.canOpenURL(storeUrl);
+      await Linking.openURL(supported ? storeUrl : fallbackUrl);
+    } catch {
+      try {
+        await Linking.openURL(fallbackUrl);
+      } catch {
+        toast.show('Uygulama mağazası açılamadı', { variant: 'error' });
+      }
+    }
+  };
+
   return (
     <View
       style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}
@@ -164,12 +308,100 @@ export default function SettingsScreen() {
             <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
             <TouchableOpacity
               style={styles.row}
+              onPress={handleExportHistory}
+              disabled={exporting}
+              activeOpacity={0.6}
+              testID="reading-history-export"
+            >
+              <Text style={[styles.rowLabel, { color: colors.text }]}>Okuma Geçmişini Dışa Aktar</Text>
+              {exporting ? (
+                <ActivityIndicator size="small" color={colors.textMuted} />
+              ) : (
+                <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+              )}
+            </TouchableOpacity>
+            <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
+            <TouchableOpacity
+              style={styles.row}
               onPress={() => router.push('/settings/delete-account' as any)}
               activeOpacity={0.6}
             >
               <Text style={[styles.rowLabel, { color: colors.danger }]}>Hesabımı Sil</Text>
               <Text style={[styles.chevron, { color: colors.danger }]}>›</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* B11: Notification preferences */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>BİLDİRİM TERCİHLERİ</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            {NOTIFICATION_EVENTS.map((evt, idx) => {
+              const enabled = notificationSettings[evt.key] !== false;
+              return (
+                <View key={evt.key}>
+                  {idx > 0 ? (
+                    <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
+                  ) : null}
+                  <View style={styles.row}>
+                    <Text style={[styles.rowLabel, { color: colors.text }]}>{evt.label}</Text>
+                    <Switch
+                      value={enabled}
+                      onValueChange={(v) => handleToggleNotification(evt.key, v)}
+                      trackColor={{ false: colors.textMuted + '44', true: colors.primary }}
+                      testID={`notif-toggle-${evt.key}`}
+                    />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* B12: Active devices / sessions */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>AKTİF CİHAZLAR</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            {sessionsLoading ? (
+              <View style={styles.row}>
+                <ActivityIndicator size="small" color={colors.textMuted} />
+              </View>
+            ) : sessions.length === 0 ? (
+              <View style={styles.row}>
+                <Text style={[styles.rowLabel, { color: colors.textMuted }]}>
+                  Aktif cihaz bulunamadı
+                </Text>
+              </View>
+            ) : (
+              sessions.map((s, idx) => (
+                <View key={s.id}>
+                  {idx > 0 ? (
+                    <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
+                  ) : null}
+                  <View style={styles.sessionRow}>
+                    <View style={styles.sessionInfo}>
+                      <Text style={[styles.rowLabel, { color: colors.text }]}>
+                        {describeDevice(s.device_info)}
+                      </Text>
+                      <Text style={[styles.sessionSub, { color: colors.textMuted }]}>
+                        {new Date(s.created_at).toLocaleDateString('tr-TR')}
+                      </Text>
+                    </View>
+                    {s.is_current ? (
+                      <Text style={[styles.currentBadge, { color: colors.primary }]}>Bu cihaz</Text>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handleRevokeSession(s.id)}
+                        activeOpacity={0.6}
+                        testID={`revoke-session-${s.id}`}
+                      >
+                        <Text style={[styles.revokeText, { color: colors.danger }]}>Çıkış Yap</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              ))
+            )}
           </View>
         </View>
 
@@ -193,6 +425,11 @@ export default function SettingsScreen() {
               <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
             </TouchableOpacity>
             <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
+            <TouchableOpacity style={styles.row} onPress={handleClearImageCache} activeOpacity={0.6}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>Görsel Önbelleği Temizle</Text>
+              <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+            </TouchableOpacity>
+            <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
             <TouchableOpacity style={styles.row} onPress={handleAbout} activeOpacity={0.6}>
               <Text style={[styles.rowLabel, { color: colors.text }]}>Hakkında</Text>
               <Text style={[styles.rowValue, { color: colors.textMuted }]}>1.0.1</Text>
@@ -205,6 +442,11 @@ export default function SettingsScreen() {
           <View style={[styles.card, { backgroundColor: colors.surface }]}>
             <TouchableOpacity style={styles.row} onPress={handleFeedback} activeOpacity={0.6}>
               <Text style={[styles.rowLabel, { color: colors.text }]}>Geri Bildirim Gönder</Text>
+              <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+            </TouchableOpacity>
+            <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
+            <TouchableOpacity style={styles.row} onPress={handleRateApp} activeOpacity={0.6}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>Uygulamayı Değerlendir</Text>
               <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
             </TouchableOpacity>
             <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
@@ -280,6 +522,28 @@ const styles = StyleSheet.create({
   divider: {
     height: StyleSheet.hairlineWidth,
     marginLeft: spacing.lg,
+  },
+  sessionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  sessionInfo: {
+    flex: 1,
+  },
+  sessionSub: {
+    fontSize: fontSize.caption,
+    marginTop: 2,
+  },
+  currentBadge: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+  },
+  revokeText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
   },
   logoutButton: {
     alignItems: 'center',

@@ -16,7 +16,7 @@ import {
   Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -38,6 +38,7 @@ import {
 import { useShallow } from 'zustand/react/shallow';
 import { useChatStore } from '@/stores/chat-store';
 import { useAuthStore } from '@/stores/auth-store';
+import { useShadowBlocked } from '@/hooks/use-shadow-blocked';
 import { getExchange, listMyBooks, type BookListResponse } from '@/lib/api/client';
 import { BookCover } from '@/components/ui/book-cover';
 
@@ -100,6 +101,7 @@ export default function ChatDetailScreen() {
   const queryClient = useQueryClient();
 
   const currentUserId = useAuthStore((s) => s.user?.id);
+  const { shadowBlocked, isBlocked, reload: reloadShadowBlocked } = useShadowBlocked();
   const sendMessage = useChatStore((s) => s.sendMessage);
   const sendTyping = useChatStore((s) => s.sendTyping);
   const sendDelete = useChatStore((s) => s.sendDelete);
@@ -149,7 +151,19 @@ export default function ChatDetailScreen() {
   const counterpartName = exchange?.counterpart?.name ?? chatSummary?.counterpart_name ?? 'Sohbet';
   const counterpartId = exchange?.counterpart?.id ?? chatSummary?.counterpart_id;
 
-  const isOtherTyping = counterpartId && typingState[counterpartId];
+  // Shadow block: reload the local block list when this screen regains focus
+  // (e.g. after returning from the chat info screen where the user may have
+  // toggled a shadow block).
+  useFocusEffect(
+    useCallback(() => {
+      reloadShadowBlocked();
+    }, [reloadShadowBlocked]),
+  );
+
+  // Don't reveal a shadow-blocked counterpart's typing — their messages are
+  // hidden, so a "yazıyor..." indicator would leak the shadow block.
+  const isOtherTyping =
+    counterpartId && !isBlocked(counterpartId) && typingState[counterpartId];
 
   // ---- My books (for book sharing picker) ----
   const { data: myBooksData, isLoading: isLoadingBooks } = useQuery({
@@ -174,7 +188,10 @@ export default function ChatDetailScreen() {
     enabled: !!exchangeId,
   });
 
-  // Merge paginated + real-time, oldest → newest
+  // Merge paginated + real-time, oldest → newest. Shadow-blocked users'
+  // messages are silently filtered out here — they still deliver (no error on
+  // their side) but are never shown to the blocker. No "X messages hidden"
+  // indicator is surfaced, to keep the shadow block undetectable.
   const rawMessages = useMemo(() => {
     const pages = data?.pages ?? [];
     const msgs = pages.flatMap((p: MessageListResponse) => p.items).reverse();
@@ -184,8 +201,12 @@ export default function ChatDetailScreen() {
         msgs.push(rm);
       }
     }
+    if (shadowBlocked.length > 0) {
+      const blocked = new Set(shadowBlocked);
+      return msgs.filter((m) => !m.sender_id || !blocked.has(m.sender_id));
+    }
     return msgs;
-  }, [data, realtimeMessages]);
+  }, [data, realtimeMessages, shadowBlocked]);
 
   // Build flat list with date separators + typing indicator
   const listData: MessageListItem[] = useMemo(() => {

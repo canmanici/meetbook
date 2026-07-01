@@ -3,6 +3,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import log_event
@@ -17,16 +18,20 @@ from app.core.security import (
 )
 from app.core.s3 import upload_photo as s3_upload_photo
 from app.core.throttle import LoginThrottle
-from app.modules.auth.models import UserStatus
+from app.modules.auth.models import RefreshToken, UserStatus, Vouch
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.schemas import (
     AuthTokensResponse,
     MeResponse,
     MessageResponse,
+    SessionListResponse,
+    SessionView,
     TokenResponse,
     UpdateMeRequest,
     UserPublic,
     UserPublicProfile,
+    VouchListResponse,
+    VouchView,
 )
 
 CURRENT_KVKK_POLICY_VERSION = "1.0"
@@ -257,6 +262,8 @@ class AuthService:
             trusted_contact_name=user.trusted_contact_name,
             trusted_contact_phone=user.trusted_contact_phone,
             geofence_radius_km=user.geofence_radius_km,
+            notification_settings=user.notification_settings or {},
+            auto_accept_rules=user.auto_accept_rules or [],
         )
 
     async def get_user_profile(self, user_id: uuid.UUID) -> UserPublicProfile:
@@ -304,6 +311,10 @@ class AuthService:
             user.geofence_radius_km = body.geofence_radius_km
         if "name" in sent and body.name is not None:
             user.name = body.name
+        if "notification_settings" in sent:
+            user.notification_settings = body.notification_settings
+        if "auto_accept_rules" in sent:
+            user.auto_accept_rules = body.auto_accept_rules
         await self.session.commit()
         return await self.get_me(user_id)
 
@@ -358,3 +369,162 @@ class AuthService:
         user.updated_at = datetime.now(UTC)
         await self.session.commit()
         return url
+
+    # ------------------------------------------------------------------
+    # B12: Active sessions / devices
+    # ------------------------------------------------------------------
+
+    async def list_sessions(self, user_id: uuid.UUID) -> list[RefreshToken]:
+        result = await self.session.execute(
+            select(RefreshToken)
+            .where(RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None))
+            .order_by(RefreshToken.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def revoke_session(self, user_id: uuid.UUID, token_id: uuid.UUID) -> None:
+        await self.session.execute(
+            update(RefreshToken)
+            .where(RefreshToken.id == token_id, RefreshToken.user_id == user_id)
+            .values(revoked_at=datetime.now(UTC))
+        )
+        await self.session.commit()
+
+    # ------------------------------------------------------------------
+    # B25: Vouching system
+    # ------------------------------------------------------------------
+
+    async def create_vouch(
+        self, voucher_id: uuid.UUID, vouchee_id: uuid.UUID, note: str | None
+    ) -> VouchView:
+        if voucher_id == vouchee_id:
+            raise AuthError("Kendiniz için kefil olamazsınız", 422)
+
+        existing = await self.session.execute(
+            select(Vouch).where(
+                Vouch.voucher_id == voucher_id, Vouch.vouchee_id == vouchee_id
+            )
+        )
+        if existing.scalar_one_or_none() is not None:
+            raise AuthError("Bu kullanıcı için zaten kefil oldunuz", 409)
+
+        vouch = Vouch(voucher_id=voucher_id, vouchee_id=vouchee_id, note=note)
+        self.session.add(vouch)
+        await log_event(
+            self.session,
+            "vouch_created",
+            user_id=voucher_id,
+            metadata={"vouchee_id": str(vouchee_id)},
+        )
+        await self.session.commit()
+        return VouchView(
+            voucher_id=voucher_id,
+            vouchee_id=vouchee_id,
+            note=note,
+            created_at=vouch.created_at,
+        )
+
+    async def list_vouches(self, user_id: uuid.UUID) -> VouchListResponse:
+        result = await self.session.execute(
+            select(Vouch)
+            .where(Vouch.vouchee_id == user_id)
+            .order_by(Vouch.created_at.desc())
+        )
+        vouches = result.scalars().all()
+        return VouchListResponse(
+            items=[
+                VouchView(
+                    voucher_id=v.voucher_id,
+                    vouchee_id=v.vouchee_id,
+                    note=v.note,
+                    created_at=v.created_at,
+                )
+                for v in vouches
+            ]
+        )
+
+    # ------------------------------------------------------------------
+    # B27: Reading history export
+    # ------------------------------------------------------------------
+
+    async def export_reading_history(self, user_id: uuid.UUID) -> dict:
+        from app.modules.books.models import Book
+        from app.modules.exchanges.models import ExchangeRequest
+        from app.modules.ratings.models import Rating
+
+        user = await self.repo.get_user_by_id(user_id)
+        if user is None:
+            raise AuthError("Not found", 404)
+
+        books_result = await self.session.execute(
+            select(Book)
+            .where(Book.owner_id == user_id, Book.deleted_at.is_(None))
+            .order_by(Book.created_at.desc())
+        )
+        books = books_result.scalars().all()
+
+        exchanges_result = await self.session.execute(
+            select(ExchangeRequest)
+            .where(
+                (ExchangeRequest.requested_by == user_id)
+                | (ExchangeRequest.requested_to == user_id)
+            )
+            .order_by(ExchangeRequest.created_at.desc())
+        )
+        exchanges = exchanges_result.scalars().all()
+
+        ratings_result = await self.session.execute(
+            select(Rating)
+            .where(
+                (Rating.rated_by == user_id) | (Rating.rated_user == user_id)
+            )
+            .order_by(Rating.created_at.desc())
+        )
+        ratings = ratings_result.scalars().all()
+
+        return {
+            "user": {
+                "id": str(user.id),
+                "name": user.name,
+                "email": user.email,
+                "completed_exchanges": user.completed_exchanges,
+                "rating_average": float(user.rating_average or 0),
+                "rating_count": user.rating_count,
+            },
+            "books": [
+                {
+                    "id": str(b.id),
+                    "title": b.title,
+                    "author": b.author,
+                    "category": b.category.value if b.category else None,
+                    "language": b.language,
+                    "condition": b.condition.value if b.condition else None,
+                    "is_available": b.is_available,
+                    "created_at": b.created_at.isoformat() if b.created_at else None,
+                }
+                for b in books
+            ],
+            "exchanges": [
+                {
+                    "id": str(e.id),
+                    "book_id": str(e.book_id),
+                    "requested_by": str(e.requested_by),
+                    "requested_to": str(e.requested_to),
+                    "status": e.status.value if e.status else None,
+                    "mode": e.mode.value if e.mode else None,
+                    "created_at": e.created_at.isoformat() if e.created_at else None,
+                }
+                for e in exchanges
+            ],
+            "ratings": [
+                {
+                    "id": str(r.id),
+                    "exchange_request_id": str(r.exchange_request_id),
+                    "score": r.score,
+                    "comment": r.comment,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in ratings
+            ],
+            "exported_at": datetime.now(UTC).isoformat(),
+        }

@@ -209,3 +209,23 @@ class BookBulkCreateRequest(BaseModel):
 class BookBulkCreateResponse(BaseModel):
     items: list[BookOwnerView]
     failed: list[FailedBookCreate] = []
+
+
+# ---------------------------------------------------------------------------
+# B19 — Smart relisting
+# ---------------------------------------------------------------------------
+
+
+class StaleBookView(BookOwnerView):
+    """An owner's book that has had no activity (views, edits, favorites) for
+    an extended period. `view_count` is inherited from BookOwnerView; the
+    extra fields let the UI surface how dormant the listing is.
+    """
+
+    days_since_update: int = 0
+    last_activity: datetime
+
+
+class StaleBooksResponse(BaseModel):
+    items: list[StaleBookView]
+    days_threshold: int = 30

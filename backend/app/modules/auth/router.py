@@ -22,9 +22,14 @@ from app.modules.auth.schemas import (
     PasswordResetRequest,
     RefreshRequest,
     RegisterRequest,
+    SessionListResponse,
+    SessionView,
     TokenResponse,
     UpdateMeRequest,
     UserPublicProfile,
+    VouchListResponse,
+    VouchRequest,
+    VouchView,
 )
 from app.modules.auth.service import AuthError, AuthService
 
@@ -171,5 +176,87 @@ async def get_user_profile(
 ) -> UserPublicProfile:
     try:
         return await service.get_user_profile(user_id)
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+# ---------------------------------------------------------------------------
+# B12: Active sessions / devices
+# ---------------------------------------------------------------------------
+
+
+@router.get("/me/sessions", response_model=SessionListResponse)
+async def list_sessions(
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> SessionListResponse:
+    tokens = await service.list_sessions(user.id)
+    items = [
+        SessionView(
+            id=t.id,
+            device_info=t.device_info,
+            created_at=t.created_at,
+            is_current=(idx == 0),
+        )
+        for idx, t in enumerate(tokens)
+    ]
+    return SessionListResponse(items=items)
+
+
+@router.delete("/me/sessions/{session_id}", status_code=204)
+async def revoke_session(
+    session_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> Response:
+    try:
+        await service.revoke_session(user.id, session_id)
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return Response(status_code=204)
+
+
+# ---------------------------------------------------------------------------
+# B27: Reading history export
+# ---------------------------------------------------------------------------
+
+
+@router.get("/me/reading-history/export")
+async def export_reading_history(
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> dict:
+    try:
+        return await service.export_reading_history(user.id)
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+# ---------------------------------------------------------------------------
+# B25: Vouching system
+# ---------------------------------------------------------------------------
+
+
+@router.post("/users/{user_id}/vouch", response_model=VouchView, status_code=201)
+async def create_vouch(
+    user_id: uuid.UUID,
+    body: VouchRequest,
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> VouchView:
+    try:
+        return await service.create_vouch(user.id, user_id, body.note)
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.get("/users/{user_id}/vouches", response_model=VouchListResponse)
+async def list_user_vouches(
+    user_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> VouchListResponse:
+    try:
+        return await service.list_vouches(user_id)
     except AuthError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

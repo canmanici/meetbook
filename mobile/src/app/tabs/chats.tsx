@@ -10,10 +10,11 @@ import {
   useColorScheme,
   Animated,
   TextInput,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useShallow } from 'zustand/react/shallow';
@@ -33,6 +34,7 @@ import {
 import { Avatar } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/emptystate';
 import { listChats, type ChatSummary } from '@/lib/api/chat';
+import { authedRequest } from '@/lib/api/client';
 import { useChatStore } from '@/stores/chat-store';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -42,10 +44,16 @@ import { useAuthStore } from '@/stores/auth-store';
 
 type FilterKey = 'all' | 'unread';
 
+/** ChatSummary extended with per-user pin/mute fields returned by the API. */
+type ChatRow = ChatSummary & {
+  is_pinned?: boolean;
+  muted_until?: string | null;
+};
+
 interface ChatSection {
   key: string;
   title: string;
-  data: ChatSummary[];
+  data: ChatRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -181,22 +189,24 @@ const PulseDot: React.FC<{ color: string; pulsing?: boolean }> = ({ color, pulsi
 // ---------------------------------------------------------------------------
 
 interface ChatItemProps {
-  item: ChatSummary;
+  item: ChatRow;
   isOnline: boolean;
   isTyping: boolean;
   colors: ThemeColors;
   isDark: boolean;
   onPress: (exchangeId: string) => void;
+  onLongPress: (exchangeId: string, chatId: string, isPinned: boolean) => void;
 }
 
 const ChatItem = React.memo<ChatItemProps>(
-  ({ item, isOnline, isTyping, colors, isDark, onPress }) => {
+  ({ item, isOnline, isTyping, colors, isDark, onPress, onLongPress }) => {
     const hasUnread = item.unread_count > 0;
     const pastel = pastels[isDark ? 'dark' : 'light'][pastelForName(item.counterpart_name)];
     const typeIcon = TYPE_ICON[item.last_message_type];
     const previewText =
       item.last_message ?? TYPE_FALLBACK[item.last_message_type] ?? 'Henüz mesaj yok';
     const isSystem = item.last_message_type === 'system';
+    const isPinned = item.is_pinned ?? false;
 
     return (
       <TouchableOpacity
@@ -210,6 +220,8 @@ const ChatItem = React.memo<ChatItemProps>(
           shadows.card,
         ]}
         onPress={() => onPress(item.exchange_id)}
+        onLongPress={() => onLongPress(item.exchange_id, item.chat_id, isPinned)}
+        delayLongPress={400}
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={`${item.counterpart_name} ile sohbeti aç`}
@@ -229,16 +241,26 @@ const ChatItem = React.memo<ChatItemProps>(
         {/* Content */}
         <View style={styles.content}>
           <View style={styles.topRow}>
-            <Text
-              style={[
-                styles.name,
-                { color: colors.text },
-                hasUnread && { fontWeight: '800' },
-              ]}
-              numberOfLines={1}
-            >
-              {item.counterpart_name}
-            </Text>
+            <View style={styles.nameRow}>
+              {isPinned && (
+                <Ionicons
+                  name="pin"
+                  size={13}
+                  color={colors.textMuted}
+                  style={styles.pinIcon}
+                />
+              )}
+              <Text
+                style={[
+                  styles.name,
+                  { color: colors.text },
+                  hasUnread && { fontWeight: '800' },
+                ]}
+                numberOfLines={1}
+              >
+                {item.counterpart_name}
+              </Text>
+            </View>
             {item.last_message_at && (
               <Text
                 style={[
@@ -308,7 +330,7 @@ ChatItem.displayName = 'ChatItem';
 // ---------------------------------------------------------------------------
 
 const SectionHeader: React.FC<{
-  section: SectionListData<ChatSummary, ChatSection>;
+  section: SectionListData<ChatRow, ChatSection>;
   colors: ThemeColors;
 }> = ({ section, colors }) => (
   <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
@@ -348,6 +370,7 @@ export default function ChatsScreen() {
   const colors = palette[isDark ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const currentUserId = useAuthStore((s) => s.user?.id);
   const connected = useChatStore((s) => s.connected);
@@ -359,7 +382,6 @@ export default function ChatsScreen() {
 
   const [filter, setFilter] = useState<FilterKey>('all');
   const [query, setQuery] = useState('');
-  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const toast = useToast();
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -403,7 +425,7 @@ export default function ChatsScreen() {
       earlier: [],
     };
     for (const c of filtered) {
-      if (pinnedIds.includes(c.chat_id)) {
+      if (c.is_pinned) {
         buckets.pinned.push(c);
       } else {
         buckets[sectionKeyFor(c.last_message_at)].push(c);
@@ -423,7 +445,7 @@ export default function ChatsScreen() {
       title: s.title,
       data: buckets[s.key],
     }));
-  }, [allChats, filter, query, pinnedIds]);
+  }, [allChats, filter, query]);
 
   const handlePress = useCallback((exchangeId: string) => {
     router.push(`/chat/${exchangeId}`);
@@ -436,21 +458,65 @@ export default function ChatsScreen() {
     [toast],
   );
 
-  const handlePin = useCallback(
-    (chatId: string) => {
-      setPinnedIds((prev) => (prev.includes(chatId) ? prev : [chatId, ...prev]));
-      toast.show('Sohbet sabitlendi', { variant: 'success' });
+  const handlePinChat = useCallback(
+    async (exchangeId: string) => {
+      try {
+        await authedRequest(`/exchanges/${exchangeId}/chat/pin`, 'PATCH', undefined);
+        queryClient.invalidateQueries({ queryKey: ['chats'] });
+        toast.show('Sohbet sabitlendi', { variant: 'success' });
+      } catch {
+        toast.show('Sabitleme başarısız', { variant: 'error' });
+      }
     },
-    [toast],
+    [queryClient, toast],
+  );
+
+  const handleUnpinChat = useCallback(
+    async (exchangeId: string) => {
+      try {
+        await authedRequest(`/exchanges/${exchangeId}/chat/unpin`, 'PATCH', undefined);
+        queryClient.invalidateQueries({ queryKey: ['chats'] });
+        toast.show('Sabitleme kaldırıldı', { variant: 'info' });
+      } catch {
+        toast.show('İşlem başarısız', { variant: 'error' });
+      }
+    },
+    [queryClient, toast],
+  );
+
+  const handleLongPress = useCallback(
+    (exchangeId: string, _chatId: string, isPinned: boolean) => {
+      Alert.alert(
+        isPinned ? 'Sohbeti Bırak' : 'Sohbeti Sabitle',
+        isPinned
+          ? 'Bu sohbetin sabitlemesini kaldırmak istiyor musunuz?'
+          : 'Bu sohbeti en üste sabitlemek istiyor musunuz?',
+        [
+          { text: 'İptal', style: 'cancel' },
+          {
+            text: isPinned ? 'Sabitlemeyi Kaldır' : 'Sabitle',
+            onPress: () => {
+              if (isPinned) {
+                handleUnpinChat(exchangeId);
+              } else {
+                handlePinChat(exchangeId);
+              }
+            },
+          },
+        ],
+      );
+    },
+    [handlePinChat, handleUnpinChat],
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: ChatSummary }) => {
+    ({ item }: { item: ChatRow }) => {
       const isOnline = presence[item.counterpart_id]?.is_online ?? false;
       const chatTyping = typing[item.chat_id] ?? {};
       const isTyping = Object.entries(chatTyping).some(
         ([uid, t]) => t && uid !== currentUserId,
       );
+      const isPinned = item.is_pinned ?? false;
       return (
         <Swipeable
           renderLeftActions={renderLeftActions}
@@ -460,7 +526,11 @@ export default function ChatsScreen() {
             if (direction === 'left') {
               handleArchive(item.chat_id);
             } else {
-              handlePin(item.chat_id);
+              if (isPinned) {
+                handleUnpinChat(item.exchange_id);
+              } else {
+                handlePinChat(item.exchange_id);
+              }
             }
           }}
         >
@@ -471,6 +541,7 @@ export default function ChatsScreen() {
             colors={colors}
             isDark={isDark}
             onPress={handlePress}
+            onLongPress={handleLongPress}
           />
         </Swipeable>
       );
@@ -483,12 +554,14 @@ export default function ChatsScreen() {
       isDark,
       handlePress,
       handleArchive,
-      handlePin,
+      handlePinChat,
+      handleUnpinChat,
+      handleLongPress,
     ],
   );
 
   const renderSectionHeader = useCallback(
-    ({ section }: { section: SectionListData<ChatSummary, ChatSection> }) => (
+    ({ section }: { section: SectionListData<ChatRow, ChatSection> }) => (
       <SectionHeader section={section} colors={colors} />
     ),
     [colors],
@@ -859,6 +932,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 4,
+  },
+  pinIcon: {
+    marginRight: 2,
+    marginTop: 1,
   },
   name: {
     fontSize: fontSize.body,

@@ -1,15 +1,16 @@
 /**
- * SavedSearchesScreen — locally-persisted search configs (spec: saved searches).
+ * SavedSearchesScreen — API-backed search configs with AsyncStorage offline fallback.
  *
  * Each saved search captures a snapshot of the home filter state:
  *   { id, category, radius_km, lat, lng, created_at }
  *
- * Stored in AsyncStorage under `meetbook-saved-searches` (no backend API yet).
+ * On mount we fetch from GET /saved-searches first; if the network is down we
+ * fall back to AsyncStorage under `meetbook-saved-searches`.  Deletes go through
+ * the API then update AsyncStorage as a backup cache.
+ *
  * On open we reverse-geocode each saved center for a human location name and
  * query the bbox search endpoint for a live "match count" badge so the user
  * can see how many books currently match each saved search.
- *
- * Future: backend persistence + push notifications when NEW books match.
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -28,7 +29,13 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { palette, spacing, fontSize, radius, shadows } from '@/components/ui/tokens';
 import { EmptyState } from '@/components/ui';
-import { searchBboxBooks, type BBoxParams } from '@/lib/api/client';
+import {
+  getSavedSearches,
+  deleteSavedSearch,
+  searchBboxBooks,
+  type BBoxParams,
+  type SavedSearchItem,
+} from '@/lib/api/client';
 import { useToast } from '@/hooks/use-toast';
 
 export const SAVED_SEARCHES_KEY = 'meetbook-saved-searches';
@@ -79,6 +86,18 @@ function bboxFor(s: SavedSearch): BBoxParams {
   };
 }
 
+/** Map API response shape to the screen's flat SavedSearch interface. */
+function fromApiItem(item: SavedSearchItem): SavedSearch {
+  return {
+    id: item.id,
+    category: item.params?.category ?? null,
+    radius_km: item.params?.radius_km ?? 0,
+    lat: item.params?.lat ?? 0,
+    lng: item.params?.lng ?? 0,
+    created_at: item.created_at,
+  };
+}
+
 function formatRelative(iso: string): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '';
@@ -124,6 +143,19 @@ export default function SavedSearchesScreen() {
     }
   }, []);
 
+  const loadSearches = useCallback(async (): Promise<SavedSearch[]> => {
+    try {
+      const response = await getSavedSearches();
+      const mapped = (response.items ?? []).map(fromApiItem);
+      // Cache to AsyncStorage as offline backup.
+      await AsyncStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(mapped));
+      setItems(mapped);
+      return mapped;
+    } catch {
+      return loadFromStorage();
+    }
+  }, [loadFromStorage]);
+
   // Reverse-geocode + bbox-search each saved search for label + match badge.
   const enrich = useCallback(async (list: SavedSearch[]) => {
     if (list.length === 0) return;
@@ -160,7 +192,7 @@ export default function SavedSearchesScreen() {
     let mounted = true;
     (async () => {
       setLoading(true);
-      const list = await loadFromStorage();
+      const list = await loadSearches();
       if (!mounted) return;
       await enrich(list);
       if (mounted) setLoading(false);
@@ -168,35 +200,44 @@ export default function SavedSearchesScreen() {
     return () => {
       mounted = false;
     };
-  }, [loadFromStorage, enrich]);
+  }, [loadSearches, enrich]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    const list = await loadFromStorage();
+    const list = await loadSearches();
     await enrich(list);
     setRefreshing(false);
-  }, [loadFromStorage, enrich]);
+  }, [loadSearches, enrich]);
 
   const handleDelete = useCallback(
     async (id: string) => {
       const prev = items;
       const next = prev.filter((s) => s.id !== id);
       setItems(next); // optimistic
+
+      // Try API first; show toast result but keep local deletion either way.
       try {
-        await AsyncStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(next));
-        setMatchCounts((c) => {
-          const { [id]: _omit, ...rest } = c;
-          return rest;
-        });
-        setLocationNames((n) => {
-          const { [id]: _omit, ...rest } = n;
-          return rest;
-        });
+        await deleteSavedSearch(id);
         toast.show('Arama silindi', { variant: 'success' });
       } catch {
-        setItems(prev); // revert
         toast.show('Silinemedi', { variant: 'error' });
       }
+
+      // Always update AsyncStorage as offline backup.
+      try {
+        await AsyncStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(next));
+      } catch {
+        // Silent — local state is already correct.
+      }
+
+      setMatchCounts((c) => {
+        const { [id]: _omit, ...rest } = c;
+        return rest;
+      });
+      setLocationNames((n) => {
+        const { [id]: _omit, ...rest } = n;
+        return rest;
+      });
     },
     [items, toast],
   );

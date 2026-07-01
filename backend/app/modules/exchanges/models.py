@@ -16,6 +16,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
@@ -119,6 +120,9 @@ class ExchangeRequest(Base):
         default=ExtensionStatus.none,
         server_default=ExtensionStatus.none.value,
     )
+    # B20: Book Retirement Flow — recorded when the receiver retires a traded book.
+    retired_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    retired_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
@@ -218,3 +222,40 @@ class CountryBoundary(Base):
 
     name = Column(Text, primary_key=True)
     geom = Column(Geography(geometry_type="POLYGON", srid=4326), nullable=False)
+
+
+class ReadingBuddyStatus(str, enum.Enum):
+    pending = "pending"
+    accepted = "accepted"
+    declined = "declined"
+
+
+class ReadingBuddy(Base):
+    __tablename__ = "reading_buddies"
+    __table_args__ = (
+        Index("ix_reading_buddies_exchange_id", "exchange_id"),
+        Index("ix_reading_buddies_user_id", "user_id"),
+        Index("ix_reading_buddies_buddy_id", "buddy_id"),
+        CheckConstraint("user_id <> buddy_id", name="ck_reading_buddies_no_self"),
+        UniqueConstraint("exchange_id", name="uq_reading_buddies_per_exchange"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    exchange_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("exchange_requests.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    buddy_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    chat_id = Column(UUID(as_uuid=True), ForeignKey("chats.id"), nullable=True)
+    book_id = Column(UUID(as_uuid=True), ForeignKey("books.id"), nullable=False)
+    status = Column(
+        Enum(ReadingBuddyStatus, name="reading_buddy_status", create_type=True),
+        nullable=False,
+        default=ReadingBuddyStatus.pending,
+        server_default=ReadingBuddyStatus.pending.value,
+    )
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )

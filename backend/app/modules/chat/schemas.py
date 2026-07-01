@@ -39,6 +39,10 @@ class ChatSettingsRequest(BaseModel):
     notification_sound: str | None = None
 
 
+class MuteRequest(BaseModel):
+    duration: str = Field(pattern="^(1h|8h|1w|forever)$")
+
+
 # ---------------------------------------------------------------------------
 # Response schemas
 # ---------------------------------------------------------------------------
@@ -92,6 +96,7 @@ class MessageSearchResponse(BaseModel):
 
 class ChatSettingsView(BaseModel):
     is_muted: bool
+    muted_until: datetime | None = None
     wallpaper_url: str | None = None
     font_size: str
     notification_sound: str
@@ -118,6 +123,8 @@ class ChatSummary(BaseModel):
     last_message_type: str = "text"
     last_message_at: datetime | None = None
     unread_count: int = 0
+    is_pinned: bool = False
+    muted_until: datetime | None = None
 
 
 class ChatListResponse(BaseModel):

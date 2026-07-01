@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import redis.asyncio as aioredis
@@ -33,6 +33,13 @@ TICKET_TTL_SECONDS = 30
 MESSAGE_LIMIT = 2000
 PUBSUB_RETRY_DELAY_SECONDS = 5
 PRESENCE_KEY_TTL = 60  # seconds — user considered offline after 60s without ping
+
+MUTE_DURATION_DELTAS: dict[str, timedelta | None] = {
+    "1h": timedelta(hours=1),
+    "8h": timedelta(hours=8),
+    "1w": timedelta(weeks=1),
+    "forever": None,  # NULL muted_until = muted forever
+}
 
 logger = logging.getLogger(__name__)
 
@@ -315,6 +322,8 @@ class ChatService:
                     last_message_type=row.get("last_message_type", "text"),
                     last_message_at=row["last_message_at"],
                     unread_count=row["unread_count"],
+                    is_pinned=row.get("is_pinned", False),
+                    muted_until=row.get("muted_until"),
                 )
             )
 
@@ -454,10 +463,19 @@ class ChatService:
         settings = await self.repo.get_chat_settings(chat.id, user_id)
         if settings is None:
             return ChatSettingsView(
-                is_muted=False, font_size="normal", notification_sound="default"
+                is_muted=False, muted_until=None, font_size="normal", notification_sound="default"
             )
+
+        # Effective mute: a temporary mute that has expired is treated as off.
+        is_muted = settings.is_muted
+        muted_until = settings.muted_until
+        if is_muted and muted_until is not None and muted_until <= datetime.now(UTC):
+            is_muted = False
+            muted_until = None
+
         return ChatSettingsView(
-            is_muted=settings.is_muted,
+            is_muted=is_muted,
+            muted_until=muted_until,
             wallpaper_url=settings.wallpaper_url,
             font_size=settings.font_size or "normal",
             notification_sound=settings.notification_sound or "default",
@@ -481,6 +499,72 @@ class ChatService:
         )
         await self.session.commit()
         return await self.get_chat_settings(exchange_id, user_id)
+
+    # ── Chat pin / mute / clear history ──────────────────────────────────
+
+    async def pin_chat(self, exchange_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+        chat = await self.repo.get_chat_by_exchange(exchange_id)
+        if chat is None:
+            raise ChatError("CHAT_NOT_FOUND", 404)
+        if not await self.repo.is_participant(chat.id, user_id):
+            raise ChatError("FORBIDDEN", 403)
+        await self.repo.set_chat_pinned(chat.id, user_id, True)
+        await self.session.commit()
+        return True
+
+    async def unpin_chat(self, exchange_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+        chat = await self.repo.get_chat_by_exchange(exchange_id)
+        if chat is None:
+            raise ChatError("CHAT_NOT_FOUND", 404)
+        if not await self.repo.is_participant(chat.id, user_id):
+            raise ChatError("FORBIDDEN", 403)
+        await self.repo.set_chat_pinned(chat.id, user_id, False)
+        await self.session.commit()
+        return False
+
+    async def mute_chat(
+        self, exchange_id: uuid.UUID, user_id: uuid.UUID, duration: str
+    ) -> datetime | None:
+        chat = await self.repo.get_chat_by_exchange(exchange_id)
+        if chat is None:
+            raise ChatError("CHAT_NOT_FOUND", 404)
+        if not await self.repo.is_participant(chat.id, user_id):
+            raise ChatError("FORBIDDEN", 403)
+
+        if duration == "forever":
+            muted_until: datetime | None = None
+        else:
+            delta = MUTE_DURATION_DELTAS.get(duration)
+            if delta is None:
+                raise ChatError("INVALID_DURATION", 400)
+            muted_until = datetime.now(UTC) + delta
+
+        await self.repo.set_chat_muted(chat.id, user_id, is_muted=True, muted_until=muted_until)
+        await self.session.commit()
+        return muted_until
+
+    async def unmute_chat(self, exchange_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        chat = await self.repo.get_chat_by_exchange(exchange_id)
+        if chat is None:
+            raise ChatError("CHAT_NOT_FOUND", 404)
+        if not await self.repo.is_participant(chat.id, user_id):
+            raise ChatError("FORBIDDEN", 403)
+        await self.repo.set_chat_muted(chat.id, user_id, is_muted=False, muted_until=None)
+        await self.session.commit()
+
+    async def clear_history(self, exchange_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Delete all messages in a chat. Both users see the chat as empty."""
+        chat = await self.repo.get_chat_by_exchange(exchange_id)
+        if chat is None:
+            raise ChatError("CHAT_NOT_FOUND", 404)
+        if not await self.repo.is_participant(chat.id, user_id):
+            raise ChatError("FORBIDDEN", 403)
+        await self.repo.clear_chat_history(chat.id)
+        await self.session.commit()
+        # Notify both participants in real-time so their message lists clear.
+        payload = {"type": "cleared", "chat_id": str(chat.id)}
+        await ConnectionManager.broadcast_to_chat(chat.id, payload, repo=self.repo)
+        await publish_message(chat.id, payload)
 
     # ── Link previews ────────────────────────────────────────────────────
 

@@ -43,3 +43,49 @@ class WishlistMatchView(BaseModel):
 
 class WishlistMatchResponse(BaseModel):
     matches: list[WishlistMatchView]
+
+
+class SharedWishlistCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+
+class SharedWishlistItemCreate(BaseModel):
+    isbn: str | None = Field(default=None, max_length=20)
+    title: str = Field(min_length=1, max_length=200)
+    author: str | None = Field(default=None, max_length=200)
+
+
+class SharedWishlistItemView(BaseModel):
+    id: uuid.UUID
+    wishlist_id: uuid.UUID
+    added_by: uuid.UUID
+    added_by_name: str
+    isbn: str | None
+    title: str
+    author: str | None
+    created_at: datetime
+
+
+class SharedWishlistMemberView(BaseModel):
+    user_id: uuid.UUID
+    name: str
+    is_owner: bool
+    joined_at: datetime
+
+
+class SharedWishlistMemberAdd(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+
+
+class SharedWishlistView(BaseModel):
+    id: uuid.UUID
+    name: str
+    owner_id: uuid.UUID
+    owner_name: str
+    created_at: datetime
+    members: list[SharedWishlistMemberView]
+    items: list[SharedWishlistItemView]
+
+
+class SharedWishlistListResponse(BaseModel):
+    items: list[SharedWishlistView]

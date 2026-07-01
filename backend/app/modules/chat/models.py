@@ -115,6 +115,9 @@ class ChatSettings(Base):
         nullable=False,
     )
     is_muted = Column(Boolean, nullable=False, default=False)
+    muted_until = Column(DateTime(timezone=True), nullable=True)
+    is_pinned = Column(Boolean, nullable=False, default=False)
+    pinned_at = Column(DateTime(timezone=True), nullable=True)
     wallpaper_url = Column(Text, nullable=True)
     font_size = Column(Text, nullable=True, default="normal")  # small | normal | large
     notification_sound = Column(Text, nullable=True, default="default")

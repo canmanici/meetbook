@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { MapView, Marker, type LatLng, type MapPressEvent } from '@/lib/map-adapter';
 
-import { Button, Input, SafetySheet, fontSize, palette, radius, spacing } from '@/components/ui';
+import { Badge, Button, Input, SafetySheet, fontSize, palette, radius, spacing } from '@/components/ui';
 import { DatePicker } from '@/components/ui/date-time-picker';
 import { SAFE_MEETUP_CATEGORIES } from '@/constants/meetup';
 import {
@@ -47,6 +47,11 @@ interface OfferDraft extends SelectedPlace {
   time: string;
 }
 
+interface WeatherInfo {
+  temp: number;
+  code: number;
+}
+
 export default function SelectMeetupPlaceScreen() {
   const { exchangeId } = useLocalSearchParams<{ exchangeId: string }>();
   const scheme = useColorScheme();
@@ -59,6 +64,9 @@ export default function SelectMeetupPlaceScreen() {
   const [offers, setOffers] = useState<OfferDraft[]>([]);
   const [safetySheetVisible, setSafetySheetVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [weather, setWeather] = useState<WeatherInfo | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [busyHoursOpen, setBusyHoursOpen] = useState(false);
 
   const { data: suggestionsData } = useQuery({
     queryKey: ['meetup-suggestions', exchangeId],
@@ -86,6 +94,34 @@ export default function SelectMeetupPlaceScreen() {
     }, 400);
     return () => clearTimeout(handle);
   }, [query, selected]);
+
+  useEffect(() => {
+    if (!selected) {
+      setWeather(null);
+      return;
+    }
+    let cancelled = false;
+    setWeatherLoading(true);
+    fetchWeather(selected.lat, selected.lng)
+      .then((data) => {
+        if (!cancelled) {
+          setWeather(data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWeather(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setWeatherLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected]);
 
   const onSelectSuggestion = async (item: PlaceSuggestion) => {
     setQuery(item.description);
@@ -230,6 +266,8 @@ export default function SelectMeetupPlaceScreen() {
     ? { latitude: selected.lat, longitude: selected.lng }
     : null;
 
+  const weatherDisplay = weather ? getWeatherDisplay(weather.code) : null;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <MapView
@@ -281,9 +319,51 @@ export default function SelectMeetupPlaceScreen() {
 
         {selected && (
           <View style={styles.selectedRow}>
-            <Text style={[styles.selectedLabel, { color: colors.text }]} testID="selected-place-label">
-              Seçilen: {selected.name}
-            </Text>
+            <View style={styles.selectedPlaceInfo}>
+              <Text style={[styles.selectedLabel, { color: colors.text }]} testID="selected-place-label">
+                Seçilen: {selected.name}
+              </Text>
+              {weatherDisplay && weather && (
+                <Badge
+                  text={`${weatherDisplay.emoji} ${weather.temp}°C`}
+                  variant={weatherDisplay.isPrecipitation ? 'warning' : 'info'}
+                  testID="weather-badge"
+                />
+              )}
+              {weatherLoading && (
+                <Text style={[styles.weatherLoading, { color: colors.textMuted }]} testID="weather-loading">
+                  Hava durumu yükleniyor...
+                </Text>
+              )}
+            </View>
+
+            {weatherDisplay?.isPrecipitation && (
+              <Text style={[styles.weatherWarning, { color: colors.danger }]} testID="weather-warning">
+                Yağış bekleniyor — kapalı mekan seç
+              </Text>
+            )}
+
+            <TouchableOpacity
+              style={styles.busyHoursToggle}
+              onPress={() => setBusyHoursOpen((v) => !v)}
+              testID="busy-hours-toggle"
+            >
+              <Text style={[styles.busyHoursTitle, { color: colors.text }]}>
+                Kalabalık Saatler
+              </Text>
+              <Text style={{ color: colors.textMuted, fontSize: fontSize.caption }}>
+                {busyHoursOpen ? '▾' : '▸'}
+              </Text>
+            </TouchableOpacity>
+
+            {busyHoursOpen && (
+              <View style={styles.busyHoursContent} testID="busy-hours-content">
+                <Text style={{ color: colors.textMuted, fontSize: fontSize.caption }}>
+                  {getBusyHoursHint(selected.category) ?? 'Kalabalık saat verisi yok'}
+                </Text>
+              </View>
+            )}
+
             <Button onPress={onAddSelectedPlace} testID="add-selected-place-button">
               Listeye Ekle
             </Button>
@@ -395,6 +475,47 @@ function buildScheduledAt(date: string, time: string): string | null {
   return isoCandidate;
 }
 
+const fetchWeather = async (lat: number, lng: number): Promise<WeatherInfo> => {
+  const res = await fetch(
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code&timezone=auto`
+  );
+  const data = await res.json();
+  return {
+    temp: Math.round(data.current.temperature_2m),
+    code: data.current.weather_code,
+  };
+};
+
+function getWeatherDisplay(code: number): {
+  emoji: string;
+  label: string;
+  isPrecipitation: boolean;
+} {
+  if (code === 0) return { emoji: '☀️', label: 'Güneşli', isPrecipitation: false };
+  if (code >= 1 && code <= 3) return { emoji: '⛅', label: 'Parçalı Bulutlu', isPrecipitation: false };
+  if (code >= 45 && code <= 48) return { emoji: '🌫️', label: 'Sisli', isPrecipitation: false };
+  if (code >= 51 && code <= 67) return { emoji: '🌧️', label: 'Yağmurlu', isPrecipitation: true };
+  if (code >= 71 && code <= 77) return { emoji: '❄️', label: 'Karlı', isPrecipitation: true };
+  if (code >= 80 && code <= 82) return { emoji: '🌦️', label: 'Sağanak', isPrecipitation: true };
+  if (code >= 95 && code <= 99) return { emoji: '⛈️', label: 'Gök Gürültülü', isPrecipitation: true };
+  return { emoji: '🌡️', label: 'Bilinmiyor', isPrecipitation: false };
+}
+
+function getBusyHoursHint(category: string | null): string | null {
+  switch (category) {
+    case 'cafe':
+      return 'Sabah 9-11 arası en müsait';
+    case 'restaurant':
+      return 'Öğle 12-13 ve akşam 19-21 kalabalık';
+    case 'park':
+      return 'Hafta sonu kalabalık';
+    case 'library':
+      return 'Hafta içi sabah saatleri müsait';
+    default:
+      return null;
+  }
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -434,6 +555,33 @@ const styles = StyleSheet.create({
   selectedLabel: {
     fontSize: fontSize.bodySm,
     fontWeight: '600',
+  },
+  selectedPlaceInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  weatherLoading: {
+    fontSize: fontSize.caption,
+  },
+  weatherWarning: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
+  },
+  busyHoursToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xs,
+  },
+  busyHoursTitle: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+  },
+  busyHoursContent: {
+    paddingVertical: spacing.xs,
   },
   offersList: {
     gap: spacing.sm,

@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.chat.models import (
@@ -129,17 +129,27 @@ class ChatRepository:
                 last_text_subq.label("last_message_text"),
                 last_type_subq.label("last_message_type"),
                 last_msg_sub.c.last_msg_at,
+                ChatSettings.is_pinned.label("is_pinned"),
+                ChatSettings.pinned_at.label("pinned_at"),
+                ChatSettings.muted_until.label("muted_until"),
             )
             .select_from(Chat)
             .join(ExchangeRequest, Chat.exchange_request_id == ExchangeRequest.id)
             .outerjoin(last_msg_sub, last_msg_sub.c.chat_id == Chat.id)
+            .outerjoin(
+                ChatSettings,
+                and_(ChatSettings.chat_id == Chat.id, ChatSettings.user_id == user_id),
+            )
             .where(
                 or_(
                     ExchangeRequest.requested_by == user_id,
                     ExchangeRequest.requested_to == user_id,
                 )
             )
-            .order_by(last_msg_sub.c.last_msg_at.desc().nullslast())
+            .order_by(
+                ChatSettings.is_pinned.desc().nullslast(),
+                last_msg_sub.c.last_msg_at.desc().nullslast(),
+            )
         )
 
         result = await self.session.execute(stmt)
@@ -158,6 +168,9 @@ class ChatRepository:
                 "last_message_type": row.last_message_type or "text",
                 "last_message_at": row.last_msg_at,
                 "unread_count": row.unread_count or 0,
+                "is_pinned": row.is_pinned or False,
+                "pinned_at": row.pinned_at,
+                "muted_until": row.muted_until,
             })
 
         return chats
@@ -473,6 +486,44 @@ class ChatRepository:
 
         await self.session.flush()
         return settings
+
+    async def set_chat_pinned(
+        self, chat_id: uuid.UUID, user_id: uuid.UUID, is_pinned: bool
+    ) -> None:
+        """Set the pinned state for a chat (per-user)."""
+        settings = await self.get_chat_settings(chat_id, user_id)
+        if settings is None:
+            settings = ChatSettings(chat_id=chat_id, user_id=user_id)
+            self.session.add(settings)
+        settings.is_pinned = is_pinned
+        settings.pinned_at = datetime.now(UTC) if is_pinned else None
+        settings.updated_at = datetime.now(UTC)
+        await self.session.flush()
+
+    async def set_chat_muted(
+        self,
+        chat_id: uuid.UUID,
+        user_id: uuid.UUID,
+        is_muted: bool,
+        muted_until: datetime | None = None,
+    ) -> None:
+        """Set the mute state for a chat (per-user)."""
+        settings = await self.get_chat_settings(chat_id, user_id)
+        if settings is None:
+            settings = ChatSettings(chat_id=chat_id, user_id=user_id)
+            self.session.add(settings)
+        settings.is_muted = is_muted
+        settings.muted_until = muted_until
+        settings.updated_at = datetime.now(UTC)
+        await self.session.flush()
+
+    async def clear_chat_history(self, chat_id: uuid.UUID) -> int:
+        """Hard-delete all messages in a chat."""
+        result = await self.session.execute(
+            delete(Message).where(Message.chat_id == chat_id)
+        )
+        await self.session.flush()
+        return result.rowcount or 0
 
     # ── Link previews ────────────────────────────────────────────────────
 

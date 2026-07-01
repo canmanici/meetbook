@@ -25,6 +25,7 @@ from app.modules.chat.schemas import (
     MessageSearchResponse,
     MessageSearchResult,
     MessageView,
+    MuteRequest,
     PinnedMessagesResponse,
     ReactionRequest,
     StarredMessagesResponse,
@@ -197,6 +198,82 @@ async def update_chat_settings(
             notification_sound=body.notification_sound,
         )
         return ChatSettingsResponse(settings=settings)
+    except ChatError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+# ── Chat pin / mute / clear history ────────────────────────────────────────
+
+
+@router.patch("/{exchange_id}/chat/pin")
+async def pin_chat(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    service: ChatService = Depends(_get_service),
+) -> dict:
+    """Pin a chat to the top of the chat list."""
+    try:
+        await service.pin_chat(exchange_id, user.id)
+        return {"pinned": True}
+    except ChatError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.patch("/{exchange_id}/chat/unpin")
+async def unpin_chat(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    service: ChatService = Depends(_get_service),
+) -> dict:
+    """Unpin a chat from the top of the chat list."""
+    try:
+        await service.unpin_chat(exchange_id, user.id)
+        return {"pinned": False}
+    except ChatError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.post("/{exchange_id}/chat/mute")
+async def mute_chat(
+    exchange_id: uuid.UUID,
+    body: MuteRequest,
+    user: User = Depends(get_current_user),
+    service: ChatService = Depends(_get_service),
+) -> dict:
+    """Mute a chat for a given duration (1h, 8h, 1w, forever)."""
+    try:
+        muted_until = await service.mute_chat(exchange_id, user.id, body.duration)
+        return {
+            "muted": True,
+            "muted_until": muted_until.isoformat() if muted_until else None,
+        }
+    except ChatError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.post("/{exchange_id}/chat/unmute")
+async def unmute_chat(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    service: ChatService = Depends(_get_service),
+) -> dict:
+    """Unmute a chat."""
+    try:
+        await service.unmute_chat(exchange_id, user.id)
+        return {"muted": False, "muted_until": None}
+    except ChatError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.delete("/{exchange_id}/chat/messages", status_code=204)
+async def clear_chat_history(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    service: ChatService = Depends(_get_service),
+) -> None:
+    """Clear all messages in a chat (both users see it empty)."""
+    try:
+        await service.clear_history(exchange_id, user.id)
     except ChatError as e:
         raise HTTPException(status_code=e.status_code, detail=e.code)
 

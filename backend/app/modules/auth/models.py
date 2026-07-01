@@ -65,6 +65,10 @@ class User(Base):
     geofence_radius_km = Column(Integer, nullable=False, default=10, server_default="10")
     avatar_url = Column(String(500), nullable=True)
     is_admin = Column(Boolean, nullable=False, default=False)
+    # B11: per-event push notification toggles (event_name -> bool)
+    notification_settings = Column(JSONB, nullable=False, default=dict, server_default="{}")
+    # B17: smart rules to auto-accept matching exchange requests
+    auto_accept_rules = Column(JSONB, nullable=False, default=list, server_default="[]")
 
     # Relationships
     credential = relationship("UserCredential", back_populates="user", uselist=False)
@@ -128,3 +132,16 @@ class AuditLog(Base):
     user_agent = Column(Text, nullable=True)
     metadata_ = Column("metadata", JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+
+
+class Vouch(Base):
+    """B25: a user vouches for another user's trustworthiness."""
+
+    __tablename__ = "vouches"
+
+    voucher_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True)
+    vouchee_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True)
+    note = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )

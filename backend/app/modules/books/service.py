@@ -37,6 +37,7 @@ from app.modules.books.schemas import (
     LocationOutput,
     PhotoView,
     ReorderDelta,
+    StaleBookView,
 )
 from app.modules.exchanges.repository import ExchangeRepository
 
@@ -683,6 +684,93 @@ class BookService:
 
         result = await self.list_my_books(owner_id, None, 1000)
         return result.items
+
+    async def list_stale_books(
+        self, owner_id: uuid.UUID, days: int = 30
+    ) -> list[StaleBookView]:
+        """B19 — Find the owner's available books dormant for `days` days.
+
+        A book is stale when its `updated_at` is older than the cutoff. Because
+        view/favorite increments also bump `updated_at` (see repository), this
+        captures listings with no recent views, edits, or favorites — i.e.
+        genuinely dormant.
+        """
+        from datetime import UTC, datetime, timedelta
+        from geoalchemy2 import Geometry
+        from sqlalchemy import cast, func
+
+        cutoff = datetime.now(UTC) - timedelta(days=days)
+        loc = cast(Book.location, Geometry)
+        pub = cast(Book.public_location, Geometry)
+        stmt = (
+            select(
+                Book,
+                func.ST_Y(loc).label("lat"),
+                func.ST_X(loc).label("lng"),
+                func.ST_Y(pub).label("public_lat"),
+                func.ST_X(pub).label("public_lng"),
+            )
+            .where(
+                Book.owner_id == owner_id,
+                Book.is_available.is_(True),
+                Book.deleted_at.is_(None),
+                Book.updated_at < cutoff,
+            )
+            .order_by(Book.updated_at.asc())
+        )
+        result = await self.session.execute(stmt)
+        rows = result.all()
+
+        owner_name = await self._get_owner_name(owner_id)
+        now = datetime.now(UTC)
+        items: list[StaleBookView] = []
+        for row in rows:
+            book = row[0]
+            book_row = BookRow(
+                book=book,
+                location=(row.lat, row.lng),
+                public_location=(row.public_lat, row.public_lng),
+            )
+            photos = await self.repo.get_photos(book.id)
+            base = _to_owner_view(book_row, owner_name, photos)
+            items.append(
+                StaleBookView(
+                    **base.model_dump(),
+                    days_since_update=max(0, (now - book.updated_at).days),
+                    last_activity=book.updated_at,
+                )
+            )
+        return items
+
+    async def relist_book(
+        self, book_id: uuid.UUID, owner_id: uuid.UUID
+    ) -> BookOwnerView:
+        """B19 — Refresh a dormant book's listing by bumping `updated_at` to now.
+
+        This removes the book from the stale list and signals freshness to
+        search ranking without disrupting the owner's custom sort order.
+        """
+        row = await self.repo.get_active_by_id(book_id)
+        if row is None or row.book.owner_id != owner_id:
+            raise BookError("Book not found", 404)
+
+        from datetime import UTC, datetime
+        from sqlalchemy import update as sa_update
+        await self.session.execute(
+            sa_update(Book)
+            .where(Book.id == book_id)
+            .values(updated_at=datetime.now(UTC))
+        )
+        await self.session.commit()
+
+        # Re-fetch: async sessions don't lazy-load, so the in-memory object
+        # won't reflect the bumped updated_at until we reload it from the DB.
+        row = await self.repo.get_active_by_id(book_id)
+        if row is None:
+            raise BookError("Book not found", 404)
+        owner_name = await self._get_owner_name(owner_id)
+        photos = await self.repo.get_photos(book_id)
+        return _to_owner_view(row, owner_name, photos)
 
 
 async def _notify_wishlist_matches(

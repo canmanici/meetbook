@@ -31,6 +31,7 @@ import { EXCHANGE_STATUS_LABELS, EXCHANGE_STATUS_VARIANTS } from '@/constants/ex
 import { MEETUP_VALIDATION_LABELS } from '@/constants/meetup';
 import {
   ApiError,
+  authedRequest,
   acceptExchange,
   acceptMeetup,
   blockUser,
@@ -56,6 +57,37 @@ import { buildMapLinks } from '@/lib/maps';
 import { startSafetyMode, stopSafetyMode } from '@/lib/safety';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth-store';
+
+type ReadingBuddyStatus = 'pending' | 'accepted' | 'declined';
+
+type ReadingBuddyView = {
+  id: string;
+  exchange_id: string;
+  user_id: string;
+  buddy_id: string;
+  chat_id: string | null;
+  book_id: string;
+  status: ReadingBuddyStatus;
+  created_at: string;
+};
+
+type ExchangeDetailWithExtras = ExchangeDetail & {
+  retired_by?: string | null;
+  retired_at?: string | null;
+  reading_buddy?: ReadingBuddyView | null;
+};
+
+const retireBook = (exchangeId: string) =>
+  authedRequest<ExchangeDetailWithExtras>(`/exchanges/${exchangeId}/retire-book`, 'POST', undefined);
+
+const createReadingBuddy = (exchangeId: string) =>
+  authedRequest<ReadingBuddyView>(`/exchanges/${exchangeId}/reading-buddy`, 'POST', undefined);
+
+const acceptReadingBuddy = (exchangeId: string) =>
+  authedRequest<ReadingBuddyView>(`/exchanges/${exchangeId}/reading-buddy/accept`, 'POST', undefined);
+
+const declineReadingBuddy = (exchangeId: string) =>
+  authedRequest<ReadingBuddyView>(`/exchanges/${exchangeId}/reading-buddy/decline`, 'POST', undefined);
 
 type StepStatus = 'done' | 'active' | 'pending';
 
@@ -122,10 +154,11 @@ export default function ExchangeDetailScreen() {
   const userId = useAuthStore((state) => state.user?.id);
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data: exchange, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['exchanges', id],
     queryFn: () => getExchange(id),
   });
+  const exchange = data as ExchangeDetailWithExtras | undefined;
 
   const { data: me } = useQuery({
     queryKey: ['me'],
@@ -421,6 +454,42 @@ export default function ExchangeDetailScreen() {
       }
       toast.show('Değerlendirme gönderilemedi', { variant: 'error' });
     },
+  });
+
+  // --- B20: Book Retirement Flow ---
+  const retireMutation = useMutation({
+    mutationFn: () => retireBook(id),
+    onSuccess: async (updated) => {
+      await invalidate(updated);
+      toast.show('Kitap emekliliğe ayrıldı', { variant: 'success' });
+    },
+    onError: () => toast.show('İşlem tamamlanamadı', { variant: 'error' }),
+  });
+
+  // --- B24: Reading Buddy Matching ---
+  const readingBuddyMutation = useMutation({
+    mutationFn: () => createReadingBuddy(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['exchanges', id] });
+      toast.show('Okuma arkadaşı daveti gönderildi', { variant: 'success' });
+    },
+    onError: () => toast.show('Davet gönderilemedi', { variant: 'error' }),
+  });
+  const acceptBuddyMutation = useMutation({
+    mutationFn: () => acceptReadingBuddy(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['exchanges', id] });
+      toast.show('Okuma arkadaşı kabul edildi', { variant: 'success' });
+    },
+    onError: () => toast.show('İşlem tamamlanamadı', { variant: 'error' }),
+  });
+  const declineBuddyMutation = useMutation({
+    mutationFn: () => declineReadingBuddy(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['exchanges', id] });
+      toast.show('Okuma arkadaşı daveti reddedildi', { variant: 'success' });
+    },
+    onError: () => toast.show('İşlem tamamlanamadı', { variant: 'error' }),
   });
 
   if (isLoading) {
@@ -892,7 +961,13 @@ export default function ExchangeDetailScreen() {
                   <Button
                     variant="secondary"
                     onPress={() =>
-                      router.push({ pathname: '/meetup/select-place', params: { exchangeId: id } })
+                      router.push({
+                        pathname: '/meetup/select-place',
+                        params: {
+                          exchangeId: id,
+                          mode: exchange.status === 'meetup_confirmed' ? 'reschedule' : undefined,
+                        },
+                      })
                     }
                     testID="reschedule-meetup-button"
                   >
@@ -1336,6 +1411,101 @@ export default function ExchangeDetailScreen() {
             {`${exchange.counterpart.name} İçin Değerlendirme Yap`}
           </Button>
         </View>
+      )}
+
+      {/* B20: Book Retirement Flow */}
+      {exchange.status === 'completed' && exchange.mode !== 'borrow' && isRequester && !exchange.retired_at && (
+        <Card style={styles.timelineCard}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Kitabı Emekliliğe Ayır</Text>
+          <Text style={[styles.waiting, { color: colors.textMuted }]}>
+            Aldığın kitabı artık takasa kapalı olarak işaretle.
+          </Text>
+          <Button
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              retireMutation.mutate();
+            }}
+            loading={retireMutation.isPending}
+            testID="retire-book-button"
+          >
+            Emekliliğe Ayır
+          </Button>
+        </Card>
+      )}
+
+      {/* B24: Reading Buddy Matching */}
+      {exchange.status === 'completed' && (
+        <Card style={styles.timelineCard}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Okuma Arkadaşı</Text>
+          {!exchange.reading_buddy && (
+            <>
+              <Text style={[styles.waiting, { color: colors.textMuted }]}>
+                Bu kitabı birlikte okumak için {exchange.counterpart.name} ile okuma arkadaşı olun.
+              </Text>
+              <Button
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  readingBuddyMutation.mutate();
+                }}
+                loading={readingBuddyMutation.isPending}
+                testID="create-reading-buddy-button"
+              >
+                Okuma Arkadaşı Ol
+              </Button>
+            </>
+          )}
+          {exchange.reading_buddy?.status === 'pending' && exchange.reading_buddy.user_id === userId && (
+            <Text style={[styles.waiting, { color: colors.textMuted }]} testID="reading-buddy-waiting">
+              {exchange.counterpart.name} davetini yanıtlıyor.
+            </Text>
+          )}
+          {exchange.reading_buddy?.status === 'pending' && exchange.reading_buddy.buddy_id === userId && (
+            <View style={styles.actions}>
+              <Button
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  acceptBuddyMutation.mutate();
+                }}
+                loading={acceptBuddyMutation.isPending}
+                testID="accept-reading-buddy-button"
+              >
+                Kabul Et
+              </Button>
+              <Button
+                variant="ghost"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  declineBuddyMutation.mutate();
+                }}
+                loading={declineBuddyMutation.isPending}
+                testID="decline-reading-buddy-button"
+              >
+                Reddet
+              </Button>
+            </View>
+          )}
+          {exchange.reading_buddy?.status === 'accepted' && (
+            <View style={styles.actions}>
+              <Text style={[styles.waiting, { color: colors.success }]}>
+                {exchange.counterpart.name} ile okuma arkadaşısınız.
+              </Text>
+              {exchange.reading_buddy.chat_id && (
+                <Button
+                  variant="secondary"
+                  onPress={() => router.push(`/chat/${exchange.id}`)}
+                  testID="reading-buddy-chat-button"
+                >
+                  Mesajlaş
+                </Button>
+              )}
+            </View>
+          )}
+          {exchange.reading_buddy?.status === 'declined' && (
+            <Text style={[styles.waiting, { color: colors.textMuted }]}>
+              Okuma arkadaşı daveti reddedildi.
+            </Text>
+          )}
+        </Card>
       )}
 
       {exchange.status === 'completion_pending' && exchange.completion_marked_by === userId && (

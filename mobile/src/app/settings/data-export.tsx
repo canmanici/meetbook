@@ -45,9 +45,9 @@ export default function DataExportScreen() {
 
       const [meData, booksData, sentExchanges, receivedExchanges] = await Promise.all([
         apiClient.getMe(),
-        apiClient.listMyBooks({ limit: 200 }),
-        apiClient.listExchanges({ role: 'sent', limit: 200 }).catch(() => ({ items: [] })),
-        apiClient.listExchanges({ role: 'received', limit: 200 }).catch(() => ({ items: [] })),
+        apiClient.listMyBooks({ limit: 50 }),
+        apiClient.listExchanges({ role: 'sent', limit: 50 }).catch(() => ({ items: [] })),
+        apiClient.listExchanges({ role: 'received', limit: 50 }).catch(() => ({ items: [] })),
       ]);
 
       const data = {

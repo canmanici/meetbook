@@ -17,6 +17,16 @@ export default function AuthLayout() {
           headerTitleStyle: { color: colors.text },
         }}
       />
+      <Stack.Screen
+        name="reset-password"
+        options={{
+          title: 'Yeni Şifre',
+          headerShown: true,
+          headerStyle: { backgroundColor: colors.surface },
+          headerTintColor: colors.text,
+          headerTitleStyle: { color: colors.text },
+        }}
+      />
     </Stack>
   );
 }

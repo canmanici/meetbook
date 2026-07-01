@@ -26,6 +26,7 @@ from app.modules.books.schemas import (
     PhotoReorderRequest,
     PhotoView,
     ReorderBody,
+    StaleBooksResponse,
 )
 from app.modules.books.service import BookError, BookService
 
@@ -177,6 +178,17 @@ async def list_my_books(
     return await service.list_my_books(user.id, cursor, limit)
 
 
+@router.get("/stale", response_model=StaleBooksResponse)
+async def list_stale_books(
+    days: int = Query(default=30, ge=1, le=365),
+    user: User = Depends(get_current_user),
+    service: BookService = Depends(_get_service),
+) -> StaleBooksResponse:
+    """B19 — Smart relisting: books with no activity in `days` days."""
+    items = await service.list_stale_books(user.id, days=days)
+    return StaleBooksResponse(items=items, days_threshold=days)
+
+
 @router.patch("/reorder", response_model=BookListResponse)
 async def reorder_books(
     body: ReorderBody,
@@ -306,6 +318,19 @@ async def increment_book_view(
     except BookError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
     return Response(status_code=204)
+
+
+@router.post("/{book_id}/relist", response_model=BookOwnerView)
+async def relist_book(
+    book_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    service: BookService = Depends(_get_service),
+) -> BookOwnerView:
+    """B19 — Refresh a dormant book's listing (bumps updated_at)."""
+    try:
+        return await service.relist_book(book_id, user.id)
+    except BookError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
 @router.post("/{book_id}/favorite", status_code=204)

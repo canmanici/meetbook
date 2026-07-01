@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  Switch,
   Image,
   StyleSheet,
   useColorScheme,
@@ -19,10 +18,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { palette, spacing, fontSize, radius, shadows } from '@/components/ui/tokens';
 import { Avatar } from '@/components/ui/avatar';
-import { getExchange } from '@/lib/api/client';
-import { getChatSettings, updateChatSettings } from '@/lib/api/chat';
+import { getExchange, authedRequest } from '@/lib/api/client';
+import { getChatSettings, updateChatSettings, type ChatSettingsView } from '@/lib/api/chat';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { useShadowBlocked } from '@/hooks/use-shadow-blocked';
+import { addShadowBlock, removeShadowBlock } from '@/lib/shadow-block';
 
 export default function ChatInfoScreen() {
   const { id: exchangeId } = useLocalSearchParams<{ id: string }>();
@@ -45,9 +46,13 @@ export default function ChatInfoScreen() {
     enabled: !!exchangeId,
   });
 
-  const settings = settingsData?.settings;
+  const settings = settingsData?.settings as (ChatSettingsView & { muted_until?: string | null }) | undefined;
+
+  const counterpart = exchange?.counterpart;
+  const book = exchange?.book;
 
   const toast = useToast();
+  const { isBlocked, reload } = useShadowBlocked();
   const [showWallpaperPicker, setShowWallpaperPicker] = useState(false);
 
   const WALLPAPER_OPTIONS: { label: string; colors: string[] }[] = [
@@ -59,10 +64,56 @@ export default function ChatInfoScreen() {
     { label: 'Gece', colors: ['#232526', '#414345'] },
   ];
 
-  const handleToggleMute = async () => {
-    if (!exchangeId || !settings) return;
-    await updateChatSettings(exchangeId, { is_muted: !settings.is_muted });
-    queryClient.invalidateQueries({ queryKey: ['chat-settings', exchangeId] });
+  const muteCountdown = useMemo(() => {
+    if (!settings?.is_muted) return null;
+    if (!settings.muted_until) return 'Süresiz';
+    const remaining = new Date(settings.muted_until).getTime() - Date.now();
+    if (remaining <= 0) return null;
+    const hours = Math.floor(remaining / 3600000);
+    const mins = Math.floor((remaining % 3600000) / 60000);
+    if (hours >= 24) {
+      const days = Math.floor(hours / 24);
+      return `${days} gün kaldı`;
+    }
+    if (hours > 0) return `${hours}sa ${mins}dk kaldı`;
+    return `${mins}dk kaldı`;
+  }, [settings]);
+
+  const handleMute = async (duration: string) => {
+    if (!exchangeId) return;
+    try {
+      await authedRequest(`/exchanges/${exchangeId}/chat/mute`, 'POST', { duration });
+      queryClient.invalidateQueries({ queryKey: ['chat-settings', exchangeId] });
+      toast.show('Sohbet sessize alındı', { variant: 'success' });
+    } catch {
+      toast.show('İşlem başarısız', { variant: 'error' });
+    }
+  };
+
+  const handleUnmute = async () => {
+    if (!exchangeId) return;
+    try {
+      await authedRequest(`/exchanges/${exchangeId}/chat/unmute`, 'POST', undefined);
+      queryClient.invalidateQueries({ queryKey: ['chat-settings', exchangeId] });
+      toast.show('Ses açıldı', { variant: 'info' });
+    } catch {
+      toast.show('İşlem başarısız', { variant: 'error' });
+    }
+  };
+
+  const handleMutePicker = () => {
+    if (!exchangeId) return;
+    const options: Array<{ text: string; onPress?: () => void; style?: 'destructive' | 'cancel' }> = [
+      { text: '1 saat', onPress: () => handleMute('1h') },
+      { text: '8 saat', onPress: () => handleMute('8h') },
+      { text: '1 hafta', onPress: () => handleMute('1w') },
+      { text: 'Süresiz', onPress: () => handleMute('forever') },
+    ];
+    if (settings?.is_muted) {
+      options.push({ text: 'Sesi Aç', onPress: handleUnmute, style: 'destructive' });
+    }
+    options.push({ text: 'İptal', style: 'cancel' });
+    Alert.alert('Sessize Al', 'Süre seçin', options);
   };
 
   const handleWallpaperPick = async (gradientColors: string[]) => {
@@ -149,8 +200,63 @@ export default function ChatInfoScreen() {
     );
   };
 
-  const counterpart = exchange?.counterpart;
-  const book = exchange?.book;
+  const handleShadowBlock = () => {
+    const counterpartId = counterpart?.id;
+    if (!counterpartId) return;
+    const alreadyShadowed = isBlocked(counterpartId);
+    Alert.alert(
+      'Gölge Engelle',
+      alreadyShadowed
+        ? 'Bu kullanıcının gölge engellemesini kaldırmak istiyor musunuz?'
+        : 'Bu kullanıcıyı gölge engellemek istiyor musunuz? Gölge engellenen kullanıcılar mesajlarını gönderir ancak siz onları görmezsiniz.',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: alreadyShadowed ? 'Kaldır' : 'Gölge Engelle',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (alreadyShadowed) {
+                await removeShadowBlock(counterpartId);
+                toast.show('Gölge engelleme kaldırıldı', { variant: 'info' });
+              } else {
+                await addShadowBlock(counterpartId);
+                toast.show('Gölge engellendi', { variant: 'success' });
+              }
+              await reload();
+            } catch {
+              toast.show('İşlem başarısız', { variant: 'error' });
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleClearHistory = () => {
+    if (!exchangeId) return;
+    Alert.alert(
+      'Sohbet Geçmişini Temizle',
+      'Tüm mesajlar silinecek. Emin misin?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Temizle',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await authedRequest(`/exchanges/${exchangeId}/chat/messages`, 'DELETE', undefined);
+              queryClient.invalidateQueries({ queryKey: ['chat-settings', exchangeId] });
+              queryClient.invalidateQueries({ queryKey: ['chats'] });
+              toast.show('Sohbet geçmişi temizlendi', { variant: 'info' });
+            } catch {
+              toast.show('İşlem başarısız', { variant: 'error' });
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <ScrollView
@@ -207,18 +313,25 @@ export default function ChatInfoScreen() {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Ayarlar</Text>
 
         {/* Mute */}
-        <View style={styles.settingRow}>
+        <TouchableOpacity style={styles.settingRow} onPress={handleMutePicker}>
           <View style={styles.settingLeft}>
             <Ionicons name="notifications-off-outline" size={22} color={colors.text} />
-            <Text style={[styles.settingLabel, { color: colors.text }]}>Sessize Al</Text>
+            <View style={styles.muteLabelWrap}>
+              <Text style={[styles.settingLabel, { color: colors.text }]}>Sessize Al</Text>
+              {settings?.is_muted && muteCountdown && (
+                <Text style={[styles.muteCountdown, { color: colors.textMuted }]}>
+                  {muteCountdown}
+                </Text>
+              )}
+            </View>
           </View>
-          <Switch
-            value={settings?.is_muted ?? false}
-            onValueChange={handleToggleMute}
-            trackColor={{ false: colors.border, true: colors.primary + '50' }}
-            thumbColor={settings?.is_muted ? colors.primary : colors.textMuted}
-          />
-        </View>
+          <View style={styles.settingRight}>
+            <Text style={[styles.settingValue, { color: colors.textMuted }]}>
+              {settings?.is_muted ? 'Açık' : 'Kapalı'}
+            </Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </View>
+        </TouchableOpacity>
 
         {/* Wallpaper */}
         <TouchableOpacity
@@ -305,6 +418,40 @@ export default function ChatInfoScreen() {
           <Ionicons name="ban-outline" size={20} color={colors.danger} />
           <Text style={[styles.dangerText, { color: colors.danger }]}>Engelle</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.dangerRow}
+          onPress={handleShadowBlock}
+          disabled={!counterpart?.id}
+          testID="shadow-block-toggle"
+          accessibilityRole="button"
+          accessibilityLabel={
+            counterpart?.id && isBlocked(counterpart.id)
+              ? 'Gölge engeli kaldır'
+              : 'Gölge engelle'
+          }
+        >
+          <Ionicons name="eye-off-outline" size={20} color={colors.danger} />
+          <Text style={[styles.dangerText, { color: colors.danger }]}>
+            {counterpart?.id && isBlocked(counterpart.id)
+              ? 'Gölge Engeli Kaldır'
+              : 'Gölge Engelle'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.dangerRow}
+          onPress={handleClearHistory}
+          disabled={!exchangeId}
+          testID="clear-history-btn"
+          accessibilityRole="button"
+          accessibilityLabel="Sohbet geçmişini temizle"
+        >
+          <Ionicons name="trash-outline" size={20} color={colors.danger} />
+          <Text style={[styles.dangerText, { color: colors.danger }]}>
+            Sohbet Geçmişini Temizle
+          </Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -373,6 +520,8 @@ const styles = StyleSheet.create({
   },
   settingLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   settingLabel: { fontSize: fontSize.body },
+  muteLabelWrap: { gap: 2 },
+  muteCountdown: { fontSize: fontSize.caption },
   settingRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   settingValue: { fontSize: fontSize.bodySm },
   wallpaperPicker: {

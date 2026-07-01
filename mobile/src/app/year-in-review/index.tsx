@@ -109,8 +109,8 @@ function useCountUp(target: number, active: boolean, duration = 1100): number {
 
 async function loadYearInReview(): Promise<YirStats> {
   const [received, sent] = await Promise.all([
-    listExchanges({ role: 'received', status: 'completed', limit: 200 }),
-    listExchanges({ role: 'sent', status: 'completed', limit: 200 }),
+    listExchanges({ role: 'received', status: 'completed', limit: 50 }),
+    listExchanges({ role: 'sent', status: 'completed', limit: 50 }),
   ]);
 
   const seen = new Set<string>();

@@ -7,7 +7,13 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.modules.books.models import BookCategory, BookCondition
 from app.modules.books.schemas import LocationOutput, PhotoView
-from app.modules.exchanges.models import ExchangeMode, ExchangeStatus, ExtensionStatus, MeetupValidationStatus
+from app.modules.exchanges.models import (
+    ExchangeMode,
+    ExchangeStatus,
+    ExtensionStatus,
+    MeetupValidationStatus,
+    ReadingBuddyStatus,
+)
 from app.modules.places.schemas import PlaceSummary
 
 # Allowed loan durations (days): the three quick buttons plus a 1-90 manual range.
@@ -71,6 +77,10 @@ class MeetupProposeRequest(BaseModel):
 class MeetupAcceptRequest(BaseModel):
     offer_index: int = Field(ge=0, le=4, default=0)
     acknowledge_warning: bool = False
+
+
+class ReadingBuddyRequest(BaseModel):
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +155,17 @@ class MeetupDetail(BaseModel):
     updated_at: datetime
 
 
+class ReadingBuddyView(BaseModel):
+    id: uuid.UUID
+    exchange_id: uuid.UUID
+    user_id: uuid.UUID
+    buddy_id: uuid.UUID
+    chat_id: uuid.UUID | None = None
+    book_id: uuid.UUID
+    status: ReadingBuddyStatus
+    created_at: datetime
+
+
 class ExchangeDetail(BaseModel):
     id: uuid.UUID
     book: BookSummary
@@ -165,6 +186,11 @@ class ExchangeDetail(BaseModel):
     returned_marked_by: uuid.UUID | None = None
     extension_status: ExtensionStatus = ExtensionStatus.none
     extension_requested_days: int | None = None
+    # B20: book retirement flow
+    retired_by: uuid.UUID | None = None
+    retired_at: datetime | None = None
+    # B24: reading buddy matching
+    reading_buddy: ReadingBuddyView | None = None
     created_at: datetime
     updated_at: datetime
     expires_at: datetime

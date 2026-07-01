@@ -221,12 +221,19 @@ class ExchangeRepository:
     # -----------------------------------------------------------------------
 
     async def is_in_turkey(self, lat: float, lng: float) -> bool:
+        # Use ST_DWithin with 2km buffer instead of ST_Contains so coastal
+        # locations (e.g. Kadıköy/Moda, Dolmabahçe) aren't rejected due to
+        # the hand-drawn polygon's coarse coastline. 2km keeps Greek islands
+        # like Rhodes (~20km off coast) excluded.  See gh issue #xxx.
         stmt = text(
-            "SELECT ST_Contains(geom::geometry, "
-            "ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)) "
+            "SELECT ST_DWithin(geom, "
+            "ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, "
+            ":buffer) "
             "FROM country_boundaries WHERE name = 'turkey'"
         )
-        result = await self.session.execute(stmt, {"lat": lat, "lng": lng})
+        result = await self.session.execute(
+            stmt, {"lat": lat, "lng": lng, "buffer": 2000}
+        )
         return bool(result.scalar())
 
     async def is_near_blocked_place(self, lat: float, lng: float, radius_m: float = 100) -> bool:

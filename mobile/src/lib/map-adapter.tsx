@@ -133,12 +133,30 @@ const RealMapView = forwardRef<any, any>(
         ? deltaToZoom(region.latitudeDelta)
         : 12;
 
-    // MapLibre's onPress passes a GeoJSON Feature with [lng, lat] coords.
-    // Adapt to react-native-maps style { nativeEvent: { coordinate: { latitude, longitude } } }
+    // Adapt MapLibre onPress → react-native-maps style { nativeEvent: { coordinate: { lat, lng } } }
+    // v11+ : event is NativeSyntheticEvent → event.nativeEvent.lngLat: [lng, lat]
+    // v10   : event is a GeoJSON Feature → event.geometry.coordinates: [lng, lat]
     const handlePress = useCallback(
-      (feature: any) => {
-        if (onPress && feature?.geometry?.coordinates) {
-          const [lng, lat] = feature.geometry.coordinates;
+      (event: any) => {
+        if (!onPress) return;
+
+        let lng: number | undefined;
+        let lat: number | undefined;
+
+        // v11 NativeSyntheticEvent: { nativeEvent: { lngLat: [lng, lat], point: [x, y] } }
+        const nativeEvent = event?.nativeEvent;
+        if (nativeEvent?.lngLat) {
+          lng = nativeEvent.lngLat[0];
+          lat = nativeEvent.lngLat[1];
+        }
+
+        // v10 fallback: direct GeoJSON Feature with geometry.coordinates
+        if (lat == null && event?.geometry?.coordinates) {
+          lng = event.geometry.coordinates[0];
+          lat = event.geometry.coordinates[1];
+        }
+
+        if (lat != null && lng != null) {
           onPress({
             nativeEvent: {
               coordinate: { latitude: lat, longitude: lng },

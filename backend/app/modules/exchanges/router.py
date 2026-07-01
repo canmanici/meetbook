@@ -24,6 +24,7 @@ from app.modules.exchanges.schemas import (
     MeetupAcceptRequest,
     MeetupProposeRequest,
     MeetupSuggestionsResponse,
+    ReadingBuddyView,
     ReturnRequest,
 )
 from app.modules.exchanges.service import ExchangeError, ExchangeService
@@ -274,6 +275,19 @@ async def propose_meetup(
         raise HTTPException(status_code=e.status_code, detail=e.code)
 
 
+@router.put("/{exchange_id}/meetup", response_model=ExchangeDetail)
+async def reschedule_meetup(
+    exchange_id: uuid.UUID,
+    body: MeetupProposeRequest,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> ExchangeDetail:
+    try:
+        return await service.reschedule_meetup(exchange_id, user.id, body)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
 @router.post("/{exchange_id}/meetup/accept", response_model=ExchangeDetail)
 async def accept_meetup(
     exchange_id: uuid.UUID,
@@ -310,3 +324,61 @@ async def meetup_suggestions(
     except ExchangeError as e:
         raise HTTPException(status_code=e.status_code, detail=e.code)
     return MeetupSuggestionsResponse(items=items)
+
+
+# ---------------------------------------------------------------------------
+# B20: Book Retirement Flow
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{exchange_id}/retire-book", response_model=ExchangeDetail)
+async def retire_book(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> ExchangeDetail:
+    try:
+        return await service.retire_book(exchange_id, user.id)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+# ---------------------------------------------------------------------------
+# B24: Reading Buddy Matching
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{exchange_id}/reading-buddy", response_model=ReadingBuddyView, status_code=201)
+async def create_reading_buddy(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> ReadingBuddyView:
+    try:
+        return await service.create_reading_buddy(exchange_id, user.id)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.post("/{exchange_id}/reading-buddy/accept", response_model=ReadingBuddyView)
+async def accept_reading_buddy(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> ReadingBuddyView:
+    try:
+        return await service.accept_reading_buddy(exchange_id, user.id, accept=True)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.post("/{exchange_id}/reading-buddy/decline", response_model=ReadingBuddyView)
+async def decline_reading_buddy(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> ReadingBuddyView:
+    try:
+        return await service.accept_reading_buddy(exchange_id, user.id, accept=False)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)

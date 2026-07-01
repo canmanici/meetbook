@@ -18,12 +18,15 @@ from app.modules.auth.trust import compute_trust
 from app.modules.books.repository import BookRepository, BookRow, encode_cursor
 from app.modules.books.schemas import LocationOutput, PhotoView
 from app.modules.exchanges.models import (
+    Chat,
     ExchangeMode,
     ExchangeRequest,
     ExchangeStatus,
     ExtensionStatus,
     Meetup,
     MeetupValidationStatus,
+    ReadingBuddy,
+    ReadingBuddyStatus,
 )
 from app.modules.exchanges.repository import ExchangeRepository, Role
 from app.modules.exchanges.schemas import (
@@ -41,6 +44,7 @@ from app.modules.exchanges.schemas import (
     MeetupDetail,
     MeetupOfferView,
     MeetupProposeRequest,
+    ReadingBuddyView,
     ReturnRequest,
     TrustView,
 )
@@ -151,6 +155,10 @@ class ExchangeService:
         if counterpart is None:
             raise ExchangeError("NOT_FOUND", 404)
         meetup = await self.repo.get_meetup(request.id)
+        rb_result = await self.session.execute(
+            select(ReadingBuddy).where(ReadingBuddy.exchange_id == request.id)
+        )
+        reading_buddy = rb_result.scalar_one_or_none()
         return ExchangeDetail(
             id=request.id,
             book=_book_summary(book_row, photos),
@@ -172,9 +180,27 @@ class ExchangeService:
             returned_marked_by=request.returned_marked_by,
             extension_status=request.extension_status,
             extension_requested_days=request.extension_requested_days,
+            retired_by=request.retired_by,
+            retired_at=request.retired_at,
+            reading_buddy=self._reading_buddy_view(reading_buddy)
+            if reading_buddy is not None
+            else None,
             created_at=request.created_at,
             updated_at=request.updated_at,
             expires_at=request.expires_at,
+        )
+
+    @staticmethod
+    def _reading_buddy_view(buddy: ReadingBuddy) -> ReadingBuddyView:
+        return ReadingBuddyView(
+            id=buddy.id,
+            exchange_id=buddy.exchange_id,
+            user_id=buddy.user_id,
+            buddy_id=buddy.buddy_id,
+            chat_id=buddy.chat_id,
+            book_id=buddy.book_id,
+            status=buddy.status,
+            created_at=buddy.created_at,
         )
 
     async def _to_summary(self, request: ExchangeRequest, role: Role) -> ExchangeSummary:
@@ -672,3 +698,179 @@ class ExchangeService:
             lng = (lng + other_lng) / 2
 
         return await places_service.nearby(self.redis, lat, lng)
+
+    # -----------------------------------------------------------------------
+    # B20: Book Retirement Flow
+    # -----------------------------------------------------------------------
+
+    async def retire_book(
+        self, exchange_id: uuid.UUID, current_user_id: uuid.UUID
+    ) -> ExchangeDetail:
+        """Mark a traded book as retired by the user who received it in trade."""
+        request = await self.repo.get_for_update(exchange_id)
+        participants = (request.requested_by, request.requested_to) if request else ()
+        if request is None or current_user_id not in participants:
+            raise ExchangeError("NOT_FOUND", 404)
+        if request.status is not ExchangeStatus.completed:
+            raise ExchangeError("NOT_COMPLETED", 409)
+        if request.mode is not ExchangeMode.trade:
+            raise ExchangeError("NOT_A_TRADE", 409)
+        # The receiver of the book in a trade is the requester.
+        if current_user_id != request.requested_by:
+            raise ExchangeError("WRONG_ACTOR", 409)
+        if request.retired_at is not None:
+            raise ExchangeError("ALREADY_RETIRED", 409)
+
+        book_row = await self.books_repo.get_by_id(request.book_id)
+        if book_row is not None:
+            await self.books_repo.update(book_row.book, {"is_available": False})
+
+        now = datetime.now(UTC)
+        request.retired_by = current_user_id
+        request.retired_at = now
+        request.updated_at = now
+        await self.session.commit()
+        return await self._to_detail(request, current_user_id)
+
+    # -----------------------------------------------------------------------
+    # B21: Meetup Reschedule
+    # -----------------------------------------------------------------------
+
+    async def reschedule_meetup(
+        self, exchange_id: uuid.UUID, current_user_id: uuid.UUID, body: MeetupProposeRequest
+    ) -> ExchangeDetail:
+        """Reschedule an already-confirmed meetup, reusing the existing meetup row."""
+        request = await self.repo.get_for_update(exchange_id)
+        participants = (request.requested_by, request.requested_to) if request else ()
+        if request is None or current_user_id not in participants:
+            raise ExchangeError("NOT_FOUND", 404)
+        if request.status is not ExchangeStatus.meetup_confirmed:
+            raise ExchangeError("NOT_CONFIRMED", 409)
+        existing = await self.repo.get_meetup(request.id)
+        if existing is None:
+            raise ExchangeError("NOT_FOUND", 404)
+
+        offer_dicts = []
+        any_warning = False
+        for offer in body.offers:
+            if not in_turkey_bbox(offer.lat, offer.lng) or not await self.repo.is_in_turkey(
+                offer.lat, offer.lng
+            ):
+                raise ExchangeError("OUTSIDE_TURKEY", 400)
+            if await self.repo.is_near_blocked_place(offer.lat, offer.lng):
+                raise ExchangeError("BLOCKED_PLACE", 400)
+            validation_status = (
+                MeetupValidationStatus.auto
+                if offer.category in places_service.SAFE_CATEGORIES
+                else MeetupValidationStatus.warning
+            )
+            if validation_status == MeetupValidationStatus.warning:
+                any_warning = True
+            offer_dicts.append(
+                {**offer.model_dump(mode="json"), "validation_status": validation_status.value}
+            )
+
+        primary = body.offers[0]
+        primary_validation_status = MeetupValidationStatus(offer_dicts[0]["validation_status"])
+
+        await self.repo.upsert_meetup(
+            request.id,
+            {
+                "place_id": primary.place_id,
+                "place_name": primary.place_name,
+                "address": primary.address,
+                "category": primary.category,
+                "lat": primary.lat,
+                "lng": primary.lng,
+                "validation_status": primary_validation_status,
+                "scheduled_at": primary.scheduled_at,
+                "proposed_by": current_user_id,
+                "proposer_acknowledged": body.acknowledge_warning if any_warning else False,
+                "other_acknowledged": False,
+                "offers": offer_dicts,
+            },
+        )
+
+        # Back to proposed so the counterpart must re-confirm the new time/place.
+        request.status = ExchangeStatus.meetup_proposed
+        request.updated_at = datetime.now(UTC)
+        await self.session.commit()
+        return await self._to_detail(request, current_user_id)
+
+    # -----------------------------------------------------------------------
+    # B24: Reading Buddy Matching
+    # -----------------------------------------------------------------------
+
+    async def create_reading_buddy(
+        self, exchange_id: uuid.UUID, current_user_id: uuid.UUID
+    ) -> ReadingBuddyView:
+        """Invite the exchange counterpart to become a reading buddy."""
+        request = await self.repo.get(exchange_id)
+        participants = (request.requested_by, request.requested_to) if request else ()
+        if request is None or current_user_id not in participants:
+            raise ExchangeError("NOT_FOUND", 404)
+        if request.status is not ExchangeStatus.completed:
+            raise ExchangeError("NOT_COMPLETED", 409)
+
+        buddy_id = (
+            request.requested_to
+            if current_user_id == request.requested_by
+            else request.requested_by
+        )
+
+        existing = await self.session.execute(
+            select(ReadingBuddy).where(ReadingBuddy.exchange_id == request.id)
+        )
+        if existing.scalar_one_or_none() is not None:
+            raise ExchangeError("READING_BUDDY_EXISTS", 409)
+
+        buddy = ReadingBuddy(
+            exchange_id=request.id,
+            user_id=current_user_id,
+            buddy_id=buddy_id,
+            book_id=request.book_id,
+            status=ReadingBuddyStatus.pending,
+        )
+        self.session.add(buddy)
+        await self.session.flush()
+        await self.session.refresh(buddy)
+        await self.session.commit()
+        return self._reading_buddy_view(buddy)
+
+    async def accept_reading_buddy(
+        self, exchange_id: uuid.UUID, current_user_id: uuid.UUID, accept: bool
+    ) -> ReadingBuddyView:
+        """Accept or decline a pending reading-buddy invitation.
+
+        On accept, the existing exchange chat is reused for the reading-buddy
+        conversation (the chat module derives participants from the exchange).
+        """
+        result = await self.session.execute(
+            select(ReadingBuddy).where(ReadingBuddy.exchange_id == exchange_id)
+        )
+        buddy = result.scalar_one_or_none()
+        if buddy is None:
+            raise ExchangeError("NOT_FOUND", 404)
+        request = await self.repo.get(exchange_id)
+        participants = (request.requested_by, request.requested_to) if request else ()
+        if request is None or current_user_id not in participants:
+            raise ExchangeError("NOT_FOUND", 404)
+        if current_user_id != buddy.buddy_id:
+            raise ExchangeError("WRONG_ACTOR", 409)
+        if buddy.status is not ReadingBuddyStatus.pending:
+            raise ExchangeError("NO_PENDING_BUDDY", 409)
+
+        if accept:
+            chat_result = await self.session.execute(
+                select(Chat).where(Chat.exchange_request_id == exchange_id)
+            )
+            chat = chat_result.scalar_one_or_none()
+            if chat is not None:
+                buddy.chat_id = chat.id
+            buddy.status = ReadingBuddyStatus.accepted
+        else:
+            buddy.status = ReadingBuddyStatus.declined
+
+        await self.session.commit()
+        await self.session.refresh(buddy)
+        return self._reading_buddy_view(buddy)

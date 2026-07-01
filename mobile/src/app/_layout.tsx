@@ -118,6 +118,7 @@ export default function RootLayout() {
         </Stack.Protected>
         <Stack.Protected guard={hasOnboarded === true && status === 'authenticated'}>
           <Stack.Screen name="tabs" options={{ headerShown: false }} />
+          <Stack.Screen name="personality-books" options={{ headerShown: false }} />
           <Stack.Screen name="book" options={{ headerShown: false }} />
           <Stack.Screen name="exchange" options={{ headerShown: false }} />
           <Stack.Screen name="meetup" options={{ headerShown: false }} />

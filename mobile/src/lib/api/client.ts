@@ -803,3 +803,38 @@ export async function markGeofenceAlertRead(alertId: string): Promise<void> {
 export async function updateGeofenceRadius(radiusKm: number): Promise<MeResponse> {
   return authedRequest<MeResponse>('/auth/me', 'PATCH', { geofence_radius_km: radiusKm });
 }
+
+// ---------------------------------------------------------------------------
+// Saved Searches
+// ---------------------------------------------------------------------------
+
+export type SavedSearchItem = {
+  id: string;
+  name: string;
+  params: {
+    category: string | null;
+    radius_km: number;
+    lat: number;
+    lng: number;
+  };
+  created_at: string;
+};
+
+export async function getSavedSearches(): Promise<{ items: SavedSearchItem[] }> {
+  return authedRequest('/saved-searches', 'GET', undefined);
+}
+
+export async function createSavedSearch(body: {
+  name: string;
+  params: SavedSearchItem['params'];
+}): Promise<SavedSearchItem> {
+  return authedRequest('/saved-searches', 'POST', body);
+}
+
+export async function updateSavedSearch(id: string, body: { name: string }): Promise<SavedSearchItem> {
+  return authedRequest(`/saved-searches/${id}`, 'PUT', body);
+}
+
+export async function deleteSavedSearch(id: string): Promise<void> {
+  return authedRequest(`/saved-searches/${id}`, 'DELETE', undefined);
+}
