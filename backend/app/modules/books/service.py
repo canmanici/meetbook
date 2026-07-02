@@ -140,19 +140,56 @@ class BookService:
         names = {row.id: row.name for row in result}
         return names
 
+    async def _attach_cover(self, book_id: uuid.UUID, cover_url: str) -> BookPhoto | None:
+        """Download cover image from URL and attach as BookPhoto (best-effort)."""
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                resp = await client.get(cover_url)
+                resp.raise_for_status()
+                content_type = resp.headers.get("content-type", "image/jpeg")
+                file_bytes = resp.content
+
+            ext = content_type.split("/")[-1] if "/" in content_type else "jpg"
+            filename = f"cover.{ext}"
+            url = await _s3_upload_photo_raw(book_id, filename, file_bytes, content_type)
+
+            photo = BookPhoto(
+                book_id=book_id,
+                url=url,
+                position=0,
+            )
+            self.session.add(photo)
+            await self.session.flush()
+            return photo
+        except Exception:
+            logger.warning("Cover download/attach failed for book %s url=%s", book_id, cover_url, exc_info=True)
+            return None
+
     async def create_book(self, owner_id: uuid.UUID, body: BookCreateRequest) -> BookOwnerView:
         lat, lng = body.location.lat, body.location.lng
         if not in_turkey_bbox(lat, lng):
             raise BookError("LOCATION_OUTSIDE_TURKEY", 400)
 
         public_lat, public_lng = blur(lat, lng)
-        fields = body.model_dump(exclude={"location"})
+        fields = body.model_dump(exclude={"location", "cover_url"})
         book = await self.repo.create(
             owner_id,
             fields,
             location=make_point(lat, lng),
             public_location=make_point(public_lat, public_lng),
         )
+
+        # Download cover from URL and attach as BookPhoto (best-effort)
+        photos: list[PhotoView] = []
+        if body.cover_url:
+            try:
+                cover_photo = await self._attach_cover(book.id, body.cover_url)
+                if cover_photo:
+                    photos = [PhotoView(id=cover_photo.id, url=cover_photo.url, thumbnail_url=cover_photo.thumbnail_url, position=0)]
+            except Exception:
+                logger.warning("Cover download/attach failed for book %s", book.id, exc_info=True)
+
         await self.session.commit()
 
         await _notify_wishlist_matches(
@@ -165,7 +202,7 @@ class BookService:
 
         owner_name = await self._get_owner_name(owner_id)
         row = BookRow(book=book, location=(lat, lng), public_location=(public_lat, public_lng))
-        return _to_owner_view(row, owner_name)
+        return _to_owner_view(row, owner_name, photos=photos)
 
     async def bulk_create(
         self, owner_id: uuid.UUID, body: BookBulkCreateRequest
@@ -184,7 +221,7 @@ class BookService:
                     continue
 
                 public_lat, public_lng = blur(lat, lng)
-                fields = book_body.model_dump(exclude={"location"})
+                fields = book_body.model_dump(exclude={"location", "cover_url"})
                 book = await self.repo.create(
                     owner_id,
                     fields,
@@ -192,12 +229,22 @@ class BookService:
                     public_location=make_point(public_lat, public_lng),
                 )
 
+                # Download cover from URL and attach as BookPhoto (best-effort)
+                bulk_photos: list[PhotoView] = []
+                if book_body.cover_url:
+                    try:
+                        cover_photo = await self._attach_cover(book.id, book_body.cover_url)
+                        if cover_photo:
+                            bulk_photos = [PhotoView(id=cover_photo.id, url=cover_photo.url, thumbnail_url=cover_photo.thumbnail_url, position=0)]
+                    except Exception:
+                        logger.warning("Cover download/attach failed for book %s", book.id, exc_info=True)
+
                 row = BookRow(
                     book=book,
                     location=(lat, lng),
                     public_location=(public_lat, public_lng),
                 )
-                items.append(_to_owner_view(row, owner_name))
+                items.append(_to_owner_view(row, owner_name, photos=bulk_photos))
 
             except BookError as e:
                 failed.append(FailedBookCreate(index=idx, error=e.message))

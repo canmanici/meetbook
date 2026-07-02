@@ -165,7 +165,15 @@ export async function authedRequest<T>(
           refreshPromise = null;
         });
       }
-      await refreshPromise;
+      try {
+        await refreshPromise;
+      } catch {
+        // Refresh failed — refresh token is also expired/invalid.
+        // Clear everything and force re-login instead of looping 401s.
+        await clearTokens();
+        clearSession();
+        throw new ApiError(res.status, await res.text());
+      }
       const currentToken = useAuthStore.getState().accessToken;
       return authedRequest<T>(path, method, body, { allowRetry: false, query });
     } else {

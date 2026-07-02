@@ -147,6 +147,7 @@ async def seed() -> int:
                     name=user_data["name"],
                     is_admin=user_data["is_admin"],
                     status=user_data["status"],
+                    email_verified_at=now,  # seed users are pre-verified
                     created_at=now,
                     updated_at=now,
                 )

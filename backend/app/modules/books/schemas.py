@@ -31,6 +31,7 @@ class BookCreateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     author: str | None = Field(default=None, max_length=200)
     isbn: str | None = Field(default=None, max_length=20)
+    cover_url: str | None = Field(default=None, max_length=500)
     description: str | None = Field(default=None, max_length=2000)
     category: BookCategory
     language: str = Field(default="tr", min_length=2, max_length=10)

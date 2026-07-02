@@ -17,7 +17,7 @@ async def lookup_isbn(isbn: str) -> dict:
     # Fetch from Open Library
     url = f"https://openlibrary.org/isbn/{isbn}.json"
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             response = await client.get(url)
             if response.status_code == 200:
                 data = response.json()

@@ -121,17 +121,27 @@ const RealMapView = forwardRef<any, any>(
       ...mapRef.current!,
     }));
 
-    const center: [number, number] = initialRegion
+    const initialCenter: [number, number] = initialRegion
       ? regionToCenter(initialRegion)
       : region
         ? regionToCenter(region)
         : [28.9784, 41.0082];
 
-    const zoom = initialRegion
+    const initialZoom = initialRegion
       ? deltaToZoom(initialRegion.latitudeDelta)
       : region
         ? deltaToZoom(region.latitudeDelta)
         : 12;
+
+    // Dynamic camera target: when `region` prop changes, Camera flyTo animates
+    const cameraTarget = region
+      ? {
+          centerCoordinate: regionToCenter(region) as [number, number],
+          zoomLevel: deltaToZoom(region.latitudeDelta),
+          animationDuration: 800,
+          animationMode: 'flyTo' as const,
+        }
+      : {};
 
     // Adapt MapLibre onPress → react-native-maps style { nativeEvent: { coordinate: { lat, lng } } }
     // v11+ : event is NativeSyntheticEvent → event.nativeEvent.lngLat: [lng, lat]
@@ -185,9 +195,10 @@ const RealMapView = forwardRef<any, any>(
         <CameraComponent
           ref={cameraRef}
           initialViewState={{
-            center: center,
-            zoom,
+            center: initialCenter,
+            zoom: initialZoom,
           }}
+          {...cameraTarget}
         />
         {children}
       </MapComponent>

@@ -148,6 +148,26 @@ const DRIFT_THRESHOLD = 0.2; // 20% of viewport
 // in the viewport than we fetched. Zooming in re-queries a smaller bbox and
 // reveals the true count for that area.
 const BBOX_LIMIT = 50;
+// Zoom level at which a shelf (same-address cluster) "spiderfies" into its
+// individual book pins, spaced out around the shared point, instead of
+// staying collapsed as one +N marker. Below this zoom they'd overlap too
+// much to be tappable, so they stay merged.
+const SPIDERFY_ZOOM = 17;
+// Spread radius (degrees) for spiderfied pins — small enough to still read
+// as "the same spot" but wide enough apart to tap individually at zoom 17+.
+const SPIDERFY_RADIUS_DEG = 0.00012;
+
+function spiderfyOffset(
+  centroid: { lat: number; lng: number },
+  index: number,
+  total: number,
+): { latitude: number; longitude: number } {
+  const angle = (2 * Math.PI * index) / total;
+  const latOffset = SPIDERFY_RADIUS_DEG * Math.sin(angle);
+  const lngOffset =
+    (SPIDERFY_RADIUS_DEG * Math.cos(angle)) / Math.cos((centroid.lat * Math.PI) / 180);
+  return { latitude: centroid.lat + latOffset, longitude: centroid.lng + lngOffset };
+}
 const SAVED_SEARCHES_KEY = 'meetbook-saved-searches';
 // F11: AsyncStorage key for the last map viewport (lat/lng/zoom deltas).
 const SAVED_MAP_REGION_KEY = 'saved_map_region';
@@ -544,12 +564,14 @@ export default function HomeScreen() {
   }, [clustersQuery.data, shadowBlocked]);
   const clustersSucceeded = clustersQuery.isSuccess && clustersQuery.data !== undefined;
 
-  // Markers: use clusters singletons if any exist, otherwise fall back to ALL
-  // bbox books. This ensures markers always render when books exist, even if
-  // the clusters endpoint returns empty singletons while bbox found books.
+  // Markers: use clusters singletons when the clusters query succeeded (even
+  // if it legitimately returns zero singletons, e.g. every book on screen is
+  // clustered into a shelf). Only fall back to the raw bbox books when the
+  // clusters endpoint itself failed, so co-located books don't get rendered
+  // as overlapping singleton markers instead of a shelf marker.
   const markerBooks = useMemo(
-    () => (clustersSingletons.length > 0 ? clustersSingletons : books),
-    [clustersSingletons, books],
+    () => (clustersSucceeded ? clustersSingletons : books),
+    [clustersSucceeded, clustersSingletons, books],
   );
 
   // ── Heatmap source data (book density, §toggle) ────────────────────────────
@@ -690,10 +712,18 @@ export default function HomeScreen() {
       }
     }
 
-    if (!mapRef.current) {
+    if (!cameraRef.current) {
       toast.show('Harita hazır değil', { variant: 'error' });
       return;
     }
+
+    // Fly camera to user's location — MapLibre Camera is NOT controlled by
+    // React state after initial render; must call flyTo() on the ref.
+    cameraRef.current.flyTo({
+      center: [lng, lat],
+      zoom: deltaToZoom(0.15),
+      duration: 1000,
+    });
 
     const newRegion: Region = {
       latitude: lat,
@@ -701,7 +731,6 @@ export default function HomeScreen() {
       latitudeDelta: 0.15,
       longitudeDelta: 0.15,
     };
-    // MapLibre Camera handles position via initialViewState/state
     setMapRegion(newRegion);
     setQueryBbox(regionToBbox(newRegion));
     lastQueriedCenterRef.current = { lat, lng };
@@ -855,13 +884,16 @@ export default function HomeScreen() {
 
   // ── Render singleton marker ────────────────────────────────────────────────
   const renderSingleton = useCallback(
-    (book: BookSearchResult) => {
-      if (!book.public_location) return null;
+    (book: BookSearchResult, coordinateOverride?: { latitude: number; longitude: number }) => {
+      const coordinate = coordinateOverride ?? (book.public_location
+        ? { latitude: book.public_location.lat, longitude: book.public_location.lng }
+        : null);
+      if (!coordinate) return null;
       const variant = getSingletonVariant(book);
       return (
         <BookMarker
           key={book.id}
-          coordinate={{ latitude: book.public_location.lat, longitude: book.public_location.lng }}
+          coordinate={coordinate}
           coverUrl={book.photos?.[0]?.url ?? null}
           thumbnailUrl={book.photos?.[0]?.thumbnail_url ?? null}
           title={book.title}
@@ -878,6 +910,20 @@ export default function HomeScreen() {
       );
     },
     [handleMarkerPress, selectedBook?.id, mapRegion.latitudeDelta, isDark],
+  );
+
+  // ── Render a shelf cluster "spiderfied" into its individual book pins ──────
+  // Used once the map is zoomed in past SPIDERFY_ZOOM, so co-located books
+  // become tappable side-by-side pins instead of one collapsed +N marker.
+  const renderSpiderfiedCluster = useCallback(
+    (cluster: ClusterPoint) => {
+      const members = books.filter((b) => cluster.book_ids.includes(b.id));
+      if (members.length === 0) return null;
+      return members.map((book, index) =>
+        renderSingleton(book, spiderfyOffset(cluster.centroid, index, members.length)),
+      );
+    },
+    [books, renderSingleton],
   );
 
   // ── Render shelf marker (from backend clusters) ────────────────────────────
@@ -971,6 +1017,7 @@ export default function HomeScreen() {
         distanceKm={item.distance_km}
         coverUrl={item.photos?.[0]?.url}
         onPress={() => router.push(`/book/${item.id}`)}
+        onBookDetail={() => router.push(`/book/${item.id}`)}
         onFavorite={() => {
           if (favoritesStore.isFavorited(item.id)) {
             favoritesStore.removeFavorite(item.id);
@@ -1051,10 +1098,15 @@ export default function HomeScreen() {
           attribution={false}
           mapStyle={mapStyle}
           onRegionDidChange={(event: any) => {
-            const geo = event.geometry;
-            if (geo) {
-              const [lng, lat] = geo.coordinates;
-              const zoom = event.properties?.zoom ?? 12;
+            // maplibre-react-native v11 delivers a NativeSyntheticEvent whose
+            // payload is { center: [lng, lat], zoom, ... } on event.nativeEvent —
+            // not the pre-v11 GeoJSON feature ({ geometry, properties.zoomLevel }).
+            // Support both so mapRegion actually tracks pan/zoom.
+            const ne = event?.nativeEvent ?? event;
+            const center = ne?.center ?? event?.geometry?.coordinates;
+            if (center) {
+              const [lng, lat] = center;
+              const zoom = ne?.zoom ?? event?.properties?.zoomLevel ?? 12;
               const delta = 360 / Math.pow(2, zoom);
               const region: Region = {
                 latitude: lat,
@@ -1116,10 +1168,14 @@ export default function HomeScreen() {
             return renderSingleton(book);
           }, 'markerBooks')}
 
-          {/* Shelf markers from backend clusters (30m grouping, §3.4 shelf variant) */}
-          {safeMap(clusters, (cluster) => (
-            renderShelf(cluster)
-          ), 'clusters')}
+          {/* Shelf markers from backend clusters (30m grouping, §3.4 shelf variant).
+              Past SPIDERFY_ZOOM, expand each shelf into its individual book pins
+              spaced around the shared point instead of one collapsed +N marker. */}
+          {safeMap(clusters, (cluster) =>
+            deltaToZoom(mapRegion.latitudeDelta) >= SPIDERFY_ZOOM
+              ? renderSpiderfiedCluster(cluster)
+              : renderShelf(cluster)
+          , 'clusters')}
 
           {/* Radius circle (geofence visualization, §3.8) */}
           {userLocation && (

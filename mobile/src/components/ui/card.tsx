@@ -38,7 +38,7 @@ interface BookCardProps {
   category?: string;
   distanceKm?: number;
   onPress?: () => void;
-  onRequestExchange?: () => void;
+  onBookDetail?: () => void;
   onFavorite?: () => void;
   style?: ViewStyle;
   testID?: string;
@@ -68,7 +68,7 @@ export const BookCard: React.FC<BookCardProps> = ({
   category,
   distanceKm,
   onPress,
-  onRequestExchange,
+  onBookDetail,
   onFavorite,
   style,
   testID,
@@ -145,8 +145,8 @@ export const BookCard: React.FC<BookCardProps> = ({
           <View style={styles.actionsRow}>
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={onRequestExchange}
-              testID="exchange-button"
+              onPress={onBookDetail}
+              testID="book-detail-button"
               style={styles.exchangeButtonWrap}
             >
               <LinearGradient
@@ -155,8 +155,8 @@ export const BookCard: React.FC<BookCardProps> = ({
                 end={{ x: 1, y: 1 }}
                 style={styles.exchangeButton}
               >
-                <Ionicons name="swap-horizontal" size={16} color="#fff" />
-                <Text style={styles.exchangeButtonText}>Takas İste</Text>
+                <Ionicons name="arrow-forward" size={16} color="#fff" />
+                <Text style={styles.exchangeButtonText}>kitaba git</Text>
               </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity

@@ -5,6 +5,7 @@ Fix android/app/build.gradle after `expo prebuild`:
   2. Add ndk abiFilters for arm64-v8a only
   3. Fix duplicate signingConfig lines in debug buildType
   4. Enable R8 minification and resource shrinking for release
+  5. Sync versionName/versionCode from app.json + .version-code (build-release.sh passes them)
 """
 import re, os, sys
 
@@ -14,6 +15,17 @@ with open(BUILD_GRADLE, "r") as f:
     content = f.read()
 
 changes = []
+
+# ── 0. Sync versionName/versionCode (args: versionName versionCode) ────────
+# expo prebuild only writes these on first generation, so without this the
+# gradle file silently drifts from app.json on every later build.
+if len(sys.argv) >= 3:
+    version_name, version_code = sys.argv[1], sys.argv[2]
+    new_content = re.sub(r'versionCode\s+\d+', f'versionCode {version_code}', content)
+    new_content = re.sub(r'versionName\s+"[^"]*"', f'versionName "{version_name}"', new_content)
+    if new_content != content:
+        content = new_content
+        changes.append(f"Synced versionName={version_name} versionCode={version_code}")
 
 # ── 1. Fix signingConfigs: remove nested release inside debug ──────────────
 # The bug: expo generates:

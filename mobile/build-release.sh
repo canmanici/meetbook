@@ -11,7 +11,17 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-echo "🔨 MeetBook v1.0.0 — Production APK Build"
+# ── Versioning ────────────────────────────────────────────────────────────
+# app.json (expo.version) is the single source of truth for the human-facing
+# version. versionCode is a separate monotonically-increasing build counter
+# (Android requires it to strictly increase between releases), persisted in
+# .version-code and bumped once per invocation of this script.
+VERSION=$(python3 -c "import json; print(json.load(open('app.json'))['expo']['version'])")
+VERSION_CODE_FILE=".version-code"
+VERSION_CODE=$(($(cat "$VERSION_CODE_FILE" 2>/dev/null || echo 0) + 1))
+echo "$VERSION_CODE" > "$VERSION_CODE_FILE"
+
+echo "🔨 MeetBook v$VERSION (build $VERSION_CODE) — Production APK Build"
 echo "   API: https://canmanici.com/meetbook/api/v1"
 echo "   ABIs: arm64-v8a"
 echo ""
@@ -26,7 +36,9 @@ else
 fi
 
 # ── Fix build.gradle (expo prebuild generates a broken signingConfigs block) ─
-python3 fix-android-build.py
+# Also syncs versionName/versionCode every run, since prebuild only writes them
+# once and android/ is normally reused across builds.
+python3 fix-android-build.py "$VERSION" "$VERSION_CODE"
 
 # ── Keystore ──────────────────────────────────────────────────────────────
 KEYSTORE="android/app/release.keystore"
@@ -74,13 +86,15 @@ APK=$(find "$APK_DIR" -name "*.apk" 2>/dev/null | head -1)
 
 if [ -f "$APK" ]; then
     SIZE=$(du -sh "$APK" | cut -f1)
+    OUT="../meetbook-v${VERSION}-build${VERSION_CODE}-release.apk"
+    cp "$APK" "$OUT"
     echo ""
     echo "✅ BUILD SUCCESSFUL — $SIZE"
     echo "   $APK"
+    echo "   $OUT"
     echo ""
-    echo "📱 Install: adb install $APK"
+    echo "📱 Install: adb install $OUT"
     echo "   (adb uninstall com.canmanici.meetbook first if switching debug→release)"
-    cp "$APK" ../meetbook-v1.0.0-release.apk 2>/dev/null
 else
     echo "❌ BUILD FAILED"
     exit 1

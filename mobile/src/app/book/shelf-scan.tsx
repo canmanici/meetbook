@@ -14,8 +14,17 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 
+import { ChipSelect } from '@/components/chip-select';
+import {
+  BOOK_CATEGORIES,
+  BOOK_CATEGORY_LABELS,
+  BOOK_CONDITIONS,
+  BOOK_CONDITION_LABELS,
+  type BookCategory,
+  type BookCondition,
+} from '@/constants/books';
 import { Button, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
-import { createBook, lookupISBN } from '@/lib/api/client';
+import { createBook, lookupISBN, updateBook } from '@/lib/api/client';
 import { useBookDraftStore } from '@/stores/book-draft-store';
 
 type BarcodeScanResult = {
@@ -66,6 +75,15 @@ export default function ShelfScanScreen() {
   const [totalToProcess, setTotalToProcess] = useState(0);
 
   const [bookLocation, setBookLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Review mode — after all books are created, let user pick category/condition
+  const [reviewMode, setReviewMode] = useState(false);
+  const [reviews, setReviews] = useState<Array<{
+    bookId: string;
+    title: string;
+    category: BookCategory;
+    condition: BookCondition;
+  }>>([]);
 
   const setScannedISBN = useBookDraftStore((state) => state.setScannedISBN);
 
@@ -152,6 +170,7 @@ export default function ShelfScanScreen() {
             title: lookup.title,
             author: lookup.author || undefined,
             isbn: item.isbn,
+            cover_url: lookup.cover_url,
             description: lookup.description || undefined,
             category: 'other',
             language: 'tr',
@@ -178,8 +197,18 @@ export default function ShelfScanScreen() {
     setIsProcessing(false);
     await queryClient.invalidateQueries({ queryKey: ['books', 'me'] });
 
-    const hasFailed = scannedBooksRef.current.some((b) => b.status === 'failed');
-    if (!hasFailed) {
+    const doneBooks = scannedBooksRef.current.filter((b) => b.status === 'done');
+    if (doneBooks.length > 0) {
+      setReviews(
+        doneBooks.map((b) => ({
+          bookId: b.bookId!,
+          title: b.title || 'İsimsiz Kitap',
+          category: 'other' as BookCategory,
+          condition: 'good' as BookCondition,
+        })),
+      );
+      setReviewMode(true);
+    } else {
       router.replace('/tabs/my-books');
     }
   };
@@ -189,8 +218,77 @@ export default function ShelfScanScreen() {
     router.push('/book/new');
   };
 
+  const onSaveReviews = async () => {
+    try {
+      for (const r of reviews) {
+        await updateBook(r.bookId, {
+          category: r.category,
+          condition: r.condition,
+        });
+      }
+      await queryClient.invalidateQueries({ queryKey: ['books', 'me'] });
+    } catch {
+      // best-effort — book is already created, category/condition can be edited later
+    }
+    router.replace('/tabs/my-books');
+  };
+
+  const onReviewChange = (bookId: string, field: 'category' | 'condition', value: string) => {
+    setReviews((prev) =>
+      prev.map((r) => (r.bookId === bookId ? { ...r, [field]: value } : r)),
+    );
+  };
+
   const pendingCount = scannedBooks.filter((b) => b.status === 'pending').length;
   const doneCount = scannedBooks.filter((b) => b.status === 'done').length;
+
+  if (reviewMode) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.reviewHeader}>
+          <Text style={[styles.reviewTitle, { color: colors.text }]}>
+            Kategori ve Durum Seç
+          </Text>
+          <Text style={[styles.reviewSubtitle, { color: colors.textMuted }]}>
+            {reviews.length} kitap eklendi. Varsayılan değerleri düzenleyebilirsiniz.
+          </Text>
+        </View>
+
+        <FlatList
+          data={reviews}
+          keyExtractor={(r) => r.bookId}
+          contentContainerStyle={styles.reviewList}
+          renderItem={({ item }) => (
+            <View style={[styles.reviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.reviewBookTitle, { color: colors.text }]} numberOfLines={1}>
+                {item.title}
+              </Text>
+              <ChipSelect
+                label="Kategori"
+                options={BOOK_CATEGORIES}
+                labels={BOOK_CATEGORY_LABELS}
+                value={item.category}
+                onChange={(val) => onReviewChange(item.bookId, 'category', val)}
+              />
+              <ChipSelect
+                label="Durum"
+                options={BOOK_CONDITIONS}
+                labels={BOOK_CONDITION_LABELS}
+                value={item.condition}
+                onChange={(val) => onReviewChange(item.bookId, 'condition', val)}
+              />
+            </View>
+          )}
+        />
+
+        <View style={styles.reviewFooter}>
+          <Button onPress={onSaveReviews} testID="shelf-scan-save-reviews">
+            Kaydet ve Çık
+          </Button>
+        </View>
+      </View>
+    );
+  }
 
   if (permission === undefined) {
     return (
@@ -494,5 +592,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xl,
+  },
+
+  // Review mode
+  reviewHeader: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.md,
+  },
+  reviewTitle: {
+    fontSize: fontSize.heading,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  reviewSubtitle: {
+    fontSize: fontSize.bodySm,
+  },
+  reviewList: {
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  reviewCard: {
+    padding: spacing.lg,
+    borderRadius: radius.field,
+    borderWidth: 1,
+  },
+  reviewBookTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+    marginBottom: spacing.md,
+  },
+  reviewFooter: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xxl,
   },
 });

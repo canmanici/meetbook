@@ -2,14 +2,18 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   useColorScheme,
 } from 'react-native';
-import { MapView, Marker, type LatLng, type MapPressEvent } from '@/lib/map-adapter';
+import { Ionicons } from '@expo/vector-icons';
+import { MapView, Marker, type LatLng, type MapPressEvent, type Region } from '@/lib/map-adapter';
+import * as Location from 'expo-location';
 
 import { Badge, Button, Input, SafetySheet, fontSize, palette, radius, spacing } from '@/components/ui';
 import { DatePicker } from '@/components/ui/date-time-picker';
@@ -18,6 +22,7 @@ import {
   getMeetupSuggestions,
   placeDetails,
   placesAutocomplete,
+  placesNearby,
   proposeMeetup,
   type MeetupOffer,
   type PlaceSuggestion,
@@ -67,6 +72,9 @@ export default function SelectMeetupPlaceScreen() {
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [busyHoursOpen, setBusyHoursOpen] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [nearbyPlaces, setNearbyPlaces] = useState<PlaceSummary[]>([]);
+  const [cameraRegion, setCameraRegion] = useState<Region | null>(null);
 
   const { data: suggestionsData } = useQuery({
     queryKey: ['meetup-suggestions', exchangeId],
@@ -154,6 +162,49 @@ export default function SelectMeetupPlaceScreen() {
     });
   };
 
+  const useMyLocation = async () => {
+    setError(null);
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setError('Konum izni verilmedi. Ayarlardan konum erişimini açın.');
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const { latitude, longitude } = position.coords;
+
+      // Animate map to user location (zoom ~15 for street level)
+      setCameraRegion({
+        latitude,
+        longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+
+      // Place marker at user location
+      setSelected({
+        placeId: null,
+        name: 'Konumum',
+        address: null,
+        category: null,
+        lat: latitude,
+        lng: longitude,
+      });
+      setQuery('');
+
+      // Fetch nearby safe places (cafes, libraries, etc.)
+      const nearby = await placesNearby({ lat: latitude, lng: longitude });
+      setNearbyPlaces(nearby.items);
+    } catch {
+      setError('Konum alınamadı. Lütfen GPS\'in kapalı olmadığından emin olun.');
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const onMapPress = (event: MapPressEvent) => {
     const coordinate: LatLng = event.nativeEvent.coordinate;
     setSuggestions([]);
@@ -181,8 +232,8 @@ export default function SelectMeetupPlaceScreen() {
         return current;
       }
       const dateTime = defaultDateTime || new Date();
-      return [...current, { 
-        ...place, 
+      return [...current, {
+        ...place,
         date: dateTime.toISOString().split('T')[0],
         time: dateTime.toTimeString().slice(0, 5)
       }];
@@ -270,22 +321,41 @@ export default function SelectMeetupPlaceScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <MapView
-        style={[styles.map, { backgroundColor: colors.background }]}
-        initialRegion={ISTANBUL_REGION}
-        onPress={onMapPress}
-        testID="select-place-map"
-      >
-        {markerCoordinate && <Marker coordinate={markerCoordinate} testID="select-place-marker" />}
-        {offers.map((offer, index) => (
-          <Marker
-            key={`${offer.lat}-${offer.lng}-${index}`}
-            coordinate={{ latitude: offer.lat, longitude: offer.lng }}
-            pinColor={colors.primary}
-            testID={`offer-marker-${index}`}
-          />
-        ))}
-      </MapView>
+      <View style={styles.mapWrapper}>
+        <MapView
+          style={[styles.map, { backgroundColor: colors.background }]}
+          initialRegion={ISTANBUL_REGION}
+          region={cameraRegion ?? undefined}
+          onPress={onMapPress}
+          testID="select-place-map"
+        >
+          {markerCoordinate && <Marker coordinate={markerCoordinate} testID="select-place-marker" />}
+          {offers.map((offer, index) => (
+            <Marker
+              key={`${offer.lat}-${offer.lng}-${index}`}
+              coordinate={{ latitude: offer.lat, longitude: offer.lng }}
+              pinColor={colors.primary}
+              testID={`offer-marker-${index}`}
+            />
+          ))}
+        </MapView>
+
+        <TouchableOpacity
+          onPress={useMyLocation}
+          disabled={locating}
+          testID="my-location-button"
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <View style={[styles.locateButton, { backgroundColor: colors.primary }]}>
+            {locating ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Ionicons name="locate" size={22} color="#FFFFFF" />
+            )}
+          </View>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.panel}>
         <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
@@ -398,6 +468,39 @@ export default function SelectMeetupPlaceScreen() {
           </View>
         )}
 
+        {nearbyPlaces.length > 0 && (
+          <View style={styles.suggestedPlaces}>
+            <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+              📍 Yakınımdaki Yerler
+            </Text>
+            <FlatList
+              horizontal
+              data={nearbyPlaces}
+              keyExtractor={(item, index) => item.place_id ?? `nearby-${index}`}
+              testID="nearby-places-list"
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.suggestedCard, { borderColor: colors.primary }]}
+                  onPress={() => onSelectSuggestedPlace(item)}
+                  testID={`nearby-place-${item.place_id ?? item.name}`}
+                >
+                  <Text style={{ color: colors.text, fontWeight: '600' }}>{item.name}</Text>
+                  {item.address ? (
+                    <Text style={{ color: colors.textMuted, fontSize: fontSize.caption }} numberOfLines={1}>
+                      {item.address}
+                    </Text>
+                  ) : null}
+                  {item.category && (
+                    <Text style={{ color: colors.primary, fontSize: fontSize.caption, marginTop: 2 }}>
+                      {categoryLabel(item.category)}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        )}
+
         <DatePicker
           value={defaultDateTime}
           onChange={setDefaultDateTime}
@@ -430,7 +533,7 @@ export default function SelectMeetupPlaceScreen() {
                 ) : null}
                 <DatePicker
                   value={new Date(`${offer.date}T${offer.time}`)}
-                  onChange={(date) => updateOffer(index, { 
+                  onChange={(date) => updateOffer(index, {
                     date: date.toISOString().split('T')[0],
                     time: date.toTimeString().slice(0, 5)
                   })}
@@ -501,6 +604,20 @@ function getWeatherDisplay(code: number): {
   return { emoji: '🌡️', label: 'Bilinmiyor', isPrecipitation: false };
 }
 
+function categoryLabel(category: string | null): string {
+  switch (category) {
+    case 'cafe': return 'Kafe';
+    case 'restaurant': return 'Restoran';
+    case 'library': return 'Kütüphane';
+    case 'book_store': return 'Kitapçı';
+    case 'park': return 'Park';
+    case 'shopping_mall': return 'AVM';
+    case 'university': return 'Üniversite';
+    case 'transit_station': return 'Toplu Taşıma';
+    default: return category ?? 'Diğer';
+  }
+}
+
 function getBusyHoursHint(category: string | null): string | null {
   switch (category) {
     case 'cafe':
@@ -520,8 +637,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  mapWrapper: {
+    flex: 1,
+    position: 'relative',
+  },
   map: {
     flex: 1,
+  },
+  locateButton: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0)',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4 },
+      android: { elevation: 6 },
+    }),
   },
   panel: {
     padding: spacing.lg,
