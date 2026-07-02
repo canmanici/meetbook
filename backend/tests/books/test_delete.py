@@ -41,9 +41,7 @@ async def test_delete_non_owner_returns_404(client: httpx.AsyncClient, register_
 
 
 @pytest.mark.asyncio
-async def test_delete_already_deleted_returns_404(
-    client: httpx.AsyncClient, register_user
-) -> None:
+async def test_delete_already_deleted_returns_404(client: httpx.AsyncClient, register_user) -> None:
     owner = await register_user("delete_twice@example.com", "Owner")
 
     create_resp = await client.post(
@@ -95,13 +93,12 @@ async def test_delete_with_active_exchange_requires_force(
 
     # Force delete -> succeeds, exchange auto-cancelled
     delete_resp = await client.delete(
-        f"/api/v1/books/{book_id}?force=true", headers=owner["headers"],
+        f"/api/v1/books/{book_id}?force=true",
+        headers=owner["headers"],
     )
     assert delete_resp.status_code == 204
 
     # Verify the exchange request was cancelled
-    get_resp = await client.get(
-        f"/api/v1/exchanges/{exchange_id}", headers=requester["headers"]
-    )
+    get_resp = await client.get(f"/api/v1/exchanges/{exchange_id}", headers=requester["headers"])
     assert get_resp.status_code == 200
     assert get_resp.json()["status"] == "cancelled"

@@ -9,8 +9,9 @@ Create Date: 2026-07-01 00:00:00.000000
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = "a4b5c6d7e8f0"
 down_revision: str | None = "f4a5b6c7d8e9"
@@ -59,7 +60,9 @@ def upgrade() -> None:
         sa.Column("granted_by", sa.UUID(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["role_id"], ["roles.id"], ondelete="CASCADE", name="fk_rp_role"),
-        sa.ForeignKeyConstraint(["permission_id"], ["permissions.id"], ondelete="CASCADE", name="fk_rp_permission"),
+        sa.ForeignKeyConstraint(
+            ["permission_id"], ["permissions.id"], ondelete="CASCADE", name="fk_rp_permission"
+        ),
         sa.ForeignKeyConstraint(["granted_by"], ["users.id"], name="fk_rp_granted_by"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("role_id", "permission_id", name="uq_role_permission"),
@@ -87,7 +90,14 @@ def upgrade() -> None:
         "beta_requests",
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("user_id", sa.UUID(), nullable=False),
-        sa.Column("status", sa.Enum("pending", "approved", "rejected", name="beta_request_status", create_type=True), nullable=False, server_default="pending"),
+        sa.Column(
+            "status",
+            sa.Enum(
+                "pending", "approved", "rejected", name="beta_request_status", create_type=True
+            ),
+            nullable=False,
+            server_default="pending",
+        ),
         sa.Column("reviewed_by", sa.UUID(), nullable=True),
         sa.Column("reviewed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("rejection_reason", sa.Text(), nullable=True),

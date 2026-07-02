@@ -68,9 +68,10 @@ async def create_book(
 async def seed_turkey_boundary(db_session: AsyncSession) -> None:
     """Seed `country_boundaries` with the Turkey polygon (normally done by the
     migration's data seed, which `create_all` doesn't run for the test DB)."""
+    # TURKEY_BOUNDARY_WKT is a hardcoded module constant, not user input.
     await db_session.execute(
         text(
-            "INSERT INTO country_boundaries (name, geom) VALUES "
+            "INSERT INTO country_boundaries (name, geom) VALUES "  # noqa: S608
             "('turkey', ST_GeogFromText('SRID=4326;" + TURKEY_BOUNDARY_WKT + "')) "
             "ON CONFLICT (name) DO NOTHING"
         )

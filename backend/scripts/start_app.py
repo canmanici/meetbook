@@ -27,8 +27,6 @@ ENVIRONMENT:
 """
 
 import asyncio
-import importlib
-import logging
 import os
 import shutil
 import sys
@@ -142,9 +140,11 @@ def clear_pycache() -> None:
 def wait_for_db(max_retries: int = 30, delay: float = 1.0) -> None:
     """Poll Postgres until it accepts connections (uses async engine)."""
     import asyncio
-    from app.core.config import get_settings
-    from sqlalchemy.ext.asyncio import create_async_engine
+
     from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from app.core.config import get_settings
 
     async def _ping() -> bool:
         engine = create_async_engine(get_settings().database_url)
@@ -176,12 +176,14 @@ def wait_for_db(max_retries: int = 30, delay: float = 1.0) -> None:
 def run_migrations() -> None:
     """Run all pending Alembic migrations inside the current process."""
     from alembic.config import Config
+
     from alembic import command
 
     log_elapsed("Running Alembic migrations...")
     config = Config(str(ALEMBIC_INI))
     # Override URL from settings (same as env.py does)
     from app.core.config import get_settings
+
     config.set_main_option("sqlalchemy.url", get_settings().database_url)
 
     command.upgrade(config, "head")
@@ -191,9 +193,11 @@ def run_migrations() -> None:
 def verify_core_tables() -> bool:
     """Check that critical tables actually exist (uses async engine)."""
     import asyncio
-    from app.core.config import get_settings
-    from sqlalchemy.ext.asyncio import create_async_engine
+
     from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from app.core.config import get_settings
 
     async def _check() -> bool:
         engine = create_async_engine(get_settings().database_url)
@@ -233,7 +237,7 @@ def start_uvicorn() -> None:
     from app.core.config import get_settings
 
     settings = get_settings()
-    host = "0.0.0.0"
+    host = "0.0.0.0"  # noqa: S104 — must bind all interfaces inside the Docker container
     port = int(os.environ.get("PORT", "8000"))
     reload = settings.env in ("development", "dev", "local")
 
@@ -276,6 +280,7 @@ def _detect_multiple_heads() -> list[str] | None:
 
     config = Config(str(ALEMBIC_INI))
     from app.core.config import get_settings
+
     config.set_main_option("sqlalchemy.url", get_settings().database_url)
     script = ScriptDirectory.from_config(config)
     heads = script.get_heads()
@@ -295,6 +300,7 @@ def try_auto_merge_heads() -> bool:
     one-off DB stamp.
     """
     from alembic.config import Config
+
     from alembic import command
 
     heads = _detect_multiple_heads()
@@ -304,6 +310,7 @@ def try_auto_merge_heads() -> bool:
     log_elapsed(f"Multiple migration heads detected: {heads} — auto-merging...")
     config = Config(str(ALEMBIC_INI))
     from app.core.config import get_settings
+
     config.set_main_option("sqlalchemy.url", get_settings().database_url)
 
     try:
@@ -331,6 +338,7 @@ def try_recover_migration() -> bool:
       4. Run any pending migrations
     """
     from alembic.config import Config
+
     from alembic import command
 
     log_elapsed("Migration failed. Attempting recovery...")
@@ -341,6 +349,7 @@ def try_recover_migration() -> bool:
     log_elapsed("Attempting recovery (stamp head)...")
     config = Config(str(ALEMBIC_INI))
     from app.core.config import get_settings
+
     config.set_main_option("sqlalchemy.url", get_settings().database_url)
 
     # ── Step 1: Detect and clear stale alembic_version ───────────────────────
@@ -359,7 +368,9 @@ def try_recover_migration() -> bool:
     except Exception as e:
         log_elapsed(f"Stamp to head failed: {e}")
         log_elapsed("Cannot recover automatically. Manual intervention required:")
-        log_elapsed("  python -c \"from alembic import command; from alembic.config import Config; c = Config('alembic.ini'); c.set_main_option('sqlalchemy.url', '<url>'); command.stamp(c, 'head')\"")
+        log_elapsed(
+            "  python -c \"from alembic import command; from alembic.config import Config; c = Config('alembic.ini'); c.set_main_option('sqlalchemy.url', '<url>'); command.stamp(c, 'head')\""
+        )
         return False
 
     # ── Step 3: Run pending migrations ───────────────────────────────────────
@@ -380,12 +391,14 @@ def _detect_stale_alembic_revision() -> str | None:
     Returns the stale revision ID if found, None otherwise.
     """
     import asyncio
+
     import asyncpg
     from alembic.config import Config
     from alembic.script import ScriptDirectory
 
     config = Config(str(ALEMBIC_INI))
     from app.core.config import get_settings
+
     config.set_main_option("sqlalchemy.url", get_settings().database_url)
     script = ScriptDirectory.from_config(config)
     rev_ids = {r.revision for r in script.walk_revisions()}
@@ -412,6 +425,7 @@ def _detect_stale_alembic_revision() -> str | None:
 def _clear_alembic_version() -> None:
     """Delete the alembic_version row (safe — only clears the revision marker)."""
     import asyncio
+
     import asyncpg
 
     from app.core.config import get_settings
@@ -476,6 +490,7 @@ def main() -> int:
     if not verify_core_tables():
         log_elapsed("WARNING: Users table missing despite migrations at head.")
         from alembic.config import Config
+
         from alembic import command
         from app.core.config import get_settings
 
@@ -494,18 +509,20 @@ def main() -> int:
             log_elapsed("Recovery succeeded (upgrade head created tables).")
         else:
             # Tables still missing — check if there's any data to protect
-            from sqlalchemy.ext.asyncio import create_async_engine
             from sqlalchemy import text
+            from sqlalchemy.ext.asyncio import create_async_engine
 
             async def _has_data():
                 engine = create_async_engine(settings.database_url)
                 try:
                     async with engine.connect() as conn:
-                        result = await conn.execute(text(
-                            "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
-                            "WHERE table_schema = 'public' AND table_type = 'BASE TABLE' "
-                            "AND table_name != 'alembic_version' LIMIT 1)"
-                        ))
+                        result = await conn.execute(
+                            text(
+                                "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+                                "WHERE table_schema = 'public' AND table_type = 'BASE TABLE' "
+                                "AND table_name != 'alembic_version' LIMIT 1)"
+                            )
+                        )
                         return bool(result.scalar())
                 finally:
                     await engine.dispose()
@@ -529,7 +546,9 @@ def main() -> int:
                     log_elapsed("Full re-migration complete.")
                 except Exception as e:
                     log_elapsed(f"WARNING: Auto-recovery failed: {e}")
-                    log_elapsed("To fix: docker compose down && docker volume rm meetbook_pgdata && docker compose up")
+                    log_elapsed(
+                        "To fix: docker compose down && docker volume rm meetbook_pgdata && docker compose up"
+                    )
 
     # Phase 5: Seed data
     if not os.environ.get("SKIP_SEED"):
@@ -543,6 +562,7 @@ def main() -> int:
     # connections bound to that dead loop.  Dropping the reference forces
     # get_engine() to create a new engine on uvicorn's event loop.
     from app.core.db import reset_engine
+
     asyncio.run(reset_engine())
     log_elapsed("DB engine reset (ready for uvicorn event loop).")
 

@@ -6,15 +6,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
+from app.modules.admin.metrics_service import MetricsService
 from app.modules.admin.schemas import (
-    AdminBookListResponse,
     AdminBookDetailView,
-    AdminExchangeListResponse,
+    AdminBookListResponse,
     AdminExchangeDetailView,
+    AdminExchangeListResponse,
     AdminReportListResponse,
     AdminReportView,
-    AdminUserListResponse,
     AdminUserDetailView,
+    AdminUserListResponse,
     AdminUserView,
     AuditLogListResponse,
     BlockedPlaceCreateRequest,
@@ -34,7 +35,6 @@ from app.modules.admin.schemas import (
     UserActionRequest,
     UserMetricsResponse,
 )
-from app.modules.admin.metrics_service import MetricsService
 from app.modules.admin.service import AdminError, AdminService
 from app.modules.auth.dependencies import get_admin_user
 from app.modules.auth.models import User, UserStatus
@@ -220,6 +220,7 @@ async def get_metrics(
 # ══════════════════════════════════════════════════════════════════════════════
 # OCEAN METRICS ENDPOINTS — CEO Dashboard
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 def _get_metrics_service(session: AsyncSession = Depends(get_session)) -> MetricsService:
     return MetricsService(session)

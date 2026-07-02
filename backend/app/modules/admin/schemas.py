@@ -92,6 +92,7 @@ class MetricsResponse(BaseModel):
 
 # -- User list/detail schemas ------------------------------------------------
 
+
 class AdminUserListItem(BaseModel):
     id: uuid.UUID
     email: str
@@ -136,6 +137,7 @@ class AdminUserDetailView(BaseModel):
 
 # -- Book list/detail schemas ------------------------------------------------
 
+
 class AdminBookListItem(BaseModel):
     id: uuid.UUID
     owner_id: uuid.UUID
@@ -174,6 +176,7 @@ class AdminBookDetailView(BaseModel):
 
 # -- Exchange list/detail schemas --------------------------------------------
 
+
 class AdminExchangeListItem(BaseModel):
     id: uuid.UUID
     book_id: uuid.UUID
@@ -205,6 +208,7 @@ class AdminExchangeDetailView(BaseModel):
 
 # -- Audit log schemas -------------------------------------------------------
 
+
 class AuditLogEntry(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID | None
@@ -226,12 +230,14 @@ class AuditLogListResponse(BaseModel):
 # OCEAN METRICS — comprehensive dashboard data
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TrendPoint(BaseModel):
     date: str  # YYYY-MM-DD
     value: int
 
 
 # -- Overview (single call, everything) ---------------------------------------
+
 
 class MetricsOverviewResponse(BaseModel):
     # Users
@@ -290,6 +296,7 @@ class MetricsOverviewResponse(BaseModel):
 
 # -- Trends (time-series for charts) ------------------------------------------
 
+
 class TrendGroup(BaseModel):
     signups: list[TrendPoint]
     daily_active_users: list[TrendPoint]
@@ -302,6 +309,7 @@ class TrendGroup(BaseModel):
 
 
 # -- Book analytics -----------------------------------------------------------
+
 
 class CategoryDistItem(BaseModel):
     category: str
@@ -327,6 +335,7 @@ class BookMetricsResponse(BaseModel):
 
 # -- Exchange analytics -------------------------------------------------------
 
+
 class TopExchangerItem(BaseModel):
     user_id: uuid.UUID
     name: str
@@ -346,6 +355,7 @@ class ExchangeMetricsResponse(BaseModel):
 
 # -- User analytics -----------------------------------------------------------
 
+
 class UserByStatusItem(BaseModel):
     status: str
     count: int
@@ -363,6 +373,7 @@ class UserMetricsResponse(BaseModel):
 
 
 # -- Trust & Safety analytics -------------------------------------------------
+
 
 class TopReportedUserItem(BaseModel):
     user_id: uuid.UUID
@@ -391,6 +402,7 @@ class TrustMetricsResponse(BaseModel):
 
 
 # -- System health ------------------------------------------------------------
+
 
 class SystemHealthResponse(BaseModel):
     db_size_mb: float

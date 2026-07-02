@@ -60,7 +60,7 @@ def search_cover_id(title: str, author: str) -> int | None:
     query = f"{title} {author.split()[-1]}"
     search_url = f"https://openlibrary.org/search.json?q={quote(query)}&limit=3"
     try:
-        with urlopen(search_url, timeout=10) as resp:
+        with urlopen(search_url, timeout=10) as resp:  # noqa: S310 — fixed https:// host, dev-only seed script
             data = json.loads(resp.read().decode())
             for doc in data.get("docs", []):
                 cover_i = doc.get("cover_i")
@@ -81,7 +81,7 @@ def download_cover_by_id(cover_id: int, filename: str, title: str) -> str | None
     url = f"https://covers.openlibrary.org/b/id/{cover_id}-L.jpg"
     try:
         COVERS_DIR.mkdir(parents=True, exist_ok=True)
-        with urlopen(url, timeout=15) as resp:
+        with urlopen(url, timeout=15) as resp:  # noqa: S310 — fixed https:// host, dev-only seed script
             data = resp.read()
             if len(data) > 100:  # Skip 1x1 GIF placeholders
                 dest.write_bytes(data)

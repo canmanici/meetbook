@@ -7,7 +7,6 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.geo import make_point
-from app.modules.auth.models import User
 from app.modules.books.models import Book, BookCategory, BookCondition
 from app.modules.geofence.models import GeofenceAlert
 from app.modules.wishlist.models import WishlistItem
@@ -42,9 +41,7 @@ async def test_list_alerts_empty(client: httpx.AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_list_alerts_with_unread(
-    client: httpx.AsyncClient, db_session: AsyncSession
-) -> None:
+async def test_list_alerts_with_unread(client: httpx.AsyncClient, db_session: AsyncSession) -> None:
     user = await _register(client)
     uid = uuid.UUID(user["user_id"])
 
@@ -79,9 +76,7 @@ async def test_list_alerts_with_unread(
 
 
 @pytest.mark.asyncio
-async def test_mark_alert_read(
-    client: httpx.AsyncClient, db_session: AsyncSession
-) -> None:
+async def test_mark_alert_read(client: httpx.AsyncClient, db_session: AsyncSession) -> None:
     user = await _register(client)
     uid = uuid.UUID(user["user_id"])
 

@@ -12,7 +12,7 @@ import asyncio
 import os
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["ENV"] = "development"
@@ -49,7 +49,10 @@ PLACEHOLDER_COLORS = {
 
 # ── S3 Upload ───────────────────────────────────────────────────────────────────
 
-async def upload_to_s3(book_id: uuid.UUID, filename: str, data: bytes, content_type: str) -> str | None:
+
+async def upload_to_s3(
+    book_id: uuid.UUID, filename: str, data: bytes, content_type: str
+) -> str | None:
     """Upload bytes to MinIO S3 and return the external URL."""
     import aioboto3
     from botocore.config import Config
@@ -78,11 +81,15 @@ async def upload_to_s3(book_id: uuid.UUID, filename: str, data: bytes, content_t
 
 # ── Placeholder ─────────────────────────────────────────────────────────────────
 
-async def download_placeholder(client: httpx.AsyncClient, title: str, category: str) -> bytes | None:
+
+async def download_placeholder(
+    client: httpx.AsyncClient, title: str, category: str
+) -> bytes | None:
     """Download a placeholder image from placehold.co."""
     bg = PLACEHOLDER_COLORS.get(category, "95A5A6")
     # URL-encode the title for the placeholder
     import urllib.parse
+
     label = urllib.parse.quote(title[:30])
     url = f"https://placehold.co/400x600/{bg}/FFFFFF?text={label}&font=roboto"
     try:
@@ -95,6 +102,7 @@ async def download_placeholder(client: httpx.AsyncClient, title: str, category: 
 
 
 # ── Open Library Search ─────────────────────────────────────────────────────────
+
 
 async def search_cover_url(
     client: httpx.AsyncClient, title: str, author: str | None, isbn: str | None
@@ -138,6 +146,7 @@ async def search_cover_url(
 
 # ── Main ────────────────────────────────────────────────────────────────────────
 
+
 async def backfill():
     print("=" * 70)
     print("  MeetBook — Book Cover Backfill")
@@ -155,9 +164,7 @@ async def backfill():
         print(f"\n  📚 {len(books)} active books loaded")
 
         # Check which already have photos
-        result2 = await session.execute(
-            select(BookPhoto.book_id).distinct()
-        )
+        result2 = await session.execute(select(BookPhoto.book_id).distinct())
         books_with_photos = {row[0] for row in result2.fetchall()}
         print(f"  📸 {len(books_with_photos)} books already have photos")
 
@@ -206,7 +213,7 @@ async def backfill():
                             url=s3_url,
                             thumbnail_url=s3_url,
                             position=0,
-                            created_at=datetime.now(timezone.utc),
+                            created_at=datetime.now(UTC),
                         )
                         session.add(photo)
                         await session.commit()
@@ -214,7 +221,9 @@ async def backfill():
                     print(f"  [{idx}/{len(books_to_process)}] ✓ {book.title[:45]} (Open Library)")
                 else:
                     stats["failed"] += 1
-                    print(f"  [{idx}/{len(books_to_process)}] ✗ {book.title[:45]} (S3 upload failed)")
+                    print(
+                        f"  [{idx}/{len(books_to_process)}] ✗ {book.title[:45]} (S3 upload failed)"
+                    )
             else:
                 # Download placeholder
                 cat = book.category.value if book.category else "other"
@@ -229,18 +238,24 @@ async def backfill():
                                 url=s3_url,
                                 thumbnail_url=s3_url,
                                 position=0,
-                                created_at=datetime.now(timezone.utc),
+                                created_at=datetime.now(UTC),
                             )
                             session.add(photo)
                             await session.commit()
                         stats["placeholder"] += 1
-                        print(f"  [{idx}/{len(books_to_process)}] ◌ {book.title[:45]} (placeholder)")
+                        print(
+                            f"  [{idx}/{len(books_to_process)}] ◌ {book.title[:45]} (placeholder)"
+                        )
                     else:
                         stats["failed"] += 1
-                        print(f"  [{idx}/{len(books_to_process)}] ✗ {book.title[:45]} (placeholder upload failed)")
+                        print(
+                            f"  [{idx}/{len(books_to_process)}] ✗ {book.title[:45]} (placeholder upload failed)"
+                        )
                 else:
                     stats["failed"] += 1
-                    print(f"  [{idx}/{len(books_to_process)}] ✗ {book.title[:45]} (all methods failed)")
+                    print(
+                        f"  [{idx}/{len(books_to_process)}] ✗ {book.title[:45]} (all methods failed)"
+                    )
 
             # Rate limiting
             if idx % 10 == 0:
@@ -248,7 +263,7 @@ async def backfill():
 
     # Final verification
     print(f"\n{'=' * 70}")
-    print(f"  ✅ Backfill Complete!")
+    print("  ✅ Backfill Complete!")
     print(f"  📸 Open Library covers: {stats['openlib']}")
     print(f"  ◌  Placeholders:        {stats['placeholder']}")
     print(f"  ✗  Failed:              {stats['failed']}")
@@ -257,8 +272,10 @@ async def backfill():
     async with factory() as session:
         total_photos = await session.scalar(text("SELECT COUNT(*) FROM book_photos"))
         books_with = await session.scalar(text("SELECT COUNT(DISTINCT book_id) FROM book_photos"))
-        total_books = await session.scalar(text("SELECT COUNT(*) FROM books WHERE deleted_at IS NULL"))
-        print(f"\n  📋 Database status:")
+        total_books = await session.scalar(
+            text("SELECT COUNT(*) FROM books WHERE deleted_at IS NULL")
+        )
+        print("\n  📋 Database status:")
         print(f"     Total books:       {total_books}")
         print(f"     Books with photos: {books_with}")
         print(f"     Total photo rows:  {total_photos}")

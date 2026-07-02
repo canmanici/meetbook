@@ -15,7 +15,6 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
-    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import relationship
@@ -79,9 +78,7 @@ class UserCredential(Base):
     __tablename__ = "user_credentials"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
-    user_id = Column(
-        UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False
-    )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
@@ -91,9 +88,7 @@ class UserCredential(Base):
 
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
-    __table_args__ = (
-        Index("ix_refresh_tokens_family_id", "family_id"),
-    )
+    __table_args__ = (Index("ix_refresh_tokens_family_id", "family_id"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
@@ -142,6 +137,4 @@ class Vouch(Base):
     voucher_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True)
     vouchee_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True)
     note = Column(Text, nullable=True)
-    created_at = Column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
-    )
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))

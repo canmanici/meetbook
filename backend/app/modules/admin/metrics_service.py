@@ -4,7 +4,6 @@ OCEAN METRICS SERVICE — 50+ real KPIs from the database.
 Every number here is computed from actual DB rows. Zero mock data.
 """
 
-import uuid
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select, text
@@ -29,9 +28,7 @@ from app.modules.admin.schemas import (
 from app.modules.auth.models import AuditLog, User, UserStatus
 from app.modules.books.models import Book, BookFavorite, BookPhoto
 from app.modules.chat.models import Message
-from app.modules.exchanges.models import Chat
-from app.modules.exchanges.models import BlockedPlace, ExchangeRequest, ExchangeStatus
-from app.modules.notifications.models import Notification
+from app.modules.exchanges.models import BlockedPlace, ExchangeRequest
 from app.modules.ratings.models import Rating
 from app.modules.reports.models import Report, ReportStatus
 
@@ -70,7 +67,8 @@ class MetricsService:
             select(func.count()).select_from(User).where(User.created_at >= days_30_ago)
         )
         users_60d = await self._scalar(
-            select(func.count()).select_from(User)
+            select(func.count())
+            .select_from(User)
             .where(User.created_at >= days_60_ago, User.created_at < days_30_ago)
         )
         users_growth_pct = (
@@ -78,24 +76,25 @@ class MetricsService:
         )
 
         daily_active = await self._scalar(
-            select(func.count()).select_from(User)
+            select(func.count())
+            .select_from(User)
             .where(User.last_active_at.is_not(None), User.last_active_at >= days_1_ago)
         )
         weekly_active = await self._scalar(
-            select(func.count()).select_from(User)
+            select(func.count())
+            .select_from(User)
             .where(User.last_active_at.is_not(None), User.last_active_at >= days_7_ago)
         )
         monthly_active = await self._scalar(
-            select(func.count()).select_from(User)
+            select(func.count())
+            .select_from(User)
             .where(User.last_active_at.is_not(None), User.last_active_at >= days_30_ago)
         )
         email_verified = await self._scalar(
-            select(func.count()).select_from(User)
-            .where(User.email_verified_at.is_not(None))
+            select(func.count()).select_from(User).where(User.email_verified_at.is_not(None))
         )
         phone_verified = await self._scalar(
-            select(func.count()).select_from(User)
-            .where(User.phone_verified_at.is_not(None))
+            select(func.count()).select_from(User).where(User.phone_verified_at.is_not(None))
         )
         admin_count = await self._scalar(
             select(func.count()).select_from(User).where(User.is_admin == True)  # noqa: E712
@@ -112,9 +111,7 @@ class MetricsService:
         books_added_30d = await self._scalar(
             select(func.count()).select_from(Book).where(Book.created_at >= days_30_ago)
         )
-        total_photos = await self._scalar(
-            select(func.count()).select_from(BookPhoto)
-        )
+        total_photos = await self._scalar(select(func.count()).select_from(BookPhoto))
 
         # -- Exchanges -------------------------------------------------------
         exch_status_rows = await self.session.execute(
@@ -124,23 +121,24 @@ class MetricsService:
         total_exchanges = sum(exchanges_by_status.values())
 
         exchanges_30d = await self._scalar(
-            select(func.count()).select_from(ExchangeRequest)
+            select(func.count())
+            .select_from(ExchangeRequest)
             .where(ExchangeRequest.created_at >= days_30_ago)
         )
 
         # Success rate: completed / (completed + cancelled)
         completed_count = exchanges_by_status.get("completed", 0)
         cancelled_count = exchanges_by_status.get("cancelled", 0)
-        success_rate = (
-            (completed_count / max(completed_count + cancelled_count, 1)) * 100
-        )
+        success_rate = (completed_count / max(completed_count + cancelled_count, 1)) * 100
 
         # Avg completion time
         avg_hours = await self._scalar(
-            select(func.avg(
-                func.extract("epoch", ExchangeRequest.updated_at - ExchangeRequest.created_at) / 3600
-            ))
-            .where(
+            select(
+                func.avg(
+                    func.extract("epoch", ExchangeRequest.updated_at - ExchangeRequest.created_at)
+                    / 3600
+                )
+            ).where(
                 ExchangeRequest.status == "completed",
                 ExchangeRequest.created_at.is_not(None),
                 ExchangeRequest.updated_at.is_not(None),
@@ -149,7 +147,8 @@ class MetricsService:
 
         # -- Reports ---------------------------------------------------------
         open_reports = await self._scalar(
-            select(func.count()).select_from(Report)
+            select(func.count())
+            .select_from(Report)
             .where(Report.status.in_((ReportStatus.open, ReportStatus.reviewing)))
         )
         reports_by_reason_rows = await self.session.execute(
@@ -158,7 +157,8 @@ class MetricsService:
         reports_by_reason = {r[0]: r[1] for r in reports_by_reason_rows.all()}
 
         reports_resolved_30d = await self._scalar(
-            select(func.count()).select_from(Report)
+            select(func.count())
+            .select_from(Report)
             .where(
                 Report.status == ReportStatus.resolved,
                 Report.resolved_at >= days_30_ago,
@@ -166,10 +166,9 @@ class MetricsService:
         )
 
         avg_resolution = await self._scalar(
-            select(func.avg(
-                func.extract("epoch", Report.resolved_at - Report.created_at) / 3600
-            ))
-            .where(
+            select(
+                func.avg(func.extract("epoch", Report.resolved_at - Report.created_at) / 3600)
+            ).where(
                 Report.status == ReportStatus.resolved,
                 Report.resolved_at.is_not(None),
                 Report.created_at.is_not(None),
@@ -178,18 +177,10 @@ class MetricsService:
 
         # -- Engagement ------------------------------------------------------
         total_ratings = await self._scalar(select(func.count()).select_from(Rating))
-        avg_rating = await self._scalar(
-            select(func.avg(Rating.score)).select_from(Rating)
-        ) or 0.0
-        total_favorites = await self._scalar(
-            select(func.count()).select_from(BookFavorite)
-        )
-        total_views = await self._scalar(
-            select(func.sum(Book.view_count)).select_from(Book)
-        ) or 0
-        total_messages = await self._scalar(
-            select(func.count()).select_from(Message)
-        )
+        avg_rating = await self._scalar(select(func.avg(Rating.score)).select_from(Rating)) or 0.0
+        total_favorites = await self._scalar(select(func.count()).select_from(BookFavorite))
+        total_views = await self._scalar(select(func.sum(Book.view_count)).select_from(Book)) or 0
+        total_messages = await self._scalar(select(func.count()).select_from(Message))
         active_chats = await self._scalar(
             select(func.count(func.distinct(Message.chat_id)))
             .select_from(Message)
@@ -200,16 +191,13 @@ class MetricsService:
         total_suspensions = await self._count_audit_events("user_suspended")
         total_bans = await self._count_audit_events("user_banned")
         total_reinstatements = await self._count_audit_events("user_reinstated")
-        blocked_places = await self._scalar(
-            select(func.count()).select_from(BlockedPlace)
-        )
-        total_vouches = await self._scalar(
-            select(func.count()).select_from(text("vouches"))
-        )
+        blocked_places = await self._scalar(select(func.count()).select_from(BlockedPlace))
+        total_vouches = await self._scalar(select(func.count()).select_from(text("vouches")))
 
         # -- System ----------------------------------------------------------
         crash_reports_30d = await self._scalar(
-            select(func.count()).select_from(text("crash_reports"))
+            select(func.count())
+            .select_from(text("crash_reports"))
             .where(text("created_at >= :cutoff"))
             .params(cutoff=days_30_ago)
         )
@@ -280,7 +268,11 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        s_dates, s_vals = zip(*[(str(r[0]), r[1]) for r in signup_rows.all()]) if signup_rows.rowcount else ([], [])
+        s_dates, s_vals = (
+            zip(*[(str(r[0]), r[1]) for r in signup_rows.all()])
+            if signup_rows.rowcount
+            else ([], [])
+        )
         signups = _fill(list(s_dates), list(s_vals))
 
         # DAU per day
@@ -291,7 +283,9 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        d_dates, d_vals = zip(*[(str(r[0]), r[1]) for r in dau_rows.all()]) if dau_rows.rowcount else ([], [])
+        d_dates, d_vals = (
+            zip(*[(str(r[0]), r[1]) for r in dau_rows.all()]) if dau_rows.rowcount else ([], [])
+        )
         daily_users = _fill(list(d_dates), list(d_vals))
 
         # WAU per day (7-day rolling)
@@ -302,7 +296,9 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        w_dates, w_vals = zip(*[(str(r[0]), r[1]) for r in wau_rows.all()]) if wau_rows.rowcount else ([], [])
+        w_dates, w_vals = (
+            zip(*[(str(r[0]), r[1]) for r in wau_rows.all()]) if wau_rows.rowcount else ([], [])
+        )
 
         # Exchanges created per day
         exc_rows = await self.session.execute(
@@ -312,7 +308,9 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        e_dates, e_vals = zip(*[(str(r[0]), r[1]) for r in exc_rows.all()]) if exc_rows.rowcount else ([], [])
+        e_dates, e_vals = (
+            zip(*[(str(r[0]), r[1]) for r in exc_rows.all()]) if exc_rows.rowcount else ([], [])
+        )
         exc_created = _fill(list(e_dates), list(e_vals))
 
         # Exchanges completed per day
@@ -324,7 +322,11 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        ec_dates, ec_vals = zip(*[(str(r[0]), r[1]) for r in exc_comp_rows.all()]) if exc_comp_rows.rowcount else ([], [])
+        ec_dates, ec_vals = (
+            zip(*[(str(r[0]), r[1]) for r in exc_comp_rows.all()])
+            if exc_comp_rows.rowcount
+            else ([], [])
+        )
         exc_completed = _fill(list(ec_dates), list(ec_vals))
 
         # Reports per day
@@ -335,7 +337,9 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        r_dates, r_vals = zip(*[(str(r[0]), r[1]) for r in rep_rows.all()]) if rep_rows.rowcount else ([], [])
+        r_dates, r_vals = (
+            zip(*[(str(r[0]), r[1]) for r in rep_rows.all()]) if rep_rows.rowcount else ([], [])
+        )
         reports = _fill(list(r_dates), list(r_vals))
 
         # Books added per day
@@ -346,7 +350,9 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        b_dates, b_vals = zip(*[(str(r[0]), r[1]) for r in book_rows.all()]) if book_rows.rowcount else ([], [])
+        b_dates, b_vals = (
+            zip(*[(str(r[0]), r[1]) for r in book_rows.all()]) if book_rows.rowcount else ([], [])
+        )
         books_added = _fill(list(b_dates), list(b_vals))
 
         # Favorites per day
@@ -357,7 +363,9 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        f_dates, f_vals = zip(*[(str(r[0]), r[1]) for r in fav_rows.all()]) if fav_rows.rowcount else ([], [])
+        f_dates, f_vals = (
+            zip(*[(str(r[0]), r[1]) for r in fav_rows.all()]) if fav_rows.rowcount else ([], [])
+        )
         favorites = _fill(list(f_dates), list(f_vals))
 
         return TrendGroup(
@@ -382,12 +390,14 @@ class MetricsService:
         # By category
         cat_rows = await self.session.execute(
             select(Book.category, func.count().label("cnt"))
-            .group_by(Book.category).order_by(func.count().desc())
+            .group_by(Book.category)
+            .order_by(func.count().desc())
         )
         total = sum(r[1] for r in cat_rows.all()) or 1
         cat_rows = await self.session.execute(
             select(Book.category, func.count().label("cnt"))
-            .group_by(Book.category).order_by(func.count().desc())
+            .group_by(Book.category)
+            .order_by(func.count().desc())
         )
         by_category = [
             CategoryDistItem(category=str(r[0]), count=r[1], pct=round(r[1] / total * 100, 1))
@@ -397,7 +407,8 @@ class MetricsService:
         # By condition
         cond_rows = await self.session.execute(
             select(Book.condition, func.count().label("cnt"))
-            .group_by(Book.condition).order_by(func.count().desc())
+            .group_by(Book.condition)
+            .order_by(func.count().desc())
         )
         by_condition = [
             CategoryDistItem(category=str(r[0]), count=r[1], pct=round(r[1] / total * 100, 1))
@@ -407,10 +418,13 @@ class MetricsService:
         # By language
         lang_rows = await self.session.execute(
             select(Book.language, func.count().label("cnt"))
-            .group_by(Book.language).order_by(func.count().desc())
+            .group_by(Book.language)
+            .order_by(func.count().desc())
         )
         by_language = [
-            CategoryDistItem(category=str(r[0]) or "unknown", count=r[1], pct=round(r[1] / total * 100, 1))
+            CategoryDistItem(
+                category=str(r[0]) or "unknown", count=r[1], pct=round(r[1] / total * 100, 1)
+            )
             for r in lang_rows.all()
         ]
 
@@ -418,7 +432,8 @@ class MetricsService:
         top_v = await self.session.execute(
             select(Book.id, Book.title, Book.author, User.name, Book.view_count)
             .join(User, Book.owner_id == User.id)
-            .order_by(Book.view_count.desc()).limit(10)
+            .order_by(Book.view_count.desc())
+            .limit(10)
         )
         top_viewed = [
             TopBookItem(id=r[0], title=r[1], author=r[2], owner_name=r[3], count=r[4] or 0)
@@ -429,7 +444,8 @@ class MetricsService:
         top_f = await self.session.execute(
             select(Book.id, Book.title, Book.author, User.name, Book.favorite_count)
             .join(User, Book.owner_id == User.id)
-            .order_by(Book.favorite_count.desc()).limit(10)
+            .order_by(Book.favorite_count.desc())
+            .limit(10)
         )
         top_favorited = [
             TopBookItem(id=r[0], title=r[1], author=r[2], owner_name=r[3], count=r[4] or 0)
@@ -462,10 +478,12 @@ class MetricsService:
         success_rate = (completed / max(completed + cancelled, 1)) * 100
 
         avg_hours = await self._scalar(
-            select(func.avg(
-                func.extract("epoch", ExchangeRequest.updated_at - ExchangeRequest.created_at) / 3600
-            ))
-            .where(
+            select(
+                func.avg(
+                    func.extract("epoch", ExchangeRequest.updated_at - ExchangeRequest.created_at)
+                    / 3600
+                )
+            ).where(
                 ExchangeRequest.status == "completed",
                 ExchangeRequest.created_at.is_not(None),
                 ExchangeRequest.updated_at.is_not(None),
@@ -473,7 +491,8 @@ class MetricsService:
         )
 
         this_month = await self._scalar(
-            select(func.count()).select_from(ExchangeRequest)
+            select(func.count())
+            .select_from(ExchangeRequest)
             .where(ExchangeRequest.created_at >= now.replace(day=1, hour=0, minute=0, second=0))
         )
 
@@ -483,11 +502,11 @@ class MetricsService:
             .select_from(ExchangeRequest)
             .join(User, ExchangeRequest.requested_by == User.id)
             .group_by(User.id, User.name, User.email)
-            .order_by(func.count().desc()).limit(10)
+            .order_by(func.count().desc())
+            .limit(10)
         )
         top_requesters = [
-            TopExchangerItem(user_id=r[0], name=r[1], email=r[2], count=r[3])
-            for r in top_req.all()
+            TopExchangerItem(user_id=r[0], name=r[1], email=r[2], count=r[3]) for r in top_req.all()
         ]
 
         # Top owners (receivers)
@@ -496,11 +515,11 @@ class MetricsService:
             .select_from(ExchangeRequest)
             .join(User, ExchangeRequest.requested_to == User.id)
             .group_by(User.id, User.name, User.email)
-            .order_by(func.count().desc()).limit(10)
+            .order_by(func.count().desc())
+            .limit(10)
         )
         top_owners = [
-            TopExchangerItem(user_id=r[0], name=r[1], email=r[2], count=r[3])
-            for r in top_own.all()
+            TopExchangerItem(user_id=r[0], name=r[1], email=r[2], count=r[3]) for r in top_own.all()
         ]
 
         return ExchangeMetricsResponse(
@@ -518,9 +537,12 @@ class MetricsService:
     # ──────────────────────────────────────────────────────────────────────────
 
     async def get_user_metrics(self) -> UserMetricsResponse:
-        total = await self._scalar(
-            select(func.count()).select_from(User).where(User.status != UserStatus.deleted)
-        ) or 1
+        total = (
+            await self._scalar(
+                select(func.count()).select_from(User).where(User.status != UserStatus.deleted)
+            )
+            or 1
+        )
 
         status_rows = await self.session.execute(
             select(User.status, func.count()).group_by(User.status)
@@ -547,7 +569,9 @@ class MetricsService:
             select(func.count(func.distinct(Book.owner_id))).select_from(Book)
         )
         users_with_exchanges = await self._scalar(
-            select(func.count(func.distinct(ExchangeRequest.requested_by))).select_from(ExchangeRequest)
+            select(func.count(func.distinct(ExchangeRequest.requested_by))).select_from(
+                ExchangeRequest
+            )
         )
 
         return UserMetricsResponse(
@@ -578,10 +602,9 @@ class MetricsService:
         resolution_rate = (resolved_reports / max(total_reports, 1)) * 100
 
         avg_resolution = await self._scalar(
-            select(func.avg(
-                func.extract("epoch", Report.resolved_at - Report.created_at) / 3600
-            ))
-            .where(
+            select(
+                func.avg(func.extract("epoch", Report.resolved_at - Report.created_at) / 3600)
+            ).where(
                 Report.status == ReportStatus.resolved,
                 Report.resolved_at.is_not(None),
                 Report.created_at.is_not(None),
@@ -589,7 +612,8 @@ class MetricsService:
         )
 
         open_count = await self._scalar(
-            select(func.count()).select_from(Report)
+            select(func.count())
+            .select_from(Report)
             .where(Report.status.in_((ReportStatus.open, ReportStatus.reviewing)))
         )
 
@@ -628,8 +652,11 @@ class MetricsService:
         )
         recent_actions = [
             RecentActionItem(
-                id=r[0], moderator_name=r[1], action=r[2],
-                target=r[3] or "", created_at=r[4],
+                id=r[0],
+                moderator_name=r[1],
+                action=r[2],
+                target=r[3] or "",
+                created_at=r[4],
             )
             for r in recent.all()
         ]
@@ -664,9 +691,7 @@ class MetricsService:
         conn_active = await self._scalar(
             text("SELECT count(*) FROM pg_stat_activity WHERE state = 'active'")
         )
-        conn_total = await self._scalar(
-            text("SELECT count(*) FROM pg_stat_activity")
-        )
+        conn_total = await self._scalar(text("SELECT count(*) FROM pg_stat_activity"))
 
         # Cache hit ratio
         cache_hit = await self._scalar(
@@ -677,19 +702,16 @@ class MetricsService:
         )
 
         crash_30d = await self._scalar(
-            select(func.count()).select_from(text("crash_reports"))
-            .where(text("created_at >= :cutoff")).params(cutoff=days_30_ago)
+            select(func.count())
+            .select_from(text("crash_reports"))
+            .where(text("created_at >= :cutoff"))
+            .params(cutoff=days_30_ago)
         )
-        crash_total = await self._scalar(
-            select(func.count()).select_from(text("crash_reports"))
-        )
+        crash_total = await self._scalar(select(func.count()).select_from(text("crash_reports")))
 
-        audit_total = await self._scalar(
-            select(func.count()).select_from(AuditLog)
-        )
+        audit_total = await self._scalar(select(func.count()).select_from(AuditLog))
         audit_30d = await self._scalar(
-            select(func.count()).select_from(AuditLog)
-            .where(AuditLog.created_at >= days_30_ago)
+            select(func.count()).select_from(AuditLog).where(AuditLog.created_at >= days_30_ago)
         )
 
         return SystemHealthResponse(
@@ -714,6 +736,5 @@ class MetricsService:
 
     async def _count_audit_events(self, event_type: str) -> int:
         return await self._scalar(
-            select(func.count()).select_from(AuditLog)
-            .where(AuditLog.event_type == event_type)
+            select(func.count()).select_from(AuditLog).where(AuditLog.event_type == event_type)
         )

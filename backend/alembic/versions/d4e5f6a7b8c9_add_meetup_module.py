@@ -86,8 +86,9 @@ def upgrade() -> None:
         sa.Column('name', sa.Text, primary_key=True),
     )
     op.execute("ALTER TABLE country_boundaries ADD COLUMN geom geography(Polygon,4326) NOT NULL")
+    # TURKEY_BOUNDARY_WKT is a hardcoded module constant, not user input.
     op.execute(
-        f"INSERT INTO country_boundaries (name, geom) VALUES "
+        f"INSERT INTO country_boundaries (name, geom) VALUES "  # noqa: S608
         f"('turkey', ST_GeogFromText('SRID=4326;{TURKEY_BOUNDARY_WKT}'))"
     )
 

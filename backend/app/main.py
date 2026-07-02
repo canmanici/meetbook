@@ -1,12 +1,12 @@
 """MeetBook API application factory."""
 
 import logging
+from pathlib import Path
 
 import redis.asyncio as aioredis
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 
 from app.core.config import get_settings
 from app.core.rate_limit import RateLimitConfig, RateLimitMiddleware
@@ -44,10 +44,12 @@ def create_app() -> FastAPI:
     # and viewed via admin panel at /api/v1/admin/crash-reports
 
     # Health check
-    from sqlalchemy import text
-    from app.core.db import get_engine
     from typing import Any
+
     from fastapi.responses import JSONResponse
+    from sqlalchemy import text
+
+    from app.core.db import get_engine
 
     @app.get("/api/v1/health")
     async def health() -> dict[str, Any]:

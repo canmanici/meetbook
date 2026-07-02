@@ -7,9 +7,7 @@ from tests.books.conftest import VALID_BOOK_PAYLOAD
 
 
 @pytest.mark.asyncio
-async def test_get_own_book_includes_location(
-    client: httpx.AsyncClient, register_user
-) -> None:
+async def test_get_own_book_includes_location(client: httpx.AsyncClient, register_user) -> None:
     owner = await register_user("detail_owner@example.com", "Owner")
 
     create_resp = await client.post(
@@ -44,9 +42,7 @@ async def test_get_other_users_book_omits_location_field(
 
 
 @pytest.mark.asyncio
-async def test_get_nonexistent_book_returns_404(
-    client: httpx.AsyncClient, register_user
-) -> None:
+async def test_get_nonexistent_book_returns_404(client: httpx.AsyncClient, register_user) -> None:
     owner = await register_user("detail_404@example.com", "Owner")
 
     resp = await client.get(f"/api/v1/books/{uuid.uuid7()}", headers=owner["headers"])
@@ -54,9 +50,7 @@ async def test_get_nonexistent_book_returns_404(
 
 
 @pytest.mark.asyncio
-async def test_get_soft_deleted_book_returns_404(
-    client: httpx.AsyncClient, register_user
-) -> None:
+async def test_get_soft_deleted_book_returns_404(client: httpx.AsyncClient, register_user) -> None:
     owner = await register_user("detail_deleted@example.com", "Owner")
 
     create_resp = await client.post(

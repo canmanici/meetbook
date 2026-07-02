@@ -4,6 +4,7 @@
 Reads only the .py files under alembic/versions/ (no DB connection needed),
 so it works offline and in pre-commit's isolated env.
 """
+
 import sys
 from pathlib import Path
 
@@ -21,8 +22,10 @@ def main() -> int:
     if len(heads) > 1:
         print(f"ERROR: Alembic migration graph has {len(heads)} heads: {heads}")
         print("Two migrations were branched off the same down_revision.")
-        print("Fix with: backend/scripts/new_migration.sh (creates migrations "
-              "against the live DB head) or `alembic merge heads` to reconcile.")
+        print(
+            "Fix with: backend/scripts/new_migration.sh (creates migrations "
+            "against the live DB head) or `alembic merge heads` to reconcile."
+        )
         return 1
     return 0
 

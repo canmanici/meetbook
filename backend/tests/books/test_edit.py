@@ -29,9 +29,7 @@ async def test_patch_owner_updates_fields(client: httpx.AsyncClient, register_us
 
 
 @pytest.mark.asyncio
-async def test_patch_recomputes_public_location(
-    client: httpx.AsyncClient, register_user
-) -> None:
+async def test_patch_recomputes_public_location(client: httpx.AsyncClient, register_user) -> None:
     owner = await register_user("edit_location@example.com", "Owner")
 
     create_resp = await client.post(
@@ -90,9 +88,7 @@ async def test_patch_non_owner_returns_404(client: httpx.AsyncClient, register_u
 
 
 @pytest.mark.asyncio
-async def test_patch_nonexistent_book_returns_404(
-    client: httpx.AsyncClient, register_user
-) -> None:
+async def test_patch_nonexistent_book_returns_404(client: httpx.AsyncClient, register_user) -> None:
     owner = await register_user("edit_404@example.com", "Owner")
 
     resp = await client.patch(

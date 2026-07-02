@@ -38,5 +38,5 @@ def bbox_cache_key(
     q: str | None, limit: int,
 ) -> str:
     raw = f"{min_lat:.4f}|{max_lat:.4f}|{min_lng:.4f}|{max_lng:.4f}|{category}|{language}|{condition}|{q}|{limit}"
-    digest = hashlib.md5(raw.encode()).hexdigest()
+    digest = hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()
     return f"bbox:{digest}"

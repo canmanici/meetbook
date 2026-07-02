@@ -130,9 +130,7 @@ class ExchangeRequest(Base):
 
 class Block(Base):
     __tablename__ = "blocks"
-    __table_args__ = (
-        CheckConstraint("blocker_id <> blocked_id", name="ck_blocks_no_self_block"),
-    )
+    __table_args__ = (CheckConstraint("blocker_id <> blocked_id", name="ck_blocks_no_self_block"),)
 
     blocker_id = Column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
@@ -168,9 +166,7 @@ class MeetupValidationStatus(str, enum.Enum):
 
 class Meetup(Base):
     __tablename__ = "meetups"
-    __table_args__ = (
-        Index("ix_meetups_geom", "geom", postgresql_using="gist"),
-    )
+    __table_args__ = (Index("ix_meetups_geom", "geom", postgresql_using="gist"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     exchange_request_id = Column(
@@ -204,9 +200,7 @@ class Meetup(Base):
 
 class BlockedPlace(Base):
     __tablename__ = "blocked_places"
-    __table_args__ = (
-        Index("ix_blocked_places_geom", "geom", postgresql_using="gist"),
-    )
+    __table_args__ = (Index("ix_blocked_places_geom", "geom", postgresql_using="gist"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     place_id = Column(Text, nullable=True)
@@ -256,6 +250,4 @@ class ReadingBuddy(Base):
         default=ReadingBuddyStatus.pending,
         server_default=ReadingBuddyStatus.pending.value,
     )
-    created_at = Column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
-    )
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))

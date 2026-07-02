@@ -1,8 +1,11 @@
 """SQLAlchemy model for saved searches."""
+
 import uuid
 from datetime import UTC, datetime
+
 from sqlalchemy import Column, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+
 from app.core.db import Base
 
 

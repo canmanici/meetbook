@@ -33,9 +33,7 @@ class Report(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     reporter_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    target_type = Column(
-        Enum(ReportTarget, name="report_target", create_type=True), nullable=False
-    )
+    target_type = Column(Enum(ReportTarget, name="report_target", create_type=True), nullable=False)
     target_id = Column(UUID(as_uuid=True), nullable=False)
     reason = Column(Text, nullable=False)
     content_snapshot = Column(JSONB, nullable=False, default=dict, server_default="{}")

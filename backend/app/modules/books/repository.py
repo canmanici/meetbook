@@ -163,9 +163,6 @@ class BookRepository:
                 )
             )
 
-        if owner_id is not None:
-            stmt = stmt.where(Book.owner_id == owner_id)
-
         if cursor:
             cursor_sort_order, cursor_created_at, cursor_id = decode_cursor(cursor)
             stmt = stmt.where(

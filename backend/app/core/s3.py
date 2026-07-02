@@ -43,7 +43,9 @@ async def get_s3_client() -> AsyncIterator[Any]:
 
 
 async def upload_photo(
-    book_id: uuid.UUID, file_bytes: bytes, content_type: str,
+    book_id: uuid.UUID,
+    file_bytes: bytes,
+    content_type: str,
     thumb_bytes: bytes | None = None,
 ) -> dict:
     """Upload a photo and return {"url": ..., "thumbnail_url": ...}.
@@ -88,6 +90,7 @@ async def delete_photo(url: str) -> None:
 # Local filesystem
 # ---------------------------------------------------------------------------
 
+
 async def _upload_local(book_id: uuid.UUID, filename: str, file_bytes: bytes) -> str:
     book_dir = LOCAL_STORAGE_DIR / str(book_id)
     book_dir.mkdir(parents=True, exist_ok=True)
@@ -105,6 +108,7 @@ async def _delete_local(url: str) -> None:
 # ---------------------------------------------------------------------------
 # S3
 # ---------------------------------------------------------------------------
+
 
 async def _upload_s3(
     book_id: uuid.UUID, filename: str, file_bytes: bytes, content_type: str

@@ -72,12 +72,8 @@ class AdminService:
         self.repo = AdminRepository(session)
         self.notification_service = NotificationService(session)
 
-    async def _audit(
-        self, moderator_id: uuid.UUID, event_type: str, metadata: dict
-    ) -> None:
-        self.session.add(
-            AuditLog(user_id=moderator_id, event_type=event_type, metadata_=metadata)
-        )
+    async def _audit(self, moderator_id: uuid.UUID, event_type: str, metadata: dict) -> None:
+        self.session.add(AuditLog(user_id=moderator_id, event_type=event_type, metadata_=metadata))
 
     # -- Reports ---------------------------------------------------------------
 
@@ -144,7 +140,9 @@ class AdminService:
 
     # -- Users -----------------------------------------------------------------
 
-    async def suspend_user(self, user_id: uuid.UUID, moderator_id: uuid.UUID, reason: str | None) -> AdminUserView:
+    async def suspend_user(
+        self, user_id: uuid.UUID, moderator_id: uuid.UUID, reason: str | None
+    ) -> AdminUserView:
         user = await self.repo.get_user(user_id)
         if user is None:
             raise AdminError("NOT_FOUND", 404)
@@ -176,9 +174,7 @@ class AdminService:
             raise AdminError("NOT_FOUND", 404)
         user.status = UserStatus.banned
         user.updated_at = datetime.now(UTC)
-        await self._audit(
-            moderator_id, "user_banned", {"user_id": str(user_id), "reason": reason}
-        )
+        await self._audit(moderator_id, "user_banned", {"user_id": str(user_id), "reason": reason})
         await self.session.commit()
         return _user_to_view(user)
 
@@ -261,7 +257,9 @@ class AdminService:
         await self.session.commit()
         return _blocked_place_to_view(blocked)
 
-    async def delete_blocked_place(self, moderator_id: uuid.UUID, blocked_place_id: uuid.UUID) -> None:
+    async def delete_blocked_place(
+        self, moderator_id: uuid.UUID, blocked_place_id: uuid.UUID
+    ) -> None:
         blocked = await self.repo.get_blocked_place(blocked_place_id)
         if blocked is None:
             raise AdminError("NOT_FOUND", 404)
@@ -286,7 +284,11 @@ class AdminService:
     # -- Users list/detail ------------------------------------------------------
 
     async def list_users(
-        self, search: str | None = None, status: UserStatus | None = None, limit: int = 50, offset: int = 0
+        self,
+        search: str | None = None,
+        status: UserStatus | None = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> AdminUserListResponse:
         users, total = await self.repo.list_users(search, status, limit, offset)
         return AdminUserListResponse(
@@ -303,7 +305,11 @@ class AdminService:
     # -- Books list/detail ------------------------------------------------------
 
     async def list_books(
-        self, search: str | None = None, available_only: bool = False, limit: int = 50, offset: int = 0
+        self,
+        search: str | None = None,
+        available_only: bool = False,
+        limit: int = 50,
+        offset: int = 0,
     ) -> AdminBookListResponse:
         books, total = await self.repo.list_books(search, available_only, limit, offset)
         return AdminBookListResponse(
@@ -337,7 +343,11 @@ class AdminService:
     # -- Audit log --------------------------------------------------------------
 
     async def list_audit_logs(
-        self, user_id: uuid.UUID | None = None, event_type: str | None = None, limit: int = 50, offset: int = 0
+        self,
+        user_id: uuid.UUID | None = None,
+        event_type: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> AuditLogListResponse:
         rows, total = await self.repo.list_audit_logs(user_id, event_type, limit, offset)
         return AuditLogListResponse(
@@ -363,7 +373,9 @@ class AdminService:
         )
         for row in await self.session.execute(stmt_users):
             u = row[0]
-            users.append({"id": str(u.id), "email": u.email, "name": u.name, "status": u.status.value})
+            users.append(
+                {"id": str(u.id), "email": u.email, "name": u.name, "status": u.status.value}
+            )
         # Books: by title or author
         stmt_books = (
             select(Book)
@@ -386,7 +398,7 @@ class AdminService:
                 for row in await self.session.execute(stmt_exc):
                     e = row[0]
                     exchanges.append({"id": str(e.id), "status": e.status.value})
-        except (ValueError, AttributeError):
+        except ValueError, AttributeError:
             pass
         return {"users": users, "books": books, "exchanges": exchanges}
 
@@ -404,8 +416,9 @@ def _user_to_view(user) -> AdminUserView:
     )
 
 
-def _user_to_list_item(user) -> "AdminUserListItem":
+def _user_to_list_item(user) -> "AdminUserListItem":  # noqa: F821 -- imported locally below to avoid a schemas<->service circular import
     from app.modules.admin.schemas import AdminUserListItem
+
     return AdminUserListItem(
         id=user.id,
         email=user.email,
@@ -420,7 +433,7 @@ def _user_to_list_item(user) -> "AdminUserListItem":
     )
 
 
-def _user_to_detail_view(user) -> "AdminUserDetailView":
+def _user_to_detail_view(user) -> AdminUserDetailView:
     from app.modules.admin.schemas import AdminUserDetailView
     from app.modules.auth.trust import compute_trust
 
@@ -430,9 +443,7 @@ def _user_to_detail_view(user) -> "AdminUserDetailView":
         loans_returned_on_time=user.loans_returned_on_time,
         loans_returned_late=user.loans_returned_late,
         trust_score_override=(
-            float(user.trust_score_override)
-            if user.trust_score_override is not None
-            else None
+            float(user.trust_score_override) if user.trust_score_override is not None else None
         ),
     )
     return AdminUserDetailView(
@@ -440,9 +451,7 @@ def _user_to_detail_view(user) -> "AdminUserDetailView":
         loans_returned_on_time=user.loans_returned_on_time,
         loans_returned_late=user.loans_returned_late,
         trust_score_override=(
-            float(user.trust_score_override)
-            if user.trust_score_override is not None
-            else None
+            float(user.trust_score_override) if user.trust_score_override is not None else None
         ),
         trust_score=trust.score,
         id=user.id,
@@ -464,8 +473,9 @@ def _user_to_detail_view(user) -> "AdminUserDetailView":
     )
 
 
-def _book_to_list_item(book) -> "AdminBookListItem":
+def _book_to_list_item(book) -> "AdminBookListItem":  # noqa: F821 -- imported locally below to avoid a schemas<->service circular import
     from app.modules.admin.schemas import AdminBookListItem
+
     return AdminBookListItem(
         id=book.id,
         owner_id=book.owner_id,
@@ -480,8 +490,9 @@ def _book_to_list_item(book) -> "AdminBookListItem":
     )
 
 
-def _book_to_detail_view(book) -> "AdminBookDetailView":
+def _book_to_detail_view(book) -> AdminBookDetailView:
     from app.modules.admin.schemas import AdminBookDetailView
+
     return AdminBookDetailView(
         id=book.id,
         owner_id=book.owner_id,
@@ -501,8 +512,9 @@ def _book_to_detail_view(book) -> "AdminBookDetailView":
     )
 
 
-def _exchange_to_list_item(exchange) -> "AdminExchangeListItem":
+def _exchange_to_list_item(exchange) -> "AdminExchangeListItem":  # noqa: F821 -- imported locally below to avoid a schemas<->service circular import
     from app.modules.admin.schemas import AdminExchangeListItem
+
     return AdminExchangeListItem(
         id=exchange.id,
         book_id=exchange.book_id,
@@ -515,8 +527,9 @@ def _exchange_to_list_item(exchange) -> "AdminExchangeListItem":
     )
 
 
-def _exchange_to_detail_view(exchange) -> "AdminExchangeDetailView":
+def _exchange_to_detail_view(exchange) -> AdminExchangeDetailView:
     from app.modules.admin.schemas import AdminExchangeDetailView
+
     return AdminExchangeDetailView(
         id=exchange.id,
         book_id=exchange.book_id,
@@ -531,7 +544,9 @@ def _exchange_to_detail_view(exchange) -> "AdminExchangeDetailView":
     )
 
 
-def _audit_to_view(log: AuditLog, user_name: str | None = None, user_email: str | None = None) -> AuditLogEntry:
+def _audit_to_view(
+    log: AuditLog, user_name: str | None = None, user_email: str | None = None
+) -> AuditLogEntry:
     return AuditLogEntry(
         id=log.id,
         user_id=log.user_id,

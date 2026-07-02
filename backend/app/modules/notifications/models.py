@@ -11,9 +11,7 @@ from app.core.db import Base
 
 class Notification(Base):
     __tablename__ = "notifications"
-    __table_args__ = (
-        Index("ix_notifications_user_id", "user_id"),
-    )
+    __table_args__ = (Index("ix_notifications_user_id", "user_id"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)

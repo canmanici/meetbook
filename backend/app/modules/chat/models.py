@@ -4,10 +4,15 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import (
-    Column, DateTime, ForeignKey, Integer, Text, CheckConstraint,
-    UniqueConstraint, Boolean, Float,
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Text,
+    UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.core.db import Base
 
@@ -64,9 +69,7 @@ class Message(Base):
     # system: {"action": "exchange_accepted"|"exchange_completed"|"meetup_proposed"|..., "data": {...}}
     extra = Column(JSONB, nullable=True)
 
-    __table_args__ = (
-        CheckConstraint("char_length(text) <= 2000", name="ck_message_text_length"),
-    )
+    __table_args__ = (CheckConstraint("char_length(text) <= 2000", name="ck_message_text_length"),)
 
 
 class MessageReaction(Base):
@@ -133,9 +136,7 @@ class ChatSettings(Base):
         onupdate=lambda: datetime.now(UTC),
     )
 
-    __table_args__ = (
-        UniqueConstraint("chat_id", "user_id", name="uq_chat_settings_per_user"),
-    )
+    __table_args__ = (UniqueConstraint("chat_id", "user_id", name="uq_chat_settings_per_user"),)
 
 
 class LinkPreview(Base):

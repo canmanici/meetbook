@@ -40,9 +40,7 @@ class AdminRepository:
         return result.scalar_one_or_none()
 
     async def list_active_user_ids(self) -> list[uuid.UUID]:
-        result = await self.session.execute(
-            select(User.id).where(User.status == UserStatus.active)
-        )
+        result = await self.session.execute(select(User.id).where(User.status == UserStatus.active))
         return list(result.scalars().all())
 
     # -- Books ------------------------------------------------------------------
@@ -101,8 +99,7 @@ class AdminRepository:
 
     async def exchanges_by_status(self) -> dict[str, int]:
         result = await self.session.execute(
-            select(ExchangeRequest.status, func.count())
-            .group_by(ExchangeRequest.status)
+            select(ExchangeRequest.status, func.count()).group_by(ExchangeRequest.status)
         )
         return {status.value: count for status, count in result.all()}
 
@@ -123,7 +120,11 @@ class AdminRepository:
     # -- Users list/detail ----------------------------------------------------
 
     async def list_users(
-        self, search: str | None = None, status: UserStatus | None = None, limit: int = 50, offset: int = 0
+        self,
+        search: str | None = None,
+        status: UserStatus | None = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> tuple[list[User], int]:
         stmt = select(User)
         count_stmt = select(func.count()).select_from(User)
@@ -131,7 +132,9 @@ class AdminRepository:
         if search:
             search_pattern = f"%{search}%"
             stmt = stmt.where(User.name.ilike(search_pattern) | User.email.ilike(search_pattern))
-            count_stmt = count_stmt.where(User.name.ilike(search_pattern) | User.email.ilike(search_pattern))
+            count_stmt = count_stmt.where(
+                User.name.ilike(search_pattern) | User.email.ilike(search_pattern)
+            )
 
         if status:
             stmt = stmt.where(User.status == status)
@@ -153,7 +156,11 @@ class AdminRepository:
     # -- Books list/detail ----------------------------------------------------
 
     async def list_books(
-        self, search: str | None = None, available_only: bool = False, limit: int = 50, offset: int = 0
+        self,
+        search: str | None = None,
+        available_only: bool = False,
+        limit: int = 50,
+        offset: int = 0,
     ) -> tuple[list[Book], int]:
         stmt = select(Book)
         count_stmt = select(func.count()).select_from(Book)
@@ -161,7 +168,9 @@ class AdminRepository:
         if search:
             search_pattern = f"%{search}%"
             stmt = stmt.where(Book.title.ilike(search_pattern) | Book.author.ilike(search_pattern))
-            count_stmt = count_stmt.where(Book.title.ilike(search_pattern) | Book.author.ilike(search_pattern))
+            count_stmt = count_stmt.where(
+                Book.title.ilike(search_pattern) | Book.author.ilike(search_pattern)
+            )
 
         if available_only:
             stmt = stmt.where(Book.is_available == True)
@@ -210,10 +219,18 @@ class AdminRepository:
     # -- Audit log ------------------------------------------------------------
 
     async def list_audit_logs(
-        self, user_id: uuid.UUID | None = None, event_type: str | None = None, limit: int = 50, offset: int = 0
+        self,
+        user_id: uuid.UUID | None = None,
+        event_type: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> tuple[list[tuple[AuditLog, str | None, str | None]], int]:
         """Returns (log, user_name, user_email) tuples + total count."""
-        stmt = select(AuditLog, User.name, User.email).select_from(AuditLog).outerjoin(User, AuditLog.user_id == User.id)
+        stmt = (
+            select(AuditLog, User.name, User.email)
+            .select_from(AuditLog)
+            .outerjoin(User, AuditLog.user_id == User.id)
+        )
         count_stmt = select(func.count()).select_from(AuditLog)
 
         if user_id:

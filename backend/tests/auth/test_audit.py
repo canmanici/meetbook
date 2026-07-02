@@ -56,9 +56,7 @@ async def test_login_failure_creates_audit_entry(
     )
     assert resp.status_code == 401
 
-    result = await db_session.execute(
-        select(AuditLog).where(AuditLog.event_type == "login_failed")
-    )
+    result = await db_session.execute(select(AuditLog).where(AuditLog.event_type == "login_failed"))
     entry = result.scalar_one_or_none()
     assert entry is not None
     assert entry.event_type == "login_failed"

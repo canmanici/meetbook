@@ -1,14 +1,13 @@
 """Tests for sort_order cursor encoding/decoding and book reorder functionality."""
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import httpx
 import pytest
 
 from app.modules.books.repository import decode_cursor, encode_cursor
 from tests.books.conftest import VALID_BOOK_PAYLOAD
-
 
 # ---------------------------------------------------------------------------
 # Cursor encoding / decoding (pure unit tests)
@@ -67,6 +66,7 @@ class TestCursor:
         book_id = uuid.uuid7()
         cursor = encode_cursor(0, dt, book_id)
         import base64
+
         try:
             padded = cursor + "=" * (4 - len(cursor) % 4) if len(cursor) % 4 else cursor
             base64.urlsafe_b64decode(padded)
@@ -140,7 +140,9 @@ async def test_reorder_returns_full_list(client: httpx.AsyncClient, register_use
 
     resp = await client.patch(
         "/api/v1/books/reorder",
-        json={"reorders": [{"book_id": ids[0], "sort_order": 1}, {"book_id": ids[1], "sort_order": 0}]},
+        json={
+            "reorders": [{"book_id": ids[0], "sort_order": 1}, {"book_id": ids[1], "sort_order": 0}]
+        },
         headers=owner["headers"],
     )
     assert resp.status_code == 200

@@ -27,9 +27,7 @@ class WishlistItem(Base):
 
 class SharedWishlist(Base):
     __tablename__ = "shared_wishlists"
-    __table_args__ = (
-        Index("ix_shared_wishlists_owner_id", "owner_id"),
-    )
+    __table_args__ = (Index("ix_shared_wishlists_owner_id", "owner_id"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     name = Column(String(100), nullable=False)
@@ -39,9 +37,7 @@ class SharedWishlist(Base):
 
 class SharedWishlistMember(Base):
     __tablename__ = "shared_wishlist_members"
-    __table_args__ = (
-        Index("ix_shared_wishlist_members_user_id", "user_id"),
-    )
+    __table_args__ = (Index("ix_shared_wishlist_members_user_id", "user_id"),)
 
     wishlist_id = Column(
         UUID(as_uuid=True),

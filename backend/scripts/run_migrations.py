@@ -372,8 +372,10 @@ def main() -> int:
     print("=" * 65)
 
     try:
-        with_missing_pycache()
-        return lock_and_migrate()
+        from app.core.config import get_settings
+
+        database_url = get_settings().database_url
+        return asyncio.run(lock_and_migrate(database_url))
     except KeyboardInterrupt:
         fail("Interrupted by user.")
         return 130
@@ -382,16 +384,6 @@ def main() -> int:
         import traceback
         traceback.print_exc()
         return 1
-
-
-def with_missing_pycache() -> None:
-    """Ensure __pycache__ is clear before anything else."""
-    pass  # handled in _run_migrations
-
-
-def lock_and_migrate() -> int:
-    """Synchronous entry point for non-async context."""
-    return _run_migrations()
 
 
 if __name__ == "__main__":

@@ -46,9 +46,7 @@ async def test_detail_hidden_from_non_participants(
 
 
 @pytest.mark.asyncio
-async def test_detail_nonexistent_returns_404(
-    client: httpx.AsyncClient, register_user
-) -> None:
+async def test_detail_nonexistent_returns_404(client: httpx.AsyncClient, register_user) -> None:
     user = await register_user("detail_404@example.com", "User")
 
     resp = await client.get(f"/api/v1/exchanges/{uuid.uuid7()}", headers=user["headers"])

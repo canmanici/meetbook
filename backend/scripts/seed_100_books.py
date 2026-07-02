@@ -10,15 +10,13 @@ Usage:
 """
 
 import asyncio
-import io
-import json
 import logging
 import os
 import random
 import sys
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -43,33 +41,53 @@ BOOKS_PER_CATEGORY = {
 # Open Library search subjects mapped to our categories
 CATEGORY_SEARCH_QUERIES = {
     "fiction": [
-        "subject:fiction", "subject:novel", "subject:roman",
-        "subject:classic_literature", "subject:fantasy",
+        "subject:fiction",
+        "subject:novel",
+        "subject:roman",
+        "subject:classic_literature",
+        "subject:fantasy",
     ],
     "non_fiction": [
-        "subject:non-fiction", "subject:history", "subject:science",
-        "subject:philosophy", "subject:biography",
+        "subject:non-fiction",
+        "subject:history",
+        "subject:science",
+        "subject:philosophy",
+        "subject:biography",
     ],
     "textbook": [
-        "subject:textbook", "subject:mathematics", "subject:physics",
-        "subject:computer_science", "subject:medicine",
+        "subject:textbook",
+        "subject:mathematics",
+        "subject:physics",
+        "subject:computer_science",
+        "subject:medicine",
     ],
     "children": [
-        "subject:children", "subject:childrens_literature",
-        "subject:childrens_stories", "subject:juvenile_fiction",
+        "subject:children",
+        "subject:childrens_literature",
+        "subject:childrens_stories",
+        "subject:juvenile_fiction",
         "subject:fairy_tales",
     ],
     "comics": [
-        "subject:comics", "subject:graphic_novels", "subject:manga",
-        "subject:cartoons", "subject:comic_books",
+        "subject:comics",
+        "subject:graphic_novels",
+        "subject:manga",
+        "subject:cartoons",
+        "subject:comic_books",
     ],
     "poetry": [
-        "subject:poetry", "subject:poems", "subject:poetry_collections",
-        "subject:turkish_poetry", "subject:world_poetry",
+        "subject:poetry",
+        "subject:poems",
+        "subject:poetry_collections",
+        "subject:turkish_poetry",
+        "subject:world_poetry",
     ],
     "other": [
-        "subject:short_stories", "subject:essays",
-        "subject:travel", "subject:cooking", "subject:art",
+        "subject:short_stories",
+        "subject:essays",
+        "subject:travel",
+        "subject:cooking",
+        "subject:art",
     ],
 }
 
@@ -106,6 +124,7 @@ S3_CONFIG = {
 
 # ── Data Structures ───────────────────────────────────────────────────────────
 
+
 @dataclass
 class BookInfo:
     title: str
@@ -124,7 +143,11 @@ class BookInfo:
 async def search_ol(client: httpx.AsyncClient, query: str, limit: int = 30) -> list[dict]:
     """Search Open Library and return raw results."""
     url = "https://openlibrary.org/search.json"
-    params = {"q": query, "limit": min(limit, 100), "fields": "title,author_name,isbn,subject,cover_i,first_publish_year,key,seed,language"}
+    params = {
+        "q": query,
+        "limit": min(limit, 100),
+        "fields": "title,author_name,isbn,subject,cover_i,first_publish_year,key,seed,language",
+    }
     try:
         resp = await client.get(url, params=params, timeout=15.0)
         resp.raise_for_status()
@@ -304,10 +327,9 @@ async def insert_book(
     condition: str,
 ) -> uuid.UUID | None:
     """Insert a book into the database and return its ID."""
-    from geoalchemy2.elements import WKTElement
 
     book_id = uuid.uuid7()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     isbn = book.isbn or f"SEED-{uuid.uuid7().hex[:12].upper()}"
 
     try:
@@ -351,7 +373,7 @@ async def insert_photo(conn: Any, book_id: uuid.UUID, url: str, position: int) -
             book_id,
             url,
             position,
-            datetime.now(timezone.utc),
+            datetime.now(UTC),
         )
         return True
     except Exception as e:
@@ -406,10 +428,7 @@ async def seed() -> int:
     try:
         import asyncpg
 
-        dsn = os.environ.get(
-            "DATABASE_URL",
-            "postgresql://meetbook:meetbook_dev@db:5432/meetbook"
-        )
+        dsn = os.environ.get("DATABASE_URL", "postgresql://meetbook:meetbook_dev@db:5432/meetbook")
         # asyncpg doesn't use full URL, extract parts
         conn = await asyncpg.connect(
             user="meetbook",
@@ -461,7 +480,9 @@ async def seed() -> int:
                 seeded_count += 1
 
                 if idx % 10 == 0 or idx == len(all_books):
-                    logger.info(f"  {idx}/{len(all_books)} books processed ({seeded_count} seeded, {skipped_count} skipped, {photo_count} photos)")
+                    logger.info(
+                        f"  {idx}/{len(all_books)} books processed ({seeded_count} seeded, {skipped_count} skipped, {photo_count} photos)"
+                    )
 
                 # Rate limiting for Open Library covers
                 if book.cover_id and idx % 5 == 0:
@@ -469,14 +490,14 @@ async def seed() -> int:
 
         # ── 4. Summary ────────────────────────────────────────────────────
         print(f"\n{'=' * 70}")
-        print(f"  ✅ Seeding Complete!")
+        print("  ✅ Seeding Complete!")
         print(f"  📚 Books seeded: {seeded_count}")
         print(f"  📸 Photos uploaded: {photo_count}")
         print(f"  ⏭  Skipped: {skipped_count}")
         print(f"  📍 Location: Antalya, Turkey ({ANTALYA_LAT}, {ANTALYA_LNG})")
 
         # Verify
-        print(f"\n── Verification ─────────────────────────────────────────────")
+        print("\n── Verification ─────────────────────────────────────────────")
         row_count = await conn.fetchval("SELECT COUNT(*) FROM books")
         photo_row_count = await conn.fetchval("SELECT COUNT(*) FROM book_photos")
         print(f"  Total books in database: {row_count}")
@@ -486,7 +507,7 @@ async def seed() -> int:
         categories = await conn.fetch(
             "SELECT category, COUNT(*) as cnt FROM books WHERE deleted_at IS NULL GROUP BY category ORDER BY cnt DESC"
         )
-        print(f"\n  Category breakdown:")
+        print("\n  Category breakdown:")
         for row in categories:
             print(f"    • {row['category']}: {row['cnt']}")
 
@@ -495,6 +516,7 @@ async def seed() -> int:
     except Exception as e:
         logger.error(f"  ✗ Seeding failed: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
     finally:

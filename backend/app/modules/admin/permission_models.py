@@ -1,12 +1,18 @@
 """Permission, Role, UserRole, BetaRequest models."""
 
 import enum
-import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Enum, ForeignKey,
-    Integer, String, Text, UniqueConstraint,
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -51,22 +57,20 @@ class Role(Base):
 
 class RolePermission(Base):
     __tablename__ = "role_permissions"
-    __table_args__ = (
-        UniqueConstraint("role_id", "permission_id", name="uq_role_permission"),
-    )
+    __table_args__ = (UniqueConstraint("role_id", "permission_id", name="uq_role_permission"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
-    permission_id = Column(UUID(as_uuid=True), ForeignKey("permissions.id", ondelete="CASCADE"), nullable=False)
+    permission_id = Column(
+        UUID(as_uuid=True), ForeignKey("permissions.id", ondelete="CASCADE"), nullable=False
+    )
     granted_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
 
 
 class UserRole(Base):
     __tablename__ = "user_roles"
-    __table_args__ = (
-        UniqueConstraint("user_id", "role_id", name="uq_user_role"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "role_id", name="uq_user_role"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
@@ -86,7 +90,11 @@ class BetaRequest(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    status = Column(Enum(BetaRequestStatus, name="beta_request_status", create_type=True), nullable=False, default=BetaRequestStatus.pending)
+    status = Column(
+        Enum(BetaRequestStatus, name="beta_request_status", create_type=True),
+        nullable=False,
+        default=BetaRequestStatus.pending,
+    )
     reviewed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
     rejection_reason = Column(Text, nullable=True)

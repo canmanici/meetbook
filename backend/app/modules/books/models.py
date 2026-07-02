@@ -5,7 +5,18 @@ import uuid
 from datetime import UTC, datetime
 
 from geoalchemy2 import Geography
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, Text, UniqueConstraint, text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.db import Base
@@ -42,13 +53,9 @@ class Book(Base):
     author = Column(Text, nullable=True)
     isbn = Column(Text, nullable=True)
     description = Column(Text, nullable=True)
-    category = Column(
-        Enum(BookCategory, name="book_category", create_type=True), nullable=False
-    )
+    category = Column(Enum(BookCategory, name="book_category", create_type=True), nullable=False)
     language = Column(Text, nullable=False, default="tr")
-    condition = Column(
-        Enum(BookCondition, name="book_condition", create_type=True), nullable=False
-    )
+    condition = Column(Enum(BookCondition, name="book_condition", create_type=True), nullable=False)
     is_available = Column(Boolean, nullable=False, default=True)
     location = Column(Geography(geometry_type="POINT", srid=4326), nullable=False)
     public_location = Column(Geography(geometry_type="POINT", srid=4326), nullable=False)
@@ -76,9 +83,7 @@ class BookFavorite(Base):
 
 class BookPhoto(Base):
     __tablename__ = "book_photos"
-    __table_args__ = (
-        Index("ix_book_photos_book_id", "book_id"),
-    )
+    __table_args__ = (Index("ix_book_photos_book_id", "book_id"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     book_id = Column(UUID(as_uuid=True), ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
