@@ -36,7 +36,7 @@ class Book(Base):
         Index("ix_books_public_location", "public_location", postgresql_using="gist"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     title = Column(Text, nullable=False)
     author = Column(Text, nullable=True)
@@ -68,7 +68,7 @@ class BookFavorite(Base):
         Index("ix_book_favorites_user_id", "user_id"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     book_id = Column(UUID(as_uuid=True), ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
@@ -80,7 +80,7 @@ class BookPhoto(Base):
         Index("ix_book_photos_book_id", "book_id"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     book_id = Column(UUID(as_uuid=True), ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
     url = Column(Text, nullable=False)
     thumbnail_url = Column(Text, nullable=True)

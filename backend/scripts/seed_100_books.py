@@ -265,7 +265,7 @@ async def upload_to_minio(
     import aioboto3
     from botocore.config import Config
 
-    filename = f"{uuid.uuid4()}.jpg"
+    filename = f"{uuid.uuid7()}.jpg"
     key = f"books/{book_id}/{filename}"
 
     try:
@@ -306,9 +306,9 @@ async def insert_book(
     """Insert a book into the database and return its ID."""
     from geoalchemy2.elements import WKTElement
 
-    book_id = uuid.uuid4()
+    book_id = uuid.uuid7()
     now = datetime.now(timezone.utc)
-    isbn = book.isbn or f"SEED-{uuid.uuid4().hex[:12].upper()}"
+    isbn = book.isbn or f"SEED-{uuid.uuid7().hex[:12].upper()}"
 
     try:
         await conn.execute(
@@ -347,7 +347,7 @@ async def insert_photo(conn: Any, book_id: uuid.UUID, url: str, position: int) -
             """INSERT INTO book_photos (id, book_id, url, position, created_at)
                VALUES ($1, $2, $3, $4, $5)
                ON CONFLICT (id) DO NOTHING""",
-            uuid.uuid4(),
+            uuid.uuid7(),
             book_id,
             url,
             position,

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Modal,
   RefreshControl,
   ScrollView,
   Share,
@@ -195,6 +196,15 @@ export default function ExchangeDetailScreen() {
 
   const CHECKLIST_ITEMS = ['Kitabı hazırla', 'Telefonun şarjı dolu', 'Arkadaşına haber ver'];
   const checklistKey = id ? `@meetbook_checklist_${id}` : null;
+
+  // Expanded map modal state
+  const [expandedMap, setExpandedMap] = useState<{
+    visible: boolean;
+    lat: number;
+    lng: number;
+    place_name: string;
+    address?: string;
+  }>({ visible: false, lat: 0, lng: 0, place_name: '', address: undefined });
 
   const invalidate = async (updated: ExchangeDetail) => {
     queryClient.setQueryData(['exchanges', id], updated);
@@ -559,6 +569,15 @@ export default function ExchangeDetailScreen() {
     Linking.openURL(links[provider]).catch(() => undefined);
   };
 
+  const onOpenInMapsForOffer = (provider: 'google' | 'yandex' | 'apple', lat: number, lng: number, place_name: string) => {
+    const links = buildMapLinks(lat, lng, place_name);
+    Linking.openURL(links[provider]).catch(() => undefined);
+  };
+
+  const onOpenExpandedMap = (lat: number, lng: number, place_name: string, address?: string) => {
+    setExpandedMap({ visible: true, lat, lng, place_name, address });
+  };
+
   const onCopyAddress = async () => {
     if (!meetup) return;
     await Clipboard.setStringAsync(
@@ -841,19 +860,29 @@ export default function ExchangeDetailScreen() {
                             {offer.place_name}
                           </Text>
                         </View>
-                        <MapView
-                          style={styles.placeMap}
-                          pointerEvents="none"
-                          region={{
-                            latitude: offer.lat,
-                            longitude: offer.lng,
-                            latitudeDelta: 0.01,
-                            longitudeDelta: 0.01,
-                          }}
-                          testID={`meetup-offer-map-${index}`}
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={() => onOpenExpandedMap(offer.lat, offer.lng, offer.place_name, offer.address ?? undefined)}
+                          testID={`meetup-offer-map-expand-${index}`}
                         >
-                          <Marker coordinate={{ latitude: offer.lat, longitude: offer.lng }} />
-                        </MapView>
+                          <MapView
+                            style={styles.placeMap}
+                            pointerEvents="none"
+                            region={{
+                              latitude: offer.lat,
+                              longitude: offer.lng,
+                              latitudeDelta: 0.01,
+                              longitudeDelta: 0.01,
+                            }}
+                            testID={`meetup-offer-map-${index}`}
+                          >
+                            <Marker coordinate={{ latitude: offer.lat, longitude: offer.lng }} />
+                          </MapView>
+                          <View style={[styles.mapExpandOverlay, { backgroundColor: colors.primary + '99' }]}>
+                            <Ionicons name="expand-outline" size={16} color="#ffffff" />
+                            <Text style={styles.mapExpandText}>Büyüt</Text>
+                          </View>
+                        </TouchableOpacity>
                         {offer.address ? (
                           <Text style={[styles.placeAddress, { color: colors.textMuted }]}>
                             {offer.address}
@@ -870,6 +899,32 @@ export default function ExchangeDetailScreen() {
                           variant={offer.validation_status === 'auto' ? 'success' : 'warning'}
                           testID={`meetup-offer-validation-${index}`}
                         />
+                        <View style={styles.mapsRow}>
+                          <TouchableOpacity
+                            style={[styles.mapButton, { backgroundColor: colors.background, borderColor: colors.textMuted + '40' }]}
+                            onPress={() => onOpenInMapsForOffer('google', offer.lat, offer.lng, offer.place_name)}
+                            testID={`meetup-offer-google-maps-${index}`}
+                          >
+                            <Ionicons name="logo-google" size={14} color={colors.text} />
+                            <Text style={[styles.mapButtonText, { color: colors.text }]}>Google</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.mapButton, { backgroundColor: colors.background, borderColor: colors.textMuted + '40' }]}
+                            onPress={() => onOpenInMapsForOffer('yandex', offer.lat, offer.lng, offer.place_name)}
+                            testID={`meetup-offer-yandex-maps-${index}`}
+                          >
+                            <Ionicons name="map-outline" size={14} color={colors.text} />
+                            <Text style={[styles.mapButtonText, { color: colors.text }]}>Yandex</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.mapButton, { backgroundColor: colors.background, borderColor: colors.textMuted + '40' }]}
+                            onPress={() => onOpenInMapsForOffer('apple', offer.lat, offer.lng, offer.place_name)}
+                            testID={`meetup-offer-apple-maps-${index}`}
+                          >
+                            <Ionicons name="logo-apple" size={14} color={colors.text} />
+                            <Text style={[styles.mapButtonText, { color: colors.text }]}>Apple</Text>
+                          </TouchableOpacity>
+                        </View>
                       </TouchableOpacity>
                     );
                   })}
@@ -882,19 +937,29 @@ export default function ExchangeDetailScreen() {
                       {meetup.place_name}
                     </Text>
                   </View>
-                  <MapView
-                    style={styles.placeMap}
-                    pointerEvents="none"
-                    region={{
-                      latitude: meetup.lat,
-                      longitude: meetup.lng,
-                      latitudeDelta: 0.01,
-                      longitudeDelta: 0.01,
-                    }}
-                    testID="meetup-place-map"
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => onOpenExpandedMap(meetup.lat, meetup.lng, meetup.place_name, meetup.address ?? undefined)}
+                    testID="meetup-place-map-expand"
                   >
-                    <Marker coordinate={{ latitude: meetup.lat, longitude: meetup.lng }} />
-                  </MapView>
+                    <MapView
+                      style={styles.placeMap}
+                      pointerEvents="none"
+                      region={{
+                        latitude: meetup.lat,
+                        longitude: meetup.lng,
+                        latitudeDelta: 0.01,
+                        longitudeDelta: 0.01,
+                      }}
+                      testID="meetup-place-map"
+                    >
+                      <Marker coordinate={{ latitude: meetup.lat, longitude: meetup.lng }} />
+                    </MapView>
+                    <View style={[styles.mapExpandOverlay, { backgroundColor: colors.primary + '99' }]}>
+                      <Ionicons name="expand-outline" size={16} color="#ffffff" />
+                      <Text style={styles.mapExpandText}>Büyüt</Text>
+                    </View>
+                  </TouchableOpacity>
                   {meetup.address ? (
                     <Text style={[styles.placeAddress, { color: colors.textMuted }]}>
                       {meetup.address}
@@ -1536,6 +1601,103 @@ export default function ExchangeDetailScreen() {
         </View>
       )}
 
+      {/* Full-screen map modal */}
+      <Modal
+        visible={expandedMap.visible}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setExpandedMap((prev) => ({ ...prev, visible: false }))}
+      >
+        <View style={[styles.expandedMapContainer, { backgroundColor: colors.background }]}>
+          {/* Header */}
+          <View style={[styles.expandedMapHeader, { backgroundColor: colors.surface, borderBottomColor: colors.textMuted + '20' }]}>
+            <TouchableOpacity
+              onPress={() => setExpandedMap((prev) => ({ ...prev, visible: false }))}
+              style={styles.expandedMapCloseButton}
+              testID="expanded-map-close"
+              accessibilityRole="button"
+              accessibilityLabel="Kapat"
+            >
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <View style={styles.expandedMapHeaderInfo}>
+              <Text style={[styles.expandedMapTitle, { color: colors.text }]} numberOfLines={1}>
+                {expandedMap.place_name}
+              </Text>
+              {expandedMap.address ? (
+                <Text style={[styles.expandedMapAddress, { color: colors.textMuted }]} numberOfLines={2}>
+                  {expandedMap.address}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          {/* Full-screen map */}
+          <View style={styles.expandedMapBody}>
+            <MapView
+              style={styles.expandedMapFull}
+              region={{
+                latitude: expandedMap.lat,
+                longitude: expandedMap.lng,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+              testID="expanded-map-view"
+            >
+              <Marker
+                coordinate={{ latitude: expandedMap.lat, longitude: expandedMap.lng }}
+              />
+            </MapView>
+          </View>
+
+          {/* Bottom bar: Google Maps + Yandex + Apple */}
+          <View style={[styles.expandedMapBottom, { backgroundColor: colors.surface, borderTopColor: colors.textMuted + '20' }]}>
+            <Text style={[styles.expandedMapLabel, { color: colors.textMuted }]}>Haritada Aç</Text>
+            <View style={styles.expandedMapButtons}>
+              <TouchableOpacity
+                style={[styles.expandedMapButton, { backgroundColor: colors.primary + '15' }]}
+                onPress={() => {
+                  const links = buildMapLinks(expandedMap.lat, expandedMap.lng, expandedMap.place_name);
+                  Linking.openURL(links.google).catch(() => undefined);
+                }}
+                testID="expanded-map-google"
+                accessibilityRole="button"
+                accessibilityLabel="Google Haritalar'da aç"
+              >
+                <Ionicons name="logo-google" size={20} color={colors.primary} />
+                <Text style={[styles.expandedMapButtonText, { color: colors.primary }]}>Google</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.expandedMapButton, { backgroundColor: colors.info + '15' }]}
+                onPress={() => {
+                  const links = buildMapLinks(expandedMap.lat, expandedMap.lng, expandedMap.place_name);
+                  Linking.openURL(links.yandex).catch(() => undefined);
+                }}
+                testID="expanded-map-yandex"
+                accessibilityRole="button"
+                accessibilityLabel="Yandex Haritalar'da aç"
+              >
+                <Ionicons name="map-outline" size={20} color={colors.info} />
+                <Text style={[styles.expandedMapButtonText, { color: colors.info }]}>Yandex</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.expandedMapButton, { backgroundColor: colors.text + '15' }]}
+                onPress={() => {
+                  const links = buildMapLinks(expandedMap.lat, expandedMap.lng, expandedMap.place_name);
+                  Linking.openURL(links.apple).catch(() => undefined);
+                }}
+                testID="expanded-map-apple"
+                accessibilityRole="button"
+                accessibilityLabel="Apple Haritalar'da aç"
+              >
+                <Ionicons name="logo-apple" size={20} color={colors.text} />
+                <Text style={[styles.expandedMapButtonText, { color: colors.text }]}>Apple</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <SafetySheet
         visible={meetupSafetySheetVisible}
         onClose={() => setMeetupSafetySheetVisible(false)}
@@ -1881,6 +2043,98 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 180,
     borderRadius: 8,
+  },
+  mapExpandOverlay: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  mapExpandText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  mapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  mapButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  expandedMapContainer: {
+    flex: 1,
+  },
+  expandedMapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 50,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+  },
+  expandedMapCloseButton: {
+    padding: 8,
+    marginRight: 12,
+  },
+  expandedMapHeaderInfo: {
+    flex: 1,
+  },
+  expandedMapTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  expandedMapAddress: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  expandedMapBody: {
+    flex: 1,
+  },
+  expandedMapFull: {
+    flex: 1,
+  },
+  expandedMapBottom: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingBottom: 32,
+    borderTopWidth: 1,
+  },
+  expandedMapLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  expandedMapButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  expandedMapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  expandedMapButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   placeAddress: {
     fontSize: fontSize.bodySm,

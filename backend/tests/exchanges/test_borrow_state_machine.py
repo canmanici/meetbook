@@ -49,8 +49,8 @@ def test_invalid_transition_raises():
 
 
 def test_actor_checks():
-    requester = uuid.uuid4()
-    owner = uuid.uuid4()
+    requester = uuid.uuid7()
+    owner = uuid.uuid7()
     assert check_actor(Actor.REQUESTER, requester, requester, owner, None) is True
     assert check_actor(Actor.REQUESTER, owner, requester, owner, None) is False
     assert check_actor(Actor.OWNER, owner, requester, owner, None) is True

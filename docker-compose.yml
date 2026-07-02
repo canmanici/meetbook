@@ -46,6 +46,7 @@ services:
   backend:
     build: ./backend
     env_file: ./backend/.env
+
     environment:
       PYTHON_JIT: "1"
       DATABASE_URL: postgresql+asyncpg://meetbook:${POSTGRES_PASSWORD:-meetbook_dev}@db:5432/meetbook
@@ -58,6 +59,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      - ./admin:/app/admin:ro
       - ./backend/app:/app/app
       - ./backend/alembic:/app/alembic
       - ./backend/alembic.ini:/app/alembic.ini:ro

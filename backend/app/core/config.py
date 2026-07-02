@@ -30,8 +30,8 @@ class Settings(BaseSettings):
     sms_provider_key: str = ""
     media_dir: str = "/app/media"
 
-    # Comma-separated list of allowed origins for browser clients (Expo web dev server).
-    cors_origins: str = "http://localhost:8081"
+    # Comma-separated list of allowed origins for browser clients (admin panel, Expo web dev server).
+    cors_origins: str = "http://localhost:8081,http://localhost:8000,http://localhost:3000,http://localhost:5173,http://localhost:8080,http://127.0.0.1:5500,http://localhost:5500"
 
     @property
     def cors_origins_list(self) -> list[str]:

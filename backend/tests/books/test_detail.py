@@ -49,7 +49,7 @@ async def test_get_nonexistent_book_returns_404(
 ) -> None:
     owner = await register_user("detail_404@example.com", "Owner")
 
-    resp = await client.get(f"/api/v1/books/{uuid.uuid4()}", headers=owner["headers"])
+    resp = await client.get(f"/api/v1/books/{uuid.uuid7()}", headers=owner["headers"])
     assert resp.status_code == 404
 
 

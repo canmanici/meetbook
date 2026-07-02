@@ -16,7 +16,7 @@ class WishlistItem(Base):
         Index("ix_wishlist_items_isbn", "isbn"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     isbn = Column(Text, nullable=False)
     title = Column(Text, nullable=True)
@@ -31,7 +31,7 @@ class SharedWishlist(Base):
         Index("ix_shared_wishlists_owner_id", "owner_id"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     name = Column(String(100), nullable=False)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
@@ -59,7 +59,7 @@ class SharedWishlistItem(Base):
         Index("ix_shared_wishlist_items_added_by", "added_by"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     wishlist_id = Column(
         UUID(as_uuid=True),
         ForeignKey("shared_wishlists.id", ondelete="CASCADE"),

@@ -66,7 +66,7 @@ class StructuredLoggingMiddleware(BaseHTTPMiddleware):
         root.setLevel(logging.INFO)
 
     async def dispatch(self, request: Request, call_next):
-        request_id = str(uuid.uuid4())[:8]
+        request_id = str(uuid.uuid7())[:8]
         start = time.monotonic()
 
         # Inject context into all log adapters during this request

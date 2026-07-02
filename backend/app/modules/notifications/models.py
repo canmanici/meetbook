@@ -15,7 +15,7 @@ class Notification(Base):
         Index("ix_notifications_user_id", "user_id"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     type = Column(Text, nullable=False)
     payload = Column(JSONB, nullable=False, default=dict, server_default="{}")

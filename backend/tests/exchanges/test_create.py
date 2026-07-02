@@ -33,7 +33,7 @@ async def test_create_book_not_found(client: httpx.AsyncClient, register_user) -
 
     resp = await client.post(
         "/api/v1/exchanges",
-        json={"book_id": str(uuid.uuid4()), "initial_message": "Hi"},
+        json={"book_id": str(uuid.uuid7()), "initial_message": "Hi"},
         headers=requester["headers"],
     )
     assert resp.status_code == 404

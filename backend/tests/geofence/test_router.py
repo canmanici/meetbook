@@ -16,7 +16,7 @@ ISTANBUL = (41.0082, 28.9784)
 
 
 async def _register(client: httpx.AsyncClient) -> dict:
-    email = f"gf_test_{uuid.uuid4().hex[:12]}@example.com"
+    email = f"gf_test_{uuid.uuid7().hex[:12]}@example.com"
     resp = await client.post(
         "/api/v1/auth/register",
         json={
@@ -122,7 +122,7 @@ async def test_mark_alert_read(
 @pytest.mark.asyncio
 async def test_mark_alert_read_nonexistent(client: httpx.AsyncClient) -> None:
     user = await _register(client)
-    fake_id = uuid.uuid4()
+    fake_id = uuid.uuid7()
     resp = await client.patch(
         f"/api/v1/geofence/alerts/{fake_id}/read",
         headers=user["headers"],

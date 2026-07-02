@@ -84,7 +84,7 @@ class ExchangeRequest(Base):
         ),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     book_id = Column(UUID(as_uuid=True), ForeignKey("books.id"), nullable=False)
     requested_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     requested_to = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
@@ -146,7 +146,7 @@ class Block(Base):
 class Chat(Base):
     __tablename__ = "chats"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     exchange_request_id = Column(
         UUID(as_uuid=True),
         ForeignKey("exchange_requests.id", ondelete="CASCADE"),
@@ -172,7 +172,7 @@ class Meetup(Base):
         Index("ix_meetups_geom", "geom", postgresql_using="gist"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     exchange_request_id = Column(
         UUID(as_uuid=True),
         ForeignKey("exchange_requests.id", ondelete="CASCADE"),
@@ -208,7 +208,7 @@ class BlockedPlace(Base):
         Index("ix_blocked_places_geom", "geom", postgresql_using="gist"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     place_id = Column(Text, nullable=True)
     lat = Column(Float, nullable=False)
     lng = Column(Float, nullable=False)
@@ -240,7 +240,7 @@ class ReadingBuddy(Base):
         UniqueConstraint("exchange_id", name="uq_reading_buddies_per_exchange"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     exchange_id = Column(
         UUID(as_uuid=True),
         ForeignKey("exchange_requests.id", ondelete="CASCADE"),

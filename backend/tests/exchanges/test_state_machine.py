@@ -15,9 +15,9 @@ from app.modules.exchanges.state_machine import (
     get_transition,
 )
 
-REQUESTER = uuid.uuid4()
-OWNER = uuid.uuid4()
-STRANGER = uuid.uuid4()
+REQUESTER = uuid.uuid7()
+OWNER = uuid.uuid7()
+STRANGER = uuid.uuid7()
 
 
 @pytest.mark.parametrize(

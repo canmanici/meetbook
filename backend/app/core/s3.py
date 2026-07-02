@@ -47,19 +47,19 @@ async def upload_photo(
     thumb_bytes: bytes | None = None,
 ) -> dict:
     """Upload a photo and return {"url": ..., "thumbnail_url": ...}.
-    
+
     Thumbnail is provided by the client (resized on-device).
     If no thumbnail is provided, thumbnail_url will be None.
     """
     ext = _get_extension(content_type)
-    filename = f"{uuid.uuid4()}.{ext}"
+    filename = f"{uuid.uuid7()}.{ext}"
 
     if _is_s3_configured():
         logger.info("Uploading to S3: book=%s file=%s size=%d", book_id, filename, len(file_bytes))
         url = await _upload_s3(book_id, filename, file_bytes, content_type)
         thumb_url = None
         if thumb_bytes:
-            thumb_filename = f"{uuid.uuid4()}_thumb.{ext}"
+            thumb_filename = f"{uuid.uuid7()}_thumb.{ext}"
             thumb_url = await _upload_s3(book_id, thumb_filename, thumb_bytes, content_type)
         logger.info("S3 upload complete: %s (thumb: %s)", url, thumb_url)
         return {"url": url, "thumbnail_url": thumb_url}
@@ -68,7 +68,7 @@ async def upload_photo(
     url = await _upload_local(book_id, filename, file_bytes)
     thumb_url = None
     if thumb_bytes:
-        thumb_filename = f"{uuid.uuid4()}_thumb.{ext}"
+        thumb_filename = f"{uuid.uuid7()}_thumb.{ext}"
         thumb_url = await _upload_local(book_id, thumb_filename, thumb_bytes)
     logger.info("Local upload complete: %s (thumb: %s)", url, thumb_url)
     return {"url": url, "thumbnail_url": thumb_url}

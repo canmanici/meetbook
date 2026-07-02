@@ -20,7 +20,7 @@ class Message(Base):
 
     __tablename__ = "messages"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     chat_id = Column(
         UUID(as_uuid=True),
         ForeignKey("chats.id", ondelete="CASCADE"),
@@ -74,7 +74,7 @@ class MessageReaction(Base):
 
     __tablename__ = "message_reactions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     message_id = Column(
         UUID(as_uuid=True),
         ForeignKey("messages.id", ondelete="CASCADE"),
@@ -103,7 +103,7 @@ class ChatSettings(Base):
 
     __tablename__ = "chat_settings"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     chat_id = Column(
         UUID(as_uuid=True),
         ForeignKey("chats.id", ondelete="CASCADE"),
@@ -143,7 +143,7 @@ class LinkPreview(Base):
 
     __tablename__ = "link_previews"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     url = Column(Text, nullable=False, unique=True)
     title = Column(Text, nullable=True)
     description = Column(Text, nullable=True)

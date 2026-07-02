@@ -211,8 +211,9 @@ class AdminRepository:
 
     async def list_audit_logs(
         self, user_id: uuid.UUID | None = None, event_type: str | None = None, limit: int = 50, offset: int = 0
-    ) -> tuple[list[AuditLog], int]:
-        stmt = select(AuditLog)
+    ) -> tuple[list[tuple[AuditLog, str | None, str | None]], int]:
+        """Returns (log, user_name, user_email) tuples + total count."""
+        stmt = select(AuditLog, User.name, User.email).select_from(AuditLog).outerjoin(User, AuditLog.user_id == User.id)
         count_stmt = select(func.count()).select_from(AuditLog)
 
         if user_id:
@@ -228,6 +229,6 @@ class AdminRepository:
 
         stmt = stmt.order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
         result = await self.session.execute(stmt)
-        logs = list(result.scalars().all())
+        rows = result.all()  # list of (AuditLog, name_or_None, email_or_None)
 
-        return logs, total
+        return rows, total

@@ -398,7 +398,7 @@ export default function ChatsScreen() {
     }, []),
   );
 
-  const allChats = data?.items ?? [];
+  const allChats: ChatRow[] = (data?.items ?? []) as ChatRow[];
   const totalUnread = useMemo(
     () => allChats.reduce((sum, c) => sum + (c.unread_count > 0 ? 1 : 0), 0),
     [allChats],

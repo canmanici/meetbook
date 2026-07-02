@@ -96,7 +96,7 @@ async def test_patch_nonexistent_book_returns_404(
     owner = await register_user("edit_404@example.com", "Owner")
 
     resp = await client.patch(
-        f"/api/v1/books/{uuid.uuid4()}",
+        f"/api/v1/books/{uuid.uuid7()}",
         json={"title": "Nope"},
         headers=owner["headers"],
     )

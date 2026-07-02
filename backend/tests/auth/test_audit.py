@@ -39,7 +39,7 @@ async def test_login_failure_creates_audit_entry(
     """Failed login should create an audit log entry."""
     import uuid
 
-    unique_id = uuid.uuid4().hex[:8]
+    unique_id = uuid.uuid7().hex[:8]
     email = f"auditfail-{unique_id}@example.com"
     await client.post(
         "/api/v1/auth/register",

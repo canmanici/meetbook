@@ -90,6 +90,20 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(RateLimitMiddleware, redis_client=redis_client, config=rate_config)
 
+    # Admin panel (admin/index.html) — host'ta project-root/admin, container'da /app/admin
+    admin_dir = None
+    _me = Path(__file__).resolve()
+    for _parent in (_me.parent.parent.parent, _me.parent.parent):
+        candidate = _parent / "admin"
+        if candidate.is_dir():
+            admin_dir = candidate
+            break
+    if admin_dir:
+        app.mount("/admin", StaticFiles(directory=str(admin_dir), html=True), name="admin")
+        logger.info("Admin panel mounted at /admin from %s", admin_dir)
+    else:
+        logger.warning("Admin panel not found (tried parent paths of %s)", _me)
+
     # Static media (local dev only)
     media_dir = Path(get_settings().media_dir)
     media_dir.mkdir(parents=True, exist_ok=True)

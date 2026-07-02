@@ -9,7 +9,7 @@ from app.core.db import Base
 class SavedSearch(Base):
     __tablename__ = "saved_searches"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(100), nullable=True)
     params = Column(JSONB, nullable=False, default=dict)

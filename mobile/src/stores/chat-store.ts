@@ -50,6 +50,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
 
   connect: () => {
+    if (get().connected) {
+      // Already subscribed — just ensure the WS transport is open
+      // (chats.tsx may have disconnected it on blur when navigating away)
+      chatWS.connect();
+      return;
+    }
     chatWS.connect();
     chatWS.subscribe((msg) => {
       if (msg.type === 'message' && msg.message) {

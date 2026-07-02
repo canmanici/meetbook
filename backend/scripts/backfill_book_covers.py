@@ -197,7 +197,7 @@ async def backfill():
 
             if img_bytes:
                 # Upload to MinIO
-                filename = f"{uuid.uuid4()}.jpg"
+                filename = f"{uuid.uuid7()}.jpg"
                 s3_url = await upload_to_s3(book.id, filename, img_bytes, "image/jpeg")
                 if s3_url:
                     async with factory() as session:
@@ -220,7 +220,7 @@ async def backfill():
                 cat = book.category.value if book.category else "other"
                 placeholder = await download_placeholder(client, book.title, cat)
                 if placeholder:
-                    filename = f"{uuid.uuid4()}.jpg"
+                    filename = f"{uuid.uuid7()}.jpg"
                     s3_url = await upload_to_s3(book.id, filename, placeholder, "image/png")
                     if s3_url:
                         async with factory() as session:

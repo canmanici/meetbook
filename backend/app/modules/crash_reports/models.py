@@ -14,7 +14,7 @@ class CrashReport(Base):
     __tablename__ = "crash_reports"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid7
     )
     app: Mapped[str] = mapped_column(
         String(20), default="mobile", comment="mobile | backend | admin"

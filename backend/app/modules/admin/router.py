@@ -20,13 +20,21 @@ from app.modules.admin.schemas import (
     BlockedPlaceCreateRequest,
     BlockedPlaceListResponse,
     BlockedPlaceView,
+    BookMetricsResponse,
     BroadcastRequest,
     BroadcastResponse,
+    ExchangeMetricsResponse,
+    MetricsOverviewResponse,
     MetricsResponse,
     ReportResolveRequest,
+    SystemHealthResponse,
+    TrendGroup,
+    TrustMetricsResponse,
     TrustScoreRequest,
     UserActionRequest,
+    UserMetricsResponse,
 )
+from app.modules.admin.metrics_service import MetricsService
 from app.modules.admin.service import AdminError, AdminService
 from app.modules.auth.dependencies import get_admin_user
 from app.modules.auth.models import User, UserStatus
@@ -47,6 +55,18 @@ async def list_reports(
     service: AdminService = Depends(_get_service),
 ) -> AdminReportListResponse:
     return await service.list_reports(status)
+
+
+@router.get("/reports/{report_id}", response_model=AdminReportView)
+async def get_report(
+    report_id: uuid.UUID,
+    user: User = Depends(get_admin_user),
+    service: AdminService = Depends(_get_service),
+) -> AdminReportView:
+    try:
+        return await service.get_report(report_id)
+    except AdminError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
 
 
 @router.post("/reports/{report_id}/claim", response_model=AdminReportView)
@@ -197,6 +217,78 @@ async def get_metrics(
     return await service.get_metrics()
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# OCEAN METRICS ENDPOINTS — CEO Dashboard
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _get_metrics_service(session: AsyncSession = Depends(get_session)) -> MetricsService:
+    return MetricsService(session)
+
+
+@router.get("/metrics/overview", response_model=MetricsOverviewResponse)
+async def get_metrics_overview(
+    user: User = Depends(get_admin_user),
+    ms: MetricsService = Depends(_get_metrics_service),
+) -> MetricsOverviewResponse:
+    """Ocean overview: 50+ KPIs across users, books, exchanges, reports, engagement, trust, system."""
+    return await ms.get_overview()
+
+
+@router.get("/metrics/trends", response_model=TrendGroup)
+async def get_metrics_trends(
+    days: int = Query(default=30, ge=7, le=90),
+    user: User = Depends(get_admin_user),
+    ms: MetricsService = Depends(_get_metrics_service),
+) -> TrendGroup:
+    """Time-series data: signups, DAU, exchanges, reports, books, favorites per day."""
+    return await ms.get_trends(days)
+
+
+@router.get("/metrics/books", response_model=BookMetricsResponse)
+async def get_metrics_books(
+    user: User = Depends(get_admin_user),
+    ms: MetricsService = Depends(_get_metrics_service),
+) -> BookMetricsResponse:
+    """Book inventory analytics: category/condition/language distribution, top books."""
+    return await ms.get_book_metrics()
+
+
+@router.get("/metrics/exchanges", response_model=ExchangeMetricsResponse)
+async def get_metrics_exchanges(
+    user: User = Depends(get_admin_user),
+    ms: MetricsService = Depends(_get_metrics_service),
+) -> ExchangeMetricsResponse:
+    """Exchange analytics: success rate, completion time, pipeline, top exchangers."""
+    return await ms.get_exchange_metrics()
+
+
+@router.get("/metrics/users", response_model=UserMetricsResponse)
+async def get_metrics_users(
+    user: User = Depends(get_admin_user),
+    ms: MetricsService = Depends(_get_metrics_service),
+) -> UserMetricsResponse:
+    """User analytics: status breakdown, verification rates, engagement."""
+    return await ms.get_user_metrics()
+
+
+@router.get("/metrics/trust", response_model=TrustMetricsResponse)
+async def get_metrics_trust(
+    user: User = Depends(get_admin_user),
+    ms: MetricsService = Depends(_get_metrics_service),
+) -> TrustMetricsResponse:
+    """Trust & safety: bans, suspensions, report resolution, top offenders, recent actions."""
+    return await ms.get_trust_metrics()
+
+
+@router.get("/metrics/system", response_model=SystemHealthResponse)
+async def get_metrics_system(
+    user: User = Depends(get_admin_user),
+    ms: MetricsService = Depends(_get_metrics_service),
+) -> SystemHealthResponse:
+    """System health: DB size, connections, cache hit ratio, crash reports."""
+    return await ms.get_system_health()
+
+
 @router.get("/users", response_model=AdminUserListResponse)
 async def list_users(
     search: str | None = Query(default=None),
@@ -266,6 +358,16 @@ async def get_exchange_detail(
         return await service.get_exchange_detail(exchange_id)
     except AdminError as e:
         raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.get("/search")
+async def admin_search(
+    q: str = Query(default=""),
+    user: User = Depends(get_admin_user),
+    service: AdminService = Depends(_get_service),
+) -> dict:
+    """Global admin search across users, books, and exchanges."""
+    return await service.global_search(q)
 
 
 @router.get("/audit-log", response_model=AuditLogListResponse)

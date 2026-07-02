@@ -31,7 +31,7 @@ class Report(Base):
         Index("ix_reports_reporter_id", "reporter_id"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     reporter_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     target_type = Column(
         Enum(ReportTarget, name="report_target", create_type=True), nullable=False

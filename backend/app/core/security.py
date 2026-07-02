@@ -45,7 +45,7 @@ def create_access_token(
         "sub": user_id,
         "exp": now + timedelta(seconds=expires_in_seconds),
         "iat": now,
-        "jti": str(uuid.uuid4()),
+        "jti": str(uuid.uuid7()),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
@@ -59,5 +59,5 @@ def create_refresh_token() -> tuple[str, str, uuid.UUID]:
     """Return (raw_token, token_hash, family_id)."""
     token = generate_opaque_token(32)
     token_hashed = hash_token(token)
-    family_id = uuid.uuid4()
+    family_id = uuid.uuid7()
     return token, token_hashed, family_id

@@ -51,5 +51,5 @@ async def test_detail_nonexistent_returns_404(
 ) -> None:
     user = await register_user("detail_404@example.com", "User")
 
-    resp = await client.get(f"/api/v1/exchanges/{uuid.uuid4()}", headers=user["headers"])
+    resp = await client.get(f"/api/v1/exchanges/{uuid.uuid7()}", headers=user["headers"])
     assert resp.status_code == 404

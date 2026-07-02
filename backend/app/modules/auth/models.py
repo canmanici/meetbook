@@ -33,7 +33,7 @@ class UserStatus(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     email = Column(String(255), unique=True, nullable=False, index=True)
     name = Column(String(100), nullable=False)
     phone = Column(String(20), nullable=True)
@@ -78,7 +78,7 @@ class User(Base):
 class UserCredential(Base):
     __tablename__ = "user_credentials"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     user_id = Column(
         UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False
     )
@@ -95,7 +95,7 @@ class RefreshToken(Base):
         Index("ix_refresh_tokens_family_id", "family_id"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     token_hash = Column(String(64), unique=True, nullable=False)
     family_id = Column(UUID(as_uuid=True), nullable=False)
@@ -110,7 +110,7 @@ class RefreshToken(Base):
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     token_hash = Column(String(64), unique=True, nullable=False)
     used_at = Column(DateTime(timezone=True), nullable=True)
@@ -125,7 +125,7 @@ class AuditLog(Base):
         Index("ix_audit_log_event_type", "event_type"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     event_type = Column(String(50), nullable=False)
     ip_address = Column(INET, nullable=True)

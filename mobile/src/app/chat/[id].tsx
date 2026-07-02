@@ -102,6 +102,7 @@ export default function ChatDetailScreen() {
 
   const currentUserId = useAuthStore((s) => s.user?.id);
   const { shadowBlocked, isBlocked, reload: reloadShadowBlocked } = useShadowBlocked();
+  const connect = useChatStore((s) => s.connect);
   const sendMessage = useChatStore((s) => s.sendMessage);
   const sendTyping = useChatStore((s) => s.sendTyping);
   const sendDelete = useChatStore((s) => s.sendDelete);
@@ -151,13 +152,18 @@ export default function ChatDetailScreen() {
   const counterpartName = exchange?.counterpart?.name ?? chatSummary?.counterpart_name ?? 'Sohbet';
   const counterpartId = exchange?.counterpart?.id ?? chatSummary?.counterpart_id;
 
-  // Shadow block: reload the local block list when this screen regains focus
-  // (e.g. after returning from the chat info screen where the user may have
-  // toggled a shadow block).
+  // Ensure WebSocket is connected whenever this screen is focused.
+  // Without this, navigating from the chats tab (which connects WS on focus
+  // and disconnects on blur) to this Stack screen leaves WS disconnected,
+  // making sendMessage() fail silently with "Bağlantı yok".
+  // Guard in store::connect() prevents duplicate subscriptions.
+  // Shadow block reload keeps the local block list current (e.g. after
+  // toggling shadow block in chat info screen).
   useFocusEffect(
     useCallback(() => {
+      connect();
       reloadShadowBlocked();
-    }, [reloadShadowBlocked]),
+    }, [connect, reloadShadowBlocked]),
   );
 
   // Don't reveal a shadow-blocked counterpart's typing — their messages are
@@ -395,7 +401,7 @@ export default function ChatDetailScreen() {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={0}
     >
       {/* ---- Header ---- */}

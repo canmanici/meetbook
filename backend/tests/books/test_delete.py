@@ -64,7 +64,7 @@ async def test_delete_nonexistent_book_returns_404(
 ) -> None:
     owner = await register_user("delete_404@example.com", "Owner")
 
-    resp = await client.delete(f"/api/v1/books/{uuid.uuid4()}", headers=owner["headers"])
+    resp = await client.delete(f"/api/v1/books/{uuid.uuid7()}", headers=owner["headers"])
     assert resp.status_code == 404
 
 

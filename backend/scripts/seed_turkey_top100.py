@@ -233,7 +233,7 @@ async def upload_to_minio(book_id: uuid.UUID, cover_bytes: bytes) -> str | None:
     import aioboto3
     from botocore.config import Config
 
-    filename = f"{uuid.uuid4()}.jpg"
+    filename = f"{uuid.uuid7()}.jpg"
     key = f"books/{book_id}/{filename}"
 
     try:
@@ -299,7 +299,7 @@ async def seed() -> int:
         print("\n── Cleaning up old seed books ────────────────────────────────────")
         # Soft-delete ALL existing non-deleted books
         result = await conn.execute("""
-            UPDATE books SET deleted_at = NOW() 
+            UPDATE books SET deleted_at = NOW()
             WHERE deleted_at IS NULL
         """)
         logger.info(f"  ✓ Old books soft-deleted")
@@ -321,7 +321,7 @@ async def seed() -> int:
         photos = 0
 
         for idx, (title, author, category, lang, description) in enumerate(TOP_100_BOOKS, 1):
-            book_id = uuid.uuid4()
+            book_id = uuid.uuid7()
             owner_id = random.choice(user_ids)
             condition = random.choice(CONDITIONS)
 
@@ -355,7 +355,7 @@ async def seed() -> int:
                             await conn.execute("""
                                 INSERT INTO book_photos (id, book_id, url, position, created_at)
                                 VALUES ($1, $2, $3, 0, $4)
-                            """, uuid.uuid4(), book_id, url, now)
+                            """, uuid.uuid7(), book_id, url, now)
                             photos += 1
 
                 seeded += 1
@@ -370,7 +370,7 @@ async def seed() -> int:
     total = await conn.fetchval("SELECT COUNT(*) FROM books WHERE deleted_at IS NULL")
     photo_total = await conn.fetchval("SELECT COUNT(*) FROM book_photos")
     cats = await conn.fetch("""
-        SELECT category, COUNT(*) as cnt FROM books 
+        SELECT category, COUNT(*) as cnt FROM books
         WHERE deleted_at IS NULL GROUP BY category ORDER BY cnt DESC
     """)
 

@@ -18,7 +18,7 @@ from tests.books.conftest import VALID_BOOK_PAYLOAD
 class TestCursor:
     def test_encode_decode_roundtrip(self) -> None:
         dt = datetime.now(UTC)
-        book_id = uuid.uuid4()
+        book_id = uuid.uuid7()
         cursor = encode_cursor(5, dt, book_id)
         sort_order, created_at, recovered_id = decode_cursor(cursor)
         assert sort_order == 5
@@ -27,28 +27,28 @@ class TestCursor:
 
     def test_sort_order_zero_roundtrip(self) -> None:
         dt = datetime.now(UTC)
-        book_id = uuid.uuid4()
+        book_id = uuid.uuid7()
         cursor = encode_cursor(0, dt, book_id)
         sort_order, _, _ = decode_cursor(cursor)
         assert sort_order == 0
 
     def test_negative_sort_order(self) -> None:
         dt = datetime.now(UTC)
-        book_id = uuid.uuid4()
+        book_id = uuid.uuid7()
         cursor = encode_cursor(-1, dt, book_id)
         sort_order, _, _ = decode_cursor(cursor)
         assert sort_order == -1
 
     def test_large_sort_order(self) -> None:
         dt = datetime.now(UTC)
-        book_id = uuid.uuid4()
+        book_id = uuid.uuid7()
         cursor = encode_cursor(999_999_999, dt, book_id)
         sort_order, _, _ = decode_cursor(cursor)
         assert sort_order == 999_999_999
 
     def test_microsecond_datetime_roundtrip(self) -> None:
         dt = datetime(2026, 6, 21, 12, 34, 56, 789123, tzinfo=UTC)
-        book_id = uuid.uuid4()
+        book_id = uuid.uuid7()
         cursor = encode_cursor(3, dt, book_id)
         _, created_at, recovered_id = decode_cursor(cursor)
         assert created_at == dt
@@ -56,7 +56,7 @@ class TestCursor:
 
     def test_negative_timezone_datetime(self) -> None:
         dt = datetime(2026, 1, 15, 8, 0, 0, tzinfo=UTC)
-        book_id = uuid.uuid4()
+        book_id = uuid.uuid7()
         cursor = encode_cursor(1, dt, book_id)
         _, created_at, recovered_id = decode_cursor(cursor)
         assert created_at == dt
@@ -64,7 +64,7 @@ class TestCursor:
 
     def test_cursor_is_urlsafe_base64(self) -> None:
         dt = datetime.now(UTC)
-        book_id = uuid.uuid4()
+        book_id = uuid.uuid7()
         cursor = encode_cursor(0, dt, book_id)
         import base64
         try:
@@ -75,8 +75,8 @@ class TestCursor:
 
     def test_unique_cursors_for_different_books(self) -> None:
         dt = datetime.now(UTC)
-        id_a = uuid.uuid4()
-        id_b = uuid.uuid4()
+        id_a = uuid.uuid7()
+        id_b = uuid.uuid7()
         cursor_a = encode_cursor(0, dt, id_a)
         cursor_b = encode_cursor(0, dt, id_b)
         assert cursor_a != cursor_b

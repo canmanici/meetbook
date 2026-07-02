@@ -31,7 +31,7 @@ class Rating(Base):
         Index("ix_ratings_exchange_request_id", "exchange_request_id"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     exchange_request_id = Column(
         UUID(as_uuid=True), ForeignKey("exchange_requests.id", ondelete="CASCADE"), nullable=False
     )

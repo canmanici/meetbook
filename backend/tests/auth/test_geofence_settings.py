@@ -5,7 +5,7 @@ import pytest
 
 
 async def _register(client: httpx.AsyncClient) -> dict:
-    email = f"gf_{uuid.uuid4().hex[:12]}@example.com"
+    email = f"gf_{uuid.uuid7().hex[:12]}@example.com"
     resp = await client.post(
         "/api/v1/auth/register",
         json={

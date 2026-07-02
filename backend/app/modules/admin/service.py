@@ -3,6 +3,7 @@
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.admin.repository import AdminRepository
@@ -24,8 +25,9 @@ from app.modules.admin.schemas import (
     MetricsResponse,
     ReportResolveRequest,
 )
-from app.modules.auth.models import AuditLog, UserStatus
-from app.modules.exchanges.models import BlockedPlace, ExchangeStatus
+from app.modules.auth.models import AuditLog, User, UserStatus
+from app.modules.books.models import Book
+from app.modules.exchanges.models import BlockedPlace, ExchangeRequest, ExchangeStatus
 from app.modules.notifications.service import NotificationService
 from app.modules.reports.models import Report, ReportStatus
 
@@ -82,6 +84,12 @@ class AdminService:
     async def list_reports(self, status: ReportStatus | None) -> AdminReportListResponse:
         reports = await self.repo.list_reports(status)
         return AdminReportListResponse(items=[_report_to_view(r) for r in reports])
+
+    async def get_report(self, report_id: uuid.UUID) -> AdminReportView:
+        report = await self.repo.get_report(report_id)
+        if report is None:
+            raise AdminError("NOT_FOUND", 404)
+        return _report_to_view(report)
 
     async def claim_report(self, report_id: uuid.UUID, moderator_id: uuid.UUID) -> AdminReportView:
         report = await self.repo.get_report(report_id)
@@ -331,11 +339,56 @@ class AdminService:
     async def list_audit_logs(
         self, user_id: uuid.UUID | None = None, event_type: str | None = None, limit: int = 50, offset: int = 0
     ) -> AuditLogListResponse:
-        logs, total = await self.repo.list_audit_logs(user_id, event_type, limit, offset)
+        rows, total = await self.repo.list_audit_logs(user_id, event_type, limit, offset)
         return AuditLogListResponse(
-            items=[_audit_to_view(l) for l in logs],
+            items=[_audit_to_view(l, name, email) for l, name, email in rows],
             total=total,
         )
+
+    async def global_search(self, q: str) -> dict:
+        """Quick global search across users, books, and exchanges."""
+        users, books, exchanges = [], [], []
+        if len(q) < 2:
+            return {"users": users, "books": books, "exchanges": exchanges}
+        # Users: by email or name
+        stmt_users = (
+            select(User)
+            .where(
+                or_(
+                    User.email.ilike(f"%{q}%"),
+                    User.name.ilike(f"%{q}%"),
+                )
+            )
+            .limit(10)
+        )
+        for row in await self.session.execute(stmt_users):
+            u = row[0]
+            users.append({"id": str(u.id), "email": u.email, "name": u.name, "status": u.status.value})
+        # Books: by title or author
+        stmt_books = (
+            select(Book)
+            .where(
+                or_(
+                    Book.title.ilike(f"%{q}%"),
+                    Book.author.ilike(f"%{q}%"),
+                )
+            )
+            .limit(10)
+        )
+        for row in await self.session.execute(stmt_books):
+            b = row[0]
+            books.append({"id": str(b.id), "title": b.title, "author": b.author})
+        # Exchanges: by ID
+        try:
+            uid = uuid.UUID(q) if len(q) >= 32 else None
+            if uid:
+                stmt_exc = select(ExchangeRequest).where(ExchangeRequest.id == uid).limit(5)
+                for row in await self.session.execute(stmt_exc):
+                    e = row[0]
+                    exchanges.append({"id": str(e.id), "status": e.status.value})
+        except (ValueError, AttributeError):
+            pass
+        return {"users": users, "books": books, "exchanges": exchanges}
 
 
 def _user_to_view(user) -> AdminUserView:
@@ -478,10 +531,12 @@ def _exchange_to_detail_view(exchange) -> "AdminExchangeDetailView":
     )
 
 
-def _audit_to_view(log: AuditLog) -> AuditLogEntry:
+def _audit_to_view(log: AuditLog, user_name: str | None = None, user_email: str | None = None) -> AuditLogEntry:
     return AuditLogEntry(
         id=log.id,
         user_id=log.user_id,
+        user_name=user_name,
+        user_email=user_email,
         event_type=log.event_type,
         ip_address=str(log.ip_address) if log.ip_address else None,
         user_agent=log.user_agent,

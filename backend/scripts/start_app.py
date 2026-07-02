@@ -246,17 +246,85 @@ def start_uvicorn() -> None:
         host=host,
         port=port,
         reload=reload,
+        reload_excludes=[
+            ".venv",
+            "**/.venv/**",
+            "__pycache__",
+            "**/__pycache__/**",
+            "*.pyc",
+            "*.pyo",
+            ".git",
+            "**/.git/**",
+            ".pytest_cache",
+            "**/.pytest_cache/**",
+        ],
         log_level="info" if settings.env != "local" else "debug",
     )
 
 
 # ── Recovery strategies ──────────────────────────────────────────────────────
+def _detect_multiple_heads() -> list[str] | None:
+    """Return the list of head revisions if the migration graph has branched.
+
+    A branched graph (two+ heads) happens when two migrations are authored
+    against the same down_revision (e.g. two branches both added on top of
+    the same base). alembic upgrade("head") then refuses to run since it
+    doesn't know which head to target.
+    """
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    config = Config(str(ALEMBIC_INI))
+    from app.core.config import get_settings
+    config.set_main_option("sqlalchemy.url", get_settings().database_url)
+    script = ScriptDirectory.from_config(config)
+    heads = script.get_heads()
+    return list(heads) if len(heads) > 1 else None
+
+
+def try_auto_merge_heads() -> bool:
+    """Auto-generate + apply a merge migration when the graph has diverged.
+
+    This is the exact fix a human would run by hand (`alembic merge heads`)
+    after a bad rebase/merge leaves two migration files pointing at the same
+    down_revision. We do it programmatically so a branched migration graph
+    never requires manual intervention in dev (hot-reload) or CI.
+
+    Writes a real merge-migration file into alembic/versions/ so the fix is
+    permanent (committed to the repo like any other migration), not just a
+    one-off DB stamp.
+    """
+    from alembic.config import Config
+    from alembic import command
+
+    heads = _detect_multiple_heads()
+    if not heads:
+        return False
+
+    log_elapsed(f"Multiple migration heads detected: {heads} — auto-merging...")
+    config = Config(str(ALEMBIC_INI))
+    from app.core.config import get_settings
+    config.set_main_option("sqlalchemy.url", get_settings().database_url)
+
+    try:
+        command.merge(config, heads, message="auto-merge diverged heads")
+        log_elapsed("Merge migration file generated.")
+        command.upgrade(config, "head")
+        log_elapsed("Auto-merge migration applied successfully.")
+        return True
+    except Exception as e:
+        log_elapsed(f"Auto-merge failed: {e}")
+        return False
+
+
 def try_recover_migration() -> bool:
     """Attempt to recover from a failed migration.
 
     NEVER stamps to base or re-runs migrations from scratch — that would
     DESTROY existing data (tables already exist from a previous run, and
     CREATE TABLE on an existing table raises an error). Instead we:
+      0. If the graph has diverged into multiple heads, auto-generate and
+         apply a merge migration (no manual `alembic merge` needed)
       1. Detect the stale revision via raw SQL
       2. Clear the alembic_version entry that references a missing file
       3. Stamp to the actual head
@@ -265,7 +333,12 @@ def try_recover_migration() -> bool:
     from alembic.config import Config
     from alembic import command
 
-    log_elapsed("Migration failed. Attempting recovery (stamp head)...")
+    log_elapsed("Migration failed. Attempting recovery...")
+
+    if try_auto_merge_heads():
+        return True
+
+    log_elapsed("Attempting recovery (stamp head)...")
     config = Config(str(ALEMBIC_INI))
     from app.core.config import get_settings
     config.set_main_option("sqlalchemy.url", get_settings().database_url)
