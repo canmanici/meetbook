@@ -47,6 +47,8 @@ import { MapView, Marker } from '@/lib/map-adapter';
 import { BookCover } from '@/components/ui/book-cover';
 import { SafetyPermissionError, hasSentAnyLocationFix, getLastSentLocation } from '@/lib/safety';
 import { useNerdeyimMode } from '@/hooks/use-nerdeyim-mode';
+import { useCallStore } from '@/stores/call-store';
+import { isCallSupported } from '@/lib/webrtc';
 import { useLocationSharingStore } from '@/stores/location-sharing-store';
 
 // ---------------------------------------------------------------------------
@@ -150,6 +152,9 @@ export default function ChatDetailScreen() {
 
   const realtimeMessages = useChatStore(useShallow((s) => s.messages[chatId ?? ''] ?? []));
   const typingState = useChatStore(useShallow((s) => s.typing[chatId ?? ''] ?? {}));
+  const presence = useChatStore(useShallow((s) => s.presence));
+  const startCall = useCallStore((s) => s.startCall);
+  const callStatus = useCallStore((s) => s.status);
 
   // ---- Exchange info ----
   const { data: exchange } = useQuery({
@@ -263,6 +268,29 @@ export default function ChatDetailScreen() {
     }
   }, [exchangeId, exchange?.meetup?.scheduled_at, chatId, warnIfNoLocationFix, startNerdeyim]);
 
+  // ---- Voice / video calls ----
+  const counterpartOnline = counterpartId ? presence[counterpartId]?.is_online ?? false : false;
+  const callsAvailable = isCallSupported();
+
+  const handleStartCall = useCallback(
+    async (kind: 'audio' | 'video') => {
+      if (!chatId || callStatus !== 'idle') return;
+      if (counterpartId && isBlocked(counterpartId)) return;
+      const ok = await startCall(chatId, kind, {
+        id: counterpartId,
+        name: counterpartName,
+        avatarUrl: counterpartAvatarUrl ?? null,
+      });
+      if (!ok) {
+        Alert.alert(
+          'Arama Başlatılamadı',
+          'Arama başlatılamadı. Mikrofon/kamera izinlerini ve bağlantını kontrol et.',
+        );
+      }
+    },
+    [chatId, callStatus, counterpartId, counterpartName, counterpartAvatarUrl, startCall, isBlocked],
+  );
+
   // Don't reveal a shadow-blocked counterpart's typing — their messages are
   // hidden, so a "yazıyor..." indicator would leak the shadow block.
   const isOtherTyping =
@@ -367,12 +395,20 @@ export default function ChatDetailScreen() {
   }, [realtimeMessages.length, isOtherTyping]);
 
   // ---- Typing indicator ----
+  // Throttled: "typing" goes out at most every 2.5s instead of on every
+  // keystroke (the old behavior spammed one WS frame per character).
+  const lastTypingSentRef = useRef(0);
   const handleInputChange = (text: string) => {
     setInputText(text);
     if (chatId) {
-      sendTyping(chatId, true);
+      const now = Date.now();
+      if (now - lastTypingSentRef.current > 2500) {
+        lastTypingSentRef.current = now;
+        sendTyping(chatId, true);
+      }
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = setTimeout(() => {
+        lastTypingSentRef.current = 0;
         sendTyping(chatId, false);
       }, 2000);
     }
@@ -530,6 +566,46 @@ export default function ChatDetailScreen() {
     const msg = item.message;
     const isMine = msg.sender_id === currentUserId;
 
+    // Call history entries render as their own centered bubble, tappable to
+    // call back with the same kind (audio/video).
+    if (msg.extra?.action === 'call_log') {
+      const callKind = (msg.extra as any).kind === 'video' ? 'video' : 'audio';
+      const callState = (msg.extra as any).status as string;
+      const duration = Number((msg.extra as any).duration_seconds ?? 0);
+      const missed = callState === 'missed' || callState === 'rejected' || callState === 'failed';
+      const durationLabel =
+        callState === 'ended' && duration > 0
+          ? ` · ${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}`
+          : '';
+      const label =
+        callState === 'missed' ? (isMine ? 'Cevapsız arama' : 'Cevapsız arama')
+        : callState === 'rejected' ? 'Reddedilen arama'
+        : callState === 'failed' ? 'Arama bağlanamadı'
+        : callKind === 'video' ? `Görüntülü arama${durationLabel}`
+        : `Sesli arama${durationLabel}`;
+      return (
+        <TouchableOpacity
+          style={styles.callLogRow}
+          onPress={() => callsAvailable && handleStartCall(callKind)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`${label} — tekrar ara`}
+        >
+          <View style={[styles.callLogPill, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+            <View style={[styles.callLogIcon, { backgroundColor: missed ? '#E5484D20' : colors.primarySoft }]}>
+              <Ionicons
+                name={callKind === 'video' ? (missed ? 'videocam-off' : 'videocam') : 'call'}
+                size={15}
+                color={missed ? '#E5484D' : colors.primary}
+              />
+            </View>
+            <Text style={[styles.callLogText, { color: missed ? '#E5484D' : colors.text }]}>{label}</Text>
+            <Text style={[styles.callLogTime, { color: colors.textMuted }]}>{formatTime(msg.created_at)}</Text>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
     // Check if this message is grouped with the previous one
     const msgIndex = rawMessages.findIndex((m) => m.id === msg.id);
     const prevMsg = msgIndex > 0 ? rawMessages[msgIndex - 1] : null;
@@ -638,14 +714,45 @@ export default function ChatDetailScreen() {
             <Text style={[styles.headerName, { color: colors.text }]} numberOfLines={1}>
               {counterpartName}
             </Text>
-            {exchangeBook && (
+            {counterpartOnline ? (
+              <View style={styles.presenceRow}>
+                <View style={styles.onlineDot} />
+                <Text style={[styles.headerSub, { color: colors.success }]} numberOfLines={1}>
+                  çevrimiçi
+                </Text>
+              </View>
+            ) : exchangeBook ? (
               <Text style={[styles.headerSub, { color: colors.textMuted }]} numberOfLines={1}>
                 📖 {exchangeBook.title}
               </Text>
-            )}
+            ) : null}
           </View>
         </View>
 
+        {callsAvailable && (
+          <>
+            <TouchableOpacity
+              style={styles.headerAction}
+              onPress={() => handleStartCall('audio')}
+              disabled={!chatId || callStatus !== 'idle'}
+              testID="chat-voice-call"
+              accessibilityRole="button"
+              accessibilityLabel="Sesli arama"
+            >
+              <Ionicons name="call-outline" size={22} color={chatId ? colors.primary : colors.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.headerAction}
+              onPress={() => handleStartCall('video')}
+              disabled={!chatId || callStatus !== 'idle'}
+              testID="chat-video-call"
+              accessibilityRole="button"
+              accessibilityLabel="Görüntülü arama"
+            >
+              <Ionicons name="videocam-outline" size={24} color={chatId ? colors.primary : colors.textMuted} />
+            </TouchableOpacity>
+          </>
+        )}
         <TouchableOpacity
           style={styles.headerAction}
           onPress={() => {
@@ -1156,6 +1263,46 @@ const styles = StyleSheet.create({
   headerAction: {
     padding: spacing.xs,
     marginLeft: spacing.xs,
+  },
+  presenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 1,
+  },
+  onlineDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#34C759',
+  },
+  // Call log bubble
+  callLogRow: {
+    alignItems: 'center',
+    marginVertical: spacing.xs,
+  },
+  callLogPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  callLogIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callLogText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+  },
+  callLogTime: {
+    fontSize: fontSize.caption,
   },
   // Search
   searchBar: {

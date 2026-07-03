@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack, useSegments } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, View, useColorScheme } from 'react-native';
+import { ActivityIndicator, View, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ToastProvider } from '@/components/ui/toast-provider';
@@ -10,11 +10,10 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { ServerErrorOverlay } from '@/components/server-error-overlay';
 import { OfflineBanner } from '@/components/offline-banner';
-import { BiometricLockScreen } from '@/components/biometric-lock-screen';
+import { CallManager } from '@/components/call-manager';
 import { getMe } from '@/lib/api/client';
 import { crashReporter } from '@/lib/crash-reporter';
 import { queryClient } from '@/lib/query-client';
-import { isBiometricLockEnabled } from '@/lib/biometric';
 import { useAuthStore } from '@/stores/auth-store';
 import { useThemeStore } from '@/stores/theme-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
@@ -83,36 +82,6 @@ export default function RootLayout() {
     crashReporter.setCurrentScreen(screen);
   }, [segments]);
 
-  // ---- Biometric app-lock ----------------------------------------------
-  // Gates access to an already-authenticated session behind Face ID /
-  // fingerprint. This is re-entry protection, not login — the refresh token
-  // is untouched; a successful scan just reveals the already-signed-in app.
-  const [biometricLockOn, setBiometricLockOn] = useState(false);
-  const [locked, setLocked] = useState(false);
-  const appStateRef = useRef(AppState.currentState);
-
-  useEffect(() => {
-    if (status !== 'authenticated') return;
-    isBiometricLockEnabled().then((enabled) => {
-      setBiometricLockOn(enabled);
-      if (enabled) setLocked(true);
-    });
-  }, [status]);
-
-  useEffect(() => {
-    if (!biometricLockOn) return;
-    const subscription = AppState.addEventListener('change', (next) => {
-      const prev = appStateRef.current;
-      // Re-lock only when coming back from the background — not on every
-      // transient 'inactive' blip (e.g. opening the OS share sheet).
-      if (prev.match(/background/) && next === 'active') {
-        setLocked(true);
-      }
-      appStateRef.current = next;
-    });
-    return () => subscription.remove();
-  }, [biometricLockOn]);
-
   if (hasOnboarded === null) {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
@@ -126,16 +95,6 @@ export default function RootLayout() {
     );
   }
 
-  if (status === 'authenticated' && biometricLockOn && locked) {
-    return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <QueryClientProvider client={queryClient}>
-          <BiometricLockScreen onUnlock={() => setLocked(false)} />
-        </QueryClientProvider>
-      </GestureHandlerRootView>
-    );
-  }
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
@@ -143,6 +102,7 @@ export default function RootLayout() {
         <AppErrorBoundary>
         <ToastProvider>
         <OfflineBanner />
+        {status === 'authenticated' && <CallManager />}
         <Stack
         screenOptions={{
           headerStyle: {
@@ -170,6 +130,10 @@ export default function RootLayout() {
           <Stack.Screen name="settings" options={{ headerShown: false }} />
           <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="call"
+            options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}
+          />
           <Stack.Screen name="notifications" options={{ headerShown: false }} />
           <Stack.Screen name="saved-searches" options={{ headerShown: false }} />
           <Stack.Screen name="year-in-review" options={{ headerShown: false }} />

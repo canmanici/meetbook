@@ -43,6 +43,26 @@ services:
       timeout: 3s
       retries: 10
 
+  # Dev TURN relay — same scheme as prod but with a fixed dev secret and the
+  # LAN IP as the advertised host, so calls work between two phones on the
+  # same network during development. Host networking (see prod file for why).
+  coturn:
+    image: coturn/coturn:4.6-alpine
+    network_mode: host
+    restart: unless-stopped
+    command: >
+      -n
+      --listening-port=3478
+      --fingerprint
+      --use-auth-secret
+      --static-auth-secret=${TURN_SECRET:-meetbook_dev_turn}
+      --realm=meetbook.dev
+      --no-cli
+      --no-multicast-peers
+      --min-port=49160
+      --max-port=49300
+      --log-file=stdout
+
   backend:
     build: ./backend
     env_file: ./backend/.env
@@ -56,6 +76,9 @@ services:
       S3_BUCKET: meetbook-photos
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-meetbook_minio}
       S3_SECRET_KEY: ${S3_SECRET_KEY:-meetbook_minio_dev}
+      TURN_SECRET: ${TURN_SECRET:-meetbook_dev_turn}
+      TURN_HOST: ${LAN_IP:-}
+      TURN_PORT: "3478"
     ports:
       - "8000:8000"
     volumes:

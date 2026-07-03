@@ -766,6 +766,130 @@ class ChatService:
         await ConnectionManager.broadcast_to_chat(chat_id, payload, repo=self.repo)
         await publish_message(chat_id, payload)
 
+    # ── WebRTC call signaling ────────────────────────────────────────────
+    #
+    # The chat WebSocket doubles as the signaling channel for 1:1 audio /
+    # video calls. The server never touches SDP/ICE contents — it only
+    # validates membership + block state and relays the event to the other
+    # participant. Terminating events may carry a `log` object which is
+    # persisted as a system message (call history in the thread).
+
+    CALL_EVENTS = frozenset(
+        {"offer", "answer", "ice", "end", "reject", "cancel", "busy"}
+    )
+
+    async def handle_call(
+        self, ws_user_id: uuid.UUID, ws: WebSocket, raw: dict[str, Any]
+    ) -> None:
+        event = raw.get("event")
+        chat_id_raw = raw.get("chat_id")
+        call_id = str(raw.get("call_id") or "")
+        if event not in self.CALL_EVENTS or not chat_id_raw or not call_id:
+            await self._ws_error(ws, "Invalid call payload")
+            return
+        try:
+            chat_id = uuid.UUID(str(chat_id_raw))
+        except (ValueError, AttributeError):
+            await self._ws_error(ws, "Invalid chat_id")
+            return
+
+        if not await self.repo.is_participant(chat_id, ws_user_id):
+            await self._ws_error(ws, "Not a participant of this chat")
+            return
+        exchange = await self.repo.get_exchange_for_chat(chat_id)
+        if exchange is None:
+            await self._ws_error(ws, "Chat not found")
+            return
+        other_id = (
+            exchange.requested_to if ws_user_id == exchange.requested_by
+            else exchange.requested_by
+        )
+        if await self.repo.is_blocked(ws_user_id, other_id):
+            await self._ws_error(ws, "Cannot call — user is blocked")
+            return
+
+        kind = raw.get("kind") if raw.get("kind") in ("audio", "video") else "audio"
+
+        from app.modules.auth.repository import AuthRepository
+        auth_repo = AuthRepository(self.session)
+        caller = await auth_repo.get_user_by_id(ws_user_id)
+        caller_name = caller.name if caller else ""
+
+        relay = {
+            "type": "call",
+            "event": event,
+            "chat_id": str(chat_id),
+            "call_id": call_id,
+            "kind": kind,
+            "sender_id": str(ws_user_id),
+            "sender_name": caller_name,
+            "payload": raw.get("payload"),
+        }
+        await ConnectionManager.send_to_user(other_id, relay)
+
+        if event == "offer":
+            # Callee offline → tell the caller immediately and try a push so
+            # the callee at least sees a missed-call notification.
+            if not await ConnectionManager.check_online(other_id):
+                try:
+                    await ws.send_text(json.dumps({
+                        "type": "call",
+                        "event": "unavailable",
+                        "chat_id": str(chat_id),
+                        "call_id": call_id,
+                        "kind": kind,
+                    }))
+                except Exception:
+                    pass
+                try:
+                    label = "görüntülü" if kind == "video" else "sesli"
+                    await send_push_to_user(
+                        str(other_id),
+                        PushMessage(
+                            title="📞 Cevapsız Arama",
+                            body=f"{caller_name} sana {label} arama yaptı",
+                            data={"type": "missed_call", "chat_id": str(chat_id)},
+                        ),
+                        session=self.session,
+                    )
+                except Exception as exc:
+                    logger.warning("Call push failed for user %s: %s", other_id, exc)
+
+        # Persist a call-log system message when the terminating side asks
+        # for it (exactly one side sends `log`, so no duplicates).
+        log = raw.get("log")
+        if event in ("end", "reject", "cancel") and isinstance(log, dict):
+            status = log.get("status")
+            if status not in ("ended", "missed", "rejected", "failed"):
+                status = "ended"
+            try:
+                duration = max(0, int(log.get("duration_seconds") or 0))
+            except (TypeError, ValueError):
+                duration = 0
+            text = "Görüntülü arama" if kind == "video" else "Sesli arama"
+            msg = await self.repo.create_message(
+                chat_id,
+                ws_user_id,
+                text,
+                "system",
+                None,
+                {
+                    "action": "call_log",
+                    "kind": kind,
+                    "status": status,
+                    "duration_seconds": duration,
+                },
+            )
+            await self.session.commit()
+            view = _to_view(msg, None, None)
+            payload = {
+                "type": "message",
+                "message": view.model_dump(mode="json"),
+                "sender_id": str(ws_user_id),
+            }
+            await ConnectionManager.broadcast_to_chat(chat_id, payload, repo=self.repo)
+            await publish_message(chat_id, payload)
+
     async def handle_presence(self, ws_user_id: uuid.UUID) -> None:
         """Refresh presence and broadcast to peers."""
         await ConnectionManager.mark_online(ws_user_id)
@@ -854,6 +978,9 @@ class ChatService:
                 await self._ws_error(ws, "Invalid IDs")
                 return
             await self.handle_reaction(ws_user_id, ws, chat_id, message_id, emoji, action)
+
+        elif msg_type == "call":
+            await self.handle_call(ws_user_id, ws, raw)
 
         elif msg_type == "presence":
             await self.handle_presence(ws_user_id)

@@ -88,6 +88,59 @@ services:
       - traefik.http.routers.meetbook-minio-console.middlewares=minio-ipwhitelist,meetbook-minio-console-strip
       - traefik.http.services.meetbook-minio-console.loadbalancer.server.port=9001
 
+  # ── TURN relay for WebRTC calls (CGNAT traversal) ─────────────────────
+  # host networking: TURN allocates a UDP port per relay session out of
+  # min-port..max-port — mapping hundreds of ports through docker-proxy
+  # would melt the host, host mode costs nothing. Traefik is NOT involved
+  # (TURN is not HTTP). Requires firewall: 3478/udp+tcp, 49160-49600/udp.
+  #
+  # Auth is coturn's REST-API scheme (`use-auth-secret`): the backend mints
+  # HMAC credentials that self-expire after 1h (see /chat/turn-credentials).
+  # No static TURN password exists anywhere in the app — cracking the APK
+  # yields nothing without a live authenticated account, and even then a
+  # stolen credential dies within the hour.
+  #
+  # denied-peer-ip blocks relaying INTO private ranges — without it a
+  # malicious client could use the relay to port-scan the docker network.
+  coturn:
+    image: coturn/coturn:4.6-alpine
+    network_mode: host
+    restart: unless-stopped
+    command: >
+      -n
+      --listening-port=3478
+      --fingerprint
+      --use-auth-secret
+      --static-auth-secret=${TURN_SECRET}
+      --realm=canmanici.com
+      --no-cli
+      --no-multicast-peers
+      --no-tlsv1
+      --no-tlsv1_1
+      --min-port=49160
+      --max-port=49600
+      --user-quota=12
+      --total-quota=1200
+      --max-bps=1500000
+      --denied-peer-ip=0.0.0.0-0.255.255.255
+      --denied-peer-ip=10.0.0.0-10.255.255.255
+      --denied-peer-ip=100.64.0.0-100.127.255.255
+      --denied-peer-ip=127.0.0.0-127.255.255.255
+      --denied-peer-ip=169.254.0.0-169.254.255.255
+      --denied-peer-ip=172.16.0.0-172.31.255.255
+      --denied-peer-ip=192.168.0.0-192.168.255.255
+      --log-file=stdout
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   backend:
     build: ./backend
     environment:
@@ -105,6 +158,9 @@ services:
       CORS_ORIGINS: https://canmanici.com
       GOOGLE_PLACES_KEY: ${GOOGLE_PLACES_KEY:-}
       SMS_PROVIDER_KEY: ${SMS_PROVIDER_KEY:-}
+      TURN_SECRET: ${TURN_SECRET}
+      TURN_HOST: ${TURN_HOST:-canmanici.com}
+      TURN_PORT: "3478"
     volumes:
       - mediadata:/app/media
     depends_on:

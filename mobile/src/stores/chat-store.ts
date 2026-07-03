@@ -116,7 +116,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => {
       const existing = state.messages[chatId] ?? [];
       if (existing.some((m) => m.id === msg.id)) return state;
-      const withoutTemp = existing.filter((m) => !m.id.startsWith('temp-'));
+      // Reconcile the server echo with ONE matching optimistic message.
+      // Previously ALL temp- messages were dropped here, so sending two
+      // messages quickly made the second vanish until the next refetch.
+      const myId = useAuthStore.getState().user?.id;
+      let reconciled = false;
+      const withoutTemp =
+        msg.sender_id === myId
+          ? existing.filter((m) => {
+              if (reconciled || !m.id.startsWith('temp-')) return true;
+              if (m.text === msg.text && m.message_type === msg.message_type) {
+                reconciled = true;
+                return false;
+              }
+              return true;
+            })
+          : existing;
       return {
         messages: {
           ...state.messages,

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { listChats } from '@/lib/api/chat';
 
 import ChatsScreen from '../chats';
+import { ToastProvider } from '@/components/ui/toast-provider';
 
 // expo-router: hook-based, unlike requests.tsx which imports `router` directly.
 jest.mock('expo-router', () => {
@@ -48,7 +49,11 @@ function renderWithQueryClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>{ui}</ToastProvider>
+    </QueryClientProvider>,
+  );
 }
 
 const now = Date.now();

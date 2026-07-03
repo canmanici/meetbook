@@ -13,6 +13,8 @@ jest.mock('expo-router', () => {
     router,
     useRouter: () => router,
     useLocalSearchParams: () => ({ id: 'ex-1' }),
+    useFocusEffect: (cb: () => (() => void) | undefined) => cb(),
+    usePathname: () => '/chat/ex-1',
   };
 });
 jest.mock('@/lib/api/client', () => ({
@@ -33,7 +35,7 @@ jest.mock('@/lib/api/chat', () => ({
 }));
 jest.mock('@/stores/chat-store', () => {
   const mockState = {
-    messages: {}, typing: {}, connect: jest.fn(), disconnect: jest.fn(),
+    messages: {}, typing: {}, presence: {}, connect: jest.fn(), disconnect: jest.fn(),
     sendMessage: jest.fn(), sendTyping: jest.fn(), sendDelete: jest.fn(),
     sendReaction: jest.fn(), replyingTo: null, setReplyingTo: jest.fn(),
     markMessagesRead: jest.fn(),

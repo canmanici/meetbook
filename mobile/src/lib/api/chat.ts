@@ -117,6 +117,22 @@ export async function getChatTicket(): Promise<ChatTicketResponse> {
   return authedRequest<ChatTicketResponse>('/chat/ticket', 'POST', undefined);
 }
 
+export interface IceServerConfig {
+  urls: string[];
+  username?: string | null;
+  credential?: string | null;
+}
+
+export interface TurnCredentialsResponse {
+  ice_servers: IceServerConfig[];
+  ttl_seconds: number;
+}
+
+/** Ephemeral TURN credentials — minted per call, self-expire server-side. */
+export async function getTurnCredentials(): Promise<TurnCredentialsResponse> {
+  return authedRequest<TurnCredentialsResponse>('/chat/turn-credentials', 'GET', undefined);
+}
+
 export async function listChats(): Promise<ChatListResponse> {
   return authedRequest<ChatListResponse>('/chat', 'GET', undefined);
 }
@@ -197,10 +213,19 @@ export async function uploadChatMedia(
 
 export type WSWatcher = (msg: WSMessage) => void;
 
+export type CallEvent =
+  | 'offer' | 'answer' | 'ice' | 'end' | 'reject' | 'cancel' | 'busy' | 'unavailable';
+
 export interface WSMessage {
   type:
     | 'message' | 'read' | 'typing' | 'reaction' | 'deleted' | 'presence' | 'error' | 'pong'
-    | 'location_update' | 'location_stopped';
+    | 'location_update' | 'location_stopped' | 'call' | 'cleared';
+  // call signaling
+  event?: CallEvent;
+  call_id?: string;
+  kind?: 'audio' | 'video';
+  sender_name?: string;
+  payload?: unknown;
   message?: MessageView;
   error?: string;
   chat_id?: string;
@@ -313,6 +338,25 @@ class ChatWebSocketManager {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type: 'reaction', chat_id: chatId, message_id: messageId, emoji, action }));
     }
+  }
+
+  /** WebRTC call signaling — relayed verbatim to the chat counterpart. */
+  sendCall(
+    chatId: string,
+    event: CallEvent,
+    callId: string,
+    kind: 'audio' | 'video',
+    payload?: unknown,
+    log?: { status: 'ended' | 'missed' | 'rejected' | 'failed'; duration_seconds: number },
+  ): boolean {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      const msg: Record<string, unknown> = { type: 'call', chat_id: chatId, event, call_id: callId, kind };
+      if (payload !== undefined) msg.payload = payload;
+      if (log) msg.log = log;
+      this.ws.send(JSON.stringify(msg));
+      return true;
+    }
+    return false;
   }
 
   ping() {

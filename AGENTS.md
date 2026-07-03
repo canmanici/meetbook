@@ -52,6 +52,17 @@
 ### Blocked
 - (none)
 
+## WebRTC Calls + TURN Infrastructure (July 2026)
+1:1 voice & video calls between exchange participants, end-to-end:
+- **Signaling** rides the existing chat WebSocket (`/ws/chat`): message type `call` with events `offer|answer|ice|end|reject|cancel|busy`. Backend (`chat/service.py::handle_call`) validates participant + block state and relays SDP/ICE — it never inspects media. Terminating events with a `log` object persist a `system` message (`extra.action = 'call_log'`, kind/status/duration) as in-thread call history; offline callee gets a missed-call push.
+- **TURN**: `coturn` container in both compose files, `network_mode: host` (relay port range through docker-proxy would melt the host). Prod: quotas (`user-quota=12`, `total-quota=1200`, `max-bps=1.5M`) and `denied-peer-ip` for ALL private ranges (prevents relay-based scanning of the docker network). Firewall must allow `3478/udp+tcp` and `49160-49600/udp`.
+- **Auth is ephemeral HMAC** (coturn `use-auth-secret` / REST-API scheme): NO static TURN password anywhere. `GET /chat/turn-credentials` (authed) mints `username = "<unix_expiry>:<user_id>"`, `credential = b64(HMAC-SHA1(TURN_SECRET, username))`, TTL 1h. Cracking the APK yields nothing; a stolen credential dies within the hour. `TURN_SECRET` is shared backend↔coturn via env (Dokploy env vars: `TURN_SECRET`, `TURN_HOST`).
+- **Mobile**: `react-native-webrtc` + `@config-plugins/react-native-webrtc` + `react-native-incall-manager` — native modules, ONLY in dev-client/release builds; all access via lazy loader `mobile/src/lib/webrtc.ts` (Expo Go/web/Jest degrade gracefully, call UI hides). Call state machine in `stores/call-store.ts` (ring timeout 30s, busy handling, ICE buffering, TURN cred caching); full-screen UI `app/call.tsx`; global `components/call-manager.tsx` in root layout auto-navigates on incoming calls.
+- **P2P vs relay**: ICE tries STUN P2P first (~80-85% of pairs connect directly, zero server cost); two-sided CGNAT automatically falls back to the coturn relay (~0.25 Mbps/audio call, ~4 Mbps/video call of server bandwidth).
+- After changing the native deps or app.json plugins: rebuild the APK (local gradle toolchain or EAS) — Metro reload is NOT enough.
+- **Adaptive quality**: call-store runs a 3s `getStats()` monitor during active calls — packet loss + RTT → `networkQuality` (good/fair/poor) for the UI signal bars, and in AUTO mode steps the video encoder ceiling (250k/800k/2.5M via `RTCRtpSender.setParameters`) down fast (2 bad samples) / up slow (5 good samples). User can pin Düşük/Orta/Yüksek from the call screen.
+- **Server firewall** (bare VDS, no provider panel): if `ufw` is inactive everything is open and TURN just works. If enabling ufw: allow 22, 80, 443, 3478 (udp+tcp), 49160:49600/udp. NOTE: Docker-published ports BYPASS ufw (iptables DOCKER chain) — the minio console on host port 9001 is reachable regardless of ufw rules.
+
 ## Key Decisions
 - **Keep vanilla JS** for admin UI — user explicitly rejected frameworks/libraries
 - **Replace `uuid.uuid4` with `uuid.uuid7`** across entire codebase — better B-tree index performance
@@ -85,3 +96,9 @@
 - `backend/scripts/start_app.py`: Updated with `reload_excludes` for uvicorn
 - `backend/scripts/seed.py`: Seed script (admin: `changeme123`)
 - `docker-compose.yml` + `docker-compose.dev.yml`: Volume mounts
+- `docker-compose.prod.yml`: Dokploy stack (Traefik labels) + `coturn` TURN relay (host network)
+- `backend/app/modules/chat/service.py`: chat WS handlers + `handle_call` WebRTC signaling relay
+- `backend/app/modules/chat/router.py`: `GET /chat/turn-credentials` — ephemeral TURN cred minting
+- `mobile/src/stores/call-store.ts`: WebRTC call state machine (offer/answer/ICE, timeouts, TURN creds)
+- `mobile/src/app/call.tsx` + `mobile/src/components/call-manager.tsx`: call UI + global orchestrator
+- `mobile/src/lib/webrtc.ts`: lazy native-module loader + STUN fallback list

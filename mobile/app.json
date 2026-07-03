@@ -2,7 +2,7 @@
   "expo": {
     "name": "MeetBook",
     "slug": "mobile",
-    "version": "1.1.0",
+    "version": "1.1.23",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
@@ -34,6 +34,13 @@
       "expo-dev-client",
       "expo-router",
       [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "MeetBook, g\u00f6r\u00fcnt\u00fcl\u00fc arama yapabilmen i\u00e7in kameran\u0131 kullan\u0131r.",
+          "microphonePermission": "MeetBook, sesli ve g\u00f6r\u00fcnt\u00fcl\u00fc arama yapabilmen i\u00e7in mikrofonunu kullan\u0131r."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#11806B",
@@ -47,16 +54,10 @@
       "expo-secure-store",
       "expo-web-browser",
       [
-        "expo-local-authentication",
-        {
-          "faceIDPermission": "MeetBook, kayıtlı cihazında hızlı ve güvenli giriş yapabilmen için Face ID kullanır."
-        }
-      ],
-      [
         "expo-location",
         {
-          "locationWhenInUsePermission": "MeetBook, kitabının konumunu işaretlemen için konumunu kullanır.",
-          "locationAlwaysAndWhenInUsePermission": "MeetBook, güvenlik modu sırasında arkadaşlarınla konumunu paylaşmak için her zaman konumunu kullanır.",
+          "locationWhenInUsePermission": "MeetBook, kitab\u0131n\u0131n konumunu i\u015faretlemen i\u00e7in konumunu kullan\u0131r.",
+          "locationAlwaysAndWhenInUsePermission": "MeetBook, g\u00fcvenlik modu s\u0131ras\u0131nda arkada\u015flar\u0131nla konumunu payla\u015fmak i\u00e7in her zaman konumunu kullan\u0131r.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true
         }
@@ -64,8 +65,8 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "MeetBook, kitabı teslim ve iade ederken durum fotoğrafı çekmen için kameranı kullanır.",
-          "photosPermission": "MeetBook, kitap fotoğrafı seçmen için galerine erişir."
+          "cameraPermission": "MeetBook, kitab\u0131 teslim ve iade ederken durum foto\u011fraf\u0131 \u00e7ekmen i\u00e7in kameran\u0131 kullan\u0131r.",
+          "photosPermission": "MeetBook, kitap foto\u011fraf\u0131 se\u00e7men i\u00e7in galerine eri\u015fir."
         }
       ],
       "@react-native-community/datetimepicker",
@@ -73,11 +74,13 @@
         "expo-build-properties",
         {
           "android": {
-            "permissions": ["CAMERA"]
+            "permissions": [
+              "CAMERA"
+            ],
+            "usesCleartextTraffic": true
           }
         }
-      ],
-      "expo-build-properties"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

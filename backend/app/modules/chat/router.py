@@ -29,6 +29,8 @@ from app.modules.chat.schemas import (
     PinnedMessagesResponse,
     ReactionRequest,
     StarredMessagesResponse,
+    TurnCredentialsResponse,
+    IceServer,
 )
 from app.modules.chat.service import (
     ChatError,
@@ -300,6 +302,52 @@ async def list_starred_messages(
     """List all starred messages across all chats."""
     messages = await service.get_starred_messages(user.id)
     return StarredMessagesResponse(items=messages)
+
+
+@chat_router.get("/turn-credentials", response_model=TurnCredentialsResponse)
+async def get_turn_credentials(
+    user: User = Depends(get_current_user),
+) -> TurnCredentialsResponse:
+    """Mint ephemeral TURN credentials for the authenticated user.
+
+    Stateless HMAC scheme shared with coturn (`use-auth-secret`): nothing to
+    store, nothing to revoke — credentials self-expire after the TTL. Even if
+    the APK is fully reverse-engineered, an attacker still needs a valid
+    MeetBook account *and* each credential dies within the hour, so the relay
+    can't be farmed as a free proxy.
+    """
+    import base64
+    import hashlib
+    import hmac as hmac_mod
+    import time
+
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    stun = IceServer(urls=[
+        "stun:stun.l.google.com:19302",
+        "stun:stun1.l.google.com:19302",
+    ])
+    if not settings.turn_secret or not settings.turn_host:
+        return TurnCredentialsResponse(ice_servers=[stun], ttl_seconds=0)
+
+    ttl = settings.turn_credential_ttl_seconds
+    username = f"{int(time.time()) + ttl}:{user.id}"
+    digest = hmac_mod.new(
+        settings.turn_secret.encode(), username.encode(), hashlib.sha1
+    ).digest()
+    credential = base64.b64encode(digest).decode()
+    host = settings.turn_host
+    port = settings.turn_port
+    turn = IceServer(
+        urls=[
+            f"turn:{host}:{port}?transport=udp",
+            f"turn:{host}:{port}?transport=tcp",
+        ],
+        username=username,
+        credential=credential,
+    )
+    return TurnCredentialsResponse(ice_servers=[stun, turn], ttl_seconds=ttl)
 
 
 @chat_router.post("/ticket", response_model=ChatTicketResponse)

@@ -21,6 +21,15 @@ class Settings(BaseSettings):
     jwt_access_ttl_seconds: int = 15 * 60
     refresh_token_ttl_days: int = 30
 
+    # -- TURN / WebRTC calls --------------------------------------------
+    # Shared HMAC secret with coturn (`static-auth-secret`). Empty -> the
+    # /chat/turn-credentials endpoint returns STUN-only ICE servers.
+    turn_secret: str = ""
+    # Public hostname or static IP of the TURN server (never a docker name).
+    turn_host: str = ""
+    turn_port: int = 3478
+    turn_credential_ttl_seconds: int = 3600
+
     google_places_key: str = ""
     s3_endpoint: str = ""
     s3_external_endpoint: str = ""

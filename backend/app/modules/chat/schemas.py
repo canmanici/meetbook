@@ -16,6 +16,24 @@ class ChatTicketResponse(BaseModel):
     expires_in_seconds: int = 30
 
 
+class IceServer(BaseModel):
+    urls: list[str]
+    username: str | None = None
+    credential: str | None = None
+
+
+class TurnCredentialsResponse(BaseModel):
+    """Ephemeral coturn REST-API credentials (RFC-style time-limited HMAC).
+
+    username = "<unix_expiry>:<user_id>", credential = b64(HMAC-SHA1(secret,
+    username)). coturn recomputes and compares — no DB, no state, and a
+    leaked credential dies at `expires_at`.
+    """
+
+    ice_servers: list[IceServer]
+    ttl_seconds: int
+
+
 class MessageSendRequest(BaseModel):
     chat_id: uuid.UUID
     text: str = Field(min_length=1, max_length=2000)
