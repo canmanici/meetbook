@@ -43,7 +43,7 @@ type Stop = {
   place_key: string;
   at: number;
 };
-type Person = { id: string; name: string };
+type Person = { id: string; name: string; avatarUrl?: string };
 type YirStats = {
   total: number;
   km: number;
@@ -148,7 +148,7 @@ async function loadYearInReview(): Promise<YirStats> {
   for (const ex of items) {
     const c = ex.counterpart;
     if (c?.id && !peopleMap.has(c.id)) {
-      peopleMap.set(c.id, { id: c.id, name: c.name?.trim() || 'Kitap kurdu' });
+      peopleMap.set(c.id, { id: c.id, name: c.name?.trim() || 'Kitap kurdu', avatarUrl: (c as any).avatar_url ?? undefined });
     }
   }
 
@@ -338,7 +338,7 @@ function PeopleSlide({ stats, active }: { stats: YirStats; active: boolean }) {
       <View style={slideStyles.avatarGrid}>
         {shown.map((p) => (
           <View key={p.id} style={slideStyles.avatarCell}>
-            <Avatar name={p.name} size="small" />
+            <Avatar name={p.name} imageUrl={p.avatarUrl} size="small" />
             <Text style={slideStyles.avatarName} numberOfLines={1}>
               {p.name}
             </Text>

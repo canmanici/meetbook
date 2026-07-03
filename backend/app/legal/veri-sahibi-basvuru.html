@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Veri Sahibi Başvuru Formu — MeetBook</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #1a1a2e;
+    --accent: #0f3460;
+    --gold: #e2b714;
+    --text: #1a1a2e;
+    --text-light: #555;
+    --bg: #fafafa;
+    --card: #fff;
+    --border: #e0e0e0;
+    --radius: 12px;
+  }
+  html { font-size: 16px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Roboto, Oxygen, Ubuntu, sans-serif;
+    line-height: 1.7;
+    color: var(--text);
+    background: var(--bg);
+    padding: 0;
+  }
+  .container { max-width: 780px; margin: 0 auto; padding: 0 20px; }
+  .header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+    color: #fff;
+    padding: 36px 0 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -30px;
+    left: -20%;
+    right: -20%;
+    height: 60px;
+    background: var(--bg);
+    border-radius: 50%;
+  }
+  .header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+  .header .meta { opacity: .85; font-size: .85rem; }
+  .header .badge {
+    display: inline-block;
+    background: var(--gold);
+    color: var(--primary);
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 10px;
+  }
+  .content { padding: 0 0 40px; }
+  section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin-bottom: 16px;
+  }
+  section h2 {
+    font-size: 1.1rem;
+    color: var(--accent);
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--gold);
+  }
+  section p { margin-bottom: 10px; text-align: justify; font-size: .92rem; }
+  section ul { margin: 6px 0 12px 20px; }
+  section li { margin-bottom: 5px; font-size: .92rem; }
+  section table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: .85rem;
+  }
+  section th, section td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  section th { background: var(--primary); color: #fff; font-weight: 600; }
+  section tr:nth-child(even) { background: #f5f5f5; }
+  .highlight-box {
+    background: #fff8e1;
+    border-left: 4px solid var(--gold);
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: .9rem;
+  }
+
+  /* Form Styles */
+  .form-group { margin-bottom: 20px; }
+  .form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+    font-size: .9rem;
+    color: var(--primary);
+  }
+  .form-group label .required { color: #e74c3c; }
+  .form-group input[type="text"],
+  .form-group input[type="email"],
+  .form-group input[type="tel"],
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: .95rem;
+    font-family: inherit;
+    transition: border-color .2s;
+  }
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(15,52,96,.15);
+  }
+  .form-group textarea { min-height: 120px; resize: vertical; }
+  .form-group .help-text {
+    font-size: .8rem;
+    color: var(--text-light);
+    margin-top: 4px;
+  }
+  .form-group .checkbox-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .form-group .checkbox-group input[type="checkbox"] {
+    margin-top: 4px;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  .form-group .checkbox-group label { margin-bottom: 0; font-weight: 400; }
+  .btn {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: #fff;
+    padding: 12px 32px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .2s;
+  }
+  .btn:hover { opacity: .9; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+  }
+  .btn-secondary:hover { background: var(--accent); color: #fff; opacity: 1; }
+  .footer {
+    text-align: center;
+    padding: 24px 0;
+    color: var(--text-light);
+    font-size: .8rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 600px) {
+    .header h1 { font-size: 1.2rem; }
+    section { padding: 16px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="container">
+    <div class="badge">KVKK Başvuru Formu · Sürüm 1.0</div>
+    <h1>Veri Sahibi Başvuru Formu</h1>
+    <p class="meta">6698 sayılı KVKK md.11 ve md.13 uyarınca · 2 Temmuz 2026</p>
+  </div>
+</div>
+
+<div class="content container">
+
+<section>
+  <h2>Başvuru Hakkında</h2>
+  <p>6698 sayılı Kişisel Verilerin Korunması Kanunu'nun ("KVKK") 11. maddesi uyarınca, kişisel verilerinizin işlenmesine ilişkin haklarınızı kullanmak için işbu başvuru formunu doldurabilirsiniz. Talebiniz, kimliğinizin teyit edilmesini takiben en geç <strong>30 (otuz) gün içinde</strong> ücretsiz olarak sonuçlandırılacaktır.</p>
+
+  <p><strong>Alternatif başvuru yöntemleri:</strong></p>
+  <ul>
+    <li><strong>E-posta:</strong> <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine başvuru konulu e-posta gönderebilirsiniz.</li>
+    <li><strong>Uygulama içi:</strong> Ayarlar → "Verilerimi İndir" (veri taşınabilirliği) veya "Hesabımı Sil" (unutulma hakkı) seçeneklerini kullanabilirsiniz.</li>
+  </ul>
+
+  <div class="highlight-box">
+    <strong>Önemli:</strong> Başvurunuzun değerlendirilebilmesi için hesabınızda kayıtlı e-posta adresinizi kullanmanız ve talebinizi açıkça belirtmeniz gerekmektedir. Eksik veya anlaşılmaz başvurular, tamamlama talebiyle iade edilebilir.
+  </div>
+</section>
+
+<section>
+  <h2>Başvuru Formu</h2>
+  <p style="font-size:.85rem; color:var(--text-light); margin-bottom:16px;"><span style="color:#e74c3c;">*</span> ile işaretli alanlar zorunludur.</p>
+
+  <form id="kvkk-basvuru-formu" onsubmit="return handleSubmit(event)">
+
+    <div class="form-group">
+      <label><span class="required">*</span> Adınız ve Soyadınız</label>
+      <input type="text" id="adsoyad" name="adsoyad" required placeholder="Adınız ve soyadınız">
+    </div>
+
+    <div class="form-group">
+      <label><span class="required">*</span> E-posta Adresiniz (MeetBook hesabınızda kayıtlı olan)</label>
+      <input type="email" id="eposta" name="eposta" required placeholder="eposta@ornek.com">
+      <div class="help-text">Başvuru durumu hakkında size bu adres üzerinden dönüş yapılacaktır.</div>
+    </div>
+
+    <div class="form-group">
+      <label>Telefon Numaranız</label>
+      <input type="tel" id="telefon" name="telefon" placeholder="05XX XXX XX XX">
+      <div class="help-text">İsteğe bağlı. Doğrulama gerektiren taleplerde kullanılabilir.</div>
+    </div>
+
+    <div class="form-group">
+      <label><span class="required">*</span> MeetBook Kullanıcı Adınız</label>
+      <input type="text" id="kullaniciadi" name="kullaniciadi" required placeholder="MeetBook'ta görünen adınız">
+      <div class="help-text">Hesabınızı doğrulamak için kullanılacaktır.</div>
+    </div>
+
+    <div class="form-group">
+      <label><span class="required">*</span> Başvuru Türü (Kullanmak İstediğiniz Hak)</label>
+      <select id="basvuru-turu" name="basvuru-turu" required>
+        <option value="">— Lütfen seçiniz —</option>
+        <option value="bilgi">a) Kişisel verilerimin işlenip işlenmediğini öğrenme</option>
+        <option value="aydinlatma">b) İşlenme amacını, amaca uygun kullanımı ve aktarılan üçüncü kişileri öğrenme</option>
+        <option value="duzeltme">c) Eksik/yanlış işlenmiş verilerimin düzeltilmesi</option>
+        <option value="silme">ç) Kişisel verilerimin silinmesi/anonimleştirilmesi (unutulma hakkı)</option>
+        <option value="aktarim-durdurma">d) Verilerimin üçüncü kişilere aktarımının durdurulması</option>
+        <option value="veri-tasinabilirlik">e) Verilerimin tarafıma veya başka bir veri sorumlusuna aktarılması (veri taşınabilirliği)</option>
+        <option value="itiraz">f) Otomatik sistemle aleyhime sonuç doğmasına itiraz (güven puanı)</option>
+        <option value="zarar">g) Kanuna aykırı işleme nedeniyle zararın giderilmesi</option>
+        <option value="birden-fazla">Birden fazla hakkımı kullanmak istiyorum (aşağıda açıklayacağım)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label><span class="required">*</span> Talebinizin Açıklaması</label>
+      <textarea id="talep-aciklama" name="talep-aciklama" required placeholder="Talebinizi detaylı bir şekilde açıklayınız. Hangi verilerle ilgili hangi işlemin yapılmasını istediğinizi belirtiniz."></textarea>
+      <div class="help-text">Mümkün olduğunca spesifik olunuz. Örneğin: "Hesabımdaki [belirli bir veri] ile ilgili olarak [talep edilen işlem] yapılmasını talep ediyorum."</div>
+    </div>
+
+    <div class="form-group">
+      <label>Varsa Ek Bilgi veya Belgeler</label>
+      <textarea id="ek-bilgi" name="ek-bilgi" placeholder="Başvurunuzu destekleyen ek bilgiler varsa buraya yazabilirsiniz."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label><span class="required">*</span> Kimlik Doğrulama Yöntemi</label>
+      <select id="kimlik-dogrulama" name="kimlik-dogrulama" required>
+        <option value="">— Lütfen seçiniz —</option>
+        <option value="eposta">Hesabımda kayıtlı e-posta adresimden gönderiyorum (e-posta doğrulaması)</option>
+        <option value="telefon">Telefon numaram ile doğrulama yapılmasını istiyorum</option>
+        <option value="diger">Diğer (aşağıda açıklayacağım)</option>
+      </select>
+      <div class="help-text">Kimliğinizin doğrulanması, başkasının adına talepte bulunulmasını önlemek içindir.</div>
+    </div>
+
+    <div class="form-group">
+      <div class="checkbox-group">
+        <input type="checkbox" id="onay" name="onay" required>
+        <label for="onay">KVKK kapsamındaki talebimin, kimlik doğrulaması amacıyla hesabıma kayıtlı bilgilerimin kullanılmasına ve talebimin işlenmesi sürecinde kişisel verilerimin bu amaçla işlenmesine açık rıza veriyorum.</label>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="checkbox-group">
+        <input type="checkbox" id="dogruluk" name="dogruluk" required>
+        <label for="dogruluk">Yukarıda verdiğim bilgilerin doğru ve güncel olduğunu, gerçeğe aykırı bilgi vermem nedeniyle doğacak hukuki sorumluluğun bana ait olduğunu beyan ederim.</label>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:24px;">
+      <button type="submit" class="btn" id="gonder-btn">Başvuruyu Gönder</button>
+      <button type="reset" class="btn btn-secondary" onclick="return confirm('Formu temizlemek istediğinize emin misiniz?')">Formu Temizle</button>
+    </div>
+  </form>
+
+  <div id="basarili-mesaji" style="display:none; background:#e8f5e9; border:1px solid #2e7d32; border-radius:var(--radius); padding:20px; margin-top:20px; text-align:center;">
+    <p style="font-size:1.1rem; font-weight:700; color:#2e7d32; margin-bottom:8px;">✅ Başvurunuz Alınmıştır</p>
+    <p style="font-size:.92rem;">Başvurunuz başarıyla kaydedilmiştir. Talebiniz, kimlik doğrulamasının ardından en geç 30 gün içinde sonuçlandırılacaktır. Başvuru numaranız ve süreç hakkında e-posta adresinize bilgilendirme yapılacaktır.</p>
+  </div>
+
+  <div id="hata-mesaji" style="display:none; background:#fff0f0; border:1px solid #e74c3c; border-radius:var(--radius); padding:20px; margin-top:20px;">
+    <p style="font-weight:700; color:#c0392b;">⚠️ Gönderim Sırasında Hata Oluştu</p>
+    <p id="hata-detay" style="font-size:.9rem; color:#e74c3c;"></p>
+    <p style="font-size:.85rem; margin-top:8px;">Alternatif olarak talebinizi doğrudan <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine e-posta göndererek iletebilirsiniz.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Başvuru Süreci</h2>
+  <ol>
+    <li><strong>Başvurunuzun Alınması:</strong> Form gönderildikten sonra başvurunuz kaydedilir.</li>
+    <li><strong>Kimlik Doğrulaması:</strong> Talebinizin niteliğine göre e-posta veya telefon ile kimlik doğrulaması yapılır.</li>
+    <li><strong>İnceleme:</strong> Talebiniz, KVKK ve ilgili mevzuat kapsamında değerlendirilir.</li>
+    <li><strong>Yanıt:</strong> Talebiniz en geç <strong>30 (otuz) gün</strong> içinde ücretsiz olarak yanıtlanır.</li>
+    <li><strong>Ret Durumu:</strong> Talebinizin reddedilmesi hâlinde, gerekçeli ret cevabı tarafınıza bildirilir. Ret cevabının tebliğinden itibaren 30 gün içinde KVKK Kurulu'na şikâyet hakkınız bulunmaktadır.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>KVKK Kurulu İletişim</h2>
+  <p>Başvurunuzla ilgili memnuniyetsizlik durumunda aşağıdaki adreslere başvurabilirsiniz:</p>
+  <table>
+    <tr><th style="width:150px;">Kurum</th><td>Kişisel Verileri Koruma Kurumu (KVKK)</td></tr>
+    <tr><th>Adres</th><td>Çankaya / Ankara, Türkiye</td></tr>
+    <tr><th>Web</th><td><a href="https://www.kvkk.gov.tr" target="_blank" rel="noopener">www.kvkk.gov.tr</a></td></tr>
+  </table>
+</section>
+
+<div style="background:var(--primary); color:#fff; padding:20px; border-radius:var(--radius); margin-top:16px; text-align:center;">
+  <p style="margin:0; font-size:.85rem; opacity:.9;">Son güncelleme: 2 Temmuz 2026 · Sürüm 1.0</p>
+  <p style="margin:8px 0 0; font-size:.8rem; opacity:.7;">© 2026 MeetBook · 6698 sayılı KVKK uyarınca</p>
+</div>
+
+</div>
+
+<div class="footer container">
+  <p><strong>MeetBook</strong> · Veri Sahibi Başvuru Formu · 2 Temmuz 2026</p>
+  <p><a href="/legal/gizlilik-politikasi">Gizlilik Politikası</a> · <a href="/legal/kullanim-kosullari">Kullanım Koşulları</a> · <a href="/legal/kvkk-aydinlatma-metni">KVKK Aydınlatma Metni</a> · <a href="/legal/kotuye-kullanim-ve-dolandiricilikla-mucadele-politikasi">Kötüye Kullanım Politikası</a></p>
+</div>
+
+<script>
+function handleSubmit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('gonder-btn');
+  const basari = document.getElementById('basarili-mesaji');
+  const hata = document.getElementById('hata-mesaji');
+
+  btn.disabled = true;
+  btn.textContent = 'Gönderiliyor...';
+  basari.style.display = 'none';
+  hata.style.display = 'none';
+
+  const formData = {
+    adsoyad: document.getElementById('adsoyad').value,
+    eposta: document.getElementById('eposta').value,
+    telefon: document.getElementById('telefon').value,
+    kullaniciadi: document.getElementById('kullaniciadi').value,
+    basvuruTuru: document.getElementById('basvuru-turu').value,
+    talepAciklama: document.getElementById('talep-aciklama').value,
+    ekBilgi: document.getElementById('ek-bilgi').value,
+    kimlikDogrulama: document.getElementById('kimlik-dogrulama').value
+  };
+
+  fetch('/legal/api/veri-sahibi-basvuru', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(formData)
+  })
+  .then(res => {
+    if (!res.ok) throw new Error('Sunucu hatası: ' + res.status);
+    return res.json();
+  })
+  .then(data => {
+    basari.style.display = 'block';
+    document.getElementById('kvkk-basvuru-formu').reset();
+    btn.disabled = false;
+    btn.textContent = 'Başvuruyu Gönder';
+  })
+  .catch(err => {
+    hata.style.display = 'block';
+    document.getElementById('hata-detay').textContent = err.message;
+    btn.disabled = false;
+    btn.textContent = 'Başvuruyu Gönder';
+  });
+
+  return false;
+}
+</script>
+
+</body>
+</html>

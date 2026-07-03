@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, BookCover, Skeleton, palette, pastels, spacing, fontSize, radius, shadows } from '@/components/ui';
 import {
+  ApiError,
   getMe,
   getUser,
   listMyBooks,
@@ -31,6 +32,7 @@ import {
   logout,
   updateGeofenceRadius,
   updateMe,
+  uploadAvatar,
 } from '@/lib/api/client';
 import { BOOK_CATEGORY_LABELS, type BookCategory } from '@/constants/books';
 import QuickRadiusSheet from '@/components/map/quick-radius-sheet';
@@ -41,10 +43,13 @@ import { useToast } from '@/hooks/use-toast';
 type PastelName = keyof typeof pastels.light;
 
 const MENU_ITEMS = [
+  { key: 'user-search', label: 'Kullanıcı Ara', icon: 'search' as const, tint: 'lilac' as PastelName, route: '/search/users' as const },
   { key: 'trusted', label: 'Güvendiğim Kişi', icon: 'shield-checkmark' as const, tint: 'mint' as PastelName, route: '/settings/trusted-contact' as const },
   { key: 'blocked', label: 'Engellenen Kullanıcılar', icon: 'ban' as const, tint: 'coral' as PastelName, route: '/settings/blocked-users' as const },
   { key: 'wishlist', label: 'İstek Listem', icon: 'heart' as const, tint: 'blush' as PastelName, route: '/wishlist' as const },
   { key: 'favorites', label: 'Favorilerim', icon: 'heart' as const, tint: 'coral' as PastelName, route: '/wishlist/favorites' as const },
+  { key: 'saved-searches', label: 'Kayıtlı Aramalar', icon: 'bookmark' as const, tint: 'butter' as PastelName, route: '/saved-searches' as const },
+  { key: 'clubs', label: 'Kitap Kulüplerim', icon: 'people' as const, tint: 'sky' as PastelName, route: '/chat/club' as const },
   { key: 'yir', label: 'Yılın Özeti', icon: 'sparkles' as const, tint: 'blush' as PastelName, route: '/year-in-review' as const },
   { key: 'settings', label: 'Ayarlar', icon: 'settings-sharp' as const, tint: 'sky' as PastelName, route: '/settings' as const },
 ] as const;
@@ -100,6 +105,7 @@ export default function ProfileScreen() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
+  const [editUsername, setEditUsername] = useState('');
   const [editAvatarUri, setEditAvatarUri] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
@@ -114,11 +120,15 @@ export default function ProfileScreen() {
     queryFn: () => getMe(),
   });
 
-  // Sync geofence radius from server
+  // Sync geofence radius & avatar_url from server
   useEffect(() => {
     const r = (meData as any)?.geofence_radius_km;
     if (typeof r === 'number' && r >= 1 && r <= 200) {
       setRadiusKm(r);
+    }
+    const av = (meData as any)?.avatar_url;
+    if (typeof av === 'string') {
+      setAvatarUrl(av);
     }
   }, [meData]);
 
@@ -321,6 +331,7 @@ export default function ProfileScreen() {
 
   const enterEdit = () => {
     setEditName(user?.name ?? '');
+    setEditUsername(user?.username ?? '');
     setEditAvatarUri(null);
     setIsEditing(true);
   };
@@ -328,6 +339,7 @@ export default function ProfileScreen() {
   const cancelEdit = () => {
     setIsEditing(false);
     setEditName('');
+    setEditUsername('');
     setEditAvatarUri(null);
   };
 
@@ -355,23 +367,45 @@ export default function ProfileScreen() {
       toast.show('İsim boş olamaz', { variant: 'error' });
       return;
     }
+    const trimmedUsername = editUsername.trim().toLowerCase();
+    if (!/^[a-z0-9_]{3,30}$/.test(trimmedUsername)) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      toast.show('Kullanıcı adı en az 3 karakter olmalı (harf, rakam, _)', { variant: 'error' });
+      return;
+    }
     setIsSaving(true);
     try {
-      await updateMe({ name: trimmed } as any);
+      // Update name + username first
+      const me = await updateMe({ name: trimmed, username: trimmedUsername } as any);
+
+      // Upload avatar if a new one was picked
+      let newAvatarUrl = (me as any)?.avatar_url ?? avatarUrl;
       if (editAvatarUri) {
-        console.warn('[profile] avatar upload endpoint not available — keeping URI locally');
-        setAvatarUrl(editAvatarUri);
+        try {
+          const result = await uploadAvatar(editAvatarUri);
+          newAvatarUrl = result.avatar_url;
+          setAvatarUrl(newAvatarUrl);
+        } catch (e) {
+          console.warn('[profile] avatar upload failed:', e);
+          toast.show('Fotoğraf yüklenemedi ama profil güncellendi', { variant: 'info' });
+        }
       }
-      if (user) setUser({ ...user, name: trimmed });
+
+      // Sync auth store
+      if (user) setUser({ ...user, name: trimmed, username: trimmedUsername, avatarUrl: newAvatarUrl });
       await queryClient.invalidateQueries({ queryKey: ['me'] });
       if (user?.id) await queryClient.invalidateQueries({ queryKey: ['user', user.id] });
       setIsEditing(false);
       setEditAvatarUri(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast.show('Profil güncellendi', { variant: 'success' });
-    } catch {
+    } catch (err) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      toast.show('Profil güncellenemedi', { variant: 'error' });
+      if (err instanceof ApiError && err.status === 409) {
+        toast.show('Bu kullanıcı adı alınmış', { variant: 'error' });
+      } else {
+        toast.show('Profil güncellenemedi', { variant: 'error' });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -526,17 +560,31 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         {isEditing ? (
-          <TextInput
-            style={styles.heroNameInput}
-            value={editName}
-            onChangeText={setEditName}
-            placeholder="İsim"
-            placeholderTextColor="rgba(255,255,255,0.6)"
-            maxLength={60}
-            testID="profile-name-input"
-          />
+          <>
+            <TextInput
+              style={styles.heroNameInput}
+              value={editName}
+              onChangeText={setEditName}
+              placeholder="İsim"
+              placeholderTextColor="rgba(255,255,255,0.6)"
+              maxLength={60}
+              testID="profile-name-input"
+            />
+            <TextInput
+              style={styles.heroUsernameInput}
+              value={editUsername}
+              onChangeText={(v) => setEditUsername(v.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+              placeholder="kullaniciadi"
+              placeholderTextColor="rgba(255,255,255,0.5)"
+              maxLength={30}
+              testID="profile-username-input"
+            />
+          </>
         ) : (
           <Text style={styles.heroName}>{displayName}</Text>
+        )}
+        {!isEditing && !!user?.username && (
+          <Text style={styles.heroUsername}>@{user.username}</Text>
         )}
         <Text style={styles.heroEmail}>{displayEmail}</Text>
       </LinearGradient>
@@ -1100,12 +1148,29 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.6)',
     paddingBottom: 4,
   },
+  heroUsernameInput: {
+    width: 200,
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.4)',
+    paddingBottom: 3,
+  },
   heroName: {
     fontSize: fontSize.heading,
     fontWeight: '900',
     color: '#fff',
     marginTop: spacing.md,
     letterSpacing: -0.3,
+  },
+  heroUsername: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: 1,
   },
   heroEmail: {
     fontSize: fontSize.bodySm,

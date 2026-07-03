@@ -75,7 +75,7 @@ function kindFor(type: string): NotifKind {
   const t = type.toLowerCase();
   if (t === 'year_in_review' || t.includes('year_review')) return 'year_review';
   if (t === 'book_twin' || t.includes('twin')) return 'twin';
-  if (t.includes('exchange') || t.includes('swap') || t.includes('trade')) return 'exchange';
+  if (t.includes('exchange') || t.includes('swap') || t.includes('trade') || t.includes('location')) return 'exchange';
   if (t.includes('chat') || t.includes('message')) return 'chat';
   if (t.includes('geofence') || t.includes('book') || t.includes('wishlist')) return 'book';
   if (t.includes('report')) return 'report';
@@ -105,6 +105,7 @@ function iconFor(kind: NotifKind): React.ComponentProps<typeof Ionicons>['name']
 }
 
 function defaultTitle(type: string): string {
+  if (type.toLowerCase().includes('location')) return 'Nerdeyim Modu';
   switch (kindFor(type)) {
     case 'book':
       return 'Kitap Eşleşmesi';
@@ -126,6 +127,12 @@ function defaultTitle(type: string): string {
 }
 
 function defaultBody(type: string, payload: Record<string, unknown>): string {
+  if (type.toLowerCase().includes('location')) {
+    const sharerName = payload.sharer_name as string | undefined;
+    return sharerName
+      ? `${sharerName} canlı konumunu paylaşmaya başladı`
+      : 'Takas ortağın canlı konumunu paylaşmaya başladı';
+  }
   switch (kindFor(type)) {
     case 'book':
       return (payload.book_title as string) ?? 'İstek listenizdeki bir kitap yakınında bulundu.';

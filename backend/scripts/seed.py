@@ -30,6 +30,7 @@ DEV_USERS = [
     {
         "email": "admin@meetbook.app",
         "name": "Admin",
+        "username": "admin",
         "password": "changeme123",
         "is_admin": True,
         "status": "active",
@@ -37,6 +38,7 @@ DEV_USERS = [
     {
         "email": "demo@meetbook.app",
         "name": "Demo User",
+        "username": "demo",
         "password": "changeme123",
         "is_admin": False,
         "status": "active",
@@ -44,6 +46,7 @@ DEV_USERS = [
     {
         "email": "canmanici@gmail.com",
         "name": "Can Manici",
+        "username": "canmanici",
         "password": "***REMOVED***",
         "is_admin": True,
         "status": "active",
@@ -145,6 +148,7 @@ async def seed() -> int:
                 user = User(
                     email=user_data["email"],
                     name=user_data["name"],
+                    username=user_data["username"],
                     is_admin=user_data["is_admin"],
                     status=user_data["status"],
                     email_verified_at=now,  # seed users are pre-verified

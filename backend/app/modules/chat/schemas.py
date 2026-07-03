@@ -119,6 +119,7 @@ class ChatSummary(BaseModel):
     exchange_id: uuid.UUID
     counterpart_id: uuid.UUID
     counterpart_name: str
+    counterpart_avatar_url: str | None = None
     last_message: str | None = None
     last_message_type: str = "text"
     last_message_at: datetime | None = None

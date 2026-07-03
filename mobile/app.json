@@ -22,7 +22,8 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
       ]
     },
     "web": {
@@ -46,9 +47,18 @@
       "expo-secure-store",
       "expo-web-browser",
       [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "MeetBook, kayıtlı cihazında hızlı ve güvenli giriş yapabilmen için Face ID kullanır."
+        }
+      ],
+      [
         "expo-location",
         {
-          "locationWhenInUsePermission": "MeetBook, kitabının konumunu işaretlemen için konumunu kullanır."
+          "locationWhenInUsePermission": "MeetBook, kitabının konumunu işaretlemen için konumunu kullanır.",
+          "locationAlwaysAndWhenInUsePermission": "MeetBook, güvenlik modu sırasında arkadaşlarınla konumunu paylaşmak için her zaman konumunu kullanır.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true
         }
       ],
       [

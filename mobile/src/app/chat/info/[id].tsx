@@ -157,8 +157,7 @@ export default function ChatInfoScreen() {
   };
 
   const handleStarred = () => {
-    if (!exchangeId) return;
-    router.push(`/chat/${exchangeId}?starred=1`);
+    router.push('/chat/starred');
   };
 
   const handlePinned = () => {
@@ -166,8 +165,10 @@ export default function ChatInfoScreen() {
   };
 
   const handleSearch = () => {
-    if (!exchangeId) return;
-    router.push(`/chat/${exchangeId}?search=1`);
+    // The chat screen already has its own search toggle in its header —
+    // just return to it instead of pushing a duplicate instance with a
+    // query param the chat screen never reads.
+    router.back();
   };
 
   const handleExport = async () => {
@@ -275,7 +276,7 @@ export default function ChatInfoScreen() {
       {/* Counterpart profile */}
       {counterpart && (
         <View style={[styles.section, { backgroundColor: colors.surface }, shadows.card]}>
-          <Avatar name={counterpart.name} size="large" />
+          <Avatar name={counterpart.name} imageUrl={(counterpart as any).avatar_url ?? undefined} size="large" />
           <Text style={[styles.name, { color: colors.text }]}>{counterpart.name}</Text>
           {counterpart.trust && (
             <View style={[styles.trustBadge, { backgroundColor: colors.primarySoft }]}>

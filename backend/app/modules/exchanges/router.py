@@ -21,6 +21,9 @@ from app.modules.exchanges.schemas import (
     ExchangeListResponse,
     ExtensionRequestBody,
     LendRequest,
+    LocationResponse,
+    LocationStatusResponse,
+    LocationUpdateRequest,
     MeetupAcceptRequest,
     MeetupProposeRequest,
     MeetupSuggestionsResponse,
@@ -380,5 +383,64 @@ async def decline_reading_buddy(
 ) -> ReadingBuddyView:
     try:
         return await service.accept_reading_buddy(exchange_id, user.id, accept=False)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.post("/{exchange_id}/location", status_code=204)
+async def update_location(
+    exchange_id: uuid.UUID,
+    body: LocationUpdateRequest,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> None:
+    """Submit current location for Nerdeyim Modu live sharing."""
+    try:
+        await service.update_location(
+            exchange_id, user.id, body.latitude, body.longitude, body.precision
+        )
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.delete("/{exchange_id}/location", status_code=204)
+async def stop_location_sharing(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> None:
+    """Explicitly stop Nerdeyim Modu — clears location immediately and notifies the partner."""
+    try:
+        await service.stop_location_sharing(exchange_id, user.id)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.get("/{exchange_id}/location/partner")
+async def get_partner_location(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> LocationResponse | None:
+    """Get the other participant's last known location."""
+    try:
+        result = await service.get_partner_location(exchange_id, user.id)
+        if result is None:
+            return None
+        return LocationResponse(**result)
+    except ExchangeError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.code)
+
+
+@router.get("/{exchange_id}/location/status")
+async def get_location_status(
+    exchange_id: uuid.UUID,
+    user: User = Depends(get_verified_user),
+    service: ExchangeService = Depends(_get_service),
+) -> LocationStatusResponse:
+    """Both participants' live-sharing state in one call — clients render from this."""
+    try:
+        result = await service.get_location_status(exchange_id, user.id)
+        return LocationStatusResponse(**result)
     except ExchangeError as e:
         raise HTTPException(status_code=e.status_code, detail=e.code)

@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Veri Saklama ve İmha Politikası — MeetBook</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #1a1a2e;
+    --accent: #0f3460;
+    --gold: #e2b714;
+    --text: #1a1a2e;
+    --text-light: #555;
+    --bg: #fafafa;
+    --card: #fff;
+    --border: #e0e0e0;
+    --radius: 12px;
+  }
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Roboto, Oxygen, Ubuntu, sans-serif;
+    line-height: 1.7;
+    color: var(--text);
+    background: var(--bg);
+    padding: 0;
+  }
+  .container { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+  .header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+    color: #fff;
+    padding: 36px 0 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -30px;
+    left: -20%;
+    right: -20%;
+    height: 60px;
+    background: var(--bg);
+    border-radius: 50%;
+  }
+  .header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+  .header .meta { opacity: .85; font-size: .85rem; }
+  .header .badge {
+    display: inline-block;
+    background: var(--gold);
+    color: var(--primary);
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 10px;
+  }
+  .content { padding: 0 0 40px; }
+  section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 16px;
+  }
+  section h2 {
+    font-size: 1.15rem;
+    color: var(--accent);
+    margin-bottom: 14px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--gold);
+  }
+  section h3 { font-size: 1.02rem; color: var(--primary); margin: 18px 0 8px; }
+  section p { margin-bottom: 10px; text-align: justify; font-size: .92rem; }
+  section ul, section ol { margin: 6px 0 12px 20px; }
+  section li { margin-bottom: 5px; font-size: .92rem; }
+  section table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: .85rem;
+  }
+  section th, section td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  section th { background: var(--primary); color: #fff; font-weight: 600; }
+  section tr:nth-child(even) { background: #f5f5f5; }
+  .highlight-box {
+    background: #fff8e1;
+    border-left: 4px solid var(--gold);
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: .9rem;
+  }
+  .back-to-top { display: block; text-align: right; margin-top: 8px; }
+  .back-to-top a { color: var(--accent); font-size: .85rem; text-decoration: none; }
+  .back-to-top a:hover { text-decoration: underline; }
+  .footer {
+    text-align: center;
+    padding: 24px 0;
+    color: var(--text-light);
+    font-size: .8rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 600px) {
+    .header h1 { font-size: 1.2rem; }
+    section { padding: 16px 18px; }
+    section table { font-size: .78rem; }
+    section th, section td { padding: 5px 6px; }
+  }
+  @media print {
+    section { break-inside: avoid; }
+    body { font-size: 10pt; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="container">
+    <div class="badge">Operasyonel Politika · Sürüm 1.0</div>
+    <h1>Veri Saklama ve İmha Politikası</h1>
+    <p class="meta">
+      <span>📅 Yürürlük: 2 Temmuz 2026</span>
+      <span>📄 Sürüm: 1.0</span>
+      <span>⚖️ KVKK md.7 ve ilgili mevzuat uyarınca</span>
+    </p>
+  </div>
+</div>
+
+<div class="content container">
+
+<section>
+  <h2>1. Amaç ve Kapsam</h2>
+  <p>İşbu Veri Saklama ve İmha Politikası ("Politika"), 6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") ve ilgili mevzuat uyarınca, MeetBook Platformu tarafından işlenen kişisel verilerin saklanma sürelerini, bu sürelerin sonunda verilerin hangi yöntemlerle imha edileceğini ve bu süreçlerin nasıl yönetileceğini belirlemek amacıyla hazırlanmıştır.</p>
+  <p>Bu Politika, MeetBook Platformu'nun işlettiği tüm sistemlerde (veritabanı, dosya depolama, log sistemleri, yedekler) işlenen tüm kişisel verileri kapsar. Politika, KVKK md.7'de düzenlenen "veri işleme amacının ortadan kalkması" ve "ilgili mevzuatta öngörülen sürelerin dolması" durumlarında uygulanacak imha prosedürlerini tanımlar.</p>
+</section>
+
+<section>
+  <h2>2. Tanımlar</h2>
+  <ul>
+    <li><strong>Anonim Hale Getirme (Anonimleştirme):</strong> Kişisel verilerin, başka verilerle eşleştirilse dahi hiçbir surette kimliği belirli veya belirlenebilir bir gerçek kişiyle ilişkilendirilemeyecek hâle getirilmesi.</li>
+    <li><strong>İmha:</strong> Kişisel verilerin silinmesi, anonim hale getirilmesi veya yok edilmesi.</li>
+    <li><strong>Karartma:</strong> Bir veri kaydındaki kişisel veriyi oluşturan alanın, veri kaydının bütünlüğünü bozmadan, belirli bir gerçek kişiyle ilişkilendirilemeyecek hâle getirilmesi (örn. e-posta alanının <code>deleted-{uuid}@anon</code> yapılması).</li>
+    <li><strong>Periyodik İmha:</strong> Bu Politikada belirtilen saklama sürelerinin sonunda, re'sen ve belirli aralıklarla gerçekleştirilen imha işlemi.</li>
+    <li><strong>Silme:</strong> Kişisel verilerin veri kayıt sisteminden geri döndürülemeyecek şekilde silinmesi.</li>
+    <li><strong>Yok Etme:</strong> Kişisel verilerin fiziksel olarak (kağıt, manyetik, optik ortam) geri döndürülemez şekilde imhası.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>3. Saklama Süreleri Tablosu</h2>
+  <p>Aşağıdaki tabloda, her bir veri kategorisi için belirlenen saklama süreleri ve süre sonunda uygulanacak imha yöntemi belirtilmiştir. Saklama süreleri, veri işleme amacının gereklilikleri ve ilgili mevzuatta öngörülen yasal süreler dikkate alınarak belirlenmiştir.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Veri Kategorisi</th>
+        <th>Veri Türü / Tablo</th>
+        <th>Saklama Süresi</th>
+        <th>Süre Başlangıcı</th>
+        <th>İmha Yöntemi</th>
+        <th>Yasal Dayanak</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="4"><strong>Kimlik & İletişim</strong></td>
+        <td>Ad, soyad, e-posta (<code>users.email, .name</code>)</td>
+        <td>Hesap aktif + 1 yıl</td>
+        <td>Hesap silme talebi / hesabın son kullanımı</td>
+        <td>Karartma (email → <code>deleted-{uuid}@anon</code>, name → "Silinmiş Hesap")</td>
+        <td>KVKK md.7, TBK md.146</td>
+      </tr>
+      <tr>
+        <td>Telefon (<code>users.phone</code>)</td>
+        <td>Hesap aktif + 1 yıl</td>
+        <td>Hesap silme talebi</td>
+        <td>Silme (NULL)</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td>Güvenilir kişi adı/telefonu</td>
+        <td>Hesap aktif + 1 yıl</td>
+        <td>Hesap silme talebi</td>
+        <td>Silme (NULL)</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td><code>user_credentials</code> (password hash, doğrulama)</td>
+        <td>Hesap aktif + 1 yıl</td>
+        <td>Hesap silme talebi</td>
+        <td>Silme</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td rowspan="2"><strong>İletişim Doğrulama</strong></td>
+        <td>E-posta doğrulama token'ları</td>
+        <td>Doğrulama tamamlandıktan sonra 24 saat</td>
+        <td>E-posta doğrulama işlemi</td>
+        <td>Silme</td>
+        <td>KVKK md.7 (amaç sınırlaması)</td>
+      </tr>
+      <tr>
+        <td>Şifre sıfırlama token'ları</td>
+        <td>15 dakika (token geçerlilik süresi)</td>
+        <td>Token oluşturma</td>
+        <td>Silme (süre sonu)</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td rowspan="4"><strong>Konum Verileri</strong></td>
+        <td>Güvenlik modu konum kayıtları (<code>user_locations</code>)</td>
+        <td><strong>30 gün</strong></td>
+        <td>Kayıt oluşturma</td>
+        <td>Otomatik silme (periyodik worker — saatlik çalışır)</td>
+        <td>KVKK md.7 (veri minimizasyonu, amaç sınırlaması)</td>
+      </tr>
+      <tr>
+        <td>Buluşma konumları (<code>meetup_locations</code>)</td>
+        <td>Buluşma tamamlandıktan + 1 yıl</td>
+        <td>Buluşma tamamlanma tarihi</td>
+        <td>Silme</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td>Kitap gerçek konumu</td>
+        <td>Kitap listeden kaldırıldıktan + 1 yıl</td>
+        <td>Kitap silme/kaldırma tarihi</td>
+        <td>Silme</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td>Kitap genel konumu (bulanık)</td>
+        <td>Kitap listeden kaldırıldıktan + 1 yıl</td>
+        <td>Kitap silme/kaldırma tarihi</td>
+        <td>Silme</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td rowspan="3"><strong>Kullanıcı İçerikleri</strong></td>
+        <td>Kitap fotoğrafları (<code>book_photos</code>)</td>
+        <td>Kitap listeden kaldırıldıktan + 1 yıl</td>
+        <td>Kitap silme/kaldırma tarihi</td>
+        <td>Silme (dosya depolamadan + DB'den)</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td>Avatar fotoğrafları</td>
+        <td>Hesap aktif + 1 yıl</td>
+        <td>Hesap silme talebi</td>
+        <td>Silme</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td>Ödünç kanıt fotoğrafları</td>
+        <td>Ödünç tamamlandıktan + 2 yıl</td>
+        <td>Ödünç tamamlanma tarihi</td>
+        <td>Silme</td>
+        <td>KVKK md.7 (uyuşmazlık durumunda kanıt için)</td>
+      </tr>
+      <tr>
+        <td><strong>Mesajlar</strong></td>
+        <td>Mesaj içerikleri (<code>messages</code>)</td>
+        <td>Hesap aktif + 1 yıl</td>
+        <td>Hesap silme talebi</td>
+        <td>Anonimleştirme veya silme</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td rowspan="2"><strong>İşlem & Takas</strong></td>
+        <td>Takas kayıtları (<code>exchange_requests</code>)</td>
+        <td><strong>10 yıl</strong></td>
+        <td>Takas tamamlanma tarihi</td>
+        <td>Kişisel veri alanları karartılır, iskelet kayıt kalır</td>
+        <td>TBK md.146, TTK md.82</td>
+      </tr>
+      <tr>
+        <td>Değerlendirme / Puanlar</td>
+        <td><strong>10 yıl</strong></td>
+        <td>Puanlama tarihi</td>
+        <td>Anonimleştirme (kullanıcı referansı kaldırılır)</td>
+        <td>TBK md.146</td>
+      </tr>
+      <tr>
+        <td rowspan="3"><strong>İşlem Güvenliği</strong></td>
+        <td>Audit log (<code>audit_log</code>)</td>
+        <td><strong>10 yıl</strong></td>
+        <td>Log kaydı oluşturma</td>
+        <td>Silme veya toplu anonimleştirme</td>
+        <td>TTK md.82, TBK md.146</td>
+      </tr>
+      <tr>
+        <td>Refresh token'lar</td>
+        <td>Token geçerlilik süresi + 30 gün</td>
+        <td>Token süresi dolumu / iptali</td>
+        <td>Silme</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td>Crash raporları (<code>crash_reports</code>)</td>
+        <td><strong>2 yıl</strong></td>
+        <td>Rapor oluşturma</td>
+        <td>Silme</td>
+        <td>KVKK md.7 (amaç sınırlaması)</td>
+      </tr>
+      <tr>
+        <td><strong>Push Bildirimleri</strong></td>
+        <td>Push token'ları</td>
+        <td>Tespite bağlı</td>
+        <td>Geçersiz token tespiti / hesap silme</td>
+        <td>Otomatik silme (geçersiz push'ta)</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td rowspan="2"><strong>Hukuki İşlem</strong></td>
+        <td>Şikayet/rapor kayıtları</td>
+        <td>Sonuçlanma tarihinden itibaren <strong>5 yıl</strong></td>
+        <td>Şikayet sonuçlanma tarihi</td>
+        <td>Silme</td>
+        <td>TBK md.146, KVKK md.7</td>
+      </tr>
+      <tr>
+        <td>KVKK onay kayıtları (<code>users.kvkk_consent_at, .kvkk_policy_version</code>)</td>
+        <td>Hesap silme + <strong>10 yıl</strong></td>
+        <td>Hesap silme talebi</td>
+        <td>Karartma (kullanıcı referansı kaldırılır)</td>
+        <td>KVKK md.7 (ispat yükümlülüğü)</td>
+      </tr>
+      <tr>
+        <td><strong>Wishlist / Kayıtlı Aramalar</strong></td>
+        <td>İstek listesi, kayıtlı aramalar</td>
+        <td>Hesap aktif + 1 yıl</td>
+        <td>Hesap silme talebi</td>
+        <td>Silme</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td><strong>İletişim / Destek</strong></td>
+        <td>E-posta yazışmaları, destek talepleri</td>
+        <td><strong>5 yıl</strong></td>
+        <td>Son yazışma tarihi</td>
+        <td>Silme</td>
+        <td>TBK md.146</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>3.1. Yedekleme Ortamları</h3>
+  <p>Veritabanı yedeklerinde yer alan kişisel veriler, asıl verilerin saklama sürelerine tabidir. Yedekler, belirlenen saklama süreleri sonunda rotasyona tabi tutulur (en eski yedek üzerine yazılır veya silinir).</p>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<section>
+  <h2>4. İmha Yöntemleri</h2>
+  <p>MeetBook, kişisel verilerin imhası için aşağıdaki yöntemleri kullanmaktadır:</p>
+
+  <table>
+    <thead>
+      <tr><th>Yöntem</th><th>Açıklama</th><th>Uygulama Alanı</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Silme (Veritabanı)</strong></td>
+        <td>İlgili veri satırının veritabanından <code>DELETE</code> komutu ile kalıcı olarak silinmesi. Silinen veriler, geri döndürülemez.</td>
+        <td>Kullanıcı içerikleri, crash raporları, geçici token'lar</td>
+      </tr>
+      <tr>
+        <td><strong>Karartma (Masking)</strong></td>
+        <td>Veri kaydının bütünlüğü korunarak, kişisel veri alanlarının belirli bir gerçek kişiyle ilişkilendirilemeyecek hâle getirilmesi.</td>
+        <td>Hesap silme (e-posta → <code>deleted-{uuid}@anon</code>, isim → "Silinmiş Hesap")</td>
+      </tr>
+      <tr>
+        <td><strong>Anonimleştirme</strong></td>
+        <td>Verilerin, hiçbir surette gerçek kişiyle ilişkilendirilemeyecek hâle getirilmesi (örn. kullanıcı referansı kaldırılarak istatistiksel verinin korunması).</td>
+        <td>Değerlendirme/puan verileri, eski audit log'lar, anonim istatistikler</td>
+      </tr>
+      <tr>
+        <td><strong>Dosya Silme</strong></td>
+        <td>Nesne depolamadaki (MinIO/S3) dosyaların kalıcı olarak silinmesi. Gerektiğinde üzerine yazma ile güçlendirilir.</td>
+        <td>Kitap fotoğrafları, avatar görselleri, ödünç kanıt fotoğrafları</td>
+      </tr>
+      <tr>
+        <td><strong>NULL Atama</strong></td>
+        <td>İlgili veritabanı alanının NULL değerine çekilmesi.</td>
+        <td>Telefon, güvenilir kişi bilgisi (hesap silme durumunda)</td>
+      </tr>
+      <tr>
+        <td><strong>Log Rotasyonu</strong></td>
+        <td>Sunucu log dosyalarının belirli süre sonunda döndürülmesi ve en eski log'ların silinmesi.</td>
+        <td>Sistem logları, erişim logları</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<section>
+  <h2>5. Periyodik İmha Süreçleri</h2>
+
+  <h3>5.1. Otomatik Süreçler (Worker'lar)</h3>
+  <p>Aşağıdaki imha işlemleri, arka plan worker'ları tarafından otomatik olarak gerçekleştirilir:</p>
+
+  <table>
+    <thead>
+      <tr><th>Worker / Süreç</th><th>Çalışma Sıklığı</th><th>İmha Edilen Veri</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>cleanup_locations</code></td><td>Saatte bir</td><td>30 günden eski <code>user_locations</code> kayıtları</td></tr>
+      <tr><td><code>cleanup_expired_tokens</code></td><td>Günde bir</td><td>Süresi dolmuş refresh token ve password reset token'lar</td></tr>
+      <tr><td><code>cleanup_old_logs</code></td><td>Ayda bir</td><td>10 yıldan eski audit log kayıtları</td></tr>
+      <tr><td><code>cleanup_crash_reports</code></td><td>Haftada bir</td><td>2 yıldan eski crash raporları</td></tr>
+      <tr><td><code>cleanup_expired_exchanges</code></td><td>Saatte bir</td><td>14 günden eski bekleyen/askıdaki takas talepleri</td></tr>
+    </tbody>
+  </table>
+
+  <h3>5.2. Olaya Dayalı Süreçler</h3>
+  <p>Aşağıdaki imha işlemleri, belirli bir olayın gerçekleşmesi üzerine tetiklenir:</p>
+  <ul>
+    <li><strong>Hesap silme:</strong> Kullanıcı hesabını sildiğinde, PII verileri karartılır/anonymize edilir (senkron, anlık).</li>
+    <li><strong>Kitap silme:</strong> Kullanıcı bir kitabı listeden kaldırdığında ve/veya sildiğinde, kitaba ait fotoğraflar silinir.</li>
+    <li><strong>Geçersiz push token:</strong> Push bildirimi gönderilemeyen token'lar otomatik olarak silinir.</li>
+    <li><strong>Şifre sıfırlama tamamlandı:</strong> Kullanıldıktan sonra şifre sıfırlama token'ı derhâl silinir.</li>
+  </ul>
+
+  <h3>5.3. Periyodik İmha Takvimi</h3>
+  <p>Periyodik imha işlemlerinin etkinliği, yılda bir kez gözden geçirilir. Gözden geçirme sonuçları raporlanır ve gerekiyorsa saklama sürelerinde veya imha yöntemlerinde güncelleme yapılır.</p>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<section>
+  <h2>6. İmha Kayıtları</h2>
+  <p>Her imha işlemi, aşağıdaki bilgileri içerecek şekilde kayıt altına alınır (<a href="/legal/gizlilik-politikasi">Gizlilik Politikası</a>'nda belirtilen audit log mekanizması ile):</p>
+  <ul>
+    <li>İmha tarihi ve saati</li>
+    <li>İmha edilen veri kategorisi ve miktarı</li>
+    <li>Kullanılan imha yöntemi</li>
+    <li>İmhayı gerçekleştiren süreç (worker adı / admin yetkilisi)</li>
+    <li>İmhanın dayanağı (ilgili politika maddesi ve yasal dayanak)</li>
+  </ul>
+  <p>İmha kayıtları, KVKK md.12 uyarınca ispat yükümlülüğü kapsamında en az <strong>5 (beş) yıl</strong> süreyle saklanır.</p>
+</section>
+
+<section>
+  <h2>7. Sorumluluklar ve Görev Dağılımı</h2>
+
+  <table>
+    <thead>
+      <tr><th>Rol</th><th>Sorumluluk</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Veri Sorumlusu</strong> (Can Manici)</td><td>Politikanın onaylanması, uygulanmasının denetlenmesi, KVKK'ya karşı sorumluluk.</td></tr>
+      <tr><td><strong>Sistem Yöneticisi</strong></td><td>Periyodik imha worker'larının çalıştırılması, otomatik süreçlerin izlenmesi, yedekleme rotasyonu.</td></tr>
+      <tr><td><strong>Admin Yetkilileri</strong></td><td>Kullanıcı kaynaklı imha taleplerinin (hesap silme, kitap silme) gerçekleştirilmesi.</td></tr>
+      <tr><td><strong>Geliştirici</strong></td><td>İmha worker'larının bakımı, yeni veri kategorileri için saklama sürelerinin belirlenmesi.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>8. Politika Uygunluğu ve Güncelleme</h2>
+  <p>Bu Politika, aşağıdaki mevzuata uygun olarak hazırlanmıştır:</p>
+  <ul>
+    <li>6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK)</li>
+    <li>6102 sayılı Türk Ticaret Kanunu (TTK) md.82</li>
+    <li>6098 sayılı Türk Borçlar Kanunu (TBK) md.146</li>
+    <li>Kişisel Verilerin Silinmesi, Yok Edilmesi veya Anonim Hale Getirilmesi Hakkında Yönetmelik</li>
+    <li>Veri Sorumluları Sicili Hakkında Yönetmelik</li>
+  </ul>
+  <p>Politika, yılda en az bir kez gözden geçirilir ve gerektiğinde güncellenir. Değişiklikler, Politika sürüm numarasının artırılmasıyla kayıt altına alınır.</p>
+  <p>Son güncelleme: <strong>2 Temmuz 2026</strong> · Sürüm 1.0</p>
+</section>
+
+<div style="background:var(--primary); color:#fff; padding:20px; border-radius:var(--radius); margin-top:16px; text-align:center;">
+  <p style="margin:0; font-size:.85rem; opacity:.9;">Son güncelleme: 2 Temmuz 2026 · Sürüm 1.0</p>
+  <p style="margin:8px 0 0; font-size:.8rem; opacity:.7;">© 2026 MeetBook — Bu politika KVKK ve ilgili mevzuata uygun olarak hazırlanmıştır.</p>
+</div>
+
+</div>
+
+<div class="footer container">
+  <p><strong>MeetBook</strong> · Veri Saklama ve İmha Politikası · Sürüm 1.0 · 2 Temmuz 2026</p>
+  <p><a href="/legal/gizlilik-politikasi">Gizlilik Politikası</a> · <a href="/legal/kullanim-kosullari">Kullanım Koşulları</a> · <a href="/legal/kvkk-aydinlatma-metni">KVKK Aydınlatma Metni</a> · <a href="/legal/kotuye-kullanim-ve-dolandiricilikla-mucadele-politikasi">Kötüye Kullanım Politikası</a></p>
+</div>
+
+</body>
+</html>

@@ -8,7 +8,9 @@ import { ApiError, login } from '@/lib/api/client';
 import { setTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Login accepts either an email address or a @username — just reject
+// whitespace, the server tells us which it got.
+const IDENTIFIER_RE = /^\S+$/;
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
@@ -20,7 +22,7 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const emailInvalid = email.length > 0 && !EMAIL_RE.test(email);
+  const emailInvalid = email.length > 0 && !IDENTIFIER_RE.test(email);
   const canSubmit = email.length > 0 && !emailInvalid && password.length > 0 && !loading;
 
   const onSubmit = async () => {
@@ -36,7 +38,7 @@ export default function LoginScreen() {
       router.replace('/tabs/home');
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        setError('E-posta veya şifre hatalı.');
+        setError('E-posta/kullanıcı adı veya şifre hatalı.');
       } else {
         setError('Bir şeyler ters gitti. Lütfen tekrar deneyin.');
       }
@@ -66,12 +68,11 @@ export default function LoginScreen() {
 
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
           <Input
-            label="E-posta"
-            placeholder="ornek@eposta.com"
+            label="E-posta veya Kullanıcı Adı"
+            placeholder="ornek@eposta.com veya kullaniciadi"
             value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            error={emailInvalid ? 'Geçerli bir e-posta adresi girin' : undefined}
+            onChangeText={(v) => setEmail(v.trim())}
+            error={emailInvalid ? 'Boşluk içeremez' : undefined}
           />
           <Input
             label="Şifre"

@@ -3,6 +3,8 @@ TECHNICAL_ARCHITECTURE.md.
 """
 
 import uuid
+import json
+import logging
 from datetime import UTC, datetime, timedelta
 
 import redis.asyncio as aioredis
@@ -133,6 +135,9 @@ def _meetup_to_detail(meetup: Meetup) -> MeetupDetail:
     )
 
 
+logger = logging.getLogger(__name__)
+
+
 class ExchangeService:
     def __init__(self, session: AsyncSession, redis: aioredis.Redis | None = None) -> None:
         self.session = session
@@ -140,6 +145,75 @@ class ExchangeService:
         self.books_repo = BookRepository(session)
         self.auth_repo = AuthRepository(session)
         self.redis = redis or get_redis()
+
+    async def _send_system_message(
+        self, exchange_id: uuid.UUID, action: str, text: str, actor_id: uuid.UUID | None = None
+    ) -> None:
+        """Post a system bubble into the exchange's chat so both sides see every
+        lifecycle event (accept, meetup, lend/return, extension, ...) inline in
+        the DM, and push-notify whichever participant didn't trigger it.
+
+        No-ops silently if the chat doesn't exist yet (e.g. before accept)."""
+        from app.modules.chat.repository import ChatRepository
+        from app.modules.chat.schemas import MessageView
+        from app.modules.chat.service import ConnectionManager, publish_message
+        from app.modules.notifications.service import NotificationService
+        from app.modules.push_tokens.service import PushMessage, send_push_to_user
+
+        chat_repo = ChatRepository(self.session)
+        chat = await chat_repo.get_chat_by_exchange(exchange_id)
+        if chat is None:
+            return
+
+        msg = await chat_repo.create_message(
+            chat.id, None, text, message_type="system", extra={"action": action}
+        )
+        await self.session.commit()
+
+        view = MessageView(
+            id=msg.id,
+            chat_id=msg.chat_id,
+            sender_id=None,
+            message_type="system",
+            text=msg.text,
+            created_at=msg.created_at,
+            extra=msg.extra,
+        )
+        payload = {"type": "message", "message": view.model_dump(mode="json"), "sender_id": None}
+        await ConnectionManager.broadcast_to_chat(chat.id, payload, repo=chat_repo)
+        await publish_message(chat.id, payload)
+
+        exchange = await self.repo.get(exchange_id)
+        if exchange is None:
+            return
+        other_members = [
+            m for m in (exchange.requested_by, exchange.requested_to) if m != actor_id
+        ]
+
+        notif_svc = NotificationService(self.session)
+        for member_id in other_members:
+            await notif_svc.create_notification(
+                user_id=member_id,
+                type_="chat_system",
+                payload={"exchange_id": str(exchange_id), "action": action, "message": text},
+            )
+        await self.session.commit()
+
+        for member_id in other_members:
+            if await ConnectionManager.check_online(member_id):
+                continue
+            try:
+                await send_push_to_user(
+                    str(member_id),
+                    PushMessage(
+                        title="MeetBook",
+                        body=text,
+                        data={"type": "chat_system", "exchange_id": str(exchange_id)},
+                    ),
+                    session=self.session,
+                )
+            except Exception as exc:
+                logger.warning("System-message push failed for user %s: %s", member_id, exc)
 
     async def _to_detail(
         self, request: ExchangeRequest, current_user_id: uuid.UUID
@@ -163,7 +237,7 @@ class ExchangeService:
             id=request.id,
             book=_book_summary(book_row, photos),
             counterpart=CounterpartView(
-                id=counterpart.id, name=counterpart.name, trust=_trust_view(counterpart)
+                id=counterpart.id, name=counterpart.name, avatar_url=counterpart.avatar_url, trust=_trust_view(counterpart)
             ),
             requested_by=request.requested_by,
             requested_to=request.requested_to,
@@ -214,7 +288,7 @@ class ExchangeService:
             id=request.id,
             book=_book_summary(book_row, photos),
             counterpart=CounterpartView(
-                id=counterpart.id, name=counterpart.name, trust=_trust_view(counterpart)
+                id=counterpart.id, name=counterpart.name, avatar_url=counterpart.avatar_url, trust=_trust_view(counterpart)
             ),
             status=request.status,
             mode=request.mode,
@@ -346,6 +420,22 @@ class ExchangeService:
             )
 
         await self.session.commit()
+
+        system_message = {
+            ExchangeAction.accept: ("exchange_accepted", "Takas isteğini kabul etti"),
+            ExchangeAction.reject: ("exchange_rejected", "Takas isteğini reddetti"),
+            ExchangeAction.cancel: ("exchange_cancelled", "Takası iptal etti"),
+            ExchangeAction.complete: (
+                "exchange_completion_marked",
+                "Takası tamamlandı olarak işaretledi, onayın bekleniyor",
+            ),
+            ExchangeAction.confirm_completion: ("exchange_completed", "Takas tamamlandı"),
+            ExchangeAction.reject_meetup: ("meetup_rejected", "Buluşma önerisini reddetti"),
+        }.get(action)
+        if system_message is not None:
+            action_key, text = system_message
+            await self._send_system_message(exchange_id, action_key, text, current_user_id)
+
         return await self._to_detail(request, current_user_id)
 
     async def accept(self, exchange_id: uuid.UUID, current_user_id: uuid.UUID) -> ExchangeDetail:
@@ -415,6 +505,9 @@ class ExchangeService:
         if book_row is not None:
             await self.books_repo.update(book_row.book, {"is_available": False})
         await self.session.commit()
+        await self._send_system_message(
+            exchange_id, "book_lent", "Kitabı teslim etti", current_user_id
+        )
         return await self._to_detail(request, current_user_id)
 
     async def mark_returned(
@@ -430,6 +523,9 @@ class ExchangeService:
         request.returned_on_time = request.due_at is None or now <= request.due_at
         request.updated_at = now
         await self.session.commit()
+        await self._send_system_message(
+            exchange_id, "book_returned", "Kitabı iade etti", current_user_id
+        )
         return await self._to_detail(request, current_user_id)
 
     async def confirm_return(
@@ -467,6 +563,9 @@ class ExchangeService:
         )
 
         await self.session.commit()
+        await self._send_system_message(
+            exchange_id, "loan_completed", "İadeyi onayladı, takas tamamlandı", current_user_id
+        )
         return await self._to_detail(request, current_user_id)
 
     async def upload_loan_photo(
@@ -495,6 +594,12 @@ class ExchangeService:
         request.extension_status = ExtensionStatus.pending
         request.updated_at = datetime.now(UTC)
         await self.session.commit()
+        await self._send_system_message(
+            exchange_id,
+            "extension_requested",
+            f"{body.days} gün süre uzatımı istedi",
+            current_user_id,
+        )
         return await self._to_detail(request, current_user_id)
 
     async def respond_extension(
@@ -519,6 +624,12 @@ class ExchangeService:
         request.status = next_status
         request.updated_at = now
         await self.session.commit()
+        await self._send_system_message(
+            exchange_id,
+            "extension_approved" if approve else "extension_rejected",
+            "Süre uzatımını onayladı" if approve else "Süre uzatımını reddetti",
+            current_user_id,
+        )
         return await self._to_detail(request, current_user_id)
 
     async def propose_meetup(
@@ -589,6 +700,12 @@ class ExchangeService:
         request.status = next_status
         request.updated_at = datetime.now(UTC)
         await self.session.commit()
+        await self._send_system_message(
+            exchange_id,
+            "meetup_proposed",
+            f"Buluşma önerdi: {primary.place_name}",
+            current_user_id,
+        )
         return await self._to_detail(request, current_user_id)
 
     async def accept_meetup(
@@ -648,6 +765,12 @@ class ExchangeService:
         request.status = next_status
         request.updated_at = datetime.now(UTC)
         await self.session.commit()
+        await self._send_system_message(
+            exchange_id,
+            "meetup_accepted",
+            f"Buluşmayı kabul etti: {meetup.place_name}",
+            current_user_id,
+        )
         return await self._to_detail(request, current_user_id)
 
     async def reject_meetup(
@@ -730,6 +853,9 @@ class ExchangeService:
         request.retired_at = now
         request.updated_at = now
         await self.session.commit()
+        await self._send_system_message(
+            exchange_id, "book_retired", "Kitabı rafına kaldırdı", current_user_id
+        )
         return await self._to_detail(request, current_user_id)
 
     # -----------------------------------------------------------------------
@@ -835,6 +961,9 @@ class ExchangeService:
         await self.session.flush()
         await self.session.refresh(buddy)
         await self.session.commit()
+        await self._send_system_message(
+            exchange_id, "reading_buddy_requested", "Okuma arkadaşı olmayı teklif etti", current_user_id
+        )
         return self._reading_buddy_view(buddy)
 
     async def accept_reading_buddy(
@@ -873,4 +1002,184 @@ class ExchangeService:
 
         await self.session.commit()
         await self.session.refresh(buddy)
+        await self._send_system_message(
+            exchange_id,
+            "reading_buddy_accepted" if accept else "reading_buddy_declined",
+            "Okuma arkadaşlığını kabul etti" if accept else "Okuma arkadaşlığını reddetti",
+            current_user_id,
+        )
         return self._reading_buddy_view(buddy)
+
+    # ------------------------------------------------------------------
+    # Nerdeyim Modu — live location sharing
+    # ------------------------------------------------------------------
+    LOCATION_TTL = 300  # 5 minutes
+
+    @staticmethod
+    def _apply_precision(latitude: float, longitude: float, precision: str) -> tuple[float, float]:
+        """Approximate precision rounds to ~1.1km grid so the exact address isn't exposed."""
+        if precision == "approximate":
+            return round(latitude, 2), round(longitude, 2)
+        return latitude, longitude
+
+    @staticmethod
+    def _partner_id(exchange: ExchangeRequest, user_id: uuid.UUID) -> uuid.UUID:
+        return (
+            exchange.requested_to if user_id == exchange.requested_by
+            else exchange.requested_by
+        )
+
+    async def update_location(
+        self,
+        exchange_id: uuid.UUID,
+        user_id: uuid.UUID,
+        latitude: float,
+        longitude: float,
+        precision: str = "exact",
+    ) -> None:
+        """Store this user's current location in Redis and push it to the partner over WebSocket."""
+        exchange = await self._get_validated_exchange(exchange_id, user_id)
+        lat, lng = self._apply_precision(latitude, longitude, precision)
+        ts = datetime.now(UTC).isoformat()
+
+        key = f"loc:{exchange_id}:{user_id}"
+        is_first_update = await self.redis.exists(key) == 0
+        payload = json.dumps({"lat": lat, "lng": lng, "ts": ts, "precision": precision})
+        await self.redis.set(key, payload, ex=self.LOCATION_TTL)
+
+        from app.modules.chat.service import ConnectionManager
+
+        partner_id = self._partner_id(exchange, user_id)
+        await ConnectionManager.send_to_user(
+            partner_id,
+            {
+                "type": "location_update",
+                "exchange_id": str(exchange_id),
+                "user_id": str(user_id),
+                "latitude": lat,
+                "longitude": lng,
+                "precision": precision,
+                "updated_at": ts,
+            },
+        )
+
+        # Notify the partner that sharing just started — a raw WS push is a
+        # no-op if their app isn't open/connected, so this is the only signal
+        # they'll get if MeetBook is backgrounded or closed.
+        if is_first_update:
+            await self._notify_location_started(exchange_id, user_id, partner_id)
+
+    async def _notify_location_started(
+        self, exchange_id: uuid.UUID, sharer_id: uuid.UUID, partner_id: uuid.UUID
+    ) -> None:
+        from app.modules.notifications.service import NotificationService
+        from app.modules.push_tokens.service import PushMessage, send_push_to_user
+
+        sharer = await self.auth_repo.get_user_by_id(sharer_id)
+        sharer_name = sharer.name if sharer else "Takas ortağın"
+
+        notif_svc = NotificationService(self.session)
+        await notif_svc.create_notification(
+            user_id=partner_id,
+            type_="location_started",
+            payload={
+                "exchange_id": str(exchange_id),
+                "sharer_id": str(sharer_id),
+                "sharer_name": sharer_name,
+            },
+        )
+        await self.session.commit()
+
+        try:
+            await send_push_to_user(
+                str(partner_id),
+                PushMessage(
+                    title="Nerdeyim Modu",
+                    body=f"{sharer_name} canlı konumunu paylaşmaya başladı",
+                    data={"type": "location_started", "exchange_id": str(exchange_id)},
+                ),
+                session=self.session,
+            )
+        except Exception as exc:
+            logger.warning("Location-started push failed for user %s: %s", partner_id, exc)
+
+    async def stop_location_sharing(self, exchange_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Explicitly stop sharing — clears the Redis key immediately instead of waiting for TTL,
+        and notifies the partner in real time so their UI updates instantly."""
+        exchange = await self._get_validated_exchange(exchange_id, user_id)
+        key = f"loc:{exchange_id}:{user_id}"
+        await self.redis.delete(key)
+
+        from app.modules.chat.service import ConnectionManager
+
+        partner_id = self._partner_id(exchange, user_id)
+        await ConnectionManager.send_to_user(
+            partner_id,
+            {
+                "type": "location_stopped",
+                "exchange_id": str(exchange_id),
+                "user_id": str(user_id),
+            },
+        )
+
+    async def get_partner_location(
+        self, exchange_id: uuid.UUID, user_id: uuid.UUID
+    ) -> dict | None:
+        """Get the other participant's last known location from Redis."""
+        exchange = await self._get_validated_exchange(exchange_id, user_id)
+        partner_id = self._partner_id(exchange, user_id)
+        key = f"loc:{exchange_id}:{partner_id}"
+        raw = await self.redis.get(key)
+        if raw is None:
+            return None
+        data = json.loads(raw)
+        return {
+            "latitude": data["lat"],
+            "longitude": data["lng"],
+            "updated_at": data["ts"],
+            "precision": data.get("precision", "exact"),
+        }
+
+    async def get_location_status(
+        self, exchange_id: uuid.UUID, user_id: uuid.UUID
+    ) -> dict:
+        """Full sharing state for both participants in one call.
+
+        The Redis keys ARE the sharing state (written by update_location with
+        a TTL, cleared by stop_location_sharing) — so this endpoint is the
+        single source of truth clients should render from, instead of each
+        device deriving 'am I sharing' from its own fragile local GPS
+        subscription state.
+        """
+        exchange = await self._get_validated_exchange(exchange_id, user_id)
+        partner_id = self._partner_id(exchange, user_id)
+        my_raw = await self.redis.get(f"loc:{exchange_id}:{user_id}")
+        partner_raw = await self.redis.get(f"loc:{exchange_id}:{partner_id}")
+
+        partner_location = None
+        if partner_raw is not None:
+            data = json.loads(partner_raw)
+            partner_location = {
+                "latitude": data["lat"],
+                "longitude": data["lng"],
+                "updated_at": data["ts"],
+                "precision": data.get("precision", "exact"),
+            }
+        return {
+            "me_sharing": my_raw is not None,
+            "partner_sharing": partner_raw is not None,
+            "partner_location": partner_location,
+        }
+
+    async def _get_validated_exchange(
+        self, exchange_id: uuid.UUID, user_id: uuid.UUID
+    ) -> ExchangeRequest:
+        """Fetch exchange and verify user is a participant and meetup is confirmed."""
+        request = await self.repo.get(exchange_id)
+        if request is None:
+            raise ExchangeError("NOT_FOUND", 404)
+        if user_id not in (request.requested_by, request.requested_to):
+            raise ExchangeError("NOT_FOUND", 404)
+        if request.status != ExchangeStatus.meetup_confirmed:
+            raise ExchangeError("WRONG_STATUS", 409)
+        return request

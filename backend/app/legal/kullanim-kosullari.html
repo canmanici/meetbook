@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kullanım Koşulları — MeetBook</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #1a1a2e;
+    --accent: #0f3460;
+    --gold: #e2b714;
+    --text: #1a1a2e;
+    --text-light: #555;
+    --bg: #fafafa;
+    --card: #fff;
+    --border: #e0e0e0;
+    --radius: 12px;
+  }
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Roboto, Oxygen, Ubuntu, sans-serif;
+    line-height: 1.8;
+    color: var(--text);
+    background: var(--bg);
+    padding: 0;
+  }
+  .container { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+  .header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+    color: #fff;
+    padding: 48px 0 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -40px;
+    left: -20%;
+    right: -20%;
+    height: 80px;
+    background: var(--bg);
+    border-radius: 50%;
+  }
+  .header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+  .header .meta { opacity: .85; font-size: .9rem; }
+  .header .meta span { display: inline-block; margin-right: 24px; }
+  .header .badge {
+    display: inline-block;
+    background: var(--gold);
+    color: var(--primary);
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 12px;
+  }
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin: 32px auto;
+    max-width: 860px;
+  }
+  .toc h2 { font-size: 1.1rem; margin-bottom: 16px; color: var(--accent); }
+  .toc ol { columns: 2; column-gap: 32px; list-style: none; counter-reset: toc; }
+  .toc li { counter-increment: toc; margin-bottom: 6px; break-inside: avoid; }
+  .toc li::before { content: counter(toc) "."; color: var(--gold); font-weight: 700; margin-right: 6px; }
+  .toc a { color: var(--accent); text-decoration: none; font-size: .9rem; }
+  .toc a:hover { text-decoration: underline; }
+  @media (max-width: 600px) { .toc ol { columns: 1; } }
+  .content { padding: 0 0 60px; }
+  section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    margin-bottom: 20px;
+  }
+  section h2 {
+    font-size: 1.3rem;
+    color: var(--accent);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--gold);
+  }
+  section h3 { font-size: 1.05rem; color: var(--primary); margin: 20px 0 10px; }
+  section p { margin-bottom: 12px; text-align: justify; }
+  section ul, section ol { margin: 8px 0 16px 24px; }
+  section li { margin-bottom: 6px; }
+  section table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: .9rem;
+  }
+  section th, section td {
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  section th { background: var(--primary); color: #fff; font-weight: 600; }
+  section tr:nth-child(even) { background: #f5f5f5; }
+  .highlight-box {
+    background: #fff8e1;
+    border-left: 4px solid var(--gold);
+    padding: 16px 20px;
+    margin: 16px 0;
+    border-radius: 0 8px 8px 0;
+  }
+  .highlight-box strong { color: var(--primary); }
+  .warning-box {
+    background: #fff0f0;
+    border-left: 4px solid #e74c3c;
+    padding: 16px 20px;
+    margin: 16px 0;
+    border-radius: 0 8px 8px 0;
+  }
+  .warning-box strong { color: #c0392b; }
+  .back-to-top { display: block; text-align: right; margin-top: 8px; }
+  .back-to-top a { color: var(--accent); font-size: .85rem; text-decoration: none; }
+  .back-to-top a:hover { text-decoration: underline; }
+  .footer {
+    text-align: center;
+    padding: 32px 0;
+    color: var(--text-light);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  .footer strong { color: var(--primary); }
+  @media (max-width: 600px) {
+    .header h1 { font-size: 1.5rem; }
+    section { padding: 20px; }
+    section table { font-size: .8rem; }
+    section th, section td { padding: 6px 8px; }
+  }
+  @media print {
+    .toc { break-after: page; }
+    section { break-inside: avoid; border: none; box-shadow: none; }
+    .back-to-top { display: none; }
+    body { font-size: 11pt; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="container">
+    <div class="badge">Yasal Belge · Sürüm 1.1</div>
+    <h1>Kullanım Koşulları</h1>
+    <p class="meta">
+      <span>📅 Yürürlük Tarihi: 2 Temmuz 2026</span>
+      <span>📄 Sürüm: 1.1</span>
+      <span>⚖️ Son güncelleme: 2 Temmuz 2026</span>
+    </p>
+  </div>
+</div>
+
+<div class="toc">
+  <h2>İçindekiler</h2>
+  <ol>
+    <li><a href="#bolum-1">Taraflar ve Tanımlar</a></li>
+    <li><a href="#bolum-2">Hizmetin Kapsamı</a></li>
+    <li><a href="#bolum-3">Hesap Açma, Güvenlik ve 18 Yaş Sınırı</a></li>
+    <li><a href="#bolum-4">Kullanıcı Yükümlülükleri ve Yasak Faaliyetler</a></li>
+    <li><a href="#bolum-5">Kitap Listeleme ve Paylaşım Kuralları</a></li>
+    <li><a href="#bolum-6">Takas ve Ödünç İşlemleri</a></li>
+    <li><a href="#bolum-7">Buluşma Güvenliği ve Sorumluluk Reddi</a></li>
+    <li><a href="#bolum-8">Güven Puanı ve Puanlama Sistemi</a></li>
+    <li><a href="#bolum-9">Fikri Mülkiyet</a></li>
+    <li><a href="#bolum-10">İçerik Denetimi ve Raporlama</a></li>
+    <li><a href="#bolum-11">Hesap Askıya Alma, Silme ve Yasaklama</a></li>
+    <li><a href="#bolum-12">Sorumluluk Sınırlamaları</a></li>
+    <li><a href="#bolum-13">Garanti Reddi</a></li>
+    <li><a href="#bolum-14">Uyuşmazlıkların Çözümü</a></li>
+    <li><a href="#bolum-15">Politika Değişiklikleri</a></li>
+    <li><a href="#bolum-16">Tazminat, Sınıf Davası Feragati ve Zamanaşımı</a></li>
+    <li><a href="#bolum-17">Genel Hükümler</a></li>
+    <li><a href="#bolum-18">Yürürlük ve İletişim</a></li>
+  </ol>
+</div>
+
+<div class="content container">
+
+<!-- Bölüm 1 -->
+<section id="bolum-1">
+  <h2>1. Taraflar ve Tanımlar</h2>
+
+  <h3>1.1. Taraflar</h3>
+  <p>İşbu Kullanım Koşulları ("Sözleşme"), <strong>MeetBook</strong> mobil uygulaması ("Platform", "Uygulama") ile bu Platform'u kullanan gerçek kişi ("Kullanıcı", "Siz") arasında akdedilmiştir.</p>
+  <p>Platform'un sahibi ve işletmecisi <strong>Can Manici</strong> ("Veri Sorumlusu", "Biz") olup, Platform'a ilişkin tüm hak ve yükümlülükler Can Manici'ye aittir.</p>
+
+  <table>
+    <tr><th>Platform Adı</th><td>MeetBook</td></tr>
+    <tr><th>İşletmeci</th><td>Can Manici</td></tr>
+    <tr><th>Destek E-posta</th><td><a href="mailto:support@meetbook.com">support@meetbook.com</a></td></tr>
+    <tr><th>Hata Bildirimi</th><td><a href="mailto:canmanici@gmail.com">canmanici@gmail.com</a></td></tr>
+    <tr><th>Platform Türü</th><td>Kitap takası, ödünç verme ve keşif mobil uygulaması</td></tr>
+  </table>
+
+  <h3>1.2. Tanımlar</h3>
+  <ul>
+    <li><strong>Platform / Uygulama:</strong> MeetBook adlı mobil uygulama ve ilişkili tüm web servisleri, API'ler ve alan adları.</li>
+    <li><strong>Kullanıcı:</strong> Platform'a kayıt olan ve bu Sözleşme'yi kabul eden 18 yaşını doldurmuş gerçek kişi.</li>
+    <li><strong>Hizmet:</strong> Platform üzerinden sunulan kitap listeleme, arama, takas, ödünç, mesajlaşma, kullanıcı puanlama ve ilişkili tüm hizmetler.</li>
+    <li><strong>İçerik:</strong> Kullanıcılar tarafından Platform'a yüklenen, paylaşılan veya iletilen metin, fotoğraf, ses kaydı, konum bilgisi ve diğer tüm veriler.</li>
+    <li><strong>Takas:</strong> İki kullanıcı arasında kitapların kalıcı olarak değiş tokuş edilmesi.</li>
+    <li><strong>Ödünç:</strong> Bir kitabın belirli bir süre için (1-90 gün) sahibi tarafından diğer kullanıcıya geçici olarak verilmesi.</li>
+    <li><strong>Güven Puanı:</strong> Kullanıcının platform içi davranışlarına göre otomatik hesaplanan 0-100 arası güvenilirlik puanı.</li>
+    <li><strong>KVKK:</strong> 6698 sayılı Kişisel Verilerin Korunması Kanunu.</li>
+  </ul>
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 2 -->
+<section id="bolum-2">
+  <h2>2. Hizmetin Kapsamı</h2>
+
+  <h3>2.1. Platform'un Amacı</h3>
+  <p>MeetBook, kullanıcıların kitaplarını listeleyebildiği, diğer kullanıcıların kitaplarını keşfedebildiği, birbirleriyle takas veya ödünç yoluyla kitap paylaşabildiği, birbirlerine mesaj gönderebildiği ve güven puanı sistemiyle güvenilir bir topluluk oluşturduğu bir mobil platformdur.</p>
+
+  <h3>3.2. Hizmetin Niteliği</h3>
+  <p>MeetBook, kullanıcıları bir araya getiren bir <strong>aracı platform</strong>dur. MeetBook, kullanıcılar arasındaki takas, ödünç veya satış işlemlerinin tarafı değildir, bu işlemler üzerinde mülkiyet veya zilyetlik hakkı iddia etmez. Kitapların fiziksel teslimatı, kalitesi, durumu veya yasal durumu konusunda hiçbir sorumluluk kabul etmez.</p>
+
+  <p>Platform'un temel özellikleri şunlardır:</p>
+  <ul>
+    <li>Kitap listeleme (fotoğraf, başlık, yazar, ISBN, kategori, dil, durum bilgisi ile)</li>
+    <li>Harita ve liste görünümünde kitap keşfi</li>
+    <li>Takas ve ödünç bazlı kitap paylaşımı</li>
+    <li>Kullanıcılar arası mesajlaşma</li>
+    <li>Karşılıklı kullanıcı puanlama ve değerlendirme</li>
+    <li>Güven puanı sistemi</li>
+    <li>İstek listesi (wishlist) ve coğrafi sınır bildirimleri</li>
+    <li>Kullanıcı raporlama ve engelleme</li>
+  </ul>
+
+  <h3>2.3. Kullanım Yaşı</h3>
+  <p>Platform, yalnızca <strong>18 (on sekiz) yaşını doldurmuş</strong> gerçek kişiler tarafından kullanılabilir. 18 yaşını doldurmamış hiçbir kişinin Platform'a kaydolması veya Platform'u kullanması kesinlikle yasaktır. Kullanıcı, kayıt sırasında 18 yaşını doldurduğunu beyan eder. Aksine bir durumun tespiti hâlinde, hesap derhâl kalıcı olarak yasaklanır ve kullanıcıya bu Sözleşme kapsamında bildirim yapılmaksızın hizmet durdurulur.</p>
+
+  <div class="warning-box">
+    <strong>ÖNEMLİ — 18 YAŞ SINIRI:</strong> MeetBook'a kaydolarak, 18 (on sekiz) yaşını doldurduğunuzu ve bu Sözleşme'yi bağlayıcı bir şekilde akdetme ehliyetine sahip olduğunuzu beyan edersiniz. Gerçeğe aykırı beyanınız nedeniyle doğacak tüm hukuki ve cezai sorumluluk size aittir. MeetBook, bu tür bir durumu tespit etmesi hâlinde durumu derhâl adli makamlara bildirme hakkına sahiptir.
+  </div>
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 3 -->
+<section id="bolum-3">
+  <h2>3. Hesap Açma, Güvenlik ve 18 Yaş Sınırı</h2>
+
+  <h3>3.1. Kayıt İşlemi</h3>
+  <p>Platform'u kullanabilmek için bir hesap oluşturmanız gerekmektedir. Kayıt işleminde aşağıdaki bilgiler zorunludur:</p>
+  <ul>
+    <li>Ad / Soyad (platform içi görünen adınız)</li>
+    <li>E-posta adresi (hesap doğrulama ve bildirimler için)</li>
+    <li>Şifre (en az 8 karakter, güçlü şifre olmalıdır)</li>
+    <li>KVKK Aydınlatma Metni'ni okuduğunuza ve kabul ettiğinize dair onay</li>
+    <li>18 yaşını doldurduğunuza dair beyan</li>
+  </ul>
+
+  <h3>3.2. Hesap Güvenliği</h3>
+  <ul>
+    <li>Şifrenizin gizliliğinden ve hesabınız altında gerçekleşen tüm işlemlerden siz sorumlusunuz.</li>
+    <li>Şifrenizi üçüncü kişilerle paylaşmamalısınız.</li>
+    <li>Hesabınıza yetkisiz erişim tespit etmeniz durumunda derhâl <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine bildirim yapmalısınız.</li>
+    <li>Tek bir hesap oluşturmanıza izin verilmektedir. Birden fazla hesap açmak, bu Sözleşme'nin ihlalidir.</li>
+    <li>Hesabınızı başka bir kişiye devredemez, satamaz veya üçüncü kişilerin kullanımına açamazsınız.</li>
+  </ul>
+
+  <h3>3.3. Doğrulama</h3>
+  <p>Platform, güvenlik amacıyla e-posta doğrulaması ve ilk takas talebi öncesinde telefon doğrulaması talep edebilir. Doğrulama yapmayan kullanıcılar, belirli platform özelliklerine erişemeyebilir.</p>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 4 -->
+<section id="bolum-4">
+  <h2>4. Kullanıcı Yükümlülükleri ve Yasak Faaliyetler</h2>
+
+  <h3>4.1. Genel Yükümlülükler</h3>
+  <p>Kullanıcı, Platform'u kullanırken:</p>
+  <ul>
+    <li>Türkiye Cumhuriyeti yasalarına ve uluslararası hukuka uygun davranmakla,</li>
+    <li>Bu Sözleşme'de belirtilen tüm koşullara uymakla,</li>
+    <li>Diğer kullanıcıların haklarına saygı göstermekle,</li>
+    <li>Doğru, güncel ve eksiksiz bilgi sağlamakla,</li>
+    <li>Platform'un güvenliğini ve bütünlüğünü tehlikeye atacak eylemlerden kaçınmakla</li>
+    <li>yükümlüdür.</li>
+  </ul>
+
+  <h3>4.2. Yasak Faaliyetler</h3>
+  <p>Aşağıdaki faaliyetler kesinlikle yasaktır. Bu faaliyetlerde bulunduğu tespit edilen kullanıcıların hesapları, önceden bildirim yapılmaksızın kalıcı olarak yasaklanır ve gerekli hâllerde adli makamlara bildirim yapılır:</p>
+
+  <ol style="list-style-type:decimal;">
+    <li><strong>Sahte hesaplar:</strong> Gerçek olmayan kimlik bilgileriyle hesap oluşturmak, başkasının kimliğine bürünmek.</li>
+    <li><strong>Çoklu hesap:</strong> Birden fazla hesap açmak, yasaklanmış bir hesabın yerine yeni hesap açmak.</li>
+    <li><strong>Yasadışı içerik:</strong> Yasadışı, müstehcen, tehdit edici, taciz edici, nefret söylemi içeren, şiddeti teşvik eden veya başka şekilde uygunsuz içerik paylaşmak.</li>
+    <li><strong>Telif hakkı ihlali:</strong> Başkasına ait telif hakkıyla korunan materyali izinsiz paylaşmak.</li>
+    <li><strong>Platform manipülasyonu:</strong> Güven puanını yapay olarak yükseltmek, sahte takas işlemleri gerçekleştirmek, puan manipülasyonu yapmak (örneğin, kendine ikinci bir hesaptan puan vermek).</li>
+    <li><strong>Spam ve dolandırıcılık:</strong> Toplu mesaj göndermek, diğer kullanıcıları dolandırmaya teşebbüs etmek, phishing yapmak, sahte ödeme talebinde bulunmak.</li>
+    <li><strong>Platform dışı işlem:</strong> Kullanıcıları Platform dışında işlem yapmaya teşvik etmek (bu durumda doğacak tüm sorumluluk kullanıcıya aittir).</li>
+    <li><strong>Yetkisiz erişim:</strong> Platform'un sunucularına, API'lerine, veritabanına veya diğer kullanıcıların hesaplarına yetkisiz erişim sağlamaya çalışmak.</li>
+    <li><strong>Zararlı yazılım:</strong> Virüs, solucan, trojan, ransomware veya diğer zararlı yazılımları yaymak.</li>
+    <li><strong>Veri kazıma (scraping):</strong> Platform'daki verileri otomatik araçlarla (bot, crawler, spider) toplamak, kopyalamak veya çoğaltmak.</li>
+    <li><strong>Tersine mühendislik:</strong> Platform'un kaynak kodunu tersine mühendislik yoluyla elde etmeye çalışmak, decompile etmek veya disassemble etmek.</li>
+    <li><strong>Reşit olmayan kullanıcı:</strong> 18 yaşından küçük olduğu hâlde kaydolmak veya Platform'u kullanmak.</li>
+    <li><strong>Ticari faaliyet:</strong> Platform'u ticari amaçla kullanmak, Platform üzerinden ticari satış yapmak (Platform, bireysel kullanıcılar arası takas/ödünç içindir).</li>
+    <li><strong>Yasaklı kitaplar:</strong> Türkiye Cumhuriyeti yasalarına göre yasaklanmış, toplatılmasına karar verilmiş veya dağıtımı suç teşkil eden kitapları listelemek.</li>
+    <li><strong>Gizlilik ihlali:</strong> Diğer kullanıcıların kişisel bilgilerini (ad, adres, telefon, e-posta) Platform dışında paylaşmak veya ifşa etmek.</li>
+    <li><strong>Buluşma güvenliği ihlali:</strong> Takas/ödünç buluşmasında diğer kullanıcıya fiziksel veya psikolojik zarar vermek, tehdit etmek, taciz etmek.</li>
+    <li><strong>Kötü niyetli işlem:</strong> Bir kitabı takas/ödünç alıp iade etmemek, kitaba kasıtlı olarak zarar vermek, sahte hasar iddiasında bulunmak.</li>
+    <li><strong>Ortamı kirletme:</strong> Platform'da anlamsız, tekrarlayan veya rahatsız edici içerik yayınlamak.</li>
+    <li><strong>Yer kısıtlamasını ihlal:</strong> Platform'un Türkiye coğrafi sınırlamasını aşmaya çalışmak, Türkiye dışından sahte konum bildirimi yapmak.</li>
+    <li><strong>KVKK ihlali:</strong> Platform'un Gizlilik Politikası hükümlerine aykırı davranmak.</li>
+  </ol>
+
+  <div class="highlight-box">
+    <strong>Not:</strong> Yukarıdaki liste sınırlı olmayıp, Platform'un ruhuna ve amacına aykırı düşen her türlü davranış, MeetBook'un tek taraflı takdirinde yasaklanmış kabul edilir.
+  </div>
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 5 -->
+<section id="bolum-5">
+  <h2>5. Kitap Listeleme ve Paylaşım Kuralları</h2>
+
+  <h3>5.1. Listeleme Kuralları</h3>
+  <ul>
+    <li>Her kullanıcı, sahibi olduğu kitapları listeleyebilir. Sahibi olunmayan bir kitabın listelenmesi yasaktır.</li>
+    <li>Kitap listelerken doğru ve eksiksiz bilgi verilmelidir (başlık, yazar, durum, kategori, dil).</li>
+    <li>Kitap fotoğrafları, kitabın gerçek durumunu yansıtmalıdır. Yanıltıcı veya başka bir kitaba ait fotoğraf kullanmak yasaktır.</li>
+    <li>Bir kitap, aynı anda birden fazla listede yer alamaz. Aktif bir takas/ödünç sürecinde olan kitap, listeden otomatik olarak kaldırılır.</li>
+    <li>Kitap konumu, kitabın fiziksel bulunduğu yere yakın olmalıdır. Kasıtlı olarak yanlış konum bildirmek yasaktır.</li>
+    <li>Kitap durumu (yeni/gibi yeni/iyi/yıpranmış) doğru ve dürüst bir şekilde belirtilmelidir.</li>
+  </ul>
+
+  <h3>5.2. Yasaklı Listelemeler</h3>
+  <p>Aşağıdaki türdeki listelemeler kesinlikle yasaktır ve derhâl kaldırılır:</p>
+  <ul>
+    <li>Gerçek bir kitap olmayan öğeler (reklam, etkinlik, hizmet, vb.)</li>
+    <li>Korsan veya yasa dışı yollarla çoğaltılmış kitaplar</li>
+    <li>Türkiye'de yasaklanmış veya toplatılmasına karar verilmiş kitaplar</li>
+    <li>Sakıncalı içerik barındıran materyaller</li>
+    <li>Birden fazla kitap içeren toplu listelemeler (her kitap ayrı listelenmelidir)</li>
+  </ul>
+
+  <h3>5.3. Yeni Hesap Sınırlamaları</h3>
+  <p>Güvenlik amacıyla, yeni oluşturulan hesaplar için aşağıdaki sınırlamalar geçerlidir:</p>
+  <ul>
+    <li>En fazla 3 (üç) aktif kitap listeleme</li>
+    <li>En fazla 3 (üç) giden takas/ödünç talebi</li>
+  </ul>
+  <p>Bu sınırlamalar, kullanıcının güven puanı ve platformdaki deneyimine bağlı olarak otomatik olarak kaldırılır.</p>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 6 -->
+<section id="bolum-6">
+  <h2>6. Takas ve Ödünç İşlemleri</h2>
+
+  <h3>6.1. İşlem Türleri</h3>
+  <p>Platform üzerinde iki tür kitap paylaşımı mümkündür:</p>
+  <ul>
+    <li><strong>Takas (Değiş Tokuş):</strong> Kitapların kalıcı olarak el değiştirmesi. Taraflar, takas tamamlandıktan sonra kitaplar üzerindeki tüm hak ve yükümlülükleri devralmış olur.</li>
+    <li><strong>Ödünç (Geçici):</strong> Kitabın belirli bir süre için (1-90 gün arası) sahibi tarafından diğer kullanıcıya geçici olarak verilmesi. Kitap, süre sonunda sahibine iade edilmelidir.</li>
+  </ul>
+
+  <h3>6.2. Takas Süreci</h3>
+  <ol>
+    <li>Kullanıcı, listedeki bir kitaba takas/ödünç talebi gönderir.</li>
+    <li>Kitap sahibi talebi kabul eder, reddeder veya karşı teklif yapar.</li>
+    <li>Taraflar, buluşma yeri ve zamanını belirler.</li>
+    <li>Buluşma gerçekleşir ve taraflar kitapları teslim alır (ödünçte fotoğraflı kanıt alınabilir).</li>
+    <li>Takas tamamlanır. Ödünçte, kitap iade edildiğinde süreç sonlanır.</li>
+  </ol>
+
+  <h3>6.3. Ödünç Kuralları</h3>
+  <ul>
+    <li>Ödünç süresi en az 1 (bir) gün, en fazla 90 (doksan) gündür.</li>
+    <li>Bir kullanıcı, aynı anda yalnızca 1 (bir) aktif ödünç kitaba sahip olabilir.</li>
+    <li>Ödünç alınan kitap, belirtilen süre içinde iade edilmelidir.</li>
+    <li>Kitap sahibi, ödünç süresi dolmadan kitabı geri isteyemez (erken iade kabul edilebilir).</li>
+    <li>Ödünç süresinin uzatılması, her iki tarafın da onayına tabidir.</li>
+    <li>Gecikme durumunda, kullanıcının güven puanı olumsuz etkilenir.</li>
+  </ul>
+
+  <h3>6.4. Uyuşmazlık Durumu</h3>
+  <p>Takas veya ödünç işlemleriyle ilgili olarak kullanıcılar arasında çıkan uyuşmazlıklarda:</p>
+  <ul>
+    <li>MeetBook, <strong>aracı platform</strong> olarak taraflar arasındaki uyuşmazlıklarda taraf değildir ve çözüm yükümlülüğü bulunmamaktadır.</li>
+    <li>Kullanıcılar, uyuşmazlıklarını öncelikle karşılıklı iletişimle çözmeye çalışmalıdır.</li>
+    <li>Uyuşmazlık durumunda taraflar, Platform'un raporlama sistemini kullanarak durumu bildirebilir. MeetBook, rapor doğrultusunda hesap incelemesi yapabilir.</li>
+    <li>Kitabın hasar görmesi, kaybolması veya iade edilmemesi gibi durumlarda MeetBook hiçbir sorumluluk üstlenmez. Bu tür uyuşmazlıklar, taraflar arasında çözülmelidir.</li>
+  </ul>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 7 -->
+<section id="bolum-7">
+  <h2>7. Buluşma Güvenliği ve Sorumluluk Reddi</h2>
+
+  <h3>7.1. Buluşma Güvenliği</h3>
+  <p>Kullanıcılar arası fiziksel buluşmalar, takas/ödünç sürecinin zorunlu bir parçasıdır. MeetBook, buluşma güvenliği için aşağıdaki önlemleri sunmaktadır:</p>
+  <ul>
+    <li><strong>Güvenli buluşma yeri önerileri:</strong> Kafe, kütüphane, kitabevi gibi halka açık, güvenli yerler önerilir.</li>
+    <li><strong>Konut uyarısı:</strong> Kullanıcı, buluşma yeri olarak bir konut adresi belirlerse, karşı tarafa "ikamet adresi" uyarısı gösterilir ve her iki tarafın da onayı alınır.</li>
+    <li><strong>Güvenlik modu (isteğe bağlı):</strong> Buluşma sırasında, kullanıcının açık rızası ile arka plan konum takibi aktivleştirilebilir. Bu veriler 30 gün sonra otomatik silinir.</li>
+    <li><strong>Engellenen yerler:</strong> Platform yönetimi tarafından güvensiz olduğu belirlenen yerlerde buluşma önerilmez.</li>
+  </ul>
+
+  <div class="warning-box">
+    <strong>ÖNEMLİ:</strong> MeetBook, kullanıcılar arası buluşmalarda fiziksel güvenliğiniz konusunda herhangi bir garanti vermemektedir. Aşağıdaki güvenlik önlemlerini almanızı şiddetle tavsiye ederiz:
+    <ul style="margin-top:8px;">
+      <li>Buluşmaları her zaman halka açık, kalabalık yerlerde yapın</li>
+      <li>Buluşma öncesi bir arkadaşınıza veya aile üyenize buluşma detaylarını bildirin</li>
+      <li>Güvenlik modunu kullanın</li>
+      <li>Kişisel bilgilerinizi (adres, tam ad, TC kimlik no) paylaşmayın</li>
+      <li>Tanımadığınız kişilerle buluşurken dikkatli olun</li>
+      <li>Şüpheli bir durumda buluşmayı iptal edin ve durumu <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine bildirin</li>
+    </ul>
+  </div>
+
+  <h3>7.2. Sorumluluk Reddi</h3>
+  <p>MeetBook, kullanıcıların fiziksel buluşmaları sırasında meydana gelebilecek herhangi bir zarar, kayıp, yaralanma, hırsızlık, saldırı veya diğer olumsuz olaylardan <strong>hiçbir şekilde sorumlu değildir.</strong> Kullanıcı, Platform'u kullanarak bu riski kabul eder ve MeetBook'u bu tür olaylardan doğacak her türlü talepten muaf tutar.</p>
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 8 -->
+<section id="bolum-8">
+  <h2>8. Güven Puanı ve Puanlama Sistemi</h2>
+
+  <h3>8.1. Güven Puanı</h3>
+  <p>Platform, kullanıcıların güvenilirliğini ölçmek için otomatik bir Güven Puanı sistemi kullanır. Güven Puanı, 0-100 aralığında olup aşağıdaki bileşenler kullanılarak hesaplanır:</p>
+  <ul>
+    <li>Zamanında iade oranı (%50 ağırlık)</li>
+    <li>Puanlama ortalaması (%30 ağırlık)</li>
+    <li>Deneyim (tamamlanan işlem sayısı, hesap yaşı) (%20 ağırlık)</li>
+  </ul>
+  <p>Güven Puanı, platform içi görünür olup kullanıcıların birbirlerini değerlendirmesine yardımcı olur. MeetBook, Güven Puanı'nın doğruluğunu garanti etmez ve puana dayalı kararlardan sorumlu değildir.</p>
+
+  <h3>8.2. Puanlama</h3>
+  <ul>
+    <li>Takas/ödünç tamamlandıktan sonra taraflar birbirlerini 1-5 arası puanlayabilir ve isteğe bağlı yorum bırakabilir.</li>
+    <li><strong>Çift taraflı gizlilik:</strong> Karşılıklı puanlama yapılana veya 14 gün geçene kadar puanlar ve yorumlar gizlidir.</li>
+    <li>Puanlama, subjektif değerlendirmeye dayanır. MeetBook, puanların doğruluğunu veya adilliğini garanti etmez.</li>
+  </ul>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 9 -->
+<section id="bolum-9">
+  <h2>9. Fikri Mülkiyet</h2>
+
+  <h3>9.1. Platform'un Fikri Mülkiyeti</h3>
+  <p>MeetBook Platformu'nun tüm hakları saklıdır. Platform'un yazılımı, kodu, tasarımı, logosu, grafikleri, metinleri ve diğer tüm bileşenleri, 5846 sayılı Fikir ve Sanat Eserleri Kanunu (FSEK) ve ilgili mevzuat kapsamında korunmaktadır. Platform'un herhangi bir bölümünün izinsiz kopyalanması, çoğaltılması, dağıtılması, değiştirilmesi veya ticari amaçla kullanılması yasaktır.</p>
+
+  <h3>9.2. Kullanıcı İçeriklerinin Fikri Mülkiyeti</h3>
+  <p>Kullanıcılar tarafından Platform'a yüklenen içeriklerin (fotoğraflar, metinler, yorumlar) tüm fikri mülkiyet hakları kullanıcıya aittir. Kullanıcı, bu içerikleri Platform'a yükleyerek MeetBook'a dünya genelinde, geri alınamaz, süresiz, telifsiz, alt lisanslanabilir ve devredilebilir bir kullanım lisansı vermiş olur. Bu lisans, MeetBook'un Platform üzerinde içerikleri barındırması, görüntülemesi, dağıtması, değiştirmesi (örneğin, fotoğrafları yeniden boyutlandırması) ve Platform'u tanıtmak amacıyla kullanması için gereklidir.</p>
+
+  <p>Kullanıcı, Platform'a yüklediği içeriklerin üçüncü şahısların telif haklarını, ticari markalarını veya diğer fikri mülkiyet haklarını ihlal etmediğini beyan ve taahhüt eder.</p>
+
+  <h3>9.3. DMCA ve Telif Hakkı İhlal Bildirimi</h3>
+  <p>Telif hakkı ihlali iddiasında bulunmak için <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine aşağıdaki bilgileri içeren bir bildirim göndermeniz gerekmektedir:</p>
+  <ul>
+    <li>İhlal edildiğini iddia ettiğiniz eserin tanımı ve kanıtı</li>
+    <li>İhlal eden içeriğin Platform üzerindeki konumu</li>
+    <li>İletişim bilgileriniz (ad, e-posta, telefon)</li>
+    <li>İyi niyet beyanı (içeriğin yetkisiz kullanıldığına dair)</li>
+    <li>Doğruluk beyanı ve imza</li>
+  </ul>
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 10 -->
+<section id="bolum-10">
+  <h2>10. İçerik Denetimi ve Raporlama</h2>
+
+  <h3>10.1. Raporlama</h3>
+  <p>Kullanıcılar, Platform üzerinde karşılaştıkları uygunsuz içerikleri, kullanıcıları, mesajları veya yerleri raporlayabilir. Raporlar, Platform yönetimi tarafından incelenir ve gerekli aksiyon alınır.</p>
+
+  <h3>10.2. Denetim</h3>
+  <p>MeetBook, Platform'un güvenliğini ve bütünlüğünü korumak amacıyla:</p>
+  <ul>
+    <li>Kullanıcı içeriklerini önceden denetleme yükümlülüğü bulunmamakla birlikte,</li>
+    <li>Şikayet üzerine veya re'sen uygunsuz içerikleri inceleme, kaldırma veya erişimi engelleme hakkına sahiptir,</li>
+    <li>Yasadışı içerik tespiti hâlinde, içeriği derhâl kaldıracak ve gerekli hâllerde adli makamlara bildirimde bulunacaktır.</li>
+  </ul>
+
+  <h3>10.3. Şikayet ve Kanıt Saklama</h3>
+  <p>Raporlanan içeriklerin, orijinal içerik silinmiş olsa dahi, denetim ve hukuki süreçler için anlık görüntüsü (snapshot) saklanır. Bu kayıtlar, KVKK kapsamında "hukuki yükümlülük" hukuki sebebine dayanılarak işlenir.</p>
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 11 -->
+<section id="bolum-11">
+  <h2>11. Hesap Askıya Alma, Silme ve Yasaklama</h2>
+
+  <h3>11.1. Kullanıcının Hesap Silme Hakkı</h3>
+  <p>Kullanıcı, dilediği zaman hesabını silebilir. Hesap silme işlemi:</p>
+  <ul>
+    <li>Ayarlar → "Hesabımı Sil" bölümünden iki adımlı onay ile gerçekleştirilir.</li>
+    <li>Şifre doğrulaması gerektirir.</li>
+    <li>Kişisel veriler anonimleştirilir: Ad "Silinmiş Hesap" olarak, e-posta <code>deleted-{uuid}@anon</code> formatına dönüştürülür, telefon ve güvenilir kişi bilgileri silinir.</li>
+    <li>Takas ve ödünç kayıtları (kişisel verilerden arındırılarak) hukuki yükümlülükler gereği 10 yıl süreyle saklanır.</li>
+  </ul>
+
+  <h3>11.2. MeetBook'un Müdahale Hakkı</h3>
+  <p>MeetBook, aşağıdaki durumlarda, önceden bildirim yapmaksızın hesabı askıya alma, kısıtlama veya kalıcı olarak yasaklama hakkına sahiptir:</p>
+  <ul>
+    <li>Bu Sözleşme'nin herhangi bir hükmünün ihlali</li>
+    <li>Yasadışı faaliyet şüphesi veya tespiti</li>
+    <li>Platform'un güvenliğini tehdit eden davranışlar</li>
+    <li>Birden fazla kullanıcı tarafından ciddi şikayetlere maruz kalınması</li>
+    <li>Güven puanının kritik seviyenin altına düşmesi</li>
+    <li>Sahte veya yanıltıcı bilgi tespiti</li>
+    <li>Adli makamlardan gelen talep</li>
+  </ul>
+
+  <h3>11.3. Müdahale Türleri</h3>
+  <table>
+    <thead>
+      <tr><th>Müdahale Türü</th><th>Açıklama</th><th>Süre</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Uyarı</strong></td><td>Kullanıcıya ihlal bildirimi yapılır</td><td>—</td></tr>
+      <tr><td><strong>Geçici Askıya Alma (Süspansiyon)</strong></td><td>Hesap belirli bir süre kullanılamaz</td><td>7-30 gün</td></tr>
+      <tr><td><strong>Kalıcı Yasaklama (Ban)</strong></td><td>Hesap kalıcı olarak kapatılır, kullanıcının yeni hesap açması yasaktır</td><td>Süresiz</td></tr>
+      <tr><td><strong>İşlem Kısıtlama</strong></td><td>Belirli özellikler kısıtlanır (örn. yeni kitap ekleme, mesaj gönderme)</td><td>30-90 gün</td></tr>
+    </tbody>
+  </table>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 12 -->
+<section id="bolum-12">
+  <h2>12. Sorumluluk Sınırlamaları</h2>
+
+  <h3>12.1. MeetBook'un Sorumluluğu</h3>
+  <p>MeetBook, Platform'u "olduğu gibi" (as-is) sunmaktadır. Aşağıdaki durumlarda MeetBook'un sorumluluğu, mümkün olan en geniş yasal çerçevede <strong>tamamen hariç tutulmuştur</strong>:</p>
+  <ul>
+    <li>Platform'da listelenen kitapların durumu, kalitesi, yasallığı veya doğruluğu ile ilgili</li>
+    <li>Kullanıcılar arası takas, ödünç veya diğer işlemlerde ortaya çıkan uyuşmazlıklar</li>
+    <li>Kullanıcılar arası fiziksel buluşmalarda meydana gelen zararlar</li>
+    <li>Platform'da üçüncü taraflarca sağlanan içerikler</li>
+    <li>Platform'un geçici olarak erişilemez olmasından kaynaklanan kayıplar</li>
+    <li>Kullanıcının Platform dışında gerçekleştirdiği işlemler</li>
+  </ul>
+
+  <h3>12.2. Kullanıcının Sorumluluğu</h3>
+  <p>Kullanıcı, Platform'u kullanırken gerçekleştirdiği tüm eylemlerden tek başına sorumludur. Kullanıcı, bu Sözleşme'ye aykırı kullanımı nedeniyle MeetBook'un uğrayabileceği her türlü zararı tazmin etmekle yükümlüdür.</p>
+
+  <h3>12.3. Üçüncü Taraf Hizmetleri</h3>
+  <p>Platform, üçüncü taraf hizmet sağlayıcılarının (Google Places API, Open Library API, Expo Push Notifications, Amazon S3 vb.) hizmetlerini kullanmaktadır. MeetBook, bu üçüncü taraf hizmetlerinin kesintisiz, hatasız veya güvenli çalışacağını garanti etmez. Bu hizmetler, ilgili sağlayıcıların kendi kullanım koşullarına tabidir.</p>
+
+  <h3>12.4. Mücbir Sebep</h3>
+  <p>Doğal afetler, savaş, terör saldırıları, grev, salgın hastalık, hükümet düzenlemeleri, elektrik/ internet kesintileri gibi MeetBook'un kontrolü dışındaki mücbir sebepler nedeniyle Platform'un geçici olarak kullanılamamasından MeetBook sorumlu değildir. Mücbir sebep süresince bu Sözleşme'den doğan yükümlülükler askıya alınır.</p>
+
+  <h3>12.5. Sorumluluk Üst Sınırı</h3>
+  <p>MeetBook'un bu Sözleşme kapsamındaki toplam sorumluluğu, hiçbir durumda, olayın meydana geldiği tarihten önceki 12 (on iki) aylık dönemde kullanıcı tarafından ödenen toplam ücreti (eğer varsa) aşamaz. Platform şu anda ücretsizdir, bu nedenle sorumluluk üst sınırı sembolik 1 TL'dir.</p>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 13 -->
+<section id="bolum-13">
+  <h2>13. Garanti Reddi</h2>
+  <p>Platform, açık veya zımni hiçbir garanti olmaksızın "olduğu gibi" ve "mevcut olduğu şekilde" sunulmaktadır. MeetBook, aşağıdaki konularda hiçbir garanti vermemektedir:</p>
+  <ul>
+    <li>Platform'un kesintisiz, hatasız, güvenli veya zamanında çalışacağına dair</li>
+    <li>Platform'da listelenen kitapların doğruluğu, kalitesi, güvenliği veya yasallığı hakkında</li>
+    <li>Platform'un kullanıcı ihtiyaçlarını karşılayacağına dair</li>
+    <li>Platform'daki hataların düzeltileceğine dair</li>
+    <li>Platform'un kullanıcı verilerini kaybetmeyeceğine dair (düzenli yedekleme yapılmakla birlikte, veri kaybı durumunda sorumluluk kabul edilmez)</li>
+  </ul>
+  <p>Bazı yargı bölgeleri (Türkiye dahil), zımni garantilerin hariç tutulmasına izin vermeyebilir. Bu durumda, yukarıdaki hariç tutmalar sizin için geçerli olmayabilir.</p>
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 14 -->
+<section id="bolum-14">
+  <h2>14. Uyuşmazlıkların Çözümü</h2>
+
+  <h3>14.1. Uygulanacak Hukuk</h3>
+  <p>İşbu Sözleşme ve Platform'un kullanımına ilişkin tüm uyuşmazlıklar, <strong>Türkiye Cumhuriyeti yasalarına</strong> tabidir. Milletlerarası özel hukuk kuralları uygulanmaz.</p>
+
+  <h3>14.2. Yetkili Mahkeme</h3>
+  <p>Uyuşmazlıkların çözümünde, <strong>İstanbul (Çağlayan) Adliyesi</strong> Mahkemeleri ve İcra Daireleri yetkilidir.</p>
+
+  <h3>14.3. Alternatif Çözüm</h3>
+  <p>MeetBook, yasal yollara başvurmadan önce uyuşmazlıkların dostane çözümü için çaba gösterilmesini tavsiye eder. Bununla birlikte, bu bir yükümlülük değildir. Kullanıcı, şikayetlerini öncelikle <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine iletebilir.</p>
+
+  <h3>14.4. Tüketici Hakem Heyeti</h3>
+  <p>Tüketici niteliğini haiz kullanıcılar (ticari amaçla hareket etmeyen gerçek kişi kullanıcılar), 6502 sayılı Tüketicinin Korunması Hakkında Kanun kapsamında, parasal sınırlar dahilinde Tüketici Hakem Heyeti'ne başvurma hakkına sahiptir.</p>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 15 -->
+<section id="bolum-15">
+  <h2>15. Politika Değişiklikleri</h2>
+
+  <h3>15.1. Güncelleme Yetkisi</h3>
+  <p>MeetBook, işbu Kullanım Koşulları'nı dilediği zaman tek taraflı olarak değiştirme hakkına sahiptir. Değişiklikler, Platform'da yayımlandığı tarihte yürürlüğe girer.</p>
+
+  <h3>15.2. Bildirim</h3>
+  <p>Önemli değişiklikler, kullanıcılara aşağıdaki yollarla bildirilir:</p>
+  <ul>
+    <li>Platform üzerinden push bildirimi</li>
+    <li>Uygulama açılışında zorunlu onay ekranı</li>
+  </ul>
+  <p>Kullanıcı, değişiklikleri onaylayana kadar Platform'u kullanamaz.</p>
+
+  <h3>15.3. Kabul</h3>
+  <p>Kullanıcı, değişikliklerin yürürlüğe girmesinden sonra Platform'u kullanmaya devam ederek, değiştirilmiş koşulları kabul etmiş sayılır. Kullanıcının değişiklikleri kabul etmemesi durumunda, hesabını silme hakkı vardır.</p>
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 16 -->
+<section id="bolum-16">
+  <h2>16. Tazminat, Sınıf Davası Feragati ve Zamanaşımı</h2>
+
+  <h3>16.1. Kullanıcının Tazmin Yükümlülüğü (Indemnification)</h3>
+  <p>Kullanıcı, işbu Sözleşme'ye aykırı davranışları, Platform'u hukuka aykırı kullanımı, üçüncü kişilerin fikri mülkiyet haklarını ihlali, yürürlükteki mevzuata aykırı eylemleri veya diğer kullanıcılara verdiği zararlar nedeniyle MeetBook'u, bağlı şirketlerini, yöneticilerini, çalışanlarını ve temsilcilerini her türlü üçüncü taraf talebi, dava, zarar, yükümlülük, maliyet ve masraftan (avukatlık ücretleri dahil) <strong>tamamen tazmin ve ibra etmeyi</strong> kabul eder.</p>
+
+  <p>Bu tazmin yükümlülüğü, aşağıdaki durumları kapsar ancak bunlarla sınırlı değildir:</p>
+  <ul>
+    <li>Kullanıcı tarafından Platform'a yüklenen içeriklerin üçüncü kişilerin telif hakkı, ticari marka, patent veya diğer fikri mülkiyet haklarını ihlal etmesi</li>
+    <li>Kullanıcının Platform'u kullanırken işlediği fiiller nedeniyle üçüncü kişilere verdiği zararlar</li>
+    <li>Kullanıcının gerçeğe aykırı beyanları (yaş, kimlik, kitap durumu vb.) nedeniyle doğan zararlar</li>
+    <li>Kullanıcının diğer kullanıcılarla buluşması sırasında verdiği fiziksel veya psikolojik zararlar</li>
+    <li>Kullanıcının Platform'un güvenlik sistemlerine yetkisiz erişim veya müdahalesi</li>
+    <li>Kullanıcının KVKK, TTK, TBK, FSEK veya diğer mevzuata aykırı eylemleri</li>
+  </ul>
+
+  <div class="warning-box">
+    <strong>ÖNEMLİ — SINIRSIZ TAZMİNAT:</strong> Kullanıcı, yukarıdaki ihlaller nedeniyle MeetBook'un uğrayabileceği maddi ve manevi zararların yanı sıra, MeetBook'un taraf olduğu her türlü dava, icra takibi, arabuluculuk veya tahkim sürecinde MeetBook'un ödemek zorunda kaldığı tüm avukatlık ücretleri, yargılama giderleri, icra vekalet ücretleri ve sair masrafları da tazmin etmekle yükümlüdür. Bu tazmin yükümlülüğü, herhangi bir parasal üst sınıra tabi değildir.
+  </div>
+
+  <h3>16.2. Sınıf Davası Feragati (Class Action Waiver)</h3>
+  <p>Kullanıcı, MeetBook'a karşı olan her türlü talebini <strong>bireysel olarak</strong> ileri sürmeyi kabul eder. Kullanıcı, MeetBook'a karşı herhangi bir <strong>sınıf davası (class action), toplu dava, temsili dava veya grup davasına</strong> davacı veya sınıf üyesi olarak katılma hakkından açıkça feragat eder.</p>
+
+  <p>Kullanıcı, MeetBook'a karşı olan taleplerini yalnızca bireysel olarak, kendi adına ve kendi zararı ölçüsünde ileri sürebilir. Kullanıcı, bu feragatin geçerli ve bağlayıcı olduğunu kabul eder.</p>
+
+  <p>İşbu feragat hükmünün herhangi bir nedenle geçersiz sayılması halinde, taraflar arasındaki uyuşmazlıklar bireysel olarak ve yalnızca Türk mahkemelerinde çözümlenecektir.</p>
+
+  <h3>16.3. Zamanaşımı (Statute of Limitations)</h3>
+  <p>Bu Sözleşme'den kaynaklanan veya bu Sözleşme ile ilgili her türlü dava veya talep, <strong>olayın veya ihmalin meydana geldiği tarihten itibaren 1 (bir) yıl</strong> içinde açılmalıdır. Kullanıcı, bu süre içinde dava açmaması halinde, talebine ilişkin tüm haklarını kaybedeceğini kabul eder.</p>
+
+  <p>Bu zamanaşımı süresi, Türk Borçlar Kanunu'nun 146. maddesinde düzenlenen 10 yıllık genel zamanaşımı süresine aykırı olmamak kaydıyla, tarafların takdirinde belirlenmiş makul bir süredir. TBK md.146'nın emredici nitelikte olması halinde, TBK md.146'daki genel zamanaşımı süresi uygulanır.</p>
+
+  <p>KVKK, FSEK veya diğer kanunlardan kaynaklanan ve daha kısa zamanaşımı süresi öngörülen taleplerde, ilgili kanundaki süre uygulanır.</p>
+
+  <h3>16.4. Kötüleme Yasağı (Non-Disparagement)</h3>
+  <p>Kullanıcı, MeetBook'u, Platform'u, MeetBook'un yöneticilerini, çalışanlarını, temsilcilerini, iş ortaklarını veya diğer kullanıcıları, herhangi bir mecrada (sosyal medya, forum, inceleme sitesi, blog, haber sitesi, video platformu, mesajlaşma uygulaması, e-posta, sözlü beyan dahil ancak bunlarla sınırlı olmamak kaydıyla) <strong>kötüleyici, aşağılayıcı, itibar zedeleyici, yanıltıcı veya gerçeğe aykırı</strong> herhangi bir beyanda bulunmayacağını kabul ve taahhüt eder.</p>
+
+  <p>Kötüleme yasağı kapsamında aşağıdaki eylemler kesinlikle yasaktır:</p>
+  <ul>
+    <li>MeetBook veya Platform hakkında yanlış, yanıltıcı veya abartılı iddialarda bulunmak</li>
+    <li>MeetBook'un ticari itibarına, marka değerine veya güvenilirliğine zarar verecek ifadeler kullanmak</li>
+    <li>Diğer kullanıcılar hakkında gerçeğe aykırı kötüleme veya karalama yapmak</li>
+    <li>Platform ile ilgili bir uyuşmazlığı, hukuki süreç sonuçlanmadan önce kamuya açık şekilde tartışmak</li>
+    <li>MeetBook'un iş modellerini, politikalarını veya uygulamalarını kasıtlı olarak yanlış yorumlamak</li>
+  </ul>
+
+  <div class="warning-box">
+    <strong>ÖNEMLİ — KÖTÜLEME YASAĞI:</strong> Bu maddenin ihlali, Sözleşme'nin ağır ihlali olarak kabul edilir ve 16.1 maddesindeki tazmin yükümlülüğü kapsamında değerlendirilir. Kullanıcı, ihlal nedeniyle MeetBook'un uğradığı itibar kaybı, maddi ve manevi zararlar ile bu zararların giderilmesi için yapılan tüm masrafları (avukatlık ücretleri dahil) tazmin etmekle yükümlüdür. Ayrıca, ihlal halinde MeetBook, kullanıcının hesabını önceden bildirim yapmaksızın derhâl kalıcı olarak yasaklama hakkına sahiptir.
+  </div>
+
+  <p>İşbu kötüleme yasağı, Sözleşme'nin sona ermesinden veya kullanıcının hesabının silinmesinden sonra da <strong>3 (üç) yıl</strong> süreyle yürürlükte kalmaya devam eder.</p>
+
+  <h3>16.5. Kayıtsız Şartsız İkrar (Confession of Judgment)</h3>
+  <p>Kullanıcı, işbu Sözleşme'den kaynaklanan borç ve yükümlülüklerini —özellikle ancak sınırlı olmamak üzere 16.1 maddesindeki tazmin yükümlülüğü kapsamındaki tüm talepleri— <strong>kayıtsız ve şartsız olarak ikrar ve kabul</strong> ettiğini beyan eder.</p>
+
+  <p>Kullanıcı, aşağıdaki hususları peşinen kabul eder:</p>
+  <ul>
+    <li>MeetBook'un, bu Sözleşme kapsamında kullanıcıdan talep edebileceği her türlü alacak ve tazminat için, İstanbul (Çağlayan) İcra Daireleri'nde <strong>icra takibi başlatma</strong> hakkına sahip olduğunu.</li>
+    <li>İcra takibine konu borcun varlığını ve muacceliyetini, takibin kesinleşmesini engelleyecek veya geciktirecek şekilde itiraz etmeyeceğini.</li>
+    <li>İcra takibi sonucunda hakkında İİK md.67 vd. kapsamında itirazın iptali davası açılması halinde, bu davada borcun esasına itiraz etmeyeceğini, yalnızca usuli itirazları ileri sürebileceğini.</li>
+    <li>İcra takibine konu edilen miktarın %20'sinden aşağı olmamak üzere icra inkâr tazminatı ödemeyi kabul ettiğini.</li>
+  </ul>
+
+  <div class="warning-box">
+    <strong>ÖNEMLİ — KAYITSIZ ŞARTSIZ İKRAR:</strong> Bu madde, kullanıcının yasal savunma haklarından (itiraz hakkı, borca itiraz hakkı, yetki itirazı) kısmen veya tamamen feragat etmesi anlamına gelmektedir. Kullanıcı, bu maddeyi okuduğunu, anladığını ve özgür iradesiyle kabul ettiğini beyan eder. Bu maddenin geçerliliği, İcra ve İflas Kanunu ile ilgili mevzuat kapsamında değerlendirilir.
+  </div>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 17 -->
+<section id="bolum-17">
+  <h2>17. Genel Hükümler</h2>
+
+  <h3>17.1. Sözleşmenin Bütünlüğü (Entire Agreement)</h3>
+  <p>İşbu Kullanım Koşulları ve <a href="/legal/gizlilik-politikasi">Gizlilik Politikası</a>, taraflar arasındaki tam mutabakatı teşkil eder ve Platform'un kullanımına ilişkin tüm hususları düzenler. Bu Sözleşme, taraflar arasındaki önceki tüm yazılı veya sözlü anlaşmaların, mutabakatların, beyanların ve taahhütlerin yerine geçer.</p>
+
+  <p>Bu Sözleşme'nin hiçbir hükmü, taraflar arasında bir ortaklık, adi şirket, iş ortaklığı (joint venture), istihdam veya acentelik ilişkisi yarattığı şeklinde yorumlanamaz.</p>
+
+  <h3>17.2. Ayrılabilirlik (Severability)</h3>
+  <p>Bu Sözleşme'nin herhangi bir hükmünün yetkili bir mahkeme veya resmi makam tarafından geçersiz, hukuka aykırı veya uygulanamaz olduğuna karar verilmesi halinde, bu hüküm, mümkün olan en geniş ölçüde tarafların niyetini yansıtacak şekilde yorumlanır veya gerekirse tamamen ayrıştırılır. Kalan hükümler tamamen yürürlükte kalır ve bağlayıcıdır.</p>
+
+  <h3>17.3. Feragat Etmeme (No Waiver)</h3>
+  <p>MeetBook'un bu Sözleşme'nin herhangi bir hükmünü veya koşulunu uygulamaması veya geciktirmesi, bu hükümden veya koşuldan feragat ettiği anlamına gelmez. Bir haktan feragat, ancak MeetBook'un yetkili temsilcisi tarafından imzalanmış yazılı bir belge ile geçerlidir.</p>
+
+  <p>MeetBook'un belirli bir ihlal durumunda bu Sözleşme'den doğan haklarını kullanmaması, sonraki ihlallerde bu hakları kullanmayacağı anlamına gelmez.</p>
+
+  <h3>17.4. Devir (Assignment)</h3>
+  <p>Kullanıcı, bu Sözleşme'den doğan hak ve yükümlülüklerini önceden yazılı izin almaksızın <strong>üçüncü bir kişiye devredemez, temlik edemez veya alt lisans veremez.</strong></p>
+
+  <p>MeetBook, bu Sözleşme'den doğan hak ve yükümlülüklerini, kullanıcıya bildirimde bulunmak kaydıyla, herhangi bir zamanda (şirket birleşmesi, devralma, satın alma veya varlık satışı dahil) <strong>üçüncü bir kişiye devredebilir.</strong> Kullanıcı, bu devrin geçerli olduğunu ve devralan tarafın tüm hak ve yükümlülüklere sahip olacağını kabul eder.</p>
+
+  <h3>17.5. Bildirim Usulü (Notice)</h3>
+  <p>MeetBook tarafından kullanıcıya yapılacak tüm bildirimler, aşağıdaki yöntemlerle yapılabilir:</p>
+  <ul>
+    <li>Platform üzerinden push bildirimi</li>
+    <li>Kullanıcının hesabında kayıtlı e-posta adresine e-posta gönderimi</li>
+    <li>Platform üzerinde yayınlanan duyuru</li>
+    <li>Uygulama içi bildirim merkezi</li>
+  </ul>
+  <p>Bildirim, yukarıdaki yöntemlerden biriyle iletildiği tarihte kullanıcıya ulaşmış sayılır. E-posta ile yapılan bildirimlerde, e-postanın MeetBook'un sunucusundan gönderildiği tarih esas alınır.</p>
+
+  <p>Kullanıcı tarafından MeetBook'a yapılacak tüm bildirimler, yazılı olarak <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine e-posta gönderilerek yapılmalıdır.</p>
+
+  <h3>17.6. Dil ve Yorum (Language and Interpretation)</h3>
+  <p>İşbu Sözleşme'nin aslı Türkçe olup, Sözleşme'nin yorumlanmasında Türkçe metin esas alınır. Sözleşme'nin başka dillere yapılmış tercümeleri ile Türkçe aslı arasında bir çelişki olması halinde, <strong>Türkçe metin geçerlidir.</strong></p>
+
+  <p>Sözleşme'deki başlıklar ve bölüm adları yalnızca referans amaçlıdır ve Sözleşme'nin yorumlanmasında dikkate alınmaz.</p>
+
+  <p>Bu Sözleşme'de geçen tekil ifadeler çoğulu, çoğul ifadeler tekili kapsar. "İçerir", "dahil", "özellikle" gibi ifadeler, "ancak bunlarla sınırlı olmamak kaydıyla" anlamında yorumlanır.</p>
+
+  <h3>17.7. Ölüm Halinde Hesap ve Veriler</h3>
+  <p>Kullanıcının vefatı halinde, kullanıcının hesabı ve kişisel verileri, KVKK ve ilgili mevzuat kapsamında işleme tabi tutulur. Kullanıcının yasal mirasçıları, kullanıcının verilerinin silinmesini talep edebilir. Bu talep, kimlik ve mirasçılık belgesinin ibrazını takiben değerlendirilir. Ancak, takas ve ödünç kayıtları (anonimleştirilmiş olarak) hukuki yükümlülükler gereği 10 yıl süreyle saklanmaya devam eder.</p>
+
+  <p>MeetBook, kullanıcının vefatını resmi bir kaynaktan (nüfus müdürlüğü, aile beyanı, ölüm ilanı vb.) öğrenmesi halinde, hesabı re'sen askıya alma ve kişisel verileri anonimleştirme hakkına sahiptir.</p>
+
+  <h3>17.8. Reşit Olmayan Kullanıcı Tespit Prosedürü</h3>
+  <p>MeetBook, 18 yaşından küçük olduğu tespit edilen kullanıcıların hesaplarını, önceden bildirim yapmaksızın ve herhangi bir sorumluluk üstlenmeksizin <strong>derhâl kalıcı olarak yasaklama</strong> hakkına sahiptir.</p>
+
+  <p>Reşit olmayan kullanıcı tespiti halinde:</p>
+  <ol>
+    <li>Kullanıcının tüm kişisel verileri (ad, e-posta, telefon, fotoğraflar) kalıcı olarak silinir veya anonimleştirilir.</li>
+    <li>Kullanıcının aktif kitap listeleri ve takas talepleri derhâl iptal edilir.</li>
+    <li>Kullanıcının başka bir hesapla kaydolmasını engellemek için gerekli teknik tedbirler alınır (cihaz ID, IP adresi blokajı).</li>
+    <li>Durum, KVKK kapsamında "hukuka aykırı veri işleme" olarak kayıt altına alınır ve gerekli hallerde KVKK Kurulu'na bildirim yapılır.</li>
+  </ol>
+
+  <p>Kullanıcı, reşit olmadığı halde Platform'a kaydolması durumunda, bu madde kapsamında yapılacak işlemlere itiraz etmeyeceğini peşinen kabul eder.</p>
+
+  <h3>17.9. Platform'a Erişim ve Kullanımın Durdurulması</h3>
+  <p>MeetBook, aşağıdaki durumlarda Platform'a tamamen veya kısmen erişimi geçici veya kalıcı olarak durdurma hakkına sahiptir:</p>
+  <ul>
+    <li>Planlı bakım, güncelleme veya iyileştirme çalışmaları</li>
+    <li>Acil güvenlik müdahalesi gerektiren durumlar</li>
+    <li>Mücbir sebep halleri (doğal afet, savaş, terör, salgın, altyapı kesintisi)</li>
+    <li>Hukuki veya düzenleyici bir yükümlülüğün yerine getirilmesi</li>
+    <li>Platform'un teknik nedenlerle sürdürülemez hale gelmesi</li>
+  </ul>
+  <p>MeetBook, bu durumlarda kullanıcılara önceden bildirim yapmak için makul çabayı gösterecek olmakla birlikte, acil durumlarda bildirimsiz müdahale hakkı saklıdır. Bu nedenlerle Platform'a erişimin kesintiye uğramasından MeetBook sorumlu değildir.</p>
+
+  <h3>17.10. Platform'un Feshi ve Hizmetin Sona Ermesi</h3>
+  <p>MeetBook, dilediği zaman, herhangi bir sebep göstermeksizin ve herhangi bir sorumluluk üstlenmeksizin, Platform'un tamamını veya bir kısmını kalıcı olarak sonlandırma hakkına sahiptir. Bu durumda:</p>
+  <ul>
+    <li>Kullanıcılara mümkün olan en erken sürede bildirim yapılır (tercihen en az 30 gün önceden).</li>
+    <li>Kullanıcıların kişisel verileri, KVKK kapsamında belirtilen haklar çerçevesinde kullanıcıya iade edilir veya silinir.</li>
+    <li>Kullanıcılar, aktif takas/ödünç işlemlerini sonuçlandırmak için makul bir süre tanınır.</li>
+    <li>MeetBook, Platform'un sona ermesinden kaynaklanan hiçbir zarardan sorumlu değildir.</li>
+  </ul>
+
+  <h3>17.11. Elektronik İmza ve Yazılı Şekil İkamesi Kabulü</h3>
+  <p>Kullanıcı, işbu Sözleşme kapsamında yapılan tüm kabul, onay, beyan, taahhüt ve bildirimlerin, Platform üzerinden sağlanan <strong>elektronik onay mekanizmaları</strong> (checkbox işaretleme, "Kabul Ediyorum" butonuna tıklama, mobil uygulamada ilgili alanı işaretleme) aracılığıyla verilebileceğini kabul eder.</p>
+
+  <p>Kullanıcı, aşağıdaki hususları açıkça kabul eder:</p>
+  <ul>
+    <li>Platform üzerinde verilen elektronik onaylar, 5070 sayılı Elektronik İmza Kanunu ve 6102 sayılı Türk Ticaret Kanunu kapsamında <strong>yazılı şekil şartını karşılar</strong> ve elle atılmış imza ile eşdeğer kabul edilir.</li>
+    <li>Elektronik onay işlemi sırasında oluşturulan kayıtlar (log kayıtları, zaman damgaları, kullanıcı oturum bilgileri, IP adresi, cihaz bilgisi), bu onayın ispatında <strong>kesin delil</strong> teşkil eder.</li>
+    <li>Kayıt sırasında oluşturulan "KVKK Aydınlatma Metni'ni okudum ve kabul ediyorum" ve "Kullanım Koşulları'nı okudum ve kabul ediyorum" onayları, kullanıcının bu belgeleri okuduğu, anladığı ve kabul ettiğine dair <strong>aksi ispat edilemez karine</strong> teşkil eder.</li>
+    <li>Kullanıcı, elektronik onayının kendi iradesini yansıtmadığına dair herhangi bir iddiada bulunamaz (hesabın üçüncü kişi tarafından kullanıldığı iddiası dahil).</li>
+    <li>Platform tarafından tutulan tüm elektronik kayıtlar (loglar, onay kayıtları, işlem geçmişi), HMK md.199 vd. kapsamında <strong>elektronik delil</strong> niteliğindedir ve taraflar arasında kesin delil olarak kabul edilir.</li>
+  </ul>
+
+  <div class="warning-box">
+    <strong>ÖNEMLİ — ELEKTRONİK İMZA KABULÜ:</strong> Bu maddeyi kabul ederek, Platform üzerinde yaptığınız her tıklama, işaretleme ve onayın hukuken bağlayıcı olduğunu, elle atılmış imzanızla aynı hukuki sonuçları doğurduğunu ve bu onaylara ilişkin kayıtların mahkemede delil olarak kullanılabileceğini kabul etmiş olursunuz.
+  </div>
+
+  <h3>17.12. İvaz Beyanı (Consideration / Valuable Consideration)</h3>
+  <p>Kullanıcı, işbu Sözleşme kapsamında Platform'a ücretsiz olarak erişim sağlamakta olup, MeetBook'un sağladığı hizmetler (kitap listeleme, takas/ödünç imkanı, harita keşfi, mesajlaşma, güven puanı sistemi, istatistikler) karşılığında herhangi bir ücret talep etmediğini kabul eder.</p>
+
+  <p>Bununla birlikte, kullanıcı aşağıdaki hususları kabul eder:</p>
+  <ul>
+    <li>Kullanıcının Platform'a kaydolması, Platform'u kullanması ve bu Sözleşme'yi kabul etmesi karşılığında MeetBook'un sağladığı hizmetler (özgür yazılım kapsamında sunulanlar hariç), kullanıcının bu Sözleşme'deki tüm taahhüt ve yükümlülüklerinin karşılığını (ivazını) oluşturmaktadır.</li>
+    <li>Kullanıcı, bu Sözleşme kapsamında verdiği rızaları, yaptığı feragatleri ve üstlendiği yükümlülükleri, yeterli bir karşılık (sufficient consideration) karşılığında verdiğini beyan eder.</li>
+    <li>Kullanıcı, Platform'a kaydolurken sağladığı kişisel verilerin, Platform'un işleyişi, güvenliği, dolandırıcılık tespiti ve topluluk yönetimi için kullanılmasının, kullanıcıya sağlanan hizmetlerin yeterli karşılığı olduğunu kabul eder.</li>
+    <li>Kullanıcı, bu Sözleşme'nin herhangi bir hükmünün "ivazsızlık" veya "karşılıksızlık" nedeniyle geçersiz olduğu iddiasında bulunamaz.</li>
+    <li>Bu Sözleşme'deki hiçbir hüküm, TBK md.27 kapsamında "imkansız" veya "ahlaka aykırı" olarak yorumlanamaz.</li>
+  </ul>
+
+  <p>Kullanıcı, işbu maddenin, özellikle TBK md.27 (sözleşme özgürlüğünün sınırları ve genel ahlaka aykırılık) ve TBK md.28 (aşırı yararlanma/gabin) hükümleri karşısında, taraflar arasındaki dengeli sözleşme ilişkisini yansıttığını ve herhangi bir gabin (aşırı yararlanma) iddiasında bulunmayacağını peşinen kabul eder.</p>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 18 -->
+<section id="bolum-18">
+  <h2>18. Yürürlük ve İletişim</h2>
+
+  <h3>18.1. Yürürlük</h3>
+  <p>İşbu Kullanım Koşulları, <strong>2 Temmuz 2026</strong> tarihinde yürürlüğe girmiştir. Platform'a kaydolarak ve/veya Platform'u kullanarak bu koşulları okuduğunuzu, anladığınızı ve kabul ettiğinizi beyan edersiniz. Kayıt sırasında "Kullanım Koşulları'nı okudum ve kabul ediyorum" onayı vermeniz, bu beyanın somut ve kayıtlı delilidir.</p>
+
+  <p>Kullanıcı, bu Sözleşme'yi kabul etmediği takdirde Platform'u kullanamayacağını ve kaydolamayacağını bilir ve kabul eder.</p>
+
+  <h3>18.2. İletişim</h3>
+  <p>Her türlü soru, görüş, talep, bildirim, ihtarname ve yasal tebligat için aşağıdaki iletişim kanallarını kullanabilirsiniz:</p>
+
+  <table>
+    <tr><th style="width:180px;">Destek E-posta</th><td><a href="mailto:support@meetbook.com">support@meetbook.com</a></td></tr>
+    <tr><th>Hata Bildirimi</th><td><a href="mailto:canmanici@gmail.com">canmanici@gmail.com</a></td></tr>
+    <tr><th>Veri Sorumlusu</th><td>Can Manici</td></tr>
+    <tr><th>Yetkili Mahkeme</th><td>İstanbul (Çağlayan) Adliyesi</td></tr>
+    <tr><th>Uygulanacak Hukuk</th><td>Türkiye Cumhuriyeti Hukuku</td></tr>
+    <tr><th>İhtarname Adresi</th><td>İstanbul, Türkiye (e-posta ile iletişime geçiniz)</td></tr>
+  </table>
+
+  <div style="background:var(--primary); color:#fff; padding:20px; border-radius:var(--radius); margin-top:24px; text-align:center;">
+    <p style="margin:0; font-size:.9rem; opacity:.9;">Son güncelleme: 2 Temmuz 2026 · Sürüm 1.1</p>
+    <p style="margin:8px 0 0; font-size:.85rem; opacity:.7;">© 2026 MeetBook — Bu belge KVKK, TBK, TTK, FSEK ve 6502 sayılı TKHK kapsamında hazırlanmıştır.</p>
+  </div>
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+</div>
+
+<div class="footer container">
+  <p><strong>MeetBook</strong> · Kullanım Koşulları Sürüm 1.1 · 2 Temmuz 2026</p>
+  <p>6698 sayılı KVKK ve 6502 sayılı TKHK kapsamında hazırlanmıştır</p>
+  <p style="margin-top:8px;"><a href="/legal/gizlilik-politikasi">Gizlilik Politikası</a> · <a href="/legal/kvkk-aydinlatma-metni">KVKK Aydınlatma Metni</a> · <a href="/legal/cerez-politikasi">Çerez Politikası</a> · <a href="/legal/kotuye-kullanim-ve-dolandiricilikla-mucadele-politikasi">Kötüye Kullanım Politikası</a></p>
+</div>
+
+</body>
+</html>

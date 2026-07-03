@@ -3,11 +3,12 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MapView, Marker } from '@/lib/map-adapter';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Linking,
   Modal,
   RefreshControl,
@@ -55,7 +56,11 @@ import {
   type ExchangeDetail,
 } from '@/lib/api/client';
 import { buildMapLinks } from '@/lib/maps';
-import { startSafetyMode, stopSafetyMode } from '@/lib/safety';
+import { type LocationPrecision } from '@/lib/api/client';
+import { SafetyPermissionError, setSafetyPrecision } from '@/lib/safety';
+import { listChats } from '@/lib/api/chat';
+import { useChatStore } from '@/stores/chat-store';
+import { useNerdeyimMode } from '@/hooks/use-nerdeyim-mode';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -166,6 +171,13 @@ export default function ExchangeDetailScreen() {
     queryFn: () => getMe(),
   });
 
+  const { data: chatsData } = useQuery({
+    queryKey: ['chats'],
+    queryFn: listChats,
+  });
+  const chatId = chatsData?.items.find((c) => c.exchange_id === id)?.chat_id;
+  const sendChatMessage = useChatStore((s) => s.sendMessage);
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -184,18 +196,37 @@ export default function ExchangeDetailScreen() {
   const [rateSheetVisible, setRateSheetVisible] = useState(false);
   const [ratingScore, setRatingScore] = useState(5);
   const [ratingComment, setRatingComment] = useState('');
-  const [safetyMode, setSafetyMode] = useState(false);
   const [safetyStopAt, setSafetyStopAt] = useState<number | null>(null);
   const [safetyCountdown, setSafetyCountdown] = useState('');
+  const [locationPrecision, setLocationPrecision] = useState<LocationPrecision>('exact');
+  const connectChat = useChatStore((s) => s.connect);
 
   // T41: post-meetup check-in
   const [checkInDismissed, setCheckInDismissed] = useState(false);
   // T42: meetup countdown + prep checklist
   const [now, setNow] = useState(() => Date.now());
-  const [checklist, setChecklist] = useState<boolean[]>([false, false, false]);
+  const [checklist, setChecklist] = useState<boolean[]>([]);
 
-  const CHECKLIST_ITEMS = ['Kitabı hazırla', 'Telefonun şarjı dolu', 'Arkadaşına haber ver'];
+  // Role-specific checklist: items differ for verici (giver) vs alıcı (receiver).
+  // Each role gets 3 items so AsyncStorage persistence stays compatible.
+  function getChecklistItems(isRequester: boolean): string[] {
+    if (isRequester) {
+      return [
+        'Telefonun şarjı dolu',
+        'Güvendiğin birine yerini bildir',
+        'Buluşma yerine zamanında git',
+      ];
+    }
+    return [
+      'Kitabı hazırla',
+      'Kitabın durumunu kontrol et',
+      'Güvenli bir yerde buluşmayı unutma',
+    ];
+  }
+
   const checklistKey = id ? `@meetbook_checklist_${id}` : null;
+  // Compute role-specific items once exchange data is available.
+  const checklistItems = exchange ? getChecklistItems(userId === exchange.requested_by) : [];
 
   // Expanded map modal state
   const [expandedMap, setExpandedMap] = useState<{
@@ -341,6 +372,20 @@ export default function ExchangeDetailScreen() {
     setSelectedOfferIndex(0);
   }, [exchange?.meetup?.proposed_by, exchange?.meetup?.updated_at]);
 
+  // Nerdeyim Modu — single shared hook (see hooks/use-nerdeyim-mode.ts +
+  // stores/location-sharing-store.ts). This used to be a screen-local
+  // safetyMode/partnerLocation implementation that duplicated (and drifted
+  // out of sync with) the identical logic in chat/[id].tsx.
+  const isMeetupConfirmedForLocation = exchange?.status === 'meetup_confirmed';
+  const { isSharing: safetyMode, partnerSharing, partnerLocation, start: startNerdeyim, stop: stopNerdeyim } = useNerdeyimMode(
+    id,
+    isMeetupConfirmedForLocation,
+  );
+
+  useEffect(() => {
+    if (isMeetupConfirmedForLocation) connectChat();
+  }, [isMeetupConfirmedForLocation, connectChat]);
+
   useEffect(() => {
     if (!safetyStopAt) {
       setSafetyCountdown('');
@@ -353,15 +398,36 @@ export default function ExchangeDetailScreen() {
       const seconds = totalSeconds % 60;
       setSafetyCountdown(`${minutes}:${seconds.toString().padStart(2, '0')}`);
       if (remaining <= 0) {
-        setSafetyMode(false);
         setSafetyStopAt(null);
-        stopSafetyMode();
+        stopNerdeyim();
       }
     };
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [safetyStopAt]);
+  }, [safetyStopAt, stopNerdeyim]);
+
+  // Load persisted precision preference for this exchange
+  useEffect(() => {
+    if (!id) return;
+    AsyncStorage.getItem(`@meetbook_location_precision_${id}`)
+      .then((stored) => {
+        if (stored === 'approximate' || stored === 'exact') {
+          setLocationPrecision(stored);
+          setSafetyPrecision(stored);
+        }
+      })
+      .catch(() => undefined);
+  }, [id]);
+
+  const changePrecision = useCallback(
+    (precision: LocationPrecision) => {
+      setLocationPrecision(precision);
+      setSafetyPrecision(precision);
+      AsyncStorage.setItem(`@meetbook_location_precision_${id}`, precision).catch(() => undefined);
+    },
+    [id],
+  );
 
   // T42: countdown timer — tick every second while a meetup is confirmed
   const meetupScheduledAt = exchange?.meetup?.scheduled_at;
@@ -379,7 +445,7 @@ export default function ExchangeDetailScreen() {
         if (!stored) return;
         try {
           const parsed = JSON.parse(stored) as unknown;
-          if (Array.isArray(parsed) && parsed.length === CHECKLIST_ITEMS.length) {
+          if (Array.isArray(parsed) && parsed.length === checklistItems.length) {
             setChecklist(parsed as boolean[]);
           }
         } catch {
@@ -603,19 +669,37 @@ export default function ExchangeDetailScreen() {
     if (!meetup) return;
     if (enabled) {
       try {
-        await startSafetyMode(id, new Date(meetup.scheduled_at));
+        await startNerdeyim(new Date(meetup.scheduled_at), locationPrecision);
+        // Auto-stop only if meetup is in the future + 30min
+        // If meetup is already past, stay on until user toggles off
         const stopAt = new Date(meetup.scheduled_at).getTime() + 30 * 60000;
-        setSafetyStopAt(stopAt);
-        setSafetyMode(true);
+        setSafetyStopAt(stopAt > Date.now() ? stopAt : null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch {
-        setSafetyMode(false);
+        // Surface it in the chat too — otherwise turning this on from the
+        // exchange screen (instead of the chat composer button) is invisible
+        // to the partner in their Messages list.
+        if (chatId) {
+          sendChatMessage(chatId, 'Canlı konum paylaşımı başlattı', null, 'location_invite', {
+            exchange_id: id,
+          });
+        }
+      } catch (error) {
         setSafetyStopAt(null);
-        toast.show('Arka plan konum izni reddedildi', { variant: 'error' });
+        if (error instanceof SafetyPermissionError) {
+          Alert.alert(
+            'Arka Plan Konum İzni Gerekli',
+            'Güvenlik modunu kullanabilmek için MeetBook\'un her zaman konumunuza erişmesine izin vermelisiniz.\n\nAyarlar > Uygulamalar > MeetBook > Konum bölümünden "Her Zaman" seçeneğini etkinleştirin.',
+            [
+              { text: 'İptal', style: 'cancel' },
+              { text: 'Ayarlara Git', onPress: () => Linking.openSettings() },
+            ]
+          );
+        } else {
+          toast.show('Güvenlik modu başlatılamadı', { variant: 'error' });
+        }
       }
     } else {
-      stopSafetyMode();
-      setSafetyMode(false);
+      stopNerdeyim();
       setSafetyStopAt(null);
     }
   };
@@ -681,7 +765,7 @@ export default function ExchangeDetailScreen() {
         <View style={[styles.divider, { backgroundColor: colors.textMuted + '30' }]} />
 
         <View style={styles.counterpartRow}>
-          <Avatar name={exchange.counterpart.name} size="medium" />
+          <Avatar name={exchange.counterpart.name} imageUrl={(exchange.counterpart as any).avatar_url ?? undefined} size="medium" />
           <View style={styles.counterpartInfo}>
             <Text style={[styles.counterpartLabel, { color: colors.textMuted }]}>
               {isOwner ? 'İsteyen' : 'Sahibi'}
@@ -954,6 +1038,19 @@ export default function ExchangeDetailScreen() {
                       testID="meetup-place-map"
                     >
                       <Marker coordinate={{ latitude: meetup.lat, longitude: meetup.lng }} />
+                      {/* Partner pin renders whenever we HAVE their location —
+                          it must not be gated on our own sharing state (that
+                          gate was the original "map never appears" bug). */}
+                      {partnerLocation && (
+                        <Marker
+                          coordinate={{
+                            latitude: partnerLocation.latitude,
+                            longitude: partnerLocation.longitude,
+                          }}
+                          pinColor="#34C759"
+                          testID="partner-location-marker"
+                        />
+                      )}
                     </MapView>
                     <View style={[styles.mapExpandOverlay, { backgroundColor: colors.primary + '99' }]}>
                       <Ionicons name="expand-outline" size={16} color="#ffffff" />
@@ -1123,7 +1220,7 @@ export default function ExchangeDetailScreen() {
 
           <View style={[styles.checklistDivider, { backgroundColor: colors.textMuted + '20' }]} />
           <Text style={[styles.checklistTitle, { color: colors.text }]}>Hazırlık Listesi</Text>
-          {CHECKLIST_ITEMS.map((label, index) => {
+          {checklistItems.map((label, index) => {
             const checked = checklist[index];
             return (
               <TouchableOpacity
@@ -1255,16 +1352,18 @@ export default function ExchangeDetailScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Safety Companion Mode */}
+      {/* Nerdeyim Modu — Live Location Sharing */}
       {meetup && exchange.status === 'meetup_confirmed' && (
-        <Card
-          style={[styles.safetyCard, { backgroundColor: colors.info + '10', borderColor: colors.info + '40' }]}
-        >
-          <View style={styles.safetyToggleRow}>
-            <View style={styles.safetyToggleInfo}>
-              <Text style={[styles.safetyTitle, { color: colors.text }]}>Güvenlik Modu</Text>
-              <Text style={[styles.safetyDescription, { color: colors.textMuted }]}>
-                Buluşma süresince konumunuzu güvenilir kişinizle paylaşın.
+        <Card style={[styles.safetyCard, { backgroundColor: colors.info + '10', borderColor: colors.info + '40' }]}>
+          {/* Header: icon + title + toggle */}
+          <View style={styles.safetyHeader}>
+            <View style={[styles.safetyIconWrap, { backgroundColor: colors.info + '30' }]}>
+              <Ionicons name="navigate" size={22} color={colors.info} />
+            </View>
+            <View style={styles.safetyHeaderText}>
+              <Text style={[styles.safetyTitle, { color: colors.text }]}>Nerdeyim Modu</Text>
+              <Text style={[styles.safetySubtitle, { color: colors.textMuted }]}>
+                Karşı tarafa canlı konum gönder
               </Text>
             </View>
             <Switch
@@ -1274,19 +1373,133 @@ export default function ExchangeDetailScreen() {
               thumbColor={safetyMode ? colors.surface : colors.surface}
               testID="safety-mode-toggle"
               accessibilityRole="switch"
-              accessibilityLabel="Güvenlik modu"
+              accessibilityLabel="Nerdeyim modu"
             />
           </View>
-          {safetyMode && (
-            <View style={[styles.safetyBadgeRow, { backgroundColor: colors.info + '20' }]}>
-              <Text style={[styles.safetyBadge, { color: colors.info }]} testID="safety-mode-badge">
-                🛡️ Güvenlik modu aktif
-              </Text>
-              {safetyCountdown ? (
-                <Text style={[styles.safetyCountdown, { color: colors.info }]}>
-                  Otomatik durma: {safetyCountdown}
+
+          {/* Partner is sharing but I'm not yet — prompt to reciprocate */}
+          {!safetyMode && partnerSharing && (
+            <View style={[styles.safetyReciprocatePanel, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
+              <View style={styles.safetyReciprocateTextWrap}>
+                <Ionicons name="locate" size={16} color={colors.success} />
+                <Text style={[styles.safetyReciprocateText, { color: colors.text }]} numberOfLines={2}>
+                  {exchange.counterpart.name} canlı konumunu paylaşıyor
                 </Text>
-              ) : null}
+              </View>
+              <TouchableOpacity
+                style={[styles.safetyReciprocateButton, { backgroundColor: colors.success }]}
+                onPress={() => onToggleSafetyMode(true)}
+                testID="safety-mode-reciprocate-button"
+              >
+                <Text style={styles.safetyReciprocateButtonText}>Sen de Paylaş</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Active status panel */}
+          {safetyMode && (
+            <View style={[styles.safetyActivePanel, { backgroundColor: colors.info + '20', borderColor: colors.info + '30' }]}>
+              {/* Live broadcasting row */}
+              <View style={styles.safetyLiveRow}>
+                <View style={styles.safetyLiveDotRow}>
+                  <PulseDot color={colors.success} />
+                  <Text style={[styles.safetyLiveLabel, { color: colors.text }]}>Canlı yayında</Text>
+                </View>
+                {safetyCountdown ? (
+                  <View style={[styles.safetyChip, { backgroundColor: colors.info + '30' }]}>
+                    <Ionicons name="time-outline" size={12} color={colors.info} />
+                    <Text style={[styles.safetyChipText, { color: colors.info }]}>{safetyCountdown}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Divider */}
+              <View style={[styles.safetyDivider, { backgroundColor: colors.info + '20' }]} />
+
+              {/* Partner status */}
+              <View style={styles.safetyPartnerRow}>
+                <Ionicons
+                  name={partnerLocation ? 'locate' : 'locate-outline'}
+                  size={16}
+                  color={partnerLocation ? colors.success : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.safetyPartnerText,
+                    { color: partnerLocation ? colors.success : colors.textMuted },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {partnerLocation
+                    ? `${exchange.counterpart.name} konum paylaşıyor`
+                    : `${exchange.counterpart.name} bekleniyor…`}
+                </Text>
+              </View>
+
+              {/* Last updated timestamp */}
+              {partnerLocation?.updated_at && (
+                <Text style={[styles.safetyTimestamp, { color: colors.textMuted }]}>
+                  Son güncelleme: {new Date(partnerLocation.updated_at).toLocaleTimeString('tr-TR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+              )}
+
+              {/* Divider */}
+              <View style={[styles.safetyDivider, { backgroundColor: colors.info + '20' }]} />
+
+              {/* Precision control */}
+              <View style={styles.safetyPrecisionRow}>
+                <Text style={[styles.safetyPrecisionLabel, { color: colors.textMuted }]}>Hassasiyet</Text>
+                <View style={[styles.safetyPrecisionSegment, { backgroundColor: colors.surface }]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.safetyPrecisionOption,
+                      locationPrecision === 'exact' && { backgroundColor: colors.info },
+                    ]}
+                    onPress={() => changePrecision('exact')}
+                    testID="location-precision-exact"
+                  >
+                    <Text
+                      style={[
+                        styles.safetyPrecisionOptionText,
+                        { color: locationPrecision === 'exact' ? '#ffffff' : colors.textMuted },
+                      ]}
+                    >
+                      Hassas
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.safetyPrecisionOption,
+                      locationPrecision === 'approximate' && { backgroundColor: colors.info },
+                    ]}
+                    onPress={() => changePrecision('approximate')}
+                    testID="location-precision-approximate"
+                  >
+                    <Text
+                      style={[
+                        styles.safetyPrecisionOptionText,
+                        { color: locationPrecision === 'approximate' ? '#ffffff' : colors.textMuted },
+                      ]}
+                    >
+                      Yaklaşık
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Explicit stop button — same effect as the header switch, kept
+                  here too since it reads clearer than a toggle mid-flow */}
+              <TouchableOpacity
+                style={[styles.safetyStopButton, { borderColor: colors.danger + '40' }]}
+                onPress={() => onToggleSafetyMode(false)}
+                testID="safety-mode-stop"
+              >
+                <Ionicons name="stop-circle-outline" size={16} color={colors.danger} />
+                <Text style={[styles.safetyStopButtonText, { color: colors.danger }]}>Paylaşımı Durdur</Text>
+              </TouchableOpacity>
             </View>
           )}
         </Card>
@@ -2169,45 +2382,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.bodySm,
     lineHeight: 18,
   },
-  safetyCard: {
-    padding: spacing.md,
-    borderWidth: 1,
-    gap: spacing.sm,
-  },
-  safetyToggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  safetyToggleInfo: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  safetyTitle: {
-    fontSize: fontSize.body,
-    fontWeight: '700',
-  },
-  safetyDescription: {
-    fontSize: fontSize.bodySm,
-    lineHeight: 18,
-  },
-  safetyBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 8,
-    gap: spacing.sm,
-  },
-  safetyBadge: {
-    fontSize: fontSize.bodySm,
-    fontWeight: '700',
-  },
-  safetyCountdown: {
-    fontSize: fontSize.caption,
-    fontWeight: '600',
-  },
   shareButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2318,4 +2492,190 @@ const styles = StyleSheet.create({
     fontSize: fontSize.body,
     fontWeight: '700',
   },
+
+  // Nerdeyim Modu — polished styles
+  safetyCard: {
+    padding: spacing.md,
+    borderWidth: 1,
+    gap: spacing.md,
+    borderRadius: radius.card,
+  },
+  safetyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  safetyIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  safetyHeaderText: {
+    flex: 1,
+    gap: 2,
+  },
+  safetyTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+  },
+  safetySubtitle: {
+    fontSize: fontSize.bodySm,
+  },
+  safetyActivePanel: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  safetyLiveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  safetyLiveDotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  safetyLiveLabel: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+  },
+  safetyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  safetyChipText: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+  },
+  safetyDivider: {
+    height: 1,
+  },
+  safetyPartnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  safetyPartnerText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+    flex: 1,
+  },
+  safetyTimestamp: {
+    fontSize: fontSize.caption,
+    marginTop: -2,
+    paddingLeft: 24,
+  },
+  safetyPrecisionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  safetyPrecisionLabel: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+  },
+  safetyPrecisionSegment: {
+    flexDirection: 'row',
+    borderRadius: radius.pill,
+    padding: 2,
+  },
+  safetyPrecisionOption: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+  },
+  safetyPrecisionOptionText: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+  },
+  safetyStopButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: radius.input,
+    borderWidth: 1,
+  },
+  safetyStopButtonText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+  },
+  safetyReciprocatePanel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radius.input,
+    borderWidth: 1,
+  },
+  safetyReciprocateTextWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+  },
+  safetyReciprocateText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+    flex: 1,
+  },
+  safetyReciprocateButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+  },
+  safetyReciprocateButtonText: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
 });
+
+
+// ---------------------------------------------------------------------------
+// Nerdeyim Modu — animated live indicator dot
+// ---------------------------------------------------------------------------
+function PulseDot({ color }: { color: string }) {
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [opacity]);
+
+  return (
+    <Animated.View
+      style={{
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: color,
+        opacity,
+      }}
+    />
+  );
+}

@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, router } from 'expo-router';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Badge, Button, InlineError, Input, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
-import { ApiError, register } from '@/lib/api/client';
+import { ApiError, checkUsernameAvailable, register } from '@/lib/api/client';
 import { setTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USERNAME_RE = /^[a-z0-9_]{3,30}$/;
 
 const STRENGTH_LABELS = ['Zayıf', 'Zayıf', 'Orta', 'İyi', 'Güçlü'];
 const STRENGTH_COLORS = ['', '#E5645A', '#E8A13A', '#E8C547', '#2FA36B'];
@@ -30,20 +31,54 @@ export default function RegisterScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [usernameTouched, setUsernameTouched] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const [kvkkConsent, setKvkkConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const usernameCheckId = useRef(0);
 
   const emailInvalid = email.length > 0 && !EMAIL_RE.test(email);
+  const usernameInvalid = usernameTouched && username.length > 0 && !USERNAME_RE.test(username);
   const passwordStrength = passwordScore(password);
   const canSubmit =
-    name.length > 0 && email.length > 0 && !emailInvalid && password.length >= 8 && kvkkConsent && !loading;
+    name.length > 0 &&
+    email.length > 0 &&
+    !emailInvalid &&
+    password.length >= 8 &&
+    USERNAME_RE.test(username) &&
+    usernameStatus !== 'taken' &&
+    kvkkConsent &&
+    !loading;
+
+  // Live @username availability check while typing, debounced.
+  useEffect(() => {
+    if (!USERNAME_RE.test(username)) {
+      setUsernameStatus('idle');
+      return;
+    }
+    setUsernameStatus('checking');
+    const requestId = ++usernameCheckId.current;
+    const timer = setTimeout(() => {
+      checkUsernameAvailable(username)
+        .then((res) => {
+          if (requestId !== usernameCheckId.current) return;
+          setUsernameStatus(res.available ? 'available' : 'taken');
+        })
+        .catch(() => {
+          if (requestId !== usernameCheckId.current) return;
+          setUsernameStatus('idle');
+        });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [username]);
 
   const onSubmit = async () => {
     setError(null);
     setLoading(true);
     try {
-      const result = await register({ email, password, name, kvkk_consent: kvkkConsent });
+      const result = await register({ email, password, name, username, kvkk_consent: kvkkConsent });
       await setTokens(result.access_token, result.refresh_token);
       setSession(result.user, {
         accessToken: result.access_token,
@@ -52,7 +87,7 @@ export default function RegisterScreen() {
       router.replace('/personality-books');
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setError('Bu e-posta zaten kayıtlı.');
+        setError('Bu e-posta veya kullanıcı adı zaten kayıtlı.');
       } else if (err instanceof ApiError && err.status === 422) {
         setError('Şifre en az 8 karakter olmalı.');
       } else {
@@ -84,6 +119,34 @@ export default function RegisterScreen() {
 
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
           <Input label="Ad Soyad" placeholder="Adınız" value={name} onChangeText={setName} />
+          <Input
+            label="Kullanıcı Adı"
+            placeholder="kullaniciadi"
+            value={username}
+            onChangeText={(v) => {
+              setUsernameTouched(true);
+              setUsername(v.toLowerCase().replace(/[^a-z0-9_]/g, ''));
+            }}
+            testID="register-username-input"
+            error={
+              usernameInvalid
+                ? 'En az 3 karakter — sadece küçük harf, rakam, alt çizgi'
+                : usernameStatus === 'taken'
+                  ? 'Bu kullanıcı adı alınmış'
+                  : undefined
+            }
+          />
+          {!usernameInvalid && username.length > 0 && (
+            <View style={styles.usernameStatusRow}>
+              {usernameStatus === 'checking' && <ActivityIndicator size="small" color={colors.textMuted} />}
+              {usernameStatus === 'available' && (
+                <>
+                  <Ionicons name="checkmark-circle" size={16} color="#2FA36B" />
+                  <Text style={[styles.usernameStatusText, { color: '#2FA36B' }]}>@{username} müsait</Text>
+                </>
+              )}
+            </View>
+          )}
           <Input
             label="E-posta"
             placeholder="ornek@eposta.com"
@@ -128,7 +191,13 @@ export default function RegisterScreen() {
               variant={kvkkConsent ? 'success' : 'info'}
             />
             <Text style={[styles.consentText, { color: colors.text }]}>
-              KVKK Aydınlatma Metni&apos;ni okudum ve kabul ediyorum.
+              <Text onPress={() => {
+                const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
+                Linking.openURL(`${apiUrl.replace(/\/api\/v1$/, '')}/legal/kvkk-aydinlatma-metni`);
+              }} style={{ textDecorationLine: 'underline', fontWeight: '600' }}>
+                KVKK Aydınlatma Metni
+              </Text>
+              {' ni okudum ve kabul ediyorum.'}
             </Text>
           </Pressable>
           {error && <InlineError message={error} />}
@@ -209,6 +278,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.input,
   },
   strengthLabel: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
+  },
+  usernameStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: -spacing.sm,
+  },
+  usernameStatusText: {
     fontSize: fontSize.caption,
     fontWeight: '600',
   },

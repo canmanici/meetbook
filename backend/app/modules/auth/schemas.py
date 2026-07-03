@@ -10,15 +10,33 @@ from pydantic import BaseModel, EmailStr, Field
 # ---------------------------------------------------------------------------
 
 
+USERNAME_PATTERN = r"^[a-z0-9_]{3,30}$"
+
+# Handles that would collide with app routes, system messages, or be
+# impersonation-prone (e.g. "@admin", "@meetbook") — blocked at registration
+# and profile-edit time, checked before the DB uniqueness check.
+RESERVED_USERNAMES = frozenset({
+    "admin", "administrator", "root", "system", "support", "help",
+    "meetbook", "official", "moderator", "mod", "staff", "team",
+    "api", "auth", "login", "logout", "register", "settings", "search",
+    "chat", "chats", "user", "users", "book", "books", "exchange",
+    "exchanges", "wishlist", "notifications", "notification", "me",
+    "null", "undefined", "anonymous", "deleted", "unknown", "test",
+})
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     name: str = Field(min_length=1, max_length=100)
+    username: str | None = Field(default=None, min_length=3, max_length=30, pattern=USERNAME_PATTERN)
     kvkk_consent: bool
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    # Despite the field name (kept for backward compatibility with existing
+    # clients), this accepts either an email address or a @username.
+    email: str = Field(min_length=1, max_length=255, description="E-posta veya kullanıcı adı")
     password: str
 
 
@@ -41,6 +59,7 @@ class PasswordResetConfirmRequest(BaseModel):
 
 class UpdateMeRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
+    username: str | None = Field(default=None, min_length=3, max_length=30, pattern=USERNAME_PATTERN)
     trusted_contact_name: str | None = Field(default=None, max_length=100)
     trusted_contact_phone: str | None = Field(default=None, max_length=20)
     geofence_radius_km: int | None = Field(default=None, ge=1, le=100)
@@ -63,12 +82,31 @@ class UserPublic(BaseModel):
     id: uuid.UUID
     email: EmailStr
     name: str
+    username: str
+    avatar_url: str | None = None
+
+
+class UserSearchResult(BaseModel):
+    id: uuid.UUID
+    name: str
+    username: str
+    avatar_url: str | None = None
+
+
+class UserSearchResponse(BaseModel):
+    items: list[UserSearchResult]
+
+
+class UsernameAvailabilityResponse(BaseModel):
+    available: bool
 
 
 class UserPublicProfile(BaseModel):
     """Public profile of a user, visible to other users — no PII email."""
     id: uuid.UUID
     name: str
+    username: str
+    avatar_url: str | None = None
     completed_exchanges: int = 0
     rating_average: float = 0
     rating_count: int = 0
@@ -99,6 +137,7 @@ class MeResponse(BaseModel):
     id: uuid.UUID
     email: EmailStr
     name: str
+    username: str
     avatar_url: str | None = None
     trusted_contact_name: str | None
     trusted_contact_phone: str | None

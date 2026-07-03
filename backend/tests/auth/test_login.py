@@ -21,11 +21,9 @@ async def test_login_success(client: httpx.AsyncClient) -> None:
     body = resp.json()
     assert "access_token" in body
     assert "refresh_token" in body
-    assert body["user"] == {
-        "id": body["user"]["id"],
-        "email": "login@example.com",
-        "name": "Test User",
-    }
+    assert body["user"]["email"] == "login@example.com"
+    assert body["user"]["name"] == "Test User"
+    assert body["user"]["username"]
 
 
 @pytest.mark.asyncio

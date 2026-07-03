@@ -35,6 +35,7 @@ export { EmojiPicker, QuickReactions } from './emoji-picker';
 export { ImageMessage } from './image-message';
 export { VoiceMessage } from './voice-message';
 export { LocationMessage } from './location-message';
+export { LocationInviteMessage } from './location-invite-message';
 export { BookCardMessage } from './book-card-message';
 export { SystemMessage } from './system-message';
 export { VoiceRecorder } from './voice-recorder';

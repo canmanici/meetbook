@@ -192,7 +192,7 @@ function MarkerPreviewCardImpl({
     try {
       await createExchange({
         book_id: book.id,
-        message: 'Merhaba, bu kitabı takas etmek isterim.',
+        initial_message: 'Merhaba, bu kitabı takas etmek isterim.',
       } as any);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       toast.show('Talep gönderildi', { variant: 'success' });

@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gizlilik Politikası — MeetBook</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #1a1a2e;
+    --accent: #0f3460;
+    --gold: #e2b714;
+    --text: #1a1a2e;
+    --text-light: #555;
+    --bg: #fafafa;
+    --card: #fff;
+    --border: #e0e0e0;
+    --radius: 12px;
+  }
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Roboto, Oxygen, Ubuntu, sans-serif;
+    line-height: 1.8;
+    color: var(--text);
+    background: var(--bg);
+    padding: 0;
+  }
+  .container { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+    color: #fff;
+    padding: 48px 0 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -40px;
+    left: -20%;
+    right: -20%;
+    height: 80px;
+    background: var(--bg);
+    border-radius: 50%;
+  }
+  .header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+  .header .meta { opacity: .85; font-size: .9rem; }
+  .header .meta span { display: inline-block; margin-right: 24px; }
+  .header .badge {
+    display: inline-block;
+    background: var(--gold);
+    color: var(--primary);
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 12px;
+  }
+
+  /* Navigation */
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin: 32px auto;
+    max-width: 860px;
+  }
+  .toc h2 { font-size: 1.1rem; margin-bottom: 16px; color: var(--accent); }
+  .toc ol { columns: 2; column-gap: 32px; list-style: none; counter-reset: toc; }
+  .toc li { counter-increment: toc; margin-bottom: 6px; break-inside: avoid; }
+  .toc li::before {
+    content: counter(toc) ".";
+    color: var(--gold);
+    font-weight: 700;
+    margin-right: 6px;
+  }
+  .toc a { color: var(--accent); text-decoration: none; font-size: .9rem; }
+  .toc a:hover { text-decoration: underline; }
+  @media (max-width: 600px) { .toc ol { columns: 1; } }
+
+  /* Content */
+  .content { padding: 0 0 60px; }
+  section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    margin-bottom: 20px;
+  }
+  section h2 {
+    font-size: 1.3rem;
+    color: var(--accent);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--gold);
+  }
+  section h3 {
+    font-size: 1.05rem;
+    color: var(--primary);
+    margin: 20px 0 10px;
+  }
+  section p { margin-bottom: 12px; text-align: justify; }
+  section ul, section ol { margin: 8px 0 16px 24px; }
+  section li { margin-bottom: 6px; }
+  section table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: .9rem;
+  }
+  section th, section td {
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  section th {
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+  }
+  section tr:nth-child(even) { background: #f5f5f5; }
+
+  .highlight-box {
+    background: #fff8e1;
+    border-left: 4px solid var(--gold);
+    padding: 16px 20px;
+    margin: 16px 0;
+    border-radius: 0 8px 8px 0;
+  }
+  .highlight-box strong { color: var(--primary); }
+
+  .back-to-top {
+    display: block;
+    text-align: right;
+    margin-top: 8px;
+  }
+  .back-to-top a {
+    color: var(--accent);
+    font-size: .85rem;
+    text-decoration: none;
+  }
+  .back-to-top a:hover { text-decoration: underline; }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 32px 0;
+    color: var(--text-light);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  .footer strong { color: var(--primary); }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .header h1 { font-size: 1.5rem; }
+    section { padding: 20px; }
+    section table { font-size: .8rem; }
+    section th, section td { padding: 6px 8px; }
+  }
+  @media print {
+    .toc { break-after: page; }
+    section { break-inside: avoid; border: none; box-shadow: none; }
+    .back-to-top { display: none; }
+    body { font-size: 11pt; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== HEADER ========== -->
+<div class="header">
+  <div class="container">
+    <div class="badge">Yasal Belge · Sürüm 1.0</div>
+    <h1>Gizlilik Politikası</h1>
+    <p class="meta">
+      <span>📅 Yürürlük Tarihi: 2 Temmuz 2026</span>
+      <span>📄 Sürüm: 1.0</span>
+      <span>⚖️ KVKK'ya uygun olarak hazırlanmıştır</span>
+    </p>
+  </div>
+</div>
+
+<!-- ========== TABLE OF CONTENTS ========== -->
+<div class="toc">
+  <h2>İçindekiler</h2>
+  <ol>
+    <li><a href="#bolum-1">Giriş ve Tanımlar</a></li>
+    <li><a href="#bolum-2">Veri Sorumlusu Kimliği</a></li>
+    <li><a href="#bolum-3">İşlenen Kişisel Verilerin Kategorizasyonu</a></li>
+    <li><a href="#bolum-4">Veri İşleme Amaçları ve Hukuki Sebepler</a></li>
+    <li><a href="#bolum-5">Otomatik Karar Alma ve Profil Oluşturma</a></li>
+    <li><a href="#bolum-6">Verilerin Aktarılması</a></li>
+    <li><a href="#bolum-7">Veri Toplama Yöntemleri</a></li>
+    <li><a href="#bolum-8">Veri Saklama Süreleri</a></li>
+    <li><a href="#bolum-9">Veri Güvenliği</a></li>
+    <li><a href="#bolum-10">İlgili Kişi Hakları</a></li>
+    <li><a href="#bolum-11">Hakların Kullanılması ve Başvuru Süreci</a></li>
+    <li><a href="#bolum-12">Politika Değişiklikleri</a></li>
+    <li><a href="#bolum-13">Yürürlük ve İletişim</a></li>
+  </ol>
+</div>
+
+<!-- ========== CONTENT ========== -->
+<div class="content container">
+
+<!-- Bölüm 1 -->
+<section id="bolum-1">
+  <h2>1. Giriş ve Tanımlar</h2>
+  <p><strong>MeetBook</strong> ("Platform", "Uygulama" veya "Biz") olarak, kullanıcılarımızın ("Veri Sahibi", "Kullanıcı" veya "Siz") kişisel verilerinin korunmasına azami önem vermekteyiz. İşbu Gizlilik Politikası ("Politika"), 6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") ve ilgili mevzuat kapsamında, kişisel verilerinizin işlenme amaçlarını, hukuki sebeplerini, aktarım şartlarını, saklama sürelerini ve haklarınızı açıklamak amacıyla hazırlanmıştır.</p>
+
+  <h3>Tanımlar</h3>
+  <ul>
+    <li><strong>KVKK:</strong> 7 Nisan 2016 tarihli ve 29677 sayılı Resmî Gazete'de yayımlanan 6698 sayılı Kişisel Verilerin Korunması Kanunu.</li>
+    <li><strong>Kişisel Veri:</strong> Kimliği belirli veya belirlenebilir gerçek kişiye ilişkin her türlü bilgi.</li>
+    <li><strong>Özel Nitelikli Kişisel Veri:</strong> KVKK md.6'da sayılan, hukuka aykırı işlenmesi hâlinde ilgili kişi bakımından ayrıcalıklı koruma gerektiren veriler (ırk, etnik köken, siyasi düşünce, biyometrik veri, sağlık, cinsel hayat vb.). <strong>MeetBook, hiçbir şekilde özel nitelikli kişisel veri toplamamaktadır.</strong></li>
+    <li><strong>Veri Sorumlusu:</strong> Kişisel verilerin işleme amaçlarını ve vasıtalarını belirleyen, veri kayıt sisteminin kurulmasından ve yönetilmesinden sorumlu olan gerçek veya tüzel kişi.</li>
+    <li><strong>İlgili Kişi / Veri Sahibi:</strong> Kişisel verisi işlenen gerçek kişi (Siz, kullanıcı).</li>
+    <li><strong>Veri İşleyen:</strong> Veri sorumlusu adına kişisel verileri onun verdiği yetkiye uygun olarak işleyen gerçek veya tüzel kişi.</li>
+    <li><strong>İşleme:</strong> Kişisel verilerin tamamen veya kısmen otomatik olan ya da herhangi bir veri kayıt sisteminin parçası olmak kaydıyla otomatik olmayan yollarla elde edilmesi, kaydedilmesi, depolanması, saklanması, değiştirilmesi, yeniden düzenlenmesi, açıklanması, aktarılması, devralınması, elde edilebilir hâle getirilmesi, sınıflandırılması ya da kullanılması gibi veriler üzerinde gerçekleştirilen her türlü işlem.</li>
+    <li><strong>Açık Rıza:</strong> Belirli bir konuya ilişkin, bilgilendirilmeye dayanan ve özgür iradeyle açıklanan rıza.</li>
+    <li><strong>Platform / Uygulama:</strong> MeetBook adlı mobil uygulama ve ilişkili web servisleri.</li>
+    <li><strong>Hizmet:</strong> MeetBook Platformu üzerinden sunulan kitap takası, ödünç verme, kitap keşfi, kullanıcılar arası iletişim ve ilişkili tüm hizmetler.</li>
+  </ul>
+  <p>İşbu Politika, Platform'un sunduğu tüm hizmetler için geçerlidir. Üçüncü taraf hizmet sağlayıcılarının kendi gizlilik politikalarına tabi olduğu hâllerde, ilgili politikalara yönlendirme yapılacaktır.</p>
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 2 -->
+<section id="bolum-2">
+  <h2>2. Veri Sorumlusu Kimliği</h2>
+  <p>KVKK uyarınca, kişisel verilerinizin veri sorumlusu aşağıda belirtilen kişidir:</p>
+  <table>
+    <tr><th>Unvan</th><td>MeetBook (Can Manici tarafından işletilmektedir)</td></tr>
+    <tr><th>Ad / Soyad</th><td>Can Manici</td></tr>
+    <tr><th>İletişim Adresi</th><td>İstanbul, Türkiye</td></tr>
+    <tr><th>E-posta (Destek)</th><td><a href="mailto:support@meetbook.com">support@meetbook.com</a></td></tr>
+    <tr><th>E-posta (Hata Bildirimi)</th><td><a href="mailto:canmanici@gmail.com">canmanici@gmail.com</a></td></tr>
+    <tr><th>Uygulama Adı</th><td>MeetBook</td></tr>
+  </table>
+  <p>Veri sorumlusu, kişisel verilerinizin işlenmesi, saklanması, aktarılması ve imhasına ilişkin tüm süreçlerden sorumlu olup, KVKK ve ilgili mevzuat kapsamındaki tüm yükümlülükleri yerine getirmekle yükümlüdür.</p>
+
+  <div class="highlight-box">
+    <strong>Önemli:</strong> Veri sorumlusu, KOBİ ölçeğinde bir mikro girişim olup, kişisel verilerinizin korunmasına ilişkin her türlü talebinizi yukarıdaki iletişim kanalları aracılığıyla iletebilirsiniz. Talepleriniz 30 (otuz) gün içinde ücretsiz olarak sonuçlandırılacaktır.
+  </div>
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 3 -->
+<section id="bolum-3">
+  <h2>3. İşlenen Kişisel Verilerin Kategorizasyonu</h2>
+  <p>MeetBook, Platform'un sunduğu hizmetler kapsamında aşağıda kategorize edilen kişisel verilerinizi işlemektedir. Her bir veri kategorisi, işleme amacı ve hukuki sebep ile birlikte Bölüm 4'te tablo halinde sunulmuştur.</p>
+
+  <h3>3.1. Kimlik ve İletişim Verileri</h3>
+  <p>Kullanıcının doğrudan kendini tanımlayan ve iletişim kurmaya yarayan verileridir.</p>
+  <ul>
+    <li><strong>Ad / Soyad</strong> — Kullanıcının uygulama içinde görünen adı. Hesap silinmesi durumunda "Silinmiş Hesap" olarak anonimleştirilir.</li>
+    <li><strong>E-posta Adresi</strong> — Hesap açılışı ve bildirimler için zorunludur. Hesap silindiğinde <code>deleted-{uuid}@anon</code> formatına dönüştürülür.</li>
+    <li><strong>Telefon Numarası</strong> — İsteğe bağlı olup, ilk takas talebi öncesinde doğrulama için kullanılır. Hesap silindiğinde tamamen silinir.</li>
+    <li><strong>Profil Fotoğrafı (Avatar)</strong> — İsteğe bağlı olup, JPEG/PNG/WebP formatında, maksimum 5 MB boyutunda yüklenebilir. EXIF GPS verileri sunucu tarafında temizlenir.</li>
+    <li><strong>Güvenilir Kişi Adı ve Telefonu</strong> — Acil durum ve güvenlik amaçlı isteğe bağlı verilerdir. Hesap silindiğinde tamamen silinir.</li>
+  </ul>
+
+  <h3>3.2. Konum Verileri</h3>
+  <p>MeetBook'un temel hizmetlerinden biri, kullanıcıların yakınındaki kitapları keşfetmesine olanak sağlamaktır. Bu kapsamda konum verileri titizlikle işlenmekte ve korunmaktadır.</p>
+  <ul>
+    <li><strong>Kitap Gerçek Konumu</strong> — Kitabın fiziksel olarak bulunduğu nokta (enlem/boylam). <strong>Bu veri kesinlikle diğer kullanıcılara gösterilmez.</strong> Yalnızca yakınlık hesaplaması için kullanılır. Veri tabanında <code>geography(Point, 4326)</code> formatında, GiST indeksli olarak saklanır.</li>
+    <li><strong>Kitap Genel Konumu</strong> — Kitabın yaklaşık 1 km² çözünürlükte bulanıklaştırılmış konumu. Diğer kullanıcılara harita üzerinde gösterilen veri budur. Gerçek konumdan ve adresten ayrıştırılarak mahremiyetinizi korur.</li>
+    <li><strong>Kullanıcı Konumu (Anlık)</strong> — Uygulamanın harita görünümünde kitapları görüntülemek için kullanılan anlık konum. <strong>Sunucuda saklanmaz,</strong> yalnızca istemci tarafında API sorgusu için kullanılır.</li>
+    <li><strong>Buluşma Konumları</strong> — Kullanıcıların takas/ödünç buluşması için önerdikleri veya onayladıkları yerlerin koordinatları. Saklanır ancak yalnızca buluşmanın tarafları görebilir.</li>
+    <li><strong>Güvenlik Modu Konumu (Arka Plan)</strong> — Kullanıcının açık rızası ile aktivleştirilen güvenlik modu sırasında, belirlenen süre boyunca arka planda toplanan konum verisidir. Yalnızca buluşma süresince toplanır ve <strong>30 gün sonra otomatik olarak silinir.</strong></li>
+    <li><strong>Coğrafi Sınır (Geofence) Uyarıları</strong> — İstek listenizdeki bir kitap, belirlediğiniz yarıçap içinde göründüğünde tetiklenen otomatik bildirimler. Bu işlem yalnızca sunucu tarafında gerçekleşir, konumunuz sürekli izlenmez.</li>
+  </ul>
+
+  <h3>3.3. Kullanıcı İçerik Verileri</h3>
+  <p>Kullanıcıların Platform üzerinde oluşturduğu, yüklediği veya paylaştığı her türlü içerik:</p>
+  <ul>
+    <li><strong>Kitap Fotoğrafları</strong> — JPEG/PNG/WebP formatında, maksimum 10 MB, sunucu tarafında yeniden kodlanır ve EXIF GPS verileri temizlenir.</li>
+    <li><strong>Kitap Bilgileri</strong> — Başlık, yazar, ISBN, açıklama, kategori, dil, durum bilgisi.</li>
+    <li><strong>Mesaj İçerikleri</strong> — Diğer kullanıcılarla yapılan yazışmalar (metin, resim, ses kaydı, konum kartı, kitap kartı). Maksimum 2.000 karakter.</li>
+    <li><strong>Değerlendirme ve Yorumlar</strong> — Takas sonrası karşılıklı puanlama (1-5) ve isteğe bağlı yorum. <strong>Çift taraflı gizli sistem:</strong> Karşılıklı puanlama yapılana veya 14 gün geçene kadar gizlidir.</li>
+    <li><strong>İstek Listesi (Wishlist)</strong> — Kullanıcının okumak istediği kitapların ISBN bazlı listesi, kişisel notlar, paylaşımlı liste üyeleri.</li>
+    <li><strong>Ödünç Kanıt Fotoğrafları</strong> — Ödünç verme/iade sürecinde teslimatı kanıtlamak için çekilen fotoğraflar.</li>
+  </ul>
+
+  <h3>3.4. İşlem Güvenliği Verileri</h3>
+  <p>Platform'un güvenliğini sağlamak ve hukuki yükümlülükleri yerine getirmek için işlenen veriler:</p>
+  <ul>
+    <li><strong>IP Adresi</strong> — Her API isteğinde otomatik olarak kaydedilir. Audit log'larında saklanır. Kişisel veri olarak kabul edilir.</li>
+    <li><strong>Cihaz Bilgisi</strong> — Platform, OS sürümü, model, bellek miktarı, emülatör durumu (yalnızca çökme raporlarında).</li>
+    <li><strong>Kullanıcı Ajanı (User-Agent)</strong> — Tarayıcı/istemci tanımlama bilgisi, audit log'larında saklanır.</li>
+    <li><strong>Eylem Günlükleri (Audit Log)</strong> — Kayıt, giriş, çıkış, şifre sıfırlama, hesap silme gibi kritik işlemlerin zaman damgalı kayıtları. <strong>Bir veri ihlali durumunda 72 saat içinde KVKK'ya bildirim yükümlülüğümüzü yerine getirmek için yapılandırılmıştır.</strong></li>
+    <li><strong>Yenileme Token'ları (Refresh Token)</strong> — Cihaz bilgisi, oluşturma/son geçerlilik/iptal zaman damgaları, aile kimliği ve döngü tespiti için kullanılır.</li>
+    <li><strong>Şifre Sıfırlama Token'ları</strong> — Hash'lenmiş olarak, 15 dakika geçerlilik süresiyle saklanır.</li>
+    <li><strong>Push Bildirim Token'ları</strong> — Expo Push Notification servisi için kullanılan token. Platform (Android/iOS) ve cihaz ID'si ile birlikte saklanır.</li>
+  </ul>
+
+  <h3>3.5. İşlem ve Takas Verileri</h3>
+  <ul>
+    <li><strong>Takas Talepleri</strong> — Talep durumu (beklemede/kabul edildi/buluşma önerildi/buluşma onaylandı/tamamlanma beklentisinde/tamamlandı).</li>
+    <li><strong>Ödünç Süreçleri</strong> — Ödünç süresi (gün), bitiş tarihi, uzatma talepleri, gecikme durumu.</li>
+    <li><strong>Kitap Kullanım Geçmişi</strong> — Hangi kullanıcının hangi kitabı takas ettiği veya ödünç aldığına dair kayıtlar.</li>
+    <li><strong>Kitap Görüntülenme ve Favori Sayıları</strong> — Anonim, toplu istatistikler.</li>
+  </ul>
+
+  <h3>3.6. Hukuki İşlem Verileri</h3>
+  <ul>
+    <li><strong>Şikayet/Rapor Kayıtları</strong> — Kullanıcı, kitap, mesaj veya yer şikayetleri. İçerik anlık görüntüsü (snapshot) ile birlikte, orijinal içerik silinse delse kanıt olarak korunur.</li>
+    <li><strong>Yasaklama/Uzaklaştırma Kayıtları</strong> — Admin tarafından verilen yasaklama/uzaklaştırma kararları, sebepleri ve tarihleri.</li>
+    <li><strong>Moderatör Notları</strong> — Admin panel üzerinden tutulan denetim notları.</li>
+  </ul>
+
+  <h3>3.7. Güven Puanı ve Derecelendirme Verileri</h3>
+  <ul>
+    <li><strong>Güven Puanı Bileşenleri:</strong> Zamanında iade oranı (%50), puanlama ortalaması (%30), deneyim (%20).</li>
+    <li><strong>Puan Geçmişi</strong> — Her bir takas sonrası alınan puanlar.</li>
+    <li><strong>Kefillik (Vouch) Bilgileri</strong> — Kullanıcıların birbirine kefil olma işlemleri.</li>
+    <li><strong>Admin Güven Puanı Müdahalesi</strong> — Admin tarafından manuel olarak atanan güven puanı ve gerekçesi.</li>
+  </ul>
+
+  <h3>3.8. Çerez Benzeri Veriler</h3>
+  <p>MeetBook, kullanıcı takibi amacıyla çerez (cookie) kullanmamaktadır. Yalnızca aşağıdaki amaçlarla, cihaz üzerinde yerel depolama (local storage) kullanılmaktadır:</p>
+  <ul>
+    <li><strong>Erişim/Yenileme Token'ları</strong> — Expo SecureStore (iOS: Keychain, Android: EncryptedSharedPreferences) üzerinde güvenli şekilde saklanır.</li>
+    <li><strong>Uygulama Tercihleri</strong> — Bildirim ayarları, tema tercihi gibi kullanıcı ayarları cihazda yerel olarak saklanır.</li>
+  </ul>
+  <p><strong>MeetBook, kesinlikle üçüncü taraf izleme çerezi, reklam çerezi, analitik çerezi veya benzeri takip mekanizması kullanmamaktadır.</strong></p>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 4 -->
+<section id="bolum-4">
+  <h2>4. Veri İşleme Amaçları ve Hukuki Sebepler</h2>
+  <p>Aşağıdaki tabloda, işlenen her bir veri kategorisi için işleme amacı, hukuki sebep ve verinin toplanma yöntemi belirtilmiştir. KVKK md.5 ve md.6'da belirtilen hukuki sebeplere dayanılarak işleme faaliyetleri yürütülmektedir.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Veri Kategorisi</th>
+        <th>İşleme Amacı</th>
+        <th>Hukuki Sebep (KVKK md.5)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Ad / Soyad</td>
+        <td>Hesap oluşturma, kullanıcı profili görüntüleme, platform içi tanımlama</td>
+        <td>Sözleşmenin kurulması ve ifası (md.5/2-c)</td>
+      </tr>
+      <tr>
+        <td>E-posta Adresi</td>
+        <td>Hesap açılışı, giriş, şifre sıfırlama, bildirimler, hukuki bildirimler</td>
+        <td>Sözleşmenin kurulması ve ifası (md.5/2-c), Hukuki yükümlülük (md.5/2-ç)</td>
+      </tr>
+      <tr>
+        <td>Telefon Numarası</td>
+        <td>Kullanıcı doğrulama, hesap güvenliği (isteğe bağlı)</td>
+        <td>Sözleşmenin ifası (md.5/2-c), Açık rıza (md.5/1)</td>
+      </tr>
+      <tr>
+        <td>Profil Fotoğrafı</td>
+        <td>Kullanıcı profilinin kişiselleştirilmesi, güven artırımı</td>
+        <td>Açık rıza (md.5/1)</td>
+      </tr>
+      <tr>
+        <td>Güvenilir Kişi Bilgisi</td>
+        <td>Acil durum ve güvenlik amaçlı irtibat</td>
+        <td>Açık rıza (md.5/1)</td>
+      </tr>
+      <tr>
+        <td>Kitap Gerçek Konumu</td>
+        <td>Yakınlık hesaplaması, çevredeki kitapları keşif</td>
+        <td>Sözleşmenin ifası (md.5/2-c)</td>
+      </tr>
+      <tr>
+        <td>Kitap Genel Konumu (Bulanık)</td>
+        <td>Harita üzerinde kitap görüntüleme, yakınlık bilgisi</td>
+        <td>Sözleşmenin ifası (md.5/2-c)</td>
+      </tr>
+      <tr>
+        <td>Buluşma Konumları</td>
+        <td>Takas/ödünç buluşmalarının organize edilmesi, güvenlik</td>
+        <td>Sözleşmenin ifası (md.5/2-c), Açık rıza (Güvenlik Modu için)</td>
+      </tr>
+      <tr>
+        <td>Mesaj İçerikleri</td>
+        <td>Kullanıcılar arası iletişim, takas/ödünç sürecinin yürütülmesi</td>
+        <td>Sözleşmenin ifası (md.5/2-c)</td>
+      </tr>
+      <tr>
+        <td>Kitap Fotoğrafları ve Bilgileri</td>
+        <td>Kitap listeleme, keşif, takas/ödünç süreci</td>
+        <td>Sözleşmenin ifası (md.5/2-c)</td>
+      </tr>
+      <tr>
+        <td>Değerlendirme ve Puanlar</td>
+        <td>Güven puanı hesaplama, kullanıcı güvenilirliğini değerlendirme</td>
+        <td>Meşru menfaat (md.5/2-f), Sözleşmenin ifası</td>
+      </tr>
+      <tr>
+        <td>IP Adresi</td>
+        <td>Güvenlik, dolandırıcılık tespiti, hukuki yükümlülükler, audit log</td>
+        <td>Hukuki yükümlülük (md.5/2-ç), Meşru menfaat (md.5/2-f)</td>
+      </tr>
+      <tr>
+        <td>Cihaz Bilgisi / Crash Raporları</td>
+        <td>Hata ayıklama, uygulama kararlılığı, performans iyileştirme</td>
+        <td>Meşru menfaat (md.5/2-f)</td>
+      </tr>
+      <tr>
+        <td>Eylem Günlükleri (Audit Log)</td>
+        <td>Güvenlik denetimi, hukuki uyuşmazlık durumunda kanıt, KVKK uyumu</td>
+        <td>Hukuki yükümlülük (md.5/2-ç), Meşru menfaat (md.5/2-f)</td>
+      </tr>
+      <tr>
+        <td>Şikayet/Rapor Kayıtları</td>
+        <td>Platform güvenliği, kullanıcı denetimi, hukuki uyuşmazlıkların çözümü</td>
+        <td>Hukuki yükümlülük (md.5/2-ç), Meşru menfaat (md.5/2-f)</td>
+      </tr>
+      <tr>
+        <td>Push Bildirim Token'ları</td>
+        <td>Bildirim gönderimi (mesaj, takas teklifi, hatırlatma, wishlist eşleşmesi)</td>
+        <td>Sözleşmenin ifası (md.5/2-c), Açık rıza (bildirim tercihlerine göre)</td>
+      </tr>
+      <tr>
+        <td>KVKK Onay Bilgisi</td>
+        <td>KVKK uyumluluğu, yasal yükümlülüklerin yerine getirilmesi</td>
+        <td>Hukuki yükümlülük (md.5/2-ç)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>4.1. Açık Rızaya Dayalı İşlemeler</h3>
+  <p>Aşağıdaki işleme faaliyetleri, KVKK md.5/1 uyarınca açık rızanıza dayanmaktadır. Bu işlemeler için ayrıca açık rızanız alınmakta olup, rızanızı her zaman geri çekme hakkına sahipsiniz:</p>
+  <ul>
+    <li>Profil fotoğrafı yükleme</li>
+    <li>Güvenilir kişi bilgisi paylaşımı</li>
+    <li>Güvenlik modu sırasında arka plan konum takibi</li>
+    <li>Google Places API üzerinden yurtdışına veri aktarımı (bkz. Bölüm 6)</li>
+    <li>Bildirim tercihlerine bağlı olarak push bildirim gönderimi</li>
+  </ul>
+
+  <h3>4.2. Özel Nitelikli Kişisel Veriler</h3>
+  <p><strong>MeetBook, hiçbir şekilde özel nitelikli kişisel veri (sağlık, biyometrik, genetik, cinsel hayat, ceza mahkûmiyeti, ırk, etnik köken, siyasi düşünce, felsefi inanç, din, mezhep, dernek/vakıf/ sendika üyeliği) toplamamakta veya işlememektedir.</strong> Bu tür verileri tarafımıza iletmemenizi rica ederiz; iletildiği takdirde bu verileri derhâl sileceğiz.</p>
+
+  <h3>4.3. Profil Oluşturma ve Otomatik Karar Almaya İlişkin Detaylı Açıklama</h3>
+  <p>MeetBook, platform güvenliğini sağlamak ve kullanıcılar arası güven ortamını tesis etmek amacıyla, kullanıcıların platform üzerindeki eylemlerine dayalı olarak otomatik <strong>Güven Puanı (Trust Score)</strong> hesaplaması yapmaktadır. Bu sistem, KVKK md.11/g kapsamında profil oluşturma (profiling) ve otomatik karar alma niteliğindedir. İşbu bölümde, sistemin algoritmik işleyişi, kullanılan veri noktaları, ağırlıklandırma ve eşik değerleri detaylı olarak açıklanmaktadır.</p>
+
+  <p><strong>Güven Puanı Algoritması:</strong></p>
+  <ul>
+    <li><strong>Zamanında İade Oranı — Ağırlık: %50</strong>
+      <ul>
+        <li><strong>Hesaplama:</strong> Kullanıcının tamamlanmış ödünç işlemlerinde, kitapları belirtilen süre içinde iade etme yüzdesi. (Zamanında iade sayısı / Toplam tamamlanmış ödünç sayısı) × 100.</li>
+        <li><strong>Veri Kaynağı:</strong> Ödünç kayıtları (ödünç veriliş tarihi, belirlenen iade tarihi, fiili iade tarihi).</li>
+        <li><strong>Etkisi:</strong> Bu bileşen, güven puanının en önemli belirleyicisidir. Bir gecikme, puanı ortalama 5-10 puan düşürebilirken, birden fazla gecikme ciddi puan kaybına yol açar.</li>
+      </ul>
+    </li>
+    <li><strong>Puanlama Ortalaması — Ağırlık: %30</strong>
+      <ul>
+        <li><strong>Hesaplama:</strong> Diğer kullanıcılardan alınan 1-5 arası puanların aritmetik ortalaması. Yalnızca tamamlanmış takas/ödünç işlemleri sonrası alınan puanlar dikkate alınır.</li>
+        <li><strong>Veri Kaynağı:</strong> Değerlendirme kayıtları (puan, yorum, işlem ID'si, zaman damgası).</li>
+        <li><strong>Etkisi:</strong> 4,5 ve üzeri ortalama, bu bileşenden tam puan alınmasını sağlar. 3,0 altı ortalama, bu bileşende ciddi kayba yol açar.</li>
+        <li><strong>Korumalı Dönem:</strong> Puanlar, çift taraflı gizlilik sistemi nedeniyle karşılıklı puanlama yapılana veya 14 gün geçene kadar hesaplamaya dahil edilmez.</li>
+      </ul>
+    </li>
+    <li><strong>Deneyim — Ağırlık: %20</strong>
+      <ul>
+        <li><strong>Hesaplama:</strong> Tamamlanan takas sayısı (adet) ve hesap yaşı (gün) baz alınarak logaritmik bir skor hesaplanır. Formül: <code>min(100, log₂(tamamlama_sayısı + 1) × 20 + log₂(hesap_yaşı_gün + 1) × 10)</code>.</li>
+        <li><strong>Veri Kaynağı:</strong> Takas kayıtları, hesap oluşturma zaman damgası.</li>
+        <li><strong>Etkisi:</strong> 10'dan fazla tamamlanmış takas ve 90 günden eski hesap, bu bileşenden yüksek puan alınmasını sağlar. Yeni hesaplar bu bileşenden düşük puan alır.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <p><strong>Güven Puanı Eşik Değerleri ve Sonuçları:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Puan Aralığı</th>
+        <th>Seviye</th>
+        <th>Etiket Rengi</th>
+        <th>Kullanıcıya Etkileri</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>90 — 100</td>
+        <td>Premium Güven</td>
+        <td>Altın</td>
+        <td>Tüm özellikler açık. Yüksek öncelikli destek. Sınırsız kitap listeleme ve takas talebi.</td>
+      </tr>
+      <tr>
+        <td>70 — 89</td>
+        <td>Yüksek Güven</td>
+        <td>Yeşil</td>
+        <td>Tüm özellikler açık. Sınırsız kitap listeleme ve takas talebi.</td>
+      </tr>
+      <tr>
+        <td>40 — 69</td>
+        <td>Orta Güven</td>
+        <td>Sarı</td>
+        <td>Standart limitler: en fazla 10 aktif kitap, 5 giden takas talebi. İade hatırlatmaları daha sık.</td>
+      </tr>
+      <tr>
+        <td>20 — 39</td>
+        <td>Düşük Güven (Riskli)</td>
+        <td>Kırmızı</td>
+        <td>En fazla 3 aktif kitap, 3 giden takas talebi. Her takas için ek güvenlik önlemleri (telefon doğrulama, kefil zorunluluğu). Artırılmış izleme.</td>
+      </tr>
+      <tr>
+        <td>0 — 19</td>
+        <td>Çok Düşük Güven (Bloke)</td>
+        <td>Siyah</td>
+        <td>Takas/ödünç işlemleri geçici olarak durdurulur. Kullanıcı yalnızca mevcut kitaplarını görüntüleyebilir ve mesajlaşabilir. Yeni işlem başlatamaz.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p><strong>Puan Güncelleme Sıklığı:</strong> Güven puanı, her tamamlanan takas/ödünç işlemi sonrasında ve her gün bir background worker tarafından otomatik olarak yeniden hesaplanır. Puan değişiklikleri kullanıcıya push bildirimi ile bildirilir.</p>
+
+  <p><strong>Negatif Puanlama Faktörleri:</strong></p>
+  <ul>
+    <li>Kitabın belirtilen sürede iade edilmemesi (gecikme günü başına -2 puan, maksimum -20 puan),</li>
+    <li>Bir kullanıcıdan 1 veya 2 puan alınması (her düşük puan için -5 puan),</li>
+    <li>Hesabın askıya alınmasına neden olan bir ihlal (-30 puan),</li>
+    <li>Birden fazla kullanıcı tarafından şikayet edilme (doğrulanmış şikayet başına -10 puan).</li>
+  </ul>
+
+  <p><strong>Puan Sıfırlama:</strong> Kullanıcı, 180 gün boyunca hiçbir olumsuz işlem yapmazsa ve en az 5 başarılı takas tamamlarsa, negatif puan etkileri kademeli olarak silinir. Bu mekanizma, kullanıcılara hatalarından sonra toparlanma şansı verir.</p>
+
+  <h3>4.4. Reşit Olmayan Kullanıcı Verilerinin İşlenmesi</h3>
+  <div class="highlight-box">
+    <strong>Önemli Uyarı:</strong> MeetBook Platformu, yalnızca 18 (on sekiz) yaş ve üzeri kullanıcılara yöneliktir. Platform'a kayıt olarak, 18 yaşını doldurduğunuzu beyan ve taahhüt etmektesiniz.
+  </div>
+
+  <ul>
+    <li><strong>18 Yaş Altı Kullanım Yasağı:</strong> MeetBook, reşit olmayan (18 yaş altı) bireylere yönelik bir hizmet değildir. Platform, bilinçli olarak reşit olmayan kullanıcılardan veri toplamaz, bu amaçla tasarlanmamıştır. Kayıt sırasında kullanıcıdan yaş doğrulaması talep edilir ve 18 yaş altı olduğunu beyan eden kullanıcıların kaydı engellenir.</li>
+    <li><strong>İstemeden İşlenen Reşit Olmayan Verileri:</strong> Bir kullanıcının kayıt sırasında yaşını yanlış beyan etmesi veya başka bir şekilde reşit olmayan bir kişiye ait verilerin Platform'a yüklenmesi durumunda, bu verilerin işlenmesi hukuka aykırıdır. MeetBook, bu tür verileri tespit ettiği anda, herhangi bir bildirim süresine tabi olmaksızın <strong>derhâl</strong> siler ve işlemeyi durdurur.</li>
+    <li><strong>Tespit ve Silme Süreci:</strong>
+      <ul>
+        <li>Reşit olmayan kullanıcı verilerinin tespiti hâlinde, ilgili hesap derhâl askıya alınır.</li>
+        <li>Hesaba ait tüm kişisel veriler (ad, e-posta, telefon, profil fotoğrafı, konum verileri, mesajlar, kitaplar) en geç <strong>48 (kırk sekiz) saat</strong> içinde kalıcı olarak silinir.</li>
+        <li>Yasal yükümlülükler kapsamında saklanması gereken takas iskelet kayıtları (varsa), reşit olmayan kullanıcıya ait tüm tanımlayıcı bilgilerden arındırılarak anonimleştirilir.</li>
+        <li>Silme işlemi, kayıt altına alınır ve belgelendirilir.</li>
+      </ul>
+    </li>
+    <li><strong>Adli Makamlara Bildirim:</strong> Reşit olmayan bir kullanıcının, yaşını yanlış beyan ederek Platform'a kaydolduğunun tespit edilmesi ve bu durumun bir suç teşkil etmesi (örneğin, sahte belge kullanımı, dolandırıcılık) hâlinde, MeetBook durumu yetkili adli makamlara bildirme hakkını saklı tutar.</li>
+    <li><strong>Ebeveyn/Veli Bildirim Hakkı:</strong> Bir ebeveyn veya yasal vasi, çocuğuna ait olduğunu düşündüğü bir hesabı <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine bildirerek hesabın derhâl silinmesini talep edebilir. Bu talebin işleme alınabilmesi için:
+      <ul>
+        <li>Ebeveyn/vasinin kimlik bilgisi,</li>
+        <li>Çocukla ilişkisini gösteren belge (nüfus kaydı, vesayet belgesi),</li>
+        <li>Silinmesi talep edilen hesabın kullanıcı adı veya e-posta adresi,</li>
+        <li>Mümkünse hesabın çocuğa ait olduğunu gösteren ek bilgiler,</li>
+      </ul>
+      <p>iletilmelidir. Talep alındıktan sonra hesap derhâl askıya alınır ve en geç 48 saat içinde silinir.</p>
+    </li>
+    <li><strong>Veri İhlali Bildirimi:</strong> Reşit olmayan kullanıcılara ait verilerin hukuka aykırı olarak işlendiğinin tespit edilmesi, başlı başına bir veri ihlali olarak kabul edilir ve KVKK Kurulu'na 72 saat içinde bildirim yapılır.</li>
+  </ul>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 5 -->
+<section id="bolum-5">
+  <h2>5. Otomatik Karar Alma ve Profil Oluşturma (Profilasyon)</h2>
+
+  <h3>5.1. Güven Puanı Sistemi</h3>
+  <p>MeetBook, platform güvenliğini artırmak ve kullanıcılar arası güven tesis etmek amacıyla otomatik bir <strong>Güven Puanı (Trust Score)</strong> sistemi kullanmaktadır. Bu sistem, KVKK md.11/g uyarınca ilgili kişinin aleyhine sonuç doğuran otomatik karar alma sistemi niteliğindedir.</p>
+
+  <p>Güven puanı, aşağıdaki bileşenler kullanılarak 0-100 aralığında hesaplanır:</p>
+  <ul>
+    <li><strong>Zamanında İade Oranı (%50 ağırlık):</strong> Kullanıcının ödünç aldığı kitapları zamanında iade etme oranı.</li>
+    <li><strong>Puanlama Ortalaması (%30 ağırlık):</strong> Diğer kullanıcılardan alınan ortalama puan (1-5).</li>
+    <li><strong>Deneyim (%20 ağırlık):</strong> Tamamlanan takas sayısı, hesap yaşı gibi deneyim göstergeleri.</li>
+  </ul>
+
+  <p>Güven puanı, aşağıdaki etiketlerle görselleştirilir:</p>
+  <ul>
+    <li><strong>Yeşil (Güvenilir):</strong> 70 ve üzeri — Yüksek güven seviyesi</li>
+    <li><strong>Sarı (Orta):</strong> 40-69 arası — Normal güven seviyesi</li>
+    <li><strong>Kırmızı (Riskli):</strong> 39 ve altı — Düşük güven seviyesi</li>
+  </ul>
+
+  <h3>5.2. Yeni Hesap Sınırlamaları</h3>
+  <p>Platform, güvenlik amacıyla yeni hesaplar için otomatik sınırlamalar uygulamaktadır:</p>
+  <ul>
+    <li>En fazla 3 (üç) aktif kitap listeleme</li>
+    <li>En fazla 3 (üç) giden takas talebi</li>
+    <li>İlk takas talebi için telefon doğrulama zorunluluğu</li>
+  </ul>
+  <p>Bu sınırlamalar, kullanıcı güven puanı ve işlem geçmişine göre otomatik olarak kaldırılır.</p>
+
+  <h3>5.3. Otomatik Kararlara İtiraz Hakkı</h3>
+  <p>KVKK md.11/g uyarınca, yalnızca otomatik sistemler tarafından oluşturulan ve aleyhinize sonuç doğuran kararlara (örn. güven puanı düşüklüğü nedeniyle işlem kısıtlaması) itiraz etme hakkınız bulunmaktadır. İtirazınızı <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine iletebilirsiniz. Talebiniz 30 gün içinde değerlendirilir.</p>
+
+  <div class="highlight-box">
+    <strong>Unutmayın:</strong> Güven puanı, yalnızca platform içindeki eylemlerinize göre hesaplanır. Gerçek kimliğiniz, kredi notunuz, sosyal medya geçmişiniz veya platform dışındaki hiçbir faaliyetiniz bu puana etki etmez.
+  </div>
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 6 -->
+<section id="bolum-6">
+  <h2>6. Verilerin Aktarılması</h2>
+
+  <h3>6.1. Yurt İçi Aktarımlar</h3>
+  <p>Kişisel verileriniz, KVKK md.8 uyarınca, yukarıda belirtilen amaçların gerçekleştirilmesi için aşağıdaki yurt içi alıcı gruplarına aktarılabilir:</p>
+  <ul>
+    <li><strong>Sunucu Altyapı Sağlayıcıları:</strong> Verilerin barındırıldığı bulut sunucu hizmet sağlayıcıları (Türkiye veya yurt dışı sunucular).</li>
+    <li><strong>Depolama Hizmet Sağlayıcıları:</strong> Kitap fotoğrafları ve avatarlar için Amazon S3 uyumlu nesne depolama hizmeti (MinIO / AWS S3).</li>
+    <li><strong>Hukuki Danışmanlar ve Denetim Kurumları:</strong> Hukuki yükümlülüklerin yerine getirilmesi amacıyla, talep edilmesi hâlinde adli makamlar ve düzenleyici kurumlar.</li>
+  </ul>
+
+  <h3>6.2. Yurt Dışı Aktarımlar</h3>
+  <p>MeetBook, aşağıda belirtilen üçüncü taraf hizmet sağlayıcıları aracılığıyla, KVKK md.9 uyarınca yurt dışına veri aktarımı gerçekleştirmektedir:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Hizmet Sağlayıcı</th>
+        <th>Hizmetin Niteliği</th>
+        <th>Aktarılan Veriler</th>
+        <th>Ülke</th>
+        <th>Aktarım Hukuki Dayanağı</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Google Places API</strong><br>(Google LLC)</td>
+        <td>Kullanıcının buluşma yeri araması, otomatik tamamlama, yakındaki güvenli noktaların tespiti</td>
+        <td>Arama sorgusu (metin), koordinat bilgisi (enlem/boylam). <strong>Kullanıcının adı, e-postası, telefonu veya kimlik bilgileri aktarılmaz.</strong></td>
+        <td>ABD</td>
+        <td>Açık rıza (KVKK md.9/1)<br>+ Google'ın SCC (Standart Sözleşme Maddeleri) taahhüdü</td>
+      </tr>
+      <tr>
+        <td><strong>Expo Push Notifications</strong><br>(Expo / 650 Industries, Inc.)</td>
+        <td>Mobil bildirim gönderimi</td>
+        <td>Push notification token'ı (cihaz tanımlayıcı). <strong>Kişisel veri aktarımı yok denecek kadar azdır.</strong></td>
+        <td>ABD</td>
+        <td>Açık rıza (KVKK md.9/1)</td>
+      </tr>
+      <tr>
+        <td><strong>Open Library API</strong><br>(Internet Archive)</td>
+        <td>ISBN sorgulaması ile kitap metaverisi (başlık, yazar, kapak resmi) çekilmesi</td>
+        <td>Yalnızca ISBN numarası. <strong>Hiçbir kişisel veri aktarılmaz.</strong></td>
+        <td>ABD</td>
+        <td>Kişisel veri aktarımı olmadığından KVKK kapsamı dışındadır.</td>
+      </tr>
+      <tr>
+        <td><strong>Amazon S3 / MinIO</strong></td>
+        <td>Fotoğraf ve medya dosyalarının depolanması</td>
+        <td>Kitap fotoğrafları, avatar görselleri. EXIF GPS verileri sunucuda temizlenir.</td>
+        <td>Yapılandırmaya bağlı (Türkiye veya yurt dışı)</td>
+        <td>Sözleşmenin ifası (KVKK md.5/2-c). Türkiye'de barındırılması tercih edilmektedir.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>6.3. Açık Rıza ile Yurt Dışı Aktarım</h3>
+  <p>Google Places API ve Expo Push Notifications hizmetleri kapsamında, kişisel verilerinizin yurt dışına (ABD) aktarılması, KVKK md.9/1 uyarınca <strong>açık rızanıza</strong> dayanmaktadır. Kayıt sırasında KVKK Aydınlatma Metni'ni onaylamanız, bu aktarımlara ilişkin açık rıza beyanı olarak kabul edilmektedir.</p>
+
+  <p>Yurt dışına aktarılan veri miktarı, hizmetin doğası gereği <strong>minimal düzeydedir</strong> (koordinat bilgisi ve cihaz token bilgisi). Aktarım, Google ve Expo'nun kendi Standart Sözleşme Maddeleri (SCC) taahhütleri ile korunmaktadır.</p>
+
+  <h3>6.4. Kanuni Yükümlülükler Kapsamında Aktarım</h3>
+  <p>Hukuki bir yükümlülüğün yerine getirilmesi, bir suçun önlenmesi veya soruşturulması, mevzuat hükümlerine uyum sağlanması amacıyla, yetkili kamu kurum ve kuruluşları ile adli makamlara, talep edilmesi hâlinde ve taleple sınırlı olarak kişisel verileriniz aktarılabilir.</p>
+
+  <h3>6.5. Standart Sözleşme Maddeleri (SCC) ve Yurtdışı Aktarım Güvenceleri</h3>
+  <p>MeetBook, yurt dışına veri aktarımı gerçekleştirdiği üçüncü taraf hizmet sağlayıcıları ile, KVKK md.9 ve GDPR md.46 uyarınca Standart Sözleşme Maddeleri (Standard Contractual Clauses — SCC) teminatı altında çalışmaktadır. Bu kapsamda:</p>
+
+  <ul>
+    <li><strong>Google Places API (Google LLC):</strong>
+      <ul>
+        <li><strong>Aktarılan Veri:</strong> Kullanıcının buluşma yeri araması sırasında girdiği metin sorgusu ve seçilen konumun koordinat bilgisi (enlem/boylam).</li>
+        <li><strong>Aktarım Amacı:</strong> Kullanıcıların güvenli ve kolay buluşma noktaları belirleyebilmesi için otomatik tamamlama, adres çözümleme ve yakındaki işletmelerin listelenmesi.</li>
+        <li><strong>Aktarım Süresi:</strong> Kullanıcının Google Places API'yi her kullanışında anlık olarak gerçekleşir. Veriler Google tarafından yalnızca sorgu anında işlenir, kalıcı olarak saklanmaz.</li>
+        <li><strong>Koruma Tedbirleri:</strong> Google, ABD'ye aktarılan veriler için SCC'leri kabul etmiş olup, Data Privacy Framework (DPF) kapsamında sertifikalıdır. Google'ın veri koruma taahhütleri <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a> adresinde incelenebilir.</li>
+      </ul>
+    </li>
+    <li><strong>Expo Push Notifications (650 Industries, Inc.):</strong>
+      <ul>
+        <li><strong>Aktarılan Veri:</strong> Push notification token'ı (cihaz bazında benzersiz tanımlayıcı), platform bilgisi (iOS/Android), hedef bildirim içeriği.</li>
+        <li><strong>Aktarım Amacı:</strong> Kullanıcıya mobil bildirim gönderimi.</li>
+        <li><strong>Aktarım Süresi:</strong> Bildirim gönderimi süresince geçici olarak işlenir. Token, geçersiz hale gelene kadar veya kullanıcı hesabını silene kadar saklanır.</li>
+        <li><strong>Koruma Tedbirleri:</strong> Expo, veri aktarımları için SCC'leri uygulamakta olup, veri koruma taahhütleri <a href="https://expo.io/privacy" target="_blank" rel="noopener">https://expo.io/privacy</a> adresinde incelenebilir.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <p><strong>SCC Kopyası Talep Hakkı:</strong> KVKK md.11/b uyarınca, yurt dışına aktarılan kişisel verilerinize ilişkin Standart Sözleşme Maddeleri'nin bir kopyasını talep etme hakkına sahipsiniz. SCC'lerin ticari sır ve/veya know-how içeren kısımları maskelenmek suretiyle, talebiniz üzerine size iletilir. Başvurularınızı <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine iletebilirsiniz.</p>
+
+  <p>MeetBook, yurt dışı veri aktarımına ilişkin güncel gelişmeleri (örneğin, KVKK'nın yeterlilik kararları, yeni SCC düzenlemeleri, DPF güncellemeleri) yakından takip etmekte ve Politika'yı bu doğrultuda güncellemektedir.</p>
+
+  <h3>6.6. Veri İşleyenler ve Alt İşleyenler</h3>
+  <p>MeetBook, hizmetlerinin sunulması kapsamında aşağıda listelenen veri işleyenler (data processor) ve alt işleyenler (sub-processor) ile çalışmaktadır. Her bir işleyen, MeetBook'un talimatları doğrultusunda ve KVKK'ya uygun olarak veri işleme faaliyetinde bulunur.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>İşleyen</th>
+        <th>Hizmet / Rol</th>
+        <th>İşlenen Veri Kategorileri</th>
+        <th>İşleme Süresi</th>
+        <th>Barındırma Bölgesi</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Cloud Sunucu Sağlayıcısı</strong><br>(Bulut altyapı sağlayıcısı)</td>
+        <td>Uygulama sunucusu, veritabanı sunucusu, Redis sunucusu — tüm backend altyapısının barındırılması</td>
+        <td>Platform'da işlenen tüm kişisel veri kategorileri (şifrelenmiş olarak)</td>
+        <td>Hizmet sözleşmesi süresince</td>
+        <td>Türkiye veya GDPR yeterlilik kararı bulunan bölge</td>
+      </tr>
+      <tr>
+        <td><strong>S3 / MinIO</strong><br>(Nesne depolama sağlayıcısı)</td>
+        <td>Kitap fotoğrafları, profil fotoğrafları, ödünç kanıt fotoğrafları ve diğer medya dosyalarının depolanması</td>
+        <td>Profil fotoğrafı, kitap fotoğrafları, ödünç kanıt görselleri</td>
+        <td>Hesap aktif olduğu süre + 1 yıl</td>
+        <td>Türkiye (tercihen) veya yurt dışı</td>
+      </tr>
+      <tr>
+        <td><strong>Google LLC</strong><br>(Google Places API)</td>
+        <td>Buluşma yeri arama, otomatik tamamlama, adres çözümleme, yakındaki güvenli noktaların tespiti</td>
+        <td>Arama sorgusu (metin), koordinat bilgisi (enlem/boylam)</td>
+        <td>Sorgu anında işleme; kalıcı saklama yok</td>
+        <td>ABD (SCC + DPF koruması ile)</td>
+      </tr>
+      <tr>
+        <td><strong>Expo / 650 Industries, Inc.</strong></td>
+        <td>Mobil push bildirim gönderimi</td>
+        <td>Push notification token'ı, cihaz platformu (iOS/Android), bildirim içeriği</td>
+        <td>Token geçerliliği süresince veya hesap silinene kadar</td>
+        <td>ABD (SCC koruması ile)</td>
+      </tr>
+      <tr>
+        <td><strong>E-posta Hizmet Sağlayıcısı</strong><br>(SMTP / e-posta servisi)</td>
+        <td>Hesap doğrulama e-postaları, şifre sıfırlama bağlantıları, bildirim e-postaları, hukuki bildirimler</td>
+        <td>E-posta adresi, kullanıcı adı, işlem tipi (doğrulama/sıfırlama/bilgilendirme)</td>
+        <td>E-posta gönderimi süresince; log kayıtları 5 yıl</td>
+        <td>Türkiye veya yurt dışı</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>MeetBook, veri işleyenlerinin veri koruma yükümlülüklerine uyumunu düzenli olarak denetler. Veri işleyenlerle yapılan sözleşmelerde, KVKK md.12'de belirtilen veri güvenliği yükümlülüklerine uyulacağı, verilerin sözleşme amacı dışında işlenmeyeceği ve işleme faaliyetinin sona ermesi durumunda verilerin iade edileceği veya imha edileceği hüküm altına alınmıştır.</p>
+
+  <p>Veri işleyenler listesinde herhangi bir değişiklik olması durumunda, kullanıcılarımız Politika Değişiklikleri (Bölüm 12) kapsamında bilgilendirilecektir.</p>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 7 -->
+<section id="bolum-7">
+  <h2>7. Veri Toplama Yöntemleri</h2>
+  <p>Kişisel verileriniz, aşağıdaki yöntemlerle toplanmaktadır:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Toplama Yöntemi</th>
+        <th>Açıklama</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Doğrudan Kullanıcı Girişi</strong></td>
+        <td>Kayıt formu (ad, e-posta, şifre, KVKK onayı), profil düzenleme (telefon, fotoğraf, güvenilir kişi), kitap ekleme formu (başlık, yazar, ISBN, fotoğraf, konum).</td>
+      </tr>
+      <tr>
+        <td><strong>Otomatik Toplama</strong></td>
+        <td>IP adresi, cihaz bilgisi, işlem zaman damgaları, crash raporları, audit log kayıtları — kullanıcı etkileşimi sırasında otomatik olarak toplanır.</td>
+      </tr>
+      <tr>
+        <td><strong>Kullanıcı İçerikleri</strong></td>
+        <td>Mesajlar, değerlendirmeler, yorumlar, şikayetler — kullanıcı tarafından Platform üzerinde oluşturulduğu anda toplanır.</td>
+      </tr>
+      <tr>
+        <td><strong>Konum Verileri</strong></td>
+        <td>GPS (kullanıcı izni ile), kitap ekleme sırasında harita üzerinden seçim.</td>
+      </tr>
+      <tr>
+        <td><strong>Üçüncü Taraf Kaynaklar</strong></td>
+        <td>Open Library API (ISBN sorgulaması) kitap metaverisi sağlar. Google Places API buluşma yeri önerisi sağlar.</td>
+      </tr>
+      <tr>
+        <td><strong>Mobil SDK'lar</strong></td>
+        <td>Expo SDK (SecureStore, Image Picker, Location, Push Notifications, FileSystem) — kullanıcı etkileşimleri sırasında.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 8 -->
+<section id="bolum-8">
+  <h2>8. Veri Saklama Süreleri</h2>
+  <p>Kişisel verileriniz, işleme amacının gerektirdiği süre boyunca ve/veya ilgili mevzuatta öngörülen yasal süreler içinde saklanmaktadır. Saklama sürelerinin sona ermesinin ardından, veriler re'sen veya başvurunuz üzerine KVKK'ya uygun şekilde silinir, anonimleştirilir veya imha edilir.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Veri Kategorisi</th>
+        <th>Saklama Süresi</th>
+        <th>Süre Sonu İşlemi</th>
+        <th>Yasal Dayanak</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Kimlik ve İletişim Verileri<br>(ad, e-posta, telefon)</td>
+        <td>Hesabın aktif olduğu süre + 1 (bir) yıl</td>
+        <td>Anonimleştirme (e-posta → <code>deleted-{uuid}@anon</code>, ad → "Silinmiş Hesap", telefon silinir)</td>
+        <td>TBK md.146 (10 yıl genel zamanaşımı), KVKK md.7</td>
+      </tr>
+      <tr>
+        <td>Profil Fotoğrafı</td>
+        <td>Hesabın aktif olduğu süre + 1 (bir) yıl</td>
+        <td>Kalıcı silme</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td>Konum Verileri (Güvenlik Modu)</td>
+        <td><strong>30 (otuz) gün</strong></td>
+        <td>Otomatik kalıcı silme (periyodik worker ile)</td>
+        <td>KVKK md.7 (veri minimizasyonu)</td>
+      </tr>
+      <tr>
+        <td>Kitap Konumları</td>
+        <td>Kitap listede olduğu süre + 1 (bir) yıl</td>
+        <td>Anonimleştirme / silme</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td>Mesaj İçerikleri</td>
+        <td>Hesabın aktif olduğu süre + 1 (bir) yıl</td>
+        <td>Gönderen ve alıcının hesapları silindiğinde anonimleştirme</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td>Takas/Ödünç Kayıtları</td>
+        <td><strong>10 (on) yıl</strong></td>
+        <td>İlgili tarafların hesabı silinse dahi iskelet kayıt korunur, kişisel veriler anonimleştirilir</td>
+        <td>TBK md.146 (genel zamanaşımı), TTK md.82</td>
+      </tr>
+      <tr>
+        <td>Değerlendirme/Puanlar</td>
+        <td><strong>10 (on) yıl</strong></td>
+        <td>Anonimleştirme (kullanıcı adı silinir, puan verisi anonim istatistik olarak kalır)</td>
+        <td>TBK md.146</td>
+      </tr>
+      <tr>
+        <td>Eylem Günlükleri (Audit Log)</td>
+        <td><strong>10 (on) yıl</strong></td>
+        <td>Kalıcı silme veya toplu anonimleştirme</td>
+        <td>TTK md.82, TBK md.146</td>
+      </tr>
+      <tr>
+        <td>IP Adresi / Cihaz Bilgisi</td>
+        <td>Audit log ile birlikte 10 (on) yıl</td>
+        <td>Log ile birlikte silinir</td>
+        <td>TTK md.82</td>
+      </tr>
+      <tr>
+        <td>Crash Raporları</td>
+        <td><strong>2 (iki) yıl</strong></td>
+        <td>Kalıcı silme</td>
+        <td>KVKK md.7 (amaç sınırlı saklama)</td>
+      </tr>
+      <tr>
+        <td>Push Notification Token'ları</td>
+        <td>Hesap aktif olduğu sürece + geçersiz token tespitinde derhâl silme</td>
+        <td>Geçersiz token tespit edildiğinde otomatik silme</td>
+        <td>KVKK md.7</td>
+      </tr>
+      <tr>
+        <td>Şikayet/Rapor Kayıtları</td>
+        <td>Şikayetin sonuçlandığı tarihten itibaren <strong>5 (beş) yıl</strong></td>
+        <td>Kalıcı silme</td>
+        <td>TBK md.146, KVKK md.7</td>
+      </tr>
+      <tr>
+        <td>KVKK Onay Kayıtları</td>
+        <td>Hesap silme tarihinden itibaren <strong>10 (on) yıl</strong></td>
+        <td>Anonimleştirme</td>
+        <td>KVKK md.7 (ispat yükümlülüğü)</td>
+      </tr>
+      <tr>
+        <td>İletişim/Destek Yazışmaları</td>
+        <td>Son yazışma tarihinden itibaren <strong>5 (beş) yıl</strong></td>
+        <td>Kalıcı silme</td>
+        <td>TBK md.146</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="highlight-box">
+    <strong>Not:</strong> Hesap silme işlemi, verilerin tamamen yok edilmesi anlamına gelmez. Yasal yükümlülükler ve hukuki uyuşmazlıkların çözümü amacıyla, takas kayıtları ve audit log gibi belirli veri kategorileri, kişisel verilerden arındırılarak (anonimleştirilerek) yukarıda belirtilen süreler boyunca saklanmaya devam eder.
+  </div>
+
+  <h3>8.2. Yedekleme Ortamlarında Veri Saklama</h3>
+  <p>MeetBook, veri kaybını önlemek ve iş sürekliliğini sağlamak amacıyla düzenli olarak veritabanı yedeklemesi yapmaktadır. Yedekleme süreçlerine ilişkin esaslar aşağıda açıklanmıştır:</p>
+  <ul>
+    <li><strong>Döner Yedekleme (Rotation Backup):</strong> Veritabanı yedekleri döner (rotation) esasına göre saklanır. En son 7 (yedi) günlük günlük yedek, en son 4 (dört) haftalık haftalık yedek ve en son 3 (üç) aylık aylık yedek muhafaza edilir. Bu süreleri aşan yedekler otomatik olarak silinir veya üzerine yazılır.</li>
+    <li><strong>Yedeklerde Veri Saklama Süreleri:</strong> Yedek ortamlarında saklanan kişisel veriler, Bölüm 8.1'de belirtilen saklama sürelerine tabidir. Bir verinin birincil veritabanından silinmesi, yedeğin döngüsel olarak yenilenmesiyle eş zamanlı olarak yedek ortamından da nihai olarak kaldırılmasını sağlar.</li>
+    <li><strong>Acil Durum Geri Yüklemesi:</strong> Olağanüstü bir durumda (veri kaybı, donanım arızası, doğal afet vb.) yedekten geri yükleme yapılması gerekebilir. Bu durumda, geri yüklenen yedekte daha önce silinmiş kişisel veriler geçici olarak yeniden ortaya çıkabilir. MeetBook, bu tür bir geri yükleme sonrasında, silinmiş verileri tespit ederek derhâl yeniden silmek ve gerekli anonimleştirme işlemlerini tekrarlamak için gerekli prosedürleri oluşturmuştur. Bu işlem, geri yüklemeden itibaren en geç 48 (kırk sekiz) saat içinde tamamlanır.</li>
+    <li><strong>Yedek Şifreleme ve Güvenlik:</strong> Tüm yedekler AES-256 algoritması kullanılarak şifrelenir ve şifreleme anahtarları yedeklerden ayrı, güvenli bir ortamda saklanır. Yedeklere erişim, yalnızca yetkili sistem yöneticileri ile sınırlıdır ve tüm erişimler audit log'larına kaydedilir. Yedeklerin aktarımı sırasında TLS 1.3 şifrelemesi kullanılır. Yedek dosyaları, üretim ortamından fiziksel veya mantıksal olarak ayrılmış bir ortamda muhafaza edilir.</li>
+    <li><strong>Yedek Saklama Ortamı:</strong> Yedekler, üretim ortamından bağımsız bir bulut depolama alanında veya fiziksel olarak ayrılmış bir disk ünitesinde tutulur. Yedek ortamının coğrafi konumu, verinin tabi olduğu yasal düzenlemelere göre belirlenir.</li>
+  </ul>
+  <p>Yedekleme süreçleri, düzenli olarak test edilmekte ve iyileştirilmektedir. Yedekten geri yükleme tatbikatları yılda en az bir kez gerçekleştirilir.</p>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 9 -->
+<section id="bolum-9">
+  <h2>9. Veri Güvenliği</h2>
+  <p>MeetBook, kişisel verilerinizin hukuka aykırı erişim, kaybolma, değiştirilme, ifşa edilme veya imha edilmesini önlemek için KVKK md.12 uyarınca gerekli teknik ve idari tedbirleri almaktadır.</p>
+
+  <h3>9.1. Teknik Tedbirler</h3>
+  <ul>
+    <li><strong>Şifreleme:</strong> Tüm API trafiği HTTPS (TLS 1.3) üzerinden şifrelenir. Parolalar bcrypt algoritması ile hash'lenir. JWT token'ları RS256 imzalıdır.</li>
+    <li><strong>Erişim Kontrolü:</strong> Role-based erişim kontrolü (RBAC). Kullanıcılar yalnızca kendi verilerine erişebilir. Admin yetkilileri sınırlı ve log'ludur.</li>
+    <li><strong>EXIF Temizleme:</strong> Yüklenen fotoğraflardan EXIF GPS verileri sunucu tarafında otomatik olarak temizlenir. Metadata sıyırma işlemi yapılır.</li>
+    <li><strong>Konum Gizleme:</strong> Kitap konumları, diğer kullanıcılara gösterilmeden önce ~1 km² çözünürlükte bulanıklaştırılır. Gerçek konum asla ifşa edilmez.</li>
+    <li><strong>Rate Limiting:</strong> Giriş denemeleri, API istekleri ve şifre sıfırlama işlemleri için hız sınırlaması uygulanır (IP + hesap bazında).</li>
+    <li><strong>Düzenli Yedekleme:</strong> Veritabanı düzenli olarak yedeklenir. Yedekler şifrelenmiş olarak saklanır.</li>
+    <li><strong>Redis Güvenliği:</strong> Rate limiting, pub/sub ve cache işlemleri için kullanılan Redis, parola korumalı ve yalnızca iç ağdan erişilebilir.</li>
+    <li><strong>Token Yönetimi:</strong> Access token'lar 15 dakika, refresh token'lar döngüsel (rotation) olarak yapılandırılmıştır. Token iptali ve yeniden kullanım tespiti mevcuttur.</li>
+    <li><strong>SQL Injection Koruması:</strong> Tüm veritabanı sorguları ORM (SQLAlchemy) üzerinden parametrize edilerek gerçekleştirilir.</li>
+  </ul>
+
+  <h3>9.2. İdari Tedbirler</h3>
+  <ul>
+    <li>Veri ihlali durumunda 72 saat içinde KVKK'ya bildirim yapacak prosedür oluşturulmuştur (bkz. Veri İhlali Müdahale Planı).</li>
+    <li>Kişisel verilere yalnızca yetkili personel erişebilir. Yetkisiz erişim tespiti için audit log tutulmaktadır.</li>
+    <li>Admin işlemlerinin tamamı denetim izinde kayıt altına alınır (hangi admin, hangi IP'den, hangi işlemi, ne zaman yaptı).</li>
+    <li>Veri güvenliği ihlali durumunda etkilenen kullanıcılara bildirim yapılır.</li>
+    <li>Periyodik güvenlik değerlendirmeleri yapılır.</li>
+  </ul>
+
+  <h3>9.3. Veri İhlali Durumunda Yapılacak İşlemler</h3>
+  <p>Bir veri ihlali tespit edildiğinde:</p>
+  <ol>
+    <li><strong>İhlal teyit edilir</strong> ve kapsamı belirlenir (hangi veriler, kaç kullanıcı, ne zaman).</li>
+    <li><strong>KVKK'ya bildirim:</strong> KVKK md.12/3 uyarınca, ihlalin öğrenildiği andan itibaren 72 saat içinde KVKK Kurulu'na bildirim yapılır.</li>
+    <li><strong>Etkilenen kullanıcılara bildirim:</strong> İhlal, ilgili kişilerin haklarını ve özgürlüklerini riske atıyorsa, etkilenen kullanıcılara derhâl bildirim yapılır.</li>
+    <li><strong>Düzeltici önlemler:</strong> İhlalin tekrarlanmaması için gerekli teknik ve idari tedbirler alınır.</li>
+      <li><strong>Kayıt:</strong> Tüm ihlal süreci, alınan aksiyonlar ve dersler dokümante edilir.</li>
+    </ol>
+
+  <h3>9.4. Veri İhlali Durumunda Kullanıcıya Bildirim Şartları</h3>
+  <p>KVKK md.12/3 ve ilgili mevzuat uyarınca, bir veri ihlalinin ilgili kişilerin hakları ve özgürlükleri bakımından yüksek risk oluşturması hâlinde, etkilenen kullanıcılarımıza derhâl bildirim yapılmaktadır.</p>
+
+  <p><strong>Bildirim Şartları (Eşik Değeri):</strong></p>
+  <ul>
+    <li>İhlal, özel nitelikli kişisel verileri etkiliyorsa,</li>
+    <li>İhlal, kimlik hırsızlığına, dolandırıcılığa veya maddi/manevi zarara yol açabilecek nitelikteyse,</li>
+    <li>İhlal, kullanıcıların gizliliğini, itibarını veya kişisel güvenliğini riske atıyorsa,</li>
+    <li>İhlal kapsamındaki veriler şifresiz veya zayıf şekilde korunuyorsa,</li>
+    <li>İhlal, geniş bir kullanıcı kitlesini etkiliyorsa,</li>
+  </ul>
+  <p>yukarıdaki kriterlerden bir veya birkaçının karşılanması durumunda, etkilenen kullanıcılara bildirim yapılır.</p>
+
+  <p><strong>Bildirim Yöntemleri:</strong></p>
+  <ul>
+    <li><strong>E-posta:</strong> Hesabınızda kayıtlı e-posta adresinize, ihlalin niteliğini, etkilenen veri kategorilerini ve almanız gereken önlemleri açıklayan detaylı bir bildirim gönderilir.</li>
+    <li><strong>Push Bildirimi:</strong> Mobil uygulama üzerinden anında bildirim gönderilir.</li>
+    <li><strong>Uygulama İçi Bildirim:</strong> Kullanıcı uygulamayı açtığında, ihlale ilişkin bir bilgilendirme banner'ı gösterilir.</li>
+    <li><strong>Web Sitesi Duyurusu:</strong> Büyük çaplı ihlallerde, MeetBook web sitesinde ve resmî sosyal medya hesaplarında kamuya açık duyuru yapılabilir.</li>
+  </ul>
+
+  <p><strong>Bildirim İçeriği:</strong></p>
+  <ul>
+    <li>İhlalin tarihi ve tespit edildiği zaman,</li>
+    <li>İhlalden etkilenen kişisel veri kategorileri,</li>
+    <li>İhlalin olası sonuçları ve riskler,</li>
+    <li>MeetBook tarafından alınan ve alınması planlanan düzeltici önlemler,</li>
+    <li>Etkilenen kullanıcıların kendilerini korumak için alabileceği önlemler (örneğin, şifre değişikliği, hesaplarının izlenmesi),</li>
+    <li>İletişim kanalları (destek ekibimize ulaşma yöntemleri).</li>
+  </ul>
+
+  <p><strong>İhlal Sonrası Kullanıcı Hakları:</strong></p>
+  <ul>
+    <li>İhlal hakkında detaylı bilgi talep etme hakkı,</li>
+    <li>Etkilenen verilerin silinmesini veya anonimleştirilmesini talep etme hakkı,</li>
+    <li>İhlal nedeniyle uğranılan zararın tazminini talep etme hakkı (KVKK md.11/h),</li>
+    <li>KVKK Kurulu'na şikâyette bulunma hakkı (bkz. Bölüm 10.1).</li>
+  </ul>
+
+  <h3>9.5. Veri Koruma Etki Değerlendirmesi (DPIA)</h3>
+  <p>MeetBook, KVKK ve GDPR'nin ilgili hükümleri kapsamında, kişisel verilerin işlenmesinin ilgili kişilerin hakları ve özgürlükleri bakımından yüksek risk doğurması muhtemel olan işleme faaliyetleri için Veri Koruma Etki Değerlendirmesi (Data Protection Impact Assessment — DPIA) gerçekleştirmektedir.</p>
+
+  <p><strong>DPIA gerçekleştirilen işleme faaliyetleri:</strong></p>
+  <ul>
+    <li><strong>Güven Puanı Sistemi (Otomatik Karar Alma):</strong> Kullanıcılar hakkında otomatik olarak güven puanı hesaplanması ve bu puana dayalı olarak hizmet kısıtlaması uygulanması (bkz. Bölüm 5).</li>
+    <li><strong>Güvenlik Modu Konum Takibi:</strong> Kullanıcıların açık rızası ile arka planda konum verilerinin toplanması.</li>
+    <li><strong>Geniş Ölçekli Veri İşleme:</strong> Platform'un büyümesi durumunda, yüksek sayıda kullanıcıya ait hassas konum verilerinin işlenmesi.</li>
+  </ul>
+
+  <p>DPIA sürecinde aşağıdaki adımlar izlenir:</p>
+  <ol>
+    <li>İşleme faaliyetinin sistematik tanımı ve belgelenmesi,</li>
+    <li>İşlemenin gereklilik ve orantılılık analizi,</li>
+    <li>İlgili kişilerin hak ve özgürlüklerine yönelik risklerin değerlendirilmesi,</li>
+    <li>Riskleri azaltmaya yönelik tedbirlerin belirlenmesi ve uygulanması,</li>
+    <li>Değerlendirme sonuçlarının dokümante edilmesi ve gerektiğinde KVKK Kurulu'na sunulmak üzere hazır bulundurulması.</li>
+  </ol>
+  <p>DPIA dokümanları, KVKK Kurulu'nun talebi hâlinde ibraz edilmek üzere düzenli olarak güncellenmekte ve saklanmaktadır.</p>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 10 -->
+<section id="bolum-10">
+  <h2>10. İlgili Kişi Hakları (KVKK md.11)</h2>
+  <p>KVKK md.11 uyarınca, kişisel verilerinizin işlenmesine ilişkin olarak aşağıdaki haklara sahipsiniz:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:40px">#</th>
+        <th>Hak</th>
+        <th>Açıklama</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--accent);">a</td>
+        <td><strong>Öğrenme Hakkı</strong></td>
+        <td>Kişisel verinizin işlenip işlenmediğini öğrenme, işlenmişse buna ilişkin bilgi talep etme.</td>
+      </tr>
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--accent);">b</td>
+        <td><strong>Bilgi Talep Hakkı</strong></td>
+        <td>Kişisel verilerin işlenme amacını, amacına uygun kullanılıp kullanılmadığını, yurt içi/yurt dışı aktarıldığı üçüncü kişileri bilme.</td>
+      </tr>
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--accent);">c</td>
+        <td><strong>Düzeltme Hakkı</strong></td>
+        <td>Eksik veya yanlış işlenen kişisel verilerin düzeltilmesini talep etme.</td>
+      </tr>
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--accent);">d</td>
+        <td><strong>Silme / Unutulma Hakkı</strong></td>
+        <td>KVKK md.7 ve ilgili mevzuatta öngörülen şartlar çerçevesinde kişisel verilerin silinmesini veya anonimleştirilmesini talep etme.</td>
+      </tr>
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--accent);">e</td>
+        <td><strong>Aktarımı Durdurma Hakkı</strong></td>
+        <td>İşlenen verilerin üçüncü kişilere aktarılmasının durdurulmasını talep etme.</td>
+      </tr>
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--accent);">f</td>
+        <td><strong>Veri Taşınabilirliği Hakkı</strong></td>
+        <td>Kişisel verilerin kendisine veya başka bir veri sorumlusuna aktarılmasını talep etme (teknik uygunluk hâlinde).</td>
+      </tr>
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--accent);">g</td>
+        <td><strong>İtiraz Hakkı</strong></td>
+        <td>İşlenen verilerin münhasıran otomatik sistemler vasıtasıyla analiz edilmesi suretiyle aleyhinize bir sonucun ortaya çıkmasına itiraz etme (bkz. Bölüm 5 — Güven Puanı).</td>
+      </tr>
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--accent);">h</td>
+        <td><strong>Zararın Giderilmesi Hakkı</strong></td>
+        <td>Kişisel verilerin hukuka aykırı işlenmesi nedeniyle zarara uğramanız hâlinde zararın giderilmesini talep etme.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>10.1. KVKK'ya Şikayet Hakkı</h3>
+  <p>Yukarıdaki haklarınıza ilişkin talebinizin reddedilmesi, eksik veya yetersiz yanıtlanması ya da süresinde yanıtlanmaması hâlinde, yanıtın öğrenildiği tarihten itibaren 30 (otuz) gün içinde veya her hâlde başvuru tarihinden itibaren 60 (altmış) gün içinde, KVKK Kurulu'na (Kişisel Verileri Koruma Kurumu) şikâyette bulunma hakkına sahipsiniz.</p>
+
+  <p><strong>Kişisel Verileri Koruma Kurumu</strong><br>
+  Adres: Çankaya / Ankara, Türkiye<br>
+  Web: <a href="https://www.kvkk.gov.tr" target="_blank" rel="noopener">www.kvkk.gov.tr</a></p>
+
+  <h3>10.2. Otomatik Kararlara İtiraz Süreci</h3>
+  <p>KVKK md.11/g uyarınca, kişisel verilerinizin münhasıran otomatik sistemler vasıtasıyla analiz edilmesi suretiyle aleyhinize bir sonucun ortaya çıkmasına itiraz etme hakkına sahipsiniz. MeetBook'un Güven Puanı sistemi (bkz. Bölüm 5) bu kapsamda otomatik karar alma niteliğindedir. İtiraz süreci aşağıda açıklanmıştır:</p>
+
+  <ol>
+    <li><strong>Başvuru Şekli:</strong> İtirazınızı, <strong>yazılı olarak</strong> <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine e-posta göndermek suretiyle yapabilirsiniz. E-posta konu satırına "Otomatik Karara İtiraz — Güven Puanı" ibaresini eklemeniz sürecin hızlı ilerlemesine yardımcı olacaktır.</li>
+    <li><strong>Başvuru İçeriği:</strong> İtiraz başvurunuzda aşağıdaki bilgilerin yer alması gerekmektedir:
+      <ul>
+        <li>Ad, soyad ve hesabınızda kayıtlı e-posta adresiniz,</li>
+        <li>Hangi otomatik karara itiraz ettiğiniz (örneğin: güven puanı seviyeniz, yeni hesap sınırlamalarının devam etmesi, yasaklama/uzaklaştırma kararı),</li>
+        <li>İtiraz gerekçeniz ve varsa destekleyici belgeler,</li>
+        <li>Kararın düzeltilmesine yönelik talebiniz.</li>
+      </ul>
+    </li>
+    <li><strong>İnceleme Süreci:</strong> MeetBook, itirazınızı aldıktan sonra:
+      <ul>
+        <li>Kararın verildiği otomatik sistemi ve kullanılan verileri gözden geçirir,</li>
+        <li>Nihai kararı, kararın verilmesinde rol oynayan tüm faktörleri değerlendirerek <strong>manuel olarak</strong> (bir insan yetkili tarafından) yeniden inceler,</li>
+        <li>İtirazınızı <strong>30 (otuz) gün içinde</strong> sonuçlandırır.</li>
+      </ul>
+    </li>
+    <li><strong>Sonuç Bildirimi:</strong> İnceleme sonucu tarafınıza e-posta yoluyla bildirilir. Bildirimde:
+      <ul>
+        <li>İtirazınızın kabul veya reddedildiği,</li>
+        <li>Ret durumunda ret gerekçesi (hangi verilere dayanılarak karar verildiği, hangi güven puanı bileşenlerinin hangi ağırlıkla değerlendirildiği),</li>
+        <li>Kabul durumunda yapılan düzeltme ve kararın uygulanma zamanı,</li>
+        <li>KVKK Kurulu'na başvuru hakkınız ve süresi açıkça belirtilir.</li>
+      </ul>
+    </li>
+    <li><strong>Güven Puanı Bileşenlerine Erişim:</strong> Talep etmeniz hâlinde, güven puanınızın hangi bileşenlerden oluştuğu, her bir bileşenin ağırlığı, puanınıza etki eden olumlu ve olumsuz faktörler tarafınıza detaylı olarak açıklanır. Bu bilgi, KVKK md.11/b kapsamında bilgi talep hakkınızın bir parçasıdır.</li>
+    <li><strong>KVKK Kurulu'na Başvuru:</strong> İtirazınızın reddedilmesi hâlinde, ret cevabının tebliğinden itibaren 30 (otuz) gün içinde veya her hâlde başvuru tarihinden itibaren 60 (altmış) gün içinde KVKK Kurulu'na şikâyette bulunma hakkınız bulunmaktadır.</li>
+  </ol>
+
+  <h3>10.3. Veri Sahibinin Ölümü Halinde Verilerin İşlenmesi</h3>
+  <p>KVKK kapsamında kişisel verilerin korunmasına ilişkin haklar, veri sahibinin ölümü ile sona ermektedir. Bununla birlikte, veri sahibinin ölümü hâlinde, mirasçıların hukuki menfaatlerinin korunması amacıyla aşağıdaki esaslar çerçevesinde işlem yapılmaktadır:</p>
+
+  <ul>
+    <li><strong>Mirasçıların Veri Silme Talebi:</strong> Kullanıcının ölümü hâlinde, yasal mirasçılar (veraset ilamı ile belgelenmek kaydıyla) kullanıcıya ait kişisel verilerin silinmesini talep edebilir. Bu talep, KVKK kapsamında meşru bir talep olarak değerlendirilir ve talebin alındığı tarihten itibaren 30 (otuz) gün içinde sonuçlandırılır.</li>
+    <li><strong>Gerekli Belgeler:</strong> Mirasçıların talepte bulunabilmesi için:
+      <ul>
+        <li>Kullanıcının ölüm belgesi (resmî kurumlarca düzenlenmiş),</li>
+        <li>Veraset ilamı (mirasçılık belgesi) veya mirasçı olduğunu ispatlayan resmî belge,</li>
+        <li>Mirasçının kimlik belgesi,</li>
+        <li>Talep dilekçesi (hangi verilerin silinmesinin talep edildiği açıkça belirtilmelidir),</li>
+      </ul>
+      <p>belgelerinin <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine iletilmesi gerekmektedir.</p>
+    </li>
+    <li><strong>Anonimleştirme ve Saklama:</strong> Mirasçının talebi doğrultusunda, kullanıcının kişisel verileri silinir veya anonimleştirilir. Bununla birlikte, takas/ödünç işlemlerine ilişkin iskelet kayıtlar (işlemin tarafları anonimleştirilmiş olarak) 10 (on) yıl süreyle saklanmaya devam eder (bkz. Bölüm 8.1 — Takas/Ödünç Kayıtları). Bu kayıtlarda kullanıcının adı, e-postası, telefonu ve diğer tanımlayıcı bilgileri tamamen anonimleştirilir.</li>
+    <li><strong>Resmî Kaynaklardan Öğrenme:</strong> MeetBook, kullanıcının ölümünü resmî kaynaklardan (örneğin, MERNİS veritabanı entegrasyonu, resmî kurum yazıları, mahkeme kararları) öğrenmesi hâlinde, mirasçılardan talep gelmeksizin re'sen harekete geçebilir. Bu durumda:
+      <ul>
+        <li>Kullanıcının hesabı askıya alınır (dondurulur),</li>
+        <li>Yeni işlem yapılması engellenir,</li>
+        <li>Mevcut bekleyen işlemler (aktif takas/ödünç talepleri) karşı tarafa bildirilerek sonlandırılır,</li>
+        <li>Mirasçılara ulaşılarak veri silme/anonimleştirme seçenekleri hakkında bilgi verilir.</li>
+      </ul>
+    </li>
+    <li><strong>Mirasçıların Verilere Erişimi:</strong> Mirasçılar, ölen kullanıcıya ait kişisel verilere doğrudan erişim hakkına sahip değildir. Mirasçılar yalnızca yukarıda belirtilen silme/anonimleştirme talebinde bulunabilir veya hukuki uyuşmazlık durumunda mahkeme kararı ile verilere erişim talep edebilir.</li>
+  </ul>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 11 -->
+<section id="bolum-11">
+  <h2>11. Hakların Kullanılması ve Başvuru Süreci</h2>
+
+  <h3>11.1. Başvuru Yöntemleri</h3>
+  <p>Yukarıda belirtilen haklarınızı kullanmak için aşağıdaki kanallardan biri aracılığıyla tarafımıza başvuruda bulunabilirsiniz:</p>
+  <ul>
+    <li><strong>E-posta:</strong> <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine KVKK başvurusu olduğunu belirten bir e-posta göndererek.</li>
+    <li><strong>Başvuru Formu:</strong> <a href="/legal/veri-sahibi-basvuru">Veri Sahibi Başvuru Formu</a>'nu doldurarak.</li>
+    <li><strong>Uygulama İçi:</strong> Hesap Ayarları → "Verilerimi İndir" veya "Hesabımı Sil" seçenekleri ile (belirli haklar için).</li>
+  </ul>
+
+  <h3>11.2. Başvuruda Bulunurken Dikkat Edilmesi Gerekenler</h3>
+  <p>Başvurunuzun değerlendirilebilmesi için aşağıdaki bilgileri içermesi gerekmektedir:</p>
+  <ul>
+    <li>Ad, soyad ve iletişim bilgileriniz</li>
+    <li>Hesabınızda kayıtlı e-posta adresiniz</li>
+    <li>Kullanmak istediğiniz hakkın açık beyanı</li>
+    <li>Talebinizin detaylı açıklaması</li>
+    <li>Kimlik doğrulamaya yardımcı olacak bilgiler</li>
+  </ul>
+
+  <h3>11.3. Yanıt Süresi ve Ücretlendirme</h3>
+  <p>Başvurunuz, talebin niteliğine göre <strong>en geç 30 (otuz) gün içinde</strong> ücretsiz olarak sonuçlandırılacaktır. Ancak, KVKK'nın 13. maddesi uyarınca, yanıtınızın maliyetli olması hâlinde (örneğin, büyük miktarda verinin fiziksel kopyasının çıkarılması), Kişisel Verileri Koruma Kurulu tarafından belirlenen tarifedeki ücret talep edilebilir.</p>
+
+  <p>Başvurunuzun reddedilmesi hâlinde, gerekçeli ret cevabı tarafınıza bildirilecektir. Bu durumda, ret cevabının tebliğinden itibaren 30 gün içinde KVKK Kurulu'na şikâyet hakkınız bulunmaktadır.</p>
+
+  <h3>11.4. Pratik Uygulamalar (Uygulama İçi)</h3>
+  <p>Bazı haklarınızı doğrudan uygulama üzerinden kullanabilirsiniz:</p>
+  <ul>
+    <li><strong>Verilerimi İndir (Veri Taşınabilirliği):</strong> Ayarlar → "Verilerimi İndir" — profil, kitaplar ve takas geçmişinizi JSON formatında dışa aktarmanızı sağlar.</li>
+    <li><strong>Hesap Silme (Unutulma Hakkı):</strong> Ayarlar → "Hesabımı Sil" — iki adımlı onay ile hesabınızı silebilirsiniz.</li>
+    <li><strong>Profil Düzenleme (Düzeltme Hakkı):</strong> Profil sayfasından adınızı, telefonunuzu ve diğer bilgilerinizi düzenleyebilirsiniz.</li>
+  </ul>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 12 -->
+<section id="bolum-12">
+  <h2>12. Politika Değişiklikleri</h2>
+
+  <h3>12.1. Güncelleme ve Sürüm Numaralandırma</h3>
+  <p>İşbu Gizlilik Politikası, mevzuat değişiklikleri, Kurul kararları, teknolojik gelişmeler ve Platform'un hizmet yapısındaki değişiklikler doğrultusunda güncellenebilir. Her güncelleme, bir üst sürüm numarası alır (<strong>1.0 → 1.1 → 1.2</strong>).</p>
+  <p>Politikanın güncel sürümü her zaman <a href="/legal/gizlilik-politikasi">/legal/gizlilik-politikasi</a> adresinde yayındadır.</p>
+
+  <h3>12.2. Bildirim Zorunluluğu</h3>
+  <p>Politika değişikliklerinde, kullanıcılarımıza aşağıdaki yöntemlerle bildirim yapılır:</p>
+  <ul>
+    <li><strong>Push Bildirimi:</strong> Mobil uygulama üzerinden anında bildirim gönderilir.</li>
+    <li><strong>Zorunlu Onay Ekranı:</strong> Politika güncellendiğinde, kullanıcı uygulamayı açtığında yeni politikayı okuyup onaylayana kadar uygulamayı kullanması engellenir.</li>
+  </ul>
+
+  <h3>12.3. Yeniden Onay Mekanizması</h3>
+  <p>Politika güncellendiğinde:</p>
+  <ol>
+    <li>Uygulama, kullanıcının onayladığı son politika sürümünü kontrol eder.</li>
+    <li>Sürümler uyuşmuyorsa, kullanıcıya yeni politika metni gösterilir.</li>
+    <li>Kullanıcı yeni politikayı okuyup onaylayana kadar hiçbir Platform hizmetine erişemez.</li>
+    <li>Onay işlemi, veritabanında kullanıcının <code>kvkk_policy_version</code> alanının güncellenmesiyle kayıt altına alınır.</li>
+  </ol>
+
+  <div class="highlight-box">
+    <strong>Önemli:</strong> Politikayı onaylamamanız durumunda, Platform hizmetlerini kullanmaya devam edemezsiniz. Bu durumda, KVKK md.11 uyarınca hesabınızı silme hakkınız saklıdır.
+  </div>
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<!-- Bölüm 13 -->
+<section id="bolum-13">
+  <h2>13. Yürürlük ve İletişim</h2>
+
+  <h3>13.1. Yürürlük</h3>
+  <p>İşbu Gizlilik Politikası, <strong>2 Temmuz 2026</strong> tarihinde yürürlüğe girmiştir. Politikanın önceki sürümleri, talep edilmesi hâlinde tarafınıza iletilir.</p>
+
+  <h3>13.2. İletişim</h3>
+  <p>Gizlilik Politikamız, kişisel verilerinizin işlenmesi veya KVKK kapsamındaki haklarınız hakkında her türlü soru, görüş ve talebiniz için bizimle iletişime geçebilirsiniz:</p>
+
+  <table>
+    <tr>
+      <th style="width:180px;">E-posta (Destek)</th>
+      <td><a href="mailto:support@meetbook.com">support@meetbook.com</a></td>
+    </tr>
+    <tr>
+      <th>E-posta (Hata Bildirimi)</th>
+      <td><a href="mailto:canmanici@gmail.com">canmanici@gmail.com</a></td>
+    </tr>
+    <tr>
+      <th>Veri Sorumlusu</th>
+      <td>Can Manici</td>
+    </tr>
+    <tr>
+      <th>Uygulama</th>
+      <td>MeetBook — iOS / Android</td>
+    </tr>
+  </table>
+
+  <div style="background:var(--primary); color:#fff; padding:20px; border-radius:var(--radius); margin-top:24px; text-align:center;">
+    <p style="margin:0; font-size:.9rem; opacity:.9;">Son güncelleme: 2 Temmuz 2026 · Sürüm 1.0</p>
+    <p style="margin:8px 0 0; font-size:.85rem; opacity:.7;">© 2026 MeetBook — Bu politika KVKK'ya uygun olarak hazırlanmıştır.</p>
+  </div>
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+</div>
+
+<div class="footer container">
+  <p><strong>MeetBook</strong> · Gizlilik Politikası Sürüm 1.0 · 2 Temmuz 2026</p>
+  <p>KVKK'ya uygun olarak hazırlanmıştır · 6698 sayılı Kişisel Verilerin Korunması Kanunu</p>
+  <p style="margin-top:8px;"><a href="/legal/kullanim-kosullari">Kullanım Koşulları</a> · <a href="/legal/kvkk-aydinlatma-metni">KVKK Aydınlatma Metni</a> · <a href="/legal/cerez-politikasi">Çerez Politikası</a> · <a href="/legal/kotuye-kullanim-ve-dolandiricilikla-mucadele-politikasi">Kötüye Kullanım Politikası</a></p>
+</div>
+
+</body>
+</html>

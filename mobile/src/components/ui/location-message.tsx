@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     overflow: 'hidden',
     borderWidth: 1,
-    maxWidth: 260,
+    maxWidth: 360,
   },
   mapPlaceholder: {
     width: 70,

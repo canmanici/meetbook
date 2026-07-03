@@ -22,11 +22,10 @@ async def test_register_success(client: httpx.AsyncClient) -> None:
     assert "user_id" in body
     assert "access_token" in body
     assert "refresh_token" in body
-    assert body["user"] == {
-        "id": body["user_id"],
-        "email": "test@example.com",
-        "name": "Test User",
-    }
+    assert body["user"]["id"] == body["user_id"]
+    assert body["user"]["email"] == "test@example.com"
+    assert body["user"]["name"] == "Test User"
+    assert body["user"]["username"]  # auto-generated since none was supplied
 
 
 @pytest.mark.asyncio

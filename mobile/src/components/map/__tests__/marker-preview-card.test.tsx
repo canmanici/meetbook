@@ -193,8 +193,15 @@ describe('MarkerPreviewCard', () => {
     fireEvent.press(getByTestId('preview-exchange'));
     await waitFor(() => {
       expect(createExchange).toHaveBeenCalledWith(
-        expect.objectContaining({ book_id: 'book-1' }),
+        expect.objectContaining({
+          book_id: 'book-1',
+          initial_message: expect.any(String),
+        }),
       );
+      // Verify the field is initial_message, not message (backend 422 fix)
+      const callArg = (createExchange as jest.Mock).mock.calls[0][0];
+      expect(callArg).not.toHaveProperty('message');
+      expect(callArg).toHaveProperty('initial_message');
     });
   });
 

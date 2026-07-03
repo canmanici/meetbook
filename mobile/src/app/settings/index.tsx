@@ -17,12 +17,20 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import { palette, spacing, fontSize, radius } from '@/components/ui';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth-store';
 import { clearTokens } from '@/lib/secure-store';
 import { authedRequest, getMe, logout, updateMe } from '@/lib/api/client';
+import {
+  authenticateWithBiometrics,
+  getBiometricTypeLabel,
+  isBiometricAvailable,
+  isBiometricLockEnabled,
+  setBiometricLockEnabled,
+} from '@/lib/biometric';
 
 const THEME_KEY = 'theme_preference';
 const IMG_CACHE_PREFIX = '@meetbook_img_';
@@ -71,6 +79,9 @@ export default function SettingsScreen() {
   const toast = useToast();
 
   const [themePref, setThemePrefState] = useState<ThemePref>('system');
+  const [biometricSupported, setBiometricSupported] = useState(false);
+  const [biometricLabel, setBiometricLabel] = useState('Biyometrik Kilit');
+  const [biometricEnabled, setBiometricEnabledState] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -149,6 +160,32 @@ export default function SettingsScreen() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    isBiometricAvailable().then(setBiometricSupported);
+    getBiometricTypeLabel().then(setBiometricLabel);
+    isBiometricLockEnabled().then(setBiometricEnabledState);
+  }, []);
+
+  const handleToggleBiometric = useCallback(
+    async (value: boolean) => {
+      if (value) {
+        // Require a successful scan before turning it on — otherwise a user
+        // could enable a lock they can't actually pass (e.g. sensor issue).
+        const ok = await authenticateWithBiometrics(`${biometricLabel} ile onayla`);
+        if (!ok) {
+          toast.show('Doğrulanamadı, kilit açılmadı', { variant: 'error' });
+          return;
+        }
+      }
+      await setBiometricLockEnabled(value);
+      setBiometricEnabledState(value);
+      toast.show(value ? `${biometricLabel} kilidi açıldı` : `${biometricLabel} kilidi kapatıldı`, {
+        variant: 'success',
+      });
+    },
+    [biometricLabel, toast],
+  );
+
   const setThemePref = useCallback((pref: ThemePref) => {
     setThemePrefState(pref);
     AsyncStorage.setItem(THEME_KEY, pref).catch(() => {});
@@ -185,7 +222,9 @@ export default function SettingsScreen() {
   };
 
   const handlePrivacy = () => {
-    Linking.openURL('https://canmanici.com/meetbook/privacy').catch(() => {
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
+    const serverUrl = apiUrl.replace(/\/api\/v1$/, '');
+    Linking.openURL(`${serverUrl}/legal/gizlilik-politikasi`).catch(() => {
       toast.show('Tarayıcı açılamadı', { variant: 'error' });
     });
   };
@@ -280,6 +319,9 @@ export default function SettingsScreen() {
       style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}
     >
       <View style={[styles.header, { backgroundColor: colors.surface }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} testID="back-button">
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
+        </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Ayarlar</Text>
         <View style={[styles.headerBorder, { backgroundColor: colors.textMuted, opacity: 0.15 }]} />
       </View>
@@ -290,7 +332,7 @@ export default function SettingsScreen() {
           <View style={[styles.card, { backgroundColor: colors.surface }]}>
             <TouchableOpacity
               style={styles.row}
-              onPress={() => router.push('/tabs/profile?edit=1')}
+              onPress={() => router.replace('/tabs/profile?edit=1' as any)}
               activeOpacity={0.6}
             >
               <Text style={[styles.rowLabel, { color: colors.text }]}>Profilimi Düzenle</Text>
@@ -331,6 +373,26 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Biometric app-lock — only shown on devices that actually support it */}
+        {biometricSupported && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>GÜVENLİK</Text>
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
+              <View style={styles.row}>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>
+                  {biometricLabel} ile Kilitle
+                </Text>
+                <Switch
+                  value={biometricEnabled}
+                  onValueChange={handleToggleBiometric}
+                  trackColor={{ false: colors.textMuted + '44', true: colors.primary }}
+                  testID="biometric-lock-toggle"
+                />
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* B11: Notification preferences */}
         <View style={styles.section}>
@@ -468,9 +530,15 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  backButton: {
+    padding: spacing.xs,
   },
   headerBorder: {
     position: 'absolute',

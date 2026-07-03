@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Veri İhlali Müdahale Planı — MeetBook</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #1a1a2e;
+    --accent: #0f3460;
+    --gold: #e2b714;
+    --red: #c0392b;
+    --orange: #e67e22;
+    --yellow: #f39c12;
+    --green: #27ae60;
+    --text: #1a1a2e;
+    --text-light: #555;
+    --bg: #fafafa;
+    --card: #fff;
+    --border: #e0e0e0;
+    --radius: 12px;
+  }
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Roboto, Oxygen, Ubuntu, sans-serif;
+    line-height: 1.7;
+    color: var(--text);
+    background: var(--bg);
+    padding: 0;
+  }
+  .container { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+  .header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+    color: #fff;
+    padding: 36px 0 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -30px;
+    left: -20%;
+    right: -20%;
+    height: 60px;
+    background: var(--bg);
+    border-radius: 50%;
+  }
+  .header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+  .header .meta { opacity: .85; font-size: .85rem; }
+  .header .badge {
+    display: inline-block;
+    background: var(--red);
+    color: #fff;
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 10px;
+  }
+  .header .badge.info { background: var(--accent); }
+  .content { padding: 0 0 40px; }
+  section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 16px;
+  }
+  section h2 {
+    font-size: 1.15rem;
+    color: var(--accent);
+    margin-bottom: 14px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--gold);
+  }
+  section h3 { font-size: 1.02rem; color: var(--primary); margin: 18px 0 8px; }
+  section h4 { font-size: .95rem; color: var(--primary); margin: 14px 0 6px; }
+  section p { margin-bottom: 10px; text-align: justify; font-size: .92rem; }
+  section ul, section ol { margin: 6px 0 12px 20px; }
+  section li { margin-bottom: 5px; font-size: .92rem; }
+  section table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: .85rem;
+  }
+  section th, section td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  section th { background: var(--primary); color: #fff; font-weight: 600; }
+  section tr:nth-child(even) { background: #f5f5f5; }
+  .highlight-box {
+    background: #fff8e1;
+    border-left: 4px solid var(--gold);
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: .9rem;
+  }
+  .highlight-box.red {
+    background: #fdecea;
+    border-left-color: var(--red);
+  }
+  .highlight-box.green {
+    background: #e8f8e8;
+    border-left-color: var(--green);
+  }
+  .highlight-box.orange {
+    background: #fef5e7;
+    border-left-color: var(--orange);
+  }
+  .step-list { counter-reset: step; list-style: none; margin: 6px 0 12px 0; padding: 0; }
+  .step-list li {
+    counter-increment: step;
+    margin-bottom: 10px;
+    padding: 10px 14px 10px 44px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    position: relative;
+    font-size: .92rem;
+  }
+  .step-list li::before {
+    content: counter(step);
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    width: 26px;
+    height: 26px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 26px;
+    font-size: .8rem;
+    font-weight: 700;
+  }
+  .risk-dusuk { background: #e8f8e8 !important; }
+  .risk-dusuk th { background: var(--green) !important; }
+  .risk-orta { background: #fef9e7 !important; }
+  .risk-orta th { background: var(--yellow) !important; color: var(--primary) !important; }
+  .risk-yuksek { background: #fef5e7 !important; }
+  .risk-yuksek th { background: var(--orange) !important; }
+  .risk-kritik { background: #fdecea !important; }
+  .risk-kritik th { background: var(--red) !important; }
+  .template-box {
+    background: #f5f5f5;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 12px 0;
+    font-size: .88rem;
+    font-family: 'Courier New', Courier, monospace;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .badge-risk {
+    display: inline-block;
+    padding: 1px 10px;
+    border-radius: 12px;
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .badge-risk.dusuk { background: #e8f8e8; color: #1e7e34; }
+  .badge-risk.orta { background: #fef9e7; color: #856404; }
+  .badge-risk.yuksek { background: #fef5e7; color: #d35400; }
+  .badge-risk.kritik { background: #fdecea; color: #c0392b; }
+  .footer {
+    text-align: center;
+    padding: 24px 0;
+    color: var(--text-light);
+    font-size: .8rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 600px) {
+    .header h1 { font-size: 1.2rem; }
+    section { padding: 16px 18px; }
+    section table { font-size: .78rem; }
+    section th, section td { padding: 5px 6px; }
+  }
+  @media print {
+    section { break-inside: avoid; }
+    body { font-size: 10pt; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="container">
+    <div class="badge">⚠ Operasyonel Acil Durum Prosedürü · Sürüm 1.0</div>
+    <h1>Veri İhlali Müdahale Planı</h1>
+    <p class="meta">6689 sayılı KVKK md.12 ve ilgili mevzuat uyarınca hazırlanmıştır · 2 Temmuz 2026 · GİZLİ — Yalnızca yetkili personel içindir</p>
+  </div>
+</div>
+
+<div class="content container">
+
+<section>
+  <h2>1. Amaç ve Kapsam</h2>
+  <p>Bu plan, MeetBook platformunda meydana gelebilecek kişisel veri ihlallerine (data breach) karşı hızlı, etkili ve KVKK uyumlu bir müdahale süreci tanımlamak amacıyla hazırlanmıştır. Planın temel hedefleri şunlardır:</p>
+  <ul>
+    <li><strong>KVKK 72 saat bildirim yükümlülüğünün</strong> eksiksiz yerine getirilmesi (KVKK md.12/3),</li>
+    <li>İhlalin etkilerinin en aza indirilmesi ve yayılımının durdurulması,</li>
+    <li>Etkilenen kullanıcıların haklarının korunması ve zamanında bilgilendirilmesi,</li>
+    <li>Benzer ihlallerin tekrarlanmasını önlemek için kalıcı iyileştirmelerin yapılması,</li>
+    <li>Hukuki ve cezai yaptırımlardan kaçınmak için KVKK, TTK ve TBK kapsamındaki tüm yasal yükümlülüklerin yerine getirilmesi.</li>
+  </ul>
+  <p>Bu plan, MeetBook platformunun tüm bileşenlerini (backend, veritabanı, dosya depolama, log sistemleri, üçüncü taraf entegrasyonlar, mobil uygulama) kapsar. Plan, yılda en az bir kez güncellenir ve ihlal tatbikatları ile test edilir.</p>
+
+  <div class="highlight-box red">
+    <strong>⚠ KRİTİK:</strong> Bu plan yalnızca yetkili personel (<strong>Can Manici</strong> ve gerektiğinde yetkilendirilmiş adminler) tarafından kullanılabilir. Planın harici kişilerle paylaşılması, güvenlik açığı oluşturabilir.
+  </div>
+</section>
+
+<section>
+  <h2>2. Tanımlar</h2>
+  <table>
+    <thead>
+      <tr><th style="width:200px;">Terim</th><th>Açıklama</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Kişisel Veri İhlali</strong></td>
+        <td>Kişisel verilerin yetkisiz kişilerce erişilmesi, ifşa edilmesi, değiştirilmesi, kaybolması veya yok edilmesi. KVKK md.12/3 kapsamında, veri sorumlusunun bildirim yükümlülüğünü tetikleyen olaydır.</td>
+      </tr>
+      <tr>
+        <td><strong>KVKK Kurulu</strong></td>
+        <td>Kişisel Verileri Koruma Kurulu — KVKK'nın uygulanmasını denetleyen, ihlal bildirimlerini alan ve gerekli yaptırımları uygulayan kamu tüzel kişiliğini haiz kurul.</td>
+      </tr>
+      <tr>
+        <td><strong>VERBIS</strong></td>
+        <td>Veri Sorumluları Sicil Bilgi Sistemi — KVKK kapsamında veri sorumlularının kayıt yaptırdığı, bildirim ve başvuruların iletildiği elektronik sistem.</td>
+      </tr>
+      <tr>
+        <td><strong>Etkilenen Kullanıcı</strong></td>
+        <td>Kişisel verileri ihlalden doğrudan veya dolaylı olarak etkilenen gerçek kişi. KVKK md.12/3 uyarınca, yüksek risk durumunda bu kişilere doğrudan bildirim yapılması zorunludur.</td>
+      </tr>
+      <tr>
+        <td><strong>72 Saat Kuralı</strong></td>
+        <td>KVKK md.12/3 uyarınca, veri sorumlusunun bir ihlali öğrendiği andan itibaren en geç 72 saat içinde KVKK Kurulu'na bildirim yapma yükümlülüğü. <strong>Her saat kritiktir.</strong> Gecikme durumunda gerekçe gösterilmelidir.</td>
+      </tr>
+      <tr>
+        <td><strong>Sızma Testi (Pentest)</strong></td>
+        <td>Sistemlerin güvenlik açıklarını tespit etmek için yapılan kontrollü saldırı simülasyonu. Bu plandaki adımlar, pentest sonuçlarına göre güncellenir.</td>
+      </tr>
+      <tr>
+        <td><strong>Adli Bilişim (Forensics)</strong></td>
+        <td>İhlalin kaynağını, yayılımını ve etkisini belirlemek için yapılan dijital inceleme. Gerekirse harici adli bilişim uzmanına başvurulur.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>3. İhlal Türleri ve Risk Sınıflandırması</h2>
+  <p>Her ihlal bildirimi, aşağıdaki risk matrisine göre sınıflandırılır. Risk seviyesi, <strong>ilk 1 saat içinde</strong> belirlenir ve tüm müdahale adımlarını belirler.</p>
+
+  <table>
+    <thead>
+      <tr><th>Risk Seviyesi</th><th>Renk</th><th>Açıklama</th><th>Örnekler</th><th>Bildirim Yükümlülüğü</th></tr>
+    </thead>
+    <tbody>
+      <tr class="risk-dusuk">
+        <td><span class="badge-risk dusuk">Düşük (L1)</span></td>
+        <td><span style="color:var(--green);font-weight:700;">●</span> Yeşil</td>
+        <td>Veriler zaten şifreli/anonim, erişim kanıtlanamıyor. Kullanıcılar için fiili bir risk bulunmamaktadır.</td>
+        <td>Log dosyasında IP adresi sızıntısı, şifreli veritabanı yedeğinin yetkisiz erişime uğraması ancak şifre çözülememesi</td>
+        <td>KVKK'ya bildirim gerekmez. Olay kayıt altına alınır ve izlenir.</td>
+      </tr>
+      <tr class="risk-orta">
+        <td><span class="badge-risk orta">Orta (L2)</span></td>
+        <td><span style="color:var(--yellow);font-weight:700;">●</span> Sarı</td>
+        <td>Sınırlı sayıda kullanıcının kişisel verileri ifşa olmuş olabilir. Sınırlı etki, düşük kötüye kullanım olasılığı.</td>
+        <td>Bir kullanıcının e-posta adresinin yanlışlıkla başka kullanıcıya görünmesi, tek bir hesaba yetkisiz erişim</td>
+        <td>KVKK'ya bildirim gerekebilir (değerlendirme sonucuna göre). Etkilenen kullanıcıya bildirim yapılabilir.</td>
+      </tr>
+      <tr class="risk-yuksek">
+        <td><span class="badge-risk yuksek">Yüksek (L3)</span></td>
+        <td><span style="color:var(--orange);font-weight:700;">●</span> Turuncu</td>
+        <td>Önemli sayıda kullanıcının tanımlanabilir verileri ifşa olmuş. Kötüye kullanım riski yüksek.</td>
+        <td>Veritabanı sızıntısı (ad, e-posta, telefon), API güvenlik açığı ile toplu kullanıcı verilerine erişim</td>
+        <td><strong>KVKK'ya 72 saat içinde bildirim ZORUNLU.</strong> Etkilenen kullanıcılara bildirim değerlendirilir.</td>
+      </tr>
+      <tr class="risk-kritik">
+        <td><span class="badge-risk kritik">Kritik (L4)</span></td>
+        <td><span style="color:var(--red);font-weight:700;">●</span> Kırmızı</td>
+        <td>Hassas veriler, çok sayıda kullanıcı, yüksek ve acil zarar riski. Aktif devam eden saldırı olabilir.</td>
+        <td>Tüm veritabanının çalınması, konum verilerinin ifşası, şifre hash'lerinin sızması, aktif siber saldırı, ödeme bilgisi sızıntısı</td>
+        <td><strong>KVKK'ya + etkilenen kullanıcılara bildirim ZORUNLU.</strong> Ayrıca savcılığa suç duyurusu değerlendirilir.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Risk Seviyesi Belirleme Kriterleri</h3>
+  <p>Risk seviyesi belirlenirken aşağıdaki kriterler birlikte değerlendirilir:</p>
+  <ul>
+    <li><strong>Veri Hassasiyeti:</strong> Açık rızaya dayalı veriler (konum, fotoğraf) daha yüksek risklidir.</li>
+    <li><strong>Veri Miktarı:</strong> 100'den az kullanıcı → Orta, 100-10.000 → Yüksek, 10.000+ → Kritik.</li>
+    <li><strong>Şifreleme Durumu:</strong> Şifreli veriler daha düşük risklidir (anahtar sızmadıysa).</li>
+    <li><strong>İhlalin Kaynağı:</strong> Dış saldırı → daha yüksek risk; insan hatası → nispeten daha düşük.</li>
+    <li><strong>İhlal Süresi:</strong> Uzun süre fark edilmemiş ihlaller daha yüksek risklidir.</li>
+  </ul>
+
+  <div class="highlight-box">
+    <strong>Not:</strong> Risk seviyesi nihai olarak <strong>Veri Sorumlusu (Can Manici)</strong> tarafından belirlenir. Şüphe durumunda bir üst risk seviyesi kabul edilir.
+  </div>
+</section>
+
+<section>
+  <h2>4. İhlal Tespit ve İlk Müdahale — İlk 1 Saat</h2>
+  <p>İhlal anından itibaren ilk 60 dakika, müdahalenin en kritik aşamasıdır. Aşağıdaki adımlar <strong>sırasıyla ve gecikmesiz</strong> uygulanmalıdır:</p>
+
+  <ol class="step-list">
+    <li>
+      <strong>İhbarı Al</strong> — İhlal aşağıdaki kanallardan ihbar edilebilir:
+      <ul>
+        <li><strong>Sistem Uyarıları:</strong> IDS/IPS, log analiz sistemi, hata izleme (Sentry/Bugsnag), anormal trafik tespiti</li>
+        <li><strong>Kullanıcı Bildirimi:</strong> Kullanıcıların hesap aktivitelerinde fark ettikleri anormallikler (tanımadıkları giriş, şifre değişikliği vb.)</li>
+        <li><strong>Üçüncü Taraf Bildirimi:</strong> Barındırma sağlayıcısı, güvenlik araştırmacısı, KVKK Kurulu, kolluk kuvvetleri</li>
+        <li><strong>Anonim İhbar:</strong> İhbar web sitesi, e-posta veya başka bir kanaldan gelen anonim bildirim</li>
+      </ul>
+    </li>
+    <li>
+      <strong>İhbarı Kaydet</strong> — İhbarı alan kişi, aşağıdaki bilgileri derhal <a href="#bolum-9">İhlal Kayıt Defteri</a>'ne işler:
+      <ul>
+        <li>İhbar tarihi ve saati (dakika hassasiyetinde)</li>
+        <li>İhbar kaynağı (kanal, bildiren kişi)</li>
+        <li>İlk izlenimler (ne, nerede, ne zaman?)</li>
+        <li>İhbarı alan kişinin adı</li>
+      </ul>
+    </li>
+    <li>
+      <strong>İlk Değerlendirmeyi Yap</strong> — Bu kılavuzdaki <a href="#bolum-3">risk matrisine</a> göre ön risk seviyesi belirlenir. Ön değerlendirme, kesin değerlendirme olmayabilir; amaç hızlı aksiyon almaktır.
+    </li>
+    <li>
+      <strong>Yayılmayı Durdur (Containment)</strong> — Risk seviyesine göre aşağıdaki önlemler uygulanır:
+      <ul>
+        <li><strong>L1 (Düşük):</strong> Olayı izle, ek önlem gerekmez.</li>
+        <li><strong>L2 (Orta):</strong> Etkilenen hesabı/ sistemi geçici olarak devre dışı bırak.</li>
+        <li><strong>L3 (Yüksek):</strong> Etkilenen servisi kapat, veritabanı bağlantısını kes, tüm şifreleri sıfırla, tüm token'ları iptal et.</li>
+        <li><strong>L4 (Kritik):</strong> Tüm sistemi kapat (maintenance mode), tüm dış bağlantıları kes, tüm şifreleri sıfırla, tüm token'ları iptal et, sunucuyu izole et.</li>
+      </ul>
+    </li>
+    <li>
+      <strong>Veri Sorumlusuna Bildir</strong> — <strong>Can Manici'ye</strong> derhal e-posta <strong>+</strong> telefon ile bildirim yapılır:
+      <ul>
+        <li>E-posta: <a href="mailto:canmanici@gmail.com">canmanici@gmail.com</a></li>
+        <li>Telefon: kayıtlı numaradan aranır</li>
+        <li>Bildirim içeriği: ihlal türü, risk seviyesi (ön), etkilenen sistem, alınan ilk önlemler</li>
+      </ul>
+    </li>
+  </ol>
+
+  <div class="highlight-box red">
+    <strong>⚠ KRİTİK UYARI:</strong> İlk 1 saat içinde asla yapılmaması gerekenler:
+    <ul style="margin-top:6px;">
+      <li>❌ Panik yapmayın — her adım bu planda tanımlıdır.</li>
+      <li>❌ İhlali gizlemeye veya örtbas etmeye çalışmayın — bu KVKK ihlalini ağırlaştırır (md.12/3).</li>
+      <li>❌ Sistemleri hemen kapatmadan önce log ve delil toplamayı unutmayın (delil kaybı).</li>
+      <li>❌ Yetkisiz kişilere ihlalden bahsetmeyin — bilgi sızıntısı riskin artmasına neden olur.</li>
+      <li>❌ Etkilenen kullanıcılara henüz bildirim yapmayın — önce kesin değerlendirme beklenir.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>5. İhlal Değerlendirme — İlk 4 Saat</h2>
+  <p>İlk müdahale sonrasında, ihlalin kapsamını ve etkisini kesin olarak belirlemek için ayrıntılı değerlendirme yapılır. Bu aşamada aşağıdaki sorulara yanıt aranır:</p>
+
+  <table>
+    <thead>
+      <tr><th style="width:40px;">#</th><th>Soru</th><th>Kontrol Yöntemi</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td><strong>Hangi veri kategorileri etkilendi?</strong></td>
+        <td>Veritabanı erişim logları, API istek logları, dosya erişim kayıtları incelenir. Etkilenen tablolar ve sütunlar belirlenir.</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td><strong>Kaç kullanıcı etkilendi?</strong></td>
+        <td>Etkilenen tablolardaki benzersiz kullanıcı ID'leri sayılır. Hassas verileri (konum, şifre hash'i) etkilenen kullanıcılar ayrıca işaretlenir.</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td><strong>İhlalin kaynağı nedir?</strong></td>
+        <td>Saldırı vektörü belirlenir: SQL injection, brute force, yetkisiz API erişimi, insider threat, üçüncü taraf sızıntısı, insan hatası.</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td><strong>İhlal devam ediyor mu?</strong></td>
+        <td>Aktif oturumlar, son erişim logları, ağ trafiği analiz edilir. Devam ediyorsa containment adımları güçlendirilir.</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td><strong>Veriler şifreli miydi?</strong></td>
+        <td>Veritabanı şifrelemesi (AES-256), hash (bcrypt), iletim şifrelemesi (TLS) kontrol edilir. Şifreleme anahtarlarının sızıp sızmadığı teyit edilir.</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td><strong>Kesin risk seviyesi nedir?</strong></td>
+        <td>Toplanan tüm veriler ışığında, <a href="#bolum-3">Bölüm 3</a>'teki risk matrisine göre nihai risk seviyesi belirlenir.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>Değerlendirme sonuçları, İhlal Kayıt Defteri'ne işlenir ve Veri Sorumlusu'na raporlanır. Kesin risk seviyesi <strong>L3 (Yüksek)</strong> veya <strong>L4 (Kritik)</strong> ise, KVKK bildirim süreci derhal başlatılır.</p>
+
+  <div class="highlight-box orange">
+    <strong>📌 ÖNEMLİ:</strong> Zaman damgaları (timestamp) her adımda dakika hassasiyetiyle kaydedilmelidir. KVKK Kurulu, bildirimin süresinde yapılıp yapılmadığını bu kayıtlara göre denetler. Zaman kaydı olmayan adımlar "yapılmamış" kabul edilebilir.
+  </div>
+</section>
+
+<section>
+  <h2>6. KVKK'ya Bildirim — 72 Saat</h2>
+  <p>KVKK md.12/3 uyarınca, veri sorumlusu bir veri ihlalini en geç <strong>72 saat içinde</strong> KVKK Kurulu'na bildirmekle yükümlüdür. Bildirim, VERBIS üzerinden veya Kurul'un belirlediği diğer kanallarla yapılır.</p>
+
+  <p><strong>Bildirim Kanalları:</strong></p>
+  <ul>
+    <li><strong>VERBIS:</strong> <a href="https://verbis.kvkk.gov.tr" target="_blank" rel="noopener">https://verbis.kvkk.gov.tr</a> — Veri Sorumluları Sicil Bilgi Sistemi üzerinden elektronik başvuru</li>
+    <li><strong>E-posta:</strong> <a href="mailto:basvuru@kvkk.gov.tr">basvuru@kvkk.gov.tr</a> — KVKK Kurulu resmi başvuru e-posta adresi</li>
+    <li><strong>Posta/Kargo:</strong> KVKK Kurulu merkez adresine fiziksel posta (acil durumlarda önerilmez)</li>
+  </ul>
+
+  <h3>KVKK Bildirim Şablonu</h3>
+  <p>Aşağıdaki şablon, KVKK Kurulu'na yapılacak bildirimde kullanılmalıdır. Tüm alanlar eksiksiz doldurulmalıdır.</p>
+
+  <div class="template-box">
+KİŞİSEL VERİ İHLALİ BİLDİRİMİ
+
+KVKK'ya sunulmak üzere hazırlanmıştır.
+6698 sayılı KVKK 12/3 maddesi uyarınca.
+
+═══════════════════════════════════════
+
+1. VERİ SORUMLUSU BİLGİLERİ
+   Ad/Unvan: Can Manici (MeetBook)
+   VERBIS No: [VERBIS KAYIT NO]
+   İletişim: support@meetbook.com
+   Adres: [VERBIS'TE KAYITLI ADRES]
+
+2. İHLAL TARİHİ VE SAATİ
+   Tarih: [GG/AA/YYYY]
+   Saat: [SS:DD]
+   Saat Dilimi: UTC+3 (Türkiye)
+
+3. İHLALİN TESPİT TARİHİ
+   Tarih: [GG/AA/YYYY]
+   Saat: [SS:DD]
+
+4. İHLAL KATEGORİSİ
+   [ ] Siber Saldırı (Dış Kaynaklı)
+   [ ] İnsan Hatası (Yetkisiz İfşa / Kayıp Cihaz / Yanlışlıkla Gönderim)
+   [ ] Sistem Hatası (Yazılım/Hata / Konfigürasyon Hatası)
+   [ ] Üçüncü Taraf Kaynaklı (Hizmet Sağlayıcı / İş Ortağı)
+   [ ] Doğal Afet / Fiziksel Güvenlik İhlali
+   [ ] Diğer (Açıklayınız): ________________
+
+5. ETKİLENEN KİŞİSEL VERİ KATEGORİLERİ
+   [ ] Kimlik Verileri (Ad, soyad)
+   [ ] İletişim Verileri (E-posta, telefon)
+   [ ] Konum Verileri (Kitap konumu, güvenlik modu konumu)
+   [ ] Kullanıcı İçerik Verileri (Profil fotoğrafı, kitap fotoğrafları, mesajlar)
+   [ ] İşlem Güvenliği Verileri (IP adresi, cihaz bilgisi, token'lar)
+   [ ] İşlem ve Takas Verileri (Takas kayıtları, ödünç geçmişi)
+   [ ] Şifre Verileri (Bcrypt hash'leri)
+   [ ] Güven Puanı Verileri
+   [ ] Hukuki İşlem Verileri (Rapor/şikayet kayıtları)
+   [ ] Diğer: ________________
+
+6. ETKİLENEN KİŞİ SAYISI
+   Toplam: [SAYI]
+   Türkiye'de yerleşik: [SAYI]
+   Yurt dışında yerleşik: [SAYI]
+
+7. İHLALİN OLASI SONUÇLARI
+   [ ] Kimlik hırsızlığı / Dolandırıcılık riski
+   [ ] Fiziksel güvenlik riski (konum verileri ifşası)
+   [ ] İtibar kaybı / Sosyal mühendislik saldırıları
+   [ ] Hesap ele geçirme / Yetkisiz işlem
+   [ ] Spam / Kimlik avı (phishing)
+   [ ] Şantaj / Kişisel verilerin kötüye kullanımı
+   [ ] Diğer: ________________
+
+8. ALINAN / ALINACAK TEDBİRLER
+   Alınan acil önlemler:
+   - [ ] Etkilenen sistem izole edildi / kapatıldı
+   - [ ] Tüm kullanıcı şifreleri sıfırlandı
+   - [ ] Tüm oturum token'ları iptal edildi
+   - [ ] Güvenlik açığı kapatıldı (patch uygulandı)
+   - [ ] Adli bilişim incelemesi başlatıldı
+   - [ ] Harici güvenlik uzmanına danışıldı
+
+   Alınacak önlemler:
+   - [ ] Zafiyet taraması ve sızma testi planlandı
+   - [ ] Erişim kontrolleri gözden geçirilecek
+   - [ ] Loglama ve izleme sistemleri güçlendirilecek
+   - [ ] Personel farkındalık eğitimi planlandı
+
+9. İHLALİN DETAYLI AÇIKLAMASI
+   [İhlal öncesi durum, ihlal anı, ihlal sonrası tespit süreci,
+   saldırı vektörü (biliniyorsa), zafiyetin teknik detayları
+   serbest metin olarak açıklanır.]
+
+   Kullanılan zafiyet (varsa): [CVE ID veya teknik tanım]
+
+10. YETKİLİ İLETİŞİM
+    İsim: Can Manici
+    E-posta: canmanici@gmail.com
+    Telefon: [KAYITLI TELEFON NUMARASI]
+    Görevi: Veri Sorumlusu
+
+═══════════════════════════════════════
+
+Bildirimi Hazırlayan: [İsim]
+Tarih: [GG/AA/YYYY SS:DD]
+</div>
+
+  <div class="highlight-box red">
+    <strong>⚠ UYARI:</strong> Bildirim, ihlali <strong>öğrendiğiniz andan itibaren</strong> 72 saat içinde yapılmalıdır. "Öğrenme" = ihlalden haberdar olduğunuz an, ihlalin kesinleşmesi değil. Şüpheli bir durumda bile bildirim yapılmalı, detaylar sonradan tamamlanmalıdır.
+  </div>
+
+  <h3>Gecikme Bildirimi</h3>
+  <p>72 saatlik sürenin aşılması durumunda, bildirime ek olarak gecikme gerekçesi de sunulmalıdır:</p>
+  <div class="template-box">
+GECİKME GEREKÇESİ:
+- [ ] Adli bilişim incelemesi devam ediyor
+- [ ] İhlalin kapsamı henüz tam olarak belirlenemedi
+- [ ] Üçüncü taraftan bilgi bekleniyor
+- [ ] Teknik engel (sistemlere erişim sorunu vb.)
+- [ ] Diğer: ________________
+  </div>
+</section>
+
+<section>
+  <h2>7. Etkilenen Kullanıcılara Bildirim</h2>
+  <p>KVKK md.12/3 uyarınca, ihlalin <strong>Yüksek (L3)</strong> veya <strong>Kritik (L4)</strong> risk seviyesinde olması durumunda, etkilenen kullanıcılara da bildirim yapılmalıdır. Bildirim, ihlalin öğrenilmesinden itibaren makul süre içinde (genellikle 72 saat ile eşzamanlı veya kısa süre sonrası) yapılır.</p>
+
+  <h3>Bildirim Kanalları</h3>
+  <table>
+    <thead>
+      <tr><th>Kanal</th><th>Kullanım Durumu</th><th>Notlar</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>E-posta</td><td>Her durumda</td><td>Tüm kullanıcıların e-posta adresine toplu e-posta gönderilir.</td></tr>
+      <tr><td>Push Bildirimi</td><td>Acil durumlarda</td><td>Mobil uygulama üzerinden anında bildirim.</td></tr>
+      <tr><td>SMS</td><td>Kritik (L4) durumda</td><td>Yalnızca telefon numarası paylaşmış kullanıcılara.</td></tr>
+      <tr><td>Platform Duyurusu</td><td>Her durumda</td><td>Web ve mobil uygulamada banner/modal duyuru.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Kullanıcı Bildirim Şablonu</h3>
+  <div class="template-box">
+Konu: MeetBook — Veri Güvenliği Bildirimi Hk.
+
+Sayın [Kullanıcı Adı],
+
+MeetBook platformunda bir veri güvenliği ihlali tespit edilmiştir.
+Yapılan incelemede, aşağıdaki bilgilerinizin bu ihlalden etkilenmiş
+olabileceği belirlenmiştir:
+
+─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+
+Etkilenen Veriler:
+[VERİ LİSTESİ]
+
+İhlal Tarihi: [TARİH]
+İhlal Türü: [TÜR]
+Risk Seviyesi: [DÜŞÜK / ORTA / YÜKSEK / KRİTİK]
+
+─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+
+Sizi korumak için aldığımız önlemler:
+- Tüm kullanıcı şifreleri sıfırlanmıştır
+- Tüm oturumlar sonlandırılmıştır
+- Güvenlik açığı kapatılmıştır
+- KVKK Kurulu'na bildirim yapılmıştır
+- Adli bilişim incelemesi başlatılmıştır
+
+Sizin yapmanız gerekenler:
+1. Şifrenizi değiştirin (yeni şifre belirleyin)
+2. Hesap aktivitelerinizi kontrol edin
+3. Şüpheli e-posta veya mesajlara karşı dikkatli olun
+4. [DİĞER ÖNERİLER]
+
+─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+
+Detaylı bilgi ve sorularınız için:
+E-posta: support@meetbook.com
+
+Saygılarımızla,
+MeetBook Ekibi
+  </div>
+
+  <div class="highlight-box orange">
+    <strong>📌 DİKKAT:</strong> Kullanıcılara yapılan bildirimde şunlara <strong>dikkat edilmelidir</strong>:
+    <ul style="margin-top:6px;">
+      <li>Panik yaratmayacak, ancak ciddiyeti hissettiren bir dil kullanılmalıdır.</li>
+      <li>Kesin olmayan bilgiler paylaşılmamalıdır ("verileriniz çalındı" yerine "etkilenmiş olabilir").</li>
+      <li>Kullanıcılara net aksiyon maddeleri sunulmalıdır (şifre değiştir, izle, bildir).</li>
+      <li>İletişim kanalı açık bırakılmalıdır (support@meetbook.com).</li>
+      <li>KVKK Kurulu'na bildirim yapıldığı belirtilmelidir (şeffaflık).</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>8. Düzeltici Önlemler ve İyileştirme</h2>
+  <p>İhlal kontrol altına alındıktan ve bildirim yükümlülükleri yerine getirildikten sonra, iyileştirme süreci başlatılır. Bu sürecin amacı, benzer ihlallerin tekrarlanmasını önlemek ve sistem güvenliğini kalıcı olarak artırmaktır.</p>
+
+  <h3>İyileştirme Süreci Adımları</h3>
+  <ol>
+    <li>
+      <strong>Zafiyet Giderilir</strong> — İhlale neden olan güvenlik açığı kalıcı olarak kapatılır:
+      <ul>
+        <li>Yazılım güncellemesi / yaması uygulanır</li>
+        <li>Konfigürasyon hatası düzeltilir</li>
+        <li>Erişim kontrolleri yeniden yapılandırılır</li>
+        <li>Gerekirse mimari değişiklik yapılır</li>
+      </ul>
+    </li>
+    <li>
+      <strong>Adli Bilişim İncelemesi</strong> (gerekirse) — Harici adli bilişim uzmanına başvurularak:
+      <ul>
+        <li>Saldırganın erişim yöntemi ve süresi belirlenir</li>
+        <li>Hangi verilere erişildiği / kopyalandığı tespit edilir</li>
+        <li>Deliller muhafaza edilir (hukuki süreç için)</li>
+        <li>Adli bilişim raporu hazırlanır</li>
+      </ul>
+    </li>
+    <li>
+      <strong>İhlal Kaynağı Kalıcı Olarak Kapatılır</strong>:
+      <ul>
+        <li>Zafiyet, tüm ortamlarda (dev, staging, prod) giderilir</li>
+        <li>Otomatik testler eklenir (regresyon önleme)</li>
+        <li>Güvenlik duvarı kuralları güncellenir</li>
+      </ul>
+    </li>
+    <li>
+      <strong>Prosedür Güncellenir</strong> — Benzer ihlalleri önlemek için:
+      <ul>
+        <li>Bu müdahale planı güncellenir (gerekirse)</li>
+        <li>Güvenlik politikaları gözden geçirilir</li>
+        <li>Personel farkındalık eğitimi düzenlenir</li>
+      </ul>
+    </li>
+    <li>
+      <strong>30 Günlük Değerlendirme</strong> — İhlal sonrası 30. günde:
+      <ul>
+        <li>Alınan önlemlerin etkinliği değerlendirilir</li>
+        <li>Sızma testi (pentest) yapılır</li>
+        <li>İhlal sonrası raporu hazırlanır ve arşivlenir</li>
+        <li>KVKK Kurulu'na ek bildirim gerekirse yapılır</li>
+      </ul>
+    </li>
+  </ol>
+
+  <h3>İyileştirme Takvimi</h3>
+  <table>
+    <thead>
+      <tr><th>Görev</th><th>Sorumlu</th><th>Tamamlanma Süresi</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Zafiyet giderme (patch)</td><td>Teknik ekip</td><td>İhlal tespitinden sonra 24 saat içinde</td></tr>
+      <tr><td>Adli bilişim raporu</td><td>Harici uzman</td><td>30 gün içinde</td></tr>
+      <tr><td>Prosedür güncellemesi</td><td>Veri Sorumlusu</td><td>15 gün içinde</td></tr>
+      <tr><td>Sızma testi</td><td>Harici uzman</td><td>30 gün içinde</td></tr>
+      <tr><td>Etkinlik değerlendirme raporu</td><td>Veri Sorumlusu</td><td>30. gün</td></tr>
+      <tr><td>Personel eğitimi</td><td>Veri Sorumlusu</td><td>45 gün içinde</td></tr>
+    </tbody>
+  </table>
+
+  <div class="highlight-box">
+    <strong>📌 İyi Uygulama:</strong> Her ihlal, bir öğrenme fırsatıdır. İhlal sonrası hazırlanan "Dersler Çıkarıldı" (Lessons Learned) belgesi, gelecekteki ihlalleri önlemenin en etkili yoludur. Bu belge, ihlal raporuyla birlikte en az 10 yıl saklanmalıdır.
+  </div>
+</section>
+
+<section>
+  <h2>9. İhlal Kayıt Defteri (Incident Log)</h2>
+  <p>Aşağıdaki tablo, her ihlal olayının kayıt altına alınması için kullanılır. Her satır bir ihlal olayını temsil eder. Kayıt defteri, KVKK md.12 kapsamında ispat yükümlülüğü için en az <strong>10 yıl</strong> saklanır.</p>
+
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:100px;">Tarih</th>
+        <th>İhlal Türü</th>
+        <th style="width:70px;">Risk</th>
+        <th>Etkilenen Kullanıcı</th>
+        <th>Alınan Aksiyon</th>
+        <th style="width:100px;">KVKK Bildirim</th>
+        <th style="width:60px;">Kapalı?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td colspan="7" style="text-align:center;color:var(--text-light);font-style:italic;">— Henüz kayıtlı ihlal bulunmamaktadır —</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Kayıt Defteri Sütun Açıklamaları</h3>
+  <table>
+    <thead>
+      <tr><th style="width:140px;">Sütun</th><th>Açıklama</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Tarih</strong></td><td>İhlalin tespit edildiği tarih ve saat (GG/AA/YYYY SS:DD formatında, UTC+3).</td></tr>
+      <tr><td><strong>İhlal Türü</strong></td><td>Siber Saldırı / İnsan Hatası / Sistem Hatası / Üçüncü Taraf / Doğal Afet / Diğer.</td></tr>
+      <tr><td><strong>Risk</strong></td><td>L1 (Düşük) / L2 (Orta) / L3 (Yüksek) / L4 (Kritik).</td></tr>
+      <tr><td><strong>Etkilenen Kullanıcı</strong></td><td>Etkilenen kullanıcı ID'leri veya sayısı. Hassas verisi etkilenenler ayrıca belirtilir.</td></tr>
+      <tr><td><strong>Alınan Aksiyon</strong></td><td>Uygulanan containment, düzeltici ve iyileştirici önlemlerin özeti.</td></tr>
+      <tr><td><strong>KVKK Bildirim</strong></td><td>Bildirim tarihi/saati ve bildirim kanalı (VERBIS / e-posta). Bildirim yapılmadıysa gerekçe.</td></tr>
+      <tr><td><strong>Kapalı mı?</strong></td><td>Evet / Hayır. İhlal, tüm düzeltici önlemler tamamlandığında ve 30 günlük değerlendirme yapıldığında kapatılır.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="highlight-box red">
+    <strong>⚠ KRİTİK:</strong> İhlal Kayıt Defteri, KVKK denetimlerinde talep edilecek en önemli belgelerden biridir. Eksik veya yanlış kayıt, idari para cezasına ve hukuki sorumluluğa neden olabilir. <strong>Her kayıt, zaman damgası ve kaydeden kişi bilgisi içermelidir.</strong>
+  </div>
+</section>
+
+<section>
+  <h2>10. Sorumlular ve İletişim</h2>
+  <p>Aşağıdaki tablo, ihlal durumunda irtibata geçilecek kişileri ve sorumluluklarını göstermektedir. Bu liste her zaman güncel tutulmalı ve yılda en az iki kez kontrol edilmelidir.</p>
+
+  <table>
+    <thead>
+      <tr><th>Rol</th><th>Kişi</th><th>İletişim</th><th>Yedek Kişi</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Veri Sorumlusu</strong></td>
+        <td>Can Manici</td>
+        <td><a href="mailto:canmanici@gmail.com">canmanici@gmail.com</a></td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><strong>Teknik Müdahale</strong></td>
+        <td>Can Manici</td>
+        <td><a href="mailto:canmanici@gmail.com">canmanici@gmail.com</a></td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><strong>Hukuki Danışman</strong></td>
+        <td>— (atanacak)</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><strong>KVKK Bildirim Sorumlusu</strong></td>
+        <td>Can Manici</td>
+        <td><a href="mailto:canmanici@gmail.com">canmanici@gmail.com</a></td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><strong>Kullanıcı İletişim Sorumlusu</strong></td>
+        <td>—</td>
+        <td><a href="mailto:support@meetbook.com">support@meetbook.com</a></td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Acil Durum İletişim Bilgileri</h3>
+  <table>
+    <thead>
+      <tr><th>Kurum / Kişi</th><th>İletişim</th><th>Kullanım Durumu</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>KVKK Kurulu</td>
+        <td><a href="https://www.kvkk.gov.tr" target="_blank" rel="noopener">www.kvkk.gov.tr</a><br><a href="mailto:basvuru@kvkk.gov.tr">basvuru@kvkk.gov.tr</a><br>VERBIS: <a href="https://verbis.kvkk.gov.tr" target="_blank" rel="noopener">verbis.kvkk.gov.tr</a></td>
+        <td>İhlal bildirimi ve hukuki danışma</td>
+      </tr>
+      <tr>
+        <td>USOM (TR-CERT)</td>
+        <td><a href="https://www.usom.gov.tr" target="_blank" rel="noopener">www.usom.gov.tr</a><br>Telefon: 444 0 123 (Siber Olay Müdahale)</td>
+        <td>Siber saldırı durumunda teknik destek ve koordinasyon</td>
+      </tr>
+      <tr>
+        <td>Emniyet Genel Müdürlüğü (Siber Suçlar)</td>
+        <td><a href="https://www.egm.gov.tr/siber" target="_blank" rel="noopener">www.egm.gov.tr/siber</a></td>
+        <td>Ağır siber suç durumunda suç duyurusu</td>
+      </tr>
+      <tr>
+        <td>Barındırma Sağlayıcısı</td>
+        <td>İlgili sağlayıcının teknik destek kanalı</td>
+        <td>Sunucu kapatma, log talep etme, DDoS koruması</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>11. Ek: Hızlı Başvuru Kartı</h2>
+  <p>Aşağıdaki özet kart, ihlal anında hızlı başvuru için kullanılabilir. Bu kartın çıktısı alınarak acil durum klasöründe bulundurulmalıdır.</p>
+
+  <div style="background:var(--primary);color:#fff;border-radius:var(--radius);padding:20px;margin:12px 0;">
+    <h3 style="color:var(--gold);margin-top:0;">🚨 VERİ İHLALİ ACİL DURUM KARTI</h3>
+    <hr style="border-color:rgba(255,255,255,.2);margin:10px 0;">
+
+    <p style="color:#fff;font-weight:700;">1. İlk 15 Dakika:</p>
+    <ul style="color:rgba(255,255,255,.9);margin-bottom:12px;">
+      <li>☐ İhbarı kaydet (İhlal Kayıt Defteri)</li>
+      <li>☐ Ön risk değerlendirmesi yap</li>
+      <li>☐ Yayılmayı durdur (containment)</li>
+      <li>☐ Can Manici'yi ara + e-posta gönder</li>
+    </ul>
+
+    <p style="color:#fff;font-weight:700;">2. İlk 4 Saat:</p>
+    <ul style="color:rgba(255,255,255,.9);margin-bottom:12px;">
+      <li>☐ Veri kategorilerini belirle</li>
+      <li>☐ Etkilenen kullanıcı sayısını hesapla</li>
+      <li>☐ İhlal kaynağını tespit et</li>
+      <li>☐ Kesin risk seviyesini belirle</li>
+    </ul>
+
+    <p style="color:#fff;font-weight:700;">3. L3/L4 İse — 72 Saat İçinde:</p>
+    <ul style="color:rgba(255,255,255,.9);margin-bottom:12px;">
+      <li>☐ KVKK bildirim şablonunu doldur</li>
+      <li>☐ VERBIS üzerinden veya e-posta ile bildir</li>
+      <li>☐ Kullanıcı bildirimini hazırla</li>
+      <li>☐ Adli bilişim sürecini başlat</li>
+    </ul>
+
+    <hr style="border-color:rgba(255,255,255,.2);margin:10px 0;">
+
+    <p style="color:rgba(255,255,255,.8);font-size:.85rem;">
+      <strong>Her zaman hatırla:</strong> Panik yapma · Delil topla · Bildir · Düzelt · Öğren
+      <br>
+      72 saat = ihlali ÖĞRENDİĞİN andan itibaren · VERBIS: verbis.kvkk.gov.tr · KVKK: basvuru@kvkk.gov.tr
+    </p>
+  </div>
+</section>
+
+<div style="background:var(--primary); color:#fff; padding:20px; border-radius:var(--radius); margin-top:16px; text-align:center;">
+  <p style="margin:0; font-size:.85rem; opacity:.9;">Son güncelleme: 2 Temmuz 2026 · Sürüm 1.0</p>
+  <p style="margin:8px 0 0; font-size:.8rem; opacity:.7;">© 2026 MeetBook — Bu belge, 6698 sayılı KVKK md.12 ve ilgili mevzuata uygun olarak hazırlanmıştır.</p>
+  <p style="margin:8px 0 0; font-size:.75rem; opacity:.6;">GİZLİ — Yalnızca yetkili personel içindir.</p>
+</div>
+
+</div>
+
+<div class="footer container">
+  <p><strong>MeetBook</strong> · Veri İhlali Müdahale Planı · Sürüm 1.0 · 2 Temmuz 2026</p>
+  <p><a href="/legal/gizlilik-politikasi">Gizlilik Politikası</a> · <a href="/legal/kullanim-kosullari">Kullanım Koşulları</a> · <a href="/legal/kvkk-aydinlatma-metni">KVKK Aydınlatma Metni</a> · <a href="/legal/veri-saklama-imha-politikasi">Veri Saklama ve İmha Politikası</a> · <a href="/legal/kotuye-kullanim-ve-dolandiricilikla-mucadele-politikasi">Kötüye Kullanım Politikası</a></p>
+</div>
+
+</body>
+</html>

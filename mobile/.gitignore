@@ -42,6 +42,9 @@ yarn-error.*
 
 example
 
+# build counter (auto-incremented, local state)
+.version-code
+
 # generated native folders
 /ios
 /android

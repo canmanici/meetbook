@@ -45,6 +45,10 @@
 ### In Progress
 - (none — admin panel functional end-to-end)
 
+### Recently Done (non-admin)
+- Removed camera button (ISBN scan) and filter button from home screen search bar (`mobile/src/app/tabs/home.tsx`) — both were UI clutter in the search row; filter still accessible via RightControls floating button
+- Cleaned up unused styles (`cameraCircle`, `filterBadge`, `filterBadgeText`)
+
 ### Blocked
 - (none)
 

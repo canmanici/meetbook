@@ -318,6 +318,7 @@ class ChatService:
                     exchange_id=row["exchange_id"],
                     counterpart_id=row["counterpart_id"],
                     counterpart_name=name,
+                    counterpart_avatar_url=counterpart.avatar_url,
                     last_message=row["last_message"],
                     last_message_type=row.get("last_message_type", "text"),
                     last_message_at=row["last_message_at"],

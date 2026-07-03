@@ -200,6 +200,12 @@ export async function register(body: RegisterBody): Promise<RegisterResponse> {
   return authedRequest<RegisterResponse>('/auth/register', 'POST', body);
 }
 
+export async function checkUsernameAvailable(username: string): Promise<{ available: boolean }> {
+  return authedRequest<{ available: boolean }>('/auth/username-available', 'GET', undefined, {
+    query: { username },
+  });
+}
+
 export async function login(body: LoginBody): Promise<TokenResponse> {
   return authedRequest<TokenResponse>('/auth/login', 'POST', body);
 }
@@ -645,6 +651,56 @@ export async function getMeetupSuggestions(exchangeId: string): Promise<MeetupSu
 }
 
 // ---------------------------------------------------------------------------
+// Nerdeyim Modu — live location sharing
+// ---------------------------------------------------------------------------
+
+export type LocationPrecision = 'exact' | 'approximate';
+
+export interface LocationUpdateBody {
+  latitude: number;
+  longitude: number;
+  precision?: LocationPrecision;
+}
+
+export interface PartnerLocation {
+  latitude: number;
+  longitude: number;
+  updated_at: string;
+  precision?: LocationPrecision;
+}
+
+export async function updateLocation(exchangeId: string, body: LocationUpdateBody): Promise<void> {
+  return authedRequest<void>(`/exchanges/${exchangeId}/location`, 'POST', body);
+}
+
+export async function getPartnerLocation(exchangeId: string): Promise<PartnerLocation | null> {
+  return authedRequest<PartnerLocation | null>(
+    `/exchanges/${exchangeId}/location/partner`,
+    'GET',
+    undefined,
+  );
+}
+
+export async function stopLocationSharing(exchangeId: string): Promise<void> {
+  return authedRequest<void>(`/exchanges/${exchangeId}/location`, 'DELETE', undefined);
+}
+
+export interface LocationStatus {
+  me_sharing: boolean;
+  partner_sharing: boolean;
+  partner_location: PartnerLocation | null;
+}
+
+/** Both participants' sharing state in one call — the UI's source of truth. */
+export async function getLocationStatus(exchangeId: string): Promise<LocationStatus> {
+  return authedRequest<LocationStatus>(
+    `/exchanges/${exchangeId}/location/status`,
+    'GET',
+    undefined,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Blocks
 // ---------------------------------------------------------------------------
 
@@ -771,6 +827,7 @@ export async function deleteAccount(body: { password: string }): Promise<void> {
 export type UserPublicProfile = {
   id: string;
   name: string;
+  username?: string;
   completed_exchanges: number;
   rating_average: number;
   rating_count: number;
@@ -779,6 +836,19 @@ export type UserPublicProfile = {
   trust_badge?: string;
   trust_label?: string;
 };
+
+export interface UserSearchResult {
+  id: string;
+  name: string;
+  username?: string;
+  avatar_url?: string | null;
+}
+
+export async function searchUsers(query: string): Promise<{ items: UserSearchResult[] }> {
+  return authedRequest<{ items: UserSearchResult[] }>('/auth/users/search', 'GET', undefined, {
+    query: { q: query },
+  });
+}
 
 export async function getUser(userId: string): Promise<UserPublicProfile> {
   return authedRequest<UserPublicProfile>(`/auth/users/${userId}`, 'GET', undefined);
@@ -810,6 +880,31 @@ export async function markGeofenceAlertRead(alertId: string): Promise<void> {
 
 export async function updateGeofenceRadius(radiusKm: number): Promise<MeResponse> {
   return authedRequest<MeResponse>('/auth/me', 'PATCH', { geofence_radius_km: radiusKm });
+}
+
+// ---------------------------------------------------------------------------
+// Avatar upload
+// ---------------------------------------------------------------------------
+
+export async function uploadAvatar(uri: string, contentType = 'image/jpeg'): Promise<{ avatar_url: string }> {
+  const { accessToken } = useAuthStore.getState();
+  const formData = new FormData();
+  const filename = uri.split('/').pop() || 'avatar.jpg';
+  formData.append('file', {
+    uri,
+    name: filename,
+    type: contentType,
+  } as unknown as Blob);
+
+  const url = `${BASE_URL}/auth/me/avatar`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: formData,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new ApiError(res.status, data);
+  return data;
 }
 
 // ---------------------------------------------------------------------------

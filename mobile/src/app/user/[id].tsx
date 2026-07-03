@@ -287,9 +287,12 @@ export default function UserProfileScreen() {
         style={[styles.hero, { paddingTop: insets.top + spacing.xl }]}
       >
         <View style={styles.heroAvatar}>
-          <Avatar name={profile.name} size="large" verified={false} />
+          <Avatar name={profile.name} imageUrl={(profile as any).avatar_url ?? undefined} size="large" verified={false} />
         </View>
         <Text style={styles.heroName}>{profile.name}</Text>
+        {!!(profile as any).username && (
+          <Text style={styles.heroUsername}>@{(profile as any).username}</Text>
+        )}
         {profile.rating_count > 0 && (
           <View style={styles.ratingRow}>
             <Ionicons name="star" size={16} color="#FFD700" />
@@ -641,6 +644,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: spacing.md,
     letterSpacing: -0.3,
+  },
+  heroUsername: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: 1,
   },
   ratingRow: {
     flexDirection: 'row',

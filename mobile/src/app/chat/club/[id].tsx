@@ -56,6 +56,7 @@ interface ClubMessage {
   id: string;
   senderId: string;
   senderName: string;
+  senderAvatarUrl?: string;
   text: string;
   at: string;
 }
@@ -108,6 +109,7 @@ export default function ClubDetailScreen() {
         id: makeMsgId(),
         senderId: others[0].id,
         senderName: others[0].name,
+        senderAvatarUrl: others[0].avatarUrl,
         text: 'Merhaba! Benim kitabımı merak ediyorum, bakalım kime denk gelecek 📚',
         at: new Date().toISOString(),
       });
@@ -130,6 +132,7 @@ export default function ClubDetailScreen() {
       id: makeMsgId(),
       senderId: currentUser.id,
       senderName: currentUser.name,
+      senderAvatarUrl: currentUser.avatarUrl,
       text,
       at: new Date().toISOString(),
     };
@@ -155,6 +158,7 @@ export default function ClubDetailScreen() {
               id: makeMsgId(),
               senderId: replier.id,
               senderName: replier.name,
+              senderAvatarUrl: replier.avatarUrl,
               text: replies[Math.floor(Math.random() * replies.length)],
               at: new Date().toISOString(),
             },
@@ -179,7 +183,7 @@ export default function ClubDetailScreen() {
       }
       return (
         <View style={[styles.msgRow, isMine ? styles.msgRowMine : styles.msgRowOther]}>
-          {!isMine && <Avatar name={item.senderName} size="small" />}
+          {!isMine && <Avatar name={item.senderName} imageUrl={item.senderAvatarUrl} size="small" />}
           <View
             style={[
               styles.bubble,
@@ -277,7 +281,7 @@ export default function ClubDetailScreen() {
             return (
               <View key={m.id} style={styles.gridCell}>
                 <View style={[styles.avatarRing, { borderColor: pastel.bg }]}>
-                  <Avatar name={m.name} size="medium" />
+                  <Avatar name={m.name} imageUrl={m.avatarUrl} size="medium" />
                 </View>
                 <Text style={[styles.gridName, { color: colors.text }]} numberOfLines={1}>
                   {m.name}
@@ -344,7 +348,7 @@ export default function ClubDetailScreen() {
                     ]}
                   >
                     <View style={[styles.avatarRing, { borderColor: pastels[isDark ? 'dark' : 'light'][pastelForName(m.name)].bg }]}>
-                      <Avatar name={m.name} size="small" />
+                      <Avatar name={m.name} imageUrl={m.avatarUrl} size="small" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.assignName, { color: colors.text }]} numberOfLines={1}>

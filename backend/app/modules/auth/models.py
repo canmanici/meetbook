@@ -34,6 +34,7 @@ class User(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     email = Column(String(255), unique=True, nullable=False, index=True)
+    username = Column(String(30), unique=True, nullable=False)
     name = Column(String(100), nullable=False)
     phone = Column(String(20), nullable=True)
     phone_verified_at = Column(DateTime(timezone=True), nullable=True)

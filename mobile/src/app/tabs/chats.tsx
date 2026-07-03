@@ -231,7 +231,7 @@ const ChatItem = React.memo<ChatItemProps>(
         {/* Avatar with pastel ring + presence dot */}
         <View style={styles.avatarWrap}>
           <View style={[styles.avatarRing, { borderColor: pastel.bg }]}>
-            <Avatar name={item.counterpart_name} size="medium" />
+            <Avatar name={item.counterpart_name} imageUrl={item.counterpart_avatar_url ?? undefined} size="medium" />
           </View>
           {isOnline && (
             <View style={[styles.onlineDot, { backgroundColor: colors.success }]} />
@@ -732,11 +732,11 @@ export default function ChatsScreen() {
         style={[styles.fab, { bottom: insets.bottom + spacing.xl }]}
       >
         <TouchableOpacity
-          onPress={() => router.push('/chat/club/create')}
+          onPress={() => router.push('/chat/club')}
           style={styles.fabTouch}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Kitap kulübü oluştur"
+          accessibilityLabel="Kitap kulüplerim"
           testID="create-club-fab"
         >
           <Ionicons name="people" size={26} color="#fff" />

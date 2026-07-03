@@ -24,12 +24,14 @@ from app.modules.auth.schemas import (
     AuthTokensResponse,
     MeResponse,
     MessageResponse,
+    RESERVED_USERNAMES,
     SessionListResponse,
     SessionView,
     TokenResponse,
     UpdateMeRequest,
     UserPublic,
     UserPublicProfile,
+    UserSearchResult,
     VouchListResponse,
     VouchView,
 )
@@ -49,7 +51,12 @@ class AuthService:
         self.repo = AuthRepository(session)
 
     async def register(
-        self, email: str, password: str, name: str, kvkk_consent: bool
+        self,
+        email: str,
+        password: str,
+        name: str,
+        kvkk_consent: bool,
+        username: str | None = None,
     ) -> AuthTokensResponse:
         if kvkk_consent is not True:
             raise AuthError("KVKK consent is required", 422)
@@ -59,9 +66,20 @@ class AuthService:
         if existing:
             raise AuthError("Email already registered", 409)
 
+        if username is not None:
+            # Caller picked a handle explicitly — it must be free and not reserved.
+            if username.lower() in RESERVED_USERNAMES:
+                raise AuthError("Username is reserved", 409)
+            if await self.repo.get_user_by_username(username):
+                raise AuthError("Username already taken", 409)
+        else:
+            # No handle picked (e.g. legacy/API callers) — derive one from the
+            # name so the NOT NULL/UNIQUE column is always satisfiable.
+            username = await self._generate_username(name)
+
         # Create user + credentials
         pw_hash = hash_password(password)
-        user, _ = await self.repo.create_user(email, name, pw_hash)
+        user, _ = await self.repo.create_user(email, name, username, pw_hash)
 
         now = datetime.now(UTC)
         user.email_verified_at = now
@@ -84,8 +102,19 @@ class AuthService:
             user_id=user.id,
             access_token=access_token,
             refresh_token=raw_token,
-            user=UserPublic(id=user.id, email=user.email, name=user.name),
+            user=UserPublic(id=user.id, email=user.email, name=user.name, username=user.username),
         )
+
+    async def _generate_username(self, seed: str) -> str:
+        import re
+
+        base = re.sub(r"[^a-z0-9_]", "", seed.lower().replace(" ", "_"))[:26] or "user"
+        candidate = base
+        suffix = 1
+        while candidate in RESERVED_USERNAMES or await self.repo.get_user_by_username(candidate) is not None:
+            suffix += 1
+            candidate = f"{base}{suffix}"[:30]
+        return candidate
 
     async def login(
         self,
@@ -94,19 +123,26 @@ class AuthService:
         throttle: LoginThrottle | None = None,
         ip: str = "127.0.0.1",
     ) -> TokenResponse:
+        # `email` doubles as a generic identifier here — it may be an actual
+        # email address or a @username, since the login form accepts either.
+        identifier = email
+
         # Check throttle if provided
         if throttle:
-            allowed, retry_after = await throttle.check(email, ip)
+            allowed, retry_after = await throttle.check(identifier, ip)
             if not allowed:
                 raise AuthError(
                     f"Too many failed attempts. Try again in {retry_after} seconds",
                     429,
                 )
 
-        # Get user
-        user = await self.repo.get_user_by_email(email)
+        # Get user — by email if it looks like one, otherwise by username.
+        if "@" in identifier:
+            user = await self.repo.get_user_by_email(identifier)
+        else:
+            user = await self.repo.get_user_by_username(identifier)
         if not user:
-            await log_event(self.session, "login_failed", metadata={"email": email})
+            await log_event(self.session, "login_failed", metadata={"email": identifier})
             raise AuthError("Email or password is incorrect", 401)
 
         # Check status
@@ -121,8 +157,8 @@ class AuthService:
         # Verify password
         if not verify_password(password, credential.password_hash):
             if throttle:
-                await throttle.record_failure(email, ip)
-            await log_event(self.session, "login_failed", metadata={"email": email})
+                await throttle.record_failure(identifier, ip)
+            await log_event(self.session, "login_failed", metadata={"email": identifier})
             raise AuthError("Email or password is incorrect", 401)
 
         # Generate tokens
@@ -143,7 +179,7 @@ class AuthService:
         return TokenResponse(
             access_token=access_token,
             refresh_token=raw_token,
-            user=UserPublic(id=user.id, email=user.email, name=user.name),
+            user=UserPublic(id=user.id, email=user.email, name=user.name, username=user.username),
         )
 
     async def refresh(self, refresh_token: str) -> TokenResponse:
@@ -187,7 +223,7 @@ class AuthService:
         return TokenResponse(
             access_token=access_token,
             refresh_token=new_raw,
-            user=UserPublic(id=user.id, email=user.email, name=user.name),
+            user=UserPublic(id=user.id, email=user.email, name=user.name, username=user.username),
         )
 
     async def logout(
@@ -258,6 +294,7 @@ class AuthService:
             id=user.id,
             email=user.email,
             name=user.name,
+            username=user.username,
             avatar_url=user.avatar_url,
             trusted_contact_name=user.trusted_contact_name,
             trusted_contact_phone=user.trusted_contact_phone,
@@ -265,6 +302,21 @@ class AuthService:
             notification_settings=user.notification_settings or {},
             auto_accept_rules=user.auto_accept_rules or [],
         )
+
+    async def is_username_available(self, username: str) -> bool:
+        if username.lower() in RESERVED_USERNAMES:
+            return False
+        return await self.repo.get_user_by_username(username) is None
+
+    async def search_users(self, current_user_id: uuid.UUID, query: str) -> list[UserSearchResult]:
+        trimmed = query.strip()
+        if len(trimmed) < 2:
+            return []
+        users = await self.repo.search_users(trimmed, current_user_id)
+        return [
+            UserSearchResult(id=u.id, name=u.name, username=u.username, avatar_url=u.avatar_url)
+            for u in users
+        ]
 
     async def get_user_profile(self, user_id: uuid.UUID) -> UserPublicProfile:
         user = await self.repo.get_user_by_id(user_id)
@@ -286,6 +338,8 @@ class AuthService:
         return UserPublicProfile(
             id=user.id,
             name=user.name,
+            username=user.username,
+            avatar_url=user.avatar_url,
             completed_exchanges=user.completed_exchanges,
             rating_average=float(user.rating_average),
             rating_count=user.rating_count,
@@ -311,6 +365,15 @@ class AuthService:
             user.geofence_radius_km = body.geofence_radius_km
         if "name" in sent and body.name is not None:
             user.name = body.name
+        if "username" in sent and body.username is not None:
+            normalized = body.username.lower()
+            if normalized != user.username:
+                if normalized in RESERVED_USERNAMES:
+                    raise AuthError("Username is reserved", 409)
+                existing = await self.repo.get_user_by_username(normalized)
+                if existing is not None:
+                    raise AuthError("Username already taken", 409)
+                user.username = normalized
         if "notification_settings" in sent:
             user.notification_settings = body.notification_settings
         if "auto_accept_rules" in sent:

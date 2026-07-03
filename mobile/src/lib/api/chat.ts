@@ -18,7 +18,7 @@ export interface MessageView {
   id: string;
   chat_id: string;
   sender_id: string | null;
-  message_type: 'text' | 'image' | 'voice' | 'location' | 'book_card' | 'system';
+  message_type: 'text' | 'image' | 'voice' | 'location' | 'location_invite' | 'book_card' | 'system';
   text: string;
   created_at: string;
   read_at: string | null;
@@ -40,6 +40,8 @@ export interface MessageView {
     lat?: number;
     lng?: number;
     name?: string;
+    // location_invite
+    exchange_id?: string;
     // book_card
     book_id?: string;
     title?: string;
@@ -84,6 +86,7 @@ export interface ChatSummary {
   exchange_id: string;
   counterpart_id: string;
   counterpart_name: string;
+  counterpart_avatar_url?: string | null;
   last_message: string | null;
   last_message_type: string;
   last_message_at: string | null;
@@ -195,7 +198,9 @@ export async function uploadChatMedia(
 export type WSWatcher = (msg: WSMessage) => void;
 
 export interface WSMessage {
-  type: 'message' | 'read' | 'typing' | 'reaction' | 'deleted' | 'presence' | 'error' | 'pong';
+  type:
+    | 'message' | 'read' | 'typing' | 'reaction' | 'deleted' | 'presence' | 'error' | 'pong'
+    | 'location_update' | 'location_stopped';
   message?: MessageView;
   error?: string;
   chat_id?: string;
@@ -207,6 +212,12 @@ export interface WSMessage {
   is_online?: boolean;
   reactions?: Array<{ emoji: string; users: string[]; count: number }>;
   sender_id?: string;
+  // location_update / location_stopped
+  exchange_id?: string;
+  latitude?: number;
+  longitude?: number;
+  precision?: 'exact' | 'approximate';
+  updated_at?: string;
 }
 
 const WS_BASE =

@@ -9,6 +9,8 @@ export interface UserPublic {
   id: string;
   email: string;
   name: string;
+  username?: string;
+  avatarUrl?: string;
 }
 
 export interface AuthTokens {
@@ -35,16 +37,28 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   setSession: (user, tokens) => {
     crashReporter.addBreadcrumb('auth', 'login_success');
+    // Normalize snake_case avatar_url from API → camelCase avatarUrl
+    const normalized: UserPublic = {
+      ...user,
+      avatarUrl: (user as any).avatar_url ?? user.avatarUrl,
+    };
     set({
       status: 'authenticated',
-      user,
+      user: normalized,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
     });
     import('../lib/push-tokens').then(m => m.registerPushToken());
   },
 
-  setUser: (user) => set({ user }),
+  setUser: (user) => {
+    // Normalize snake_case avatar_url from API → camelCase avatarUrl
+    const normalized: UserPublic = {
+      ...user,
+      avatarUrl: (user as any).avatar_url ?? user.avatarUrl,
+    };
+    set({ user: normalized });
+  },
 
   clearSession: () => {
     crashReporter.addBreadcrumb('auth', 'logout');

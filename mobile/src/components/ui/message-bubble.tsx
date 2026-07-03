@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
   Animated,
@@ -16,6 +17,7 @@ import { QuickReactions } from './emoji-picker';
 import { ImageMessage } from './image-message';
 import { VoiceMessage } from './voice-message';
 import { LocationMessage } from './location-message';
+import { LocationInviteMessage } from './location-invite-message';
 import { BookCardMessage } from './book-card-message';
 import { SystemMessage } from './system-message';
 import type { MessageView } from '@/lib/api/chat';
@@ -25,10 +27,13 @@ interface MessageBubbleProps {
   isMine: boolean;
   isGrouped: boolean;
   currentUserId: string;
+  counterpartAvatarUrl?: string;
   onReply: (msg: MessageView) => void;
   onDelete: (msg: MessageView) => void;
   onReaction: (msg: MessageView, emoji: string, action: 'add' | 'remove') => void;
   onLongPress?: (msg: MessageView) => void;
+  onAcceptLocationInvite?: (msg: MessageView) => Promise<void> | void;
+  onDeclineLocationInvite?: (msg: MessageView) => void;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -36,10 +41,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   isMine,
   isGrouped,
   currentUserId,
+  counterpartAvatarUrl,
   onReply,
   onDelete,
   onReaction,
   onLongPress,
+  onAcceptLocationInvite,
+  onDeclineLocationInvite,
 }) => {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
@@ -132,6 +140,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         return <VoiceMessage message={message} isMine={isMine} />;
       case 'location':
         return <LocationMessage message={message} isMine={isMine} />;
+      case 'location_invite':
+        return (
+          <LocationInviteMessage
+            message={message}
+            isMine={isMine}
+            onAccept={(msg) => onAcceptLocationInvite?.(msg)}
+            onDecline={(msg) => onDeclineLocationInvite?.(msg)}
+          />
+        );
       case 'book_card':
         return <BookCardMessage message={message} isMine={isMine} />;
       default:
@@ -155,7 +172,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         <View style={styles.avatarSlot}>
           {isGrouped ? null : (
             <View style={[styles.miniAvatar, { backgroundColor: colors.primarySoft }]}>
-              <Text style={[styles.miniAvatarText, { color: colors.primary }]}>?</Text>
+              {counterpartAvatarUrl ? (
+                <Image source={{ uri: counterpartAvatarUrl }} style={styles.miniAvatarImage} />
+              ) : (
+                <Text style={[styles.miniAvatarText, { color: colors.primary }]}>?</Text>
+              )}
             </View>
           )}
         </View>
@@ -319,7 +340,8 @@ const styles = StyleSheet.create({
   myRow: { justifyContent: 'flex-end', paddingRight: spacing.md },
   otherRow: { justifyContent: 'flex-start', paddingLeft: spacing.md },
   avatarSlot: { width: 28, marginRight: spacing.xs, alignItems: 'center' },
-  miniAvatar: { width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  miniAvatar: { width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  miniAvatarImage: { width: 24, height: 24 },
   miniAvatarText: { fontSize: 10, fontWeight: '700' },
   bubbleWrapper: { maxWidth: '74%' },
   replyPreview: {

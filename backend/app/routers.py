@@ -20,6 +20,7 @@ def register_routers(app: FastAPI) -> None:
     from app.modules.crash_reports.router import crash_router
     from app.modules.push_tokens.router import router as push_token_router
     from app.modules.saved_searches.router import router as saved_searches_router
+    from app.modules.legal.router import router as legal_router
 
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(books_router, prefix="/api/v1")
@@ -37,3 +38,5 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(crash_router, prefix="/api/v1")
     app.include_router(push_token_router, prefix="/api/v1")
     app.include_router(saved_searches_router, prefix="/api/v1")
+    # Legal pages + API — served at /legal/* (documents + consent endpoints)
+    app.include_router(legal_router)

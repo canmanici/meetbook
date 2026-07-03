@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KVKK Aydınlatma Metni — MeetBook</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #1a1a2e;
+    --accent: #0f3460;
+    --gold: #e2b714;
+    --text: #1a1a2e;
+    --text-light: #555;
+    --bg: #fafafa;
+    --card: #fff;
+    --border: #e0e0e0;
+    --radius: 12px;
+  }
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Roboto, Oxygen, Ubuntu, sans-serif;
+    line-height: 1.7;
+    color: var(--text);
+    background: var(--bg);
+    padding: 0;
+  }
+  .container { max-width: 780px; margin: 0 auto; padding: 0 20px; }
+  .header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+    color: #fff;
+    padding: 36px 0 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -30px;
+    left: -20%;
+    right: -20%;
+    height: 60px;
+    background: var(--bg);
+    border-radius: 50%;
+  }
+  .header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+  .header .meta { opacity: .85; font-size: .85rem; }
+  .header .badge {
+    display: inline-block;
+    background: var(--gold);
+    color: var(--primary);
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 10px;
+  }
+  .content { padding: 0 0 40px; }
+  section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin-bottom: 16px;
+  }
+  section h2 {
+    font-size: 1.1rem;
+    color: var(--accent);
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--gold);
+  }
+  section h3 { font-size: 1rem; color: var(--primary); margin: 16px 0 8px; }
+  section p { margin-bottom: 10px; text-align: justify; font-size: .92rem; }
+  section ul, section ol { margin: 6px 0 12px 20px; }
+  section li { margin-bottom: 5px; font-size: .92rem; }
+  section table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: .85rem;
+  }
+  section th, section td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  section th { background: var(--primary); color: #fff; font-weight: 600; }
+  section tr:nth-child(even) { background: #f5f5f5; }
+  .highlight-box {
+    background: #fff8e1;
+    border-left: 4px solid var(--gold);
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: .9rem;
+  }
+  .footer {
+    text-align: center;
+    padding: 24px 0;
+    color: var(--text-light);
+    font-size: .8rem;
+    border-top: 1px solid var(--border);
+  }
+  .footer p { margin-bottom: 4px; }
+  @media (max-width: 600px) {
+    .header h1 { font-size: 1.2rem; }
+    section { padding: 16px 18px; }
+    section table { font-size: .78rem; }
+    section th, section td { padding: 5px 6px; }
+  }
+  @media print { section { break-inside: avoid; border: none; } body { font-size: 10pt; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="container">
+    <div class="badge">KVKK Aydınlatma Metni · Sürüm 1.0</div>
+    <h1>Kişisel Verilerin İşlenmesine İlişkin Aydınlatma Metni</h1>
+    <p class="meta">6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) uyarınca hazırlanmıştır · 2 Temmuz 2026</p>
+  </div>
+</div>
+
+<div class="content container">
+
+<section>
+  <h2>Amaç</h2>
+  <p>İşbu Aydınlatma Metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") kapsamında, <strong>MeetBook</strong> ("Platform") tarafından kişisel verilerinizin hangi kapsamda işlendiği, işlenme amaçları, hukuki sebepleri, aktarım şartları ve haklarınız hakkında sizi bilgilendirmek amacıyla hazırlanmıştır. KVKK'nın 10. maddesi uyarınca veri sorumlusu sıfatıyla sizi aydınlatma yükümlülüğümüzü yerine getiriyoruz.</p>
+</section>
+
+<section>
+  <h2>1. Veri Sorumlusu Kimliği</h2>
+  <p>Kişisel verilerinizin veri sorumlusu aşağıda belirtilen kişidir:</p>
+  <table>
+    <tr><th style="width:150px;">Veri Sorumlusu</th><td>Can Manici</td></tr>
+    <tr><th>Platform Adı</th><td>MeetBook</td></tr>
+    <tr><th>Destek E-posta</th><td><a href="mailto:support@meetbook.com">support@meetbook.com</a></td></tr>
+    <tr><th>Hata Bildirimi</th><td><a href="mailto:canmanici@gmail.com">canmanici@gmail.com</a></td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>2. Hangi Kişisel Verileriniz İşleniyor?</h2>
+  <p>MeetBook, Platform'un sunduğu hizmetler kapsamında aşağıdaki kategorilerde kişisel verilerinizi işlemektedir:</p>
+
+  <table>
+    <thead>
+      <tr><th>Veri Kategorisi</th><th>İşlenen Veriler</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Kimlik Verileri</strong></td><td>Ad, soyad</td></tr>
+      <tr><td><strong>İletişim Verileri</strong></td><td>E-posta adresi, telefon numarası (isteğe bağlı)</td></tr>
+      <tr><td><strong>Konum Verileri</strong></td><td>Kitap gerçek konumu (gizli), kitap genel konumu (bulanık — ~1 km²), buluşma konumları, güvenlik modu konumu (isteğe bağlı, 30 gün)</td></tr>
+      <tr><td><strong>Kullanıcı İçerik Verileri</strong></td><td>Profil fotoğrafı, kitap fotoğrafları, kitap bilgileri, mesaj içerikleri, değerlendirme ve yorumlar, istek listesi</td></tr>
+      <tr><td><strong>İşlem Güvenliği Verileri</strong></td><td>IP adresi, cihaz bilgisi, eylem günlükleri (audit log), token bilgileri, crash raporları</td></tr>
+      <tr><td><strong>İşlem ve Takas Verileri</strong></td><td>Takas talepleri, ödünç süreçleri, kitap kullanım geçmişi</td></tr>
+      <tr><td><strong>Güven Puanı Verileri</strong></td><td>Puan bileşenleri, kefillik bilgileri</td></tr>
+      <tr><td><strong>Hukuki İşlem Verileri</strong></td><td>Şikayet/rapor kayıtları, yasaklama/uzaklaştırma kayıtları</td></tr>
+      <tr><td><strong>Güvenilir Kişi Bilgisi</strong></td><td>Güvenilir kişi adı ve telefonu (isteğe bağlı)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>3. Veri İşleme Amaçları ve Hukuki Sebepler</h2>
+  <p>Kişisel verileriniz, KVKK md.5/2'de belirtilen hukuki sebeplere dayanarak aşağıdaki amaçlarla işlenmektedir:</p>
+
+  <table>
+    <thead>
+      <tr><th>İşleme Amacı</th><th>Hukuki Sebep (KVKK md.5)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Hesap oluşturma, yönetimi ve güvenliği</td><td>Sözleşmenin kurulması ve ifası (c), Hukuki yükümlülük (ç)</td></tr>
+      <tr><td>Kitap listeleme, keşif, takas ve ödünç hizmetlerinin sunulması</td><td>Sözleşmenin ifası (c)</td></tr>
+      <tr><td>Kullanıcılar arası iletişim (mesajlaşma)</td><td>Sözleşmenin ifası (c)</td></tr>
+      <tr><td>Güven puanı hesaplama ve profil oluşturma</td><td>Meşru menfaat (f)</td></tr>
+      <tr><td>Platform güvenliği ve dolandırıcılık tespiti</td><td>Meşru menfaat (f), Hukuki yükümlülük (ç)</td></tr>
+      <tr><td>Hukuki yükümlülüklerin yerine getirilmesi (KVKK, TTK, TBK)</td><td>Hukuki yükümlülük (ç)</td></tr>
+      <tr><td>Uygulama hata ayıklama ve performans iyileştirme</td><td>Meşru menfaat (f)</td></tr>
+      <tr><td>Push bildirim gönderimi</td><td>Sözleşmenin ifası (c), Açık rıza (1)*</td></tr>
+      <tr><td>Profil fotoğrafı yükleme</td><td>Açık rıza (1)*</td></tr>
+      <tr><td>Güvenlik modu konum takibi</td><td>Açık rıza (1)*</td></tr>
+      <tr><td>Google Places API aracılığıyla yurt dışına veri aktarımı</td><td>Açık rıza (1)*</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:.85rem; color:var(--text-light);">* Açık rızaya dayalı işlemelerde, rızanızı her zaman geri çekme hakkınız bulunmaktadır. Rızanın geri çekilmesi, geri çekme öncesinde yapılan işlemlerin hukuka uygunluğunu etkilemez.</p>
+
+  <p><strong>Özel Nitelikli Kişisel Veri Uyarısı:</strong> MeetBook, kesinlikle özel nitelikli kişisel veri (sağlık, biyometrik, genetik, ceza mahkûmiyeti, ırk, etnik köken, siyasi düşünce, dini inanç, cinsel hayat, sendika üyeliği vb.) toplamamakta ve işlememektedir.</p>
+</section>
+
+<section>
+  <h2>4. Kişisel Verilerin Aktarılması</h2>
+  <p>Kişisel verileriniz, yukarıda belirtilen amaçlarla, KVKK md.8 ve md.9'da belirtilen şartlara uygun olarak aşağıdaki alıcı gruplarına aktarılabilir:</p>
+
+  <h3>Yurt İçi Aktarımlar:</h3>
+  <ul>
+    <li><strong>Sunucu Altyapı Sağlayıcıları:</strong> Verilerin barındırıldığı bulut hizmet sağlayıcıları</li>
+    <li><strong>Depolama Hizmet Sağlayıcıları:</strong> Amazon S3 uyumlu nesne depolama (MinIO / AWS S3)</li>
+    <li><strong>Adli ve İdari Makamlar:</strong> Hukuki yükümlülükler gereği, talep edilmesi hâlinde</li>
+  </ul>
+
+  <h3>Yurt Dışı Aktarımlar:</h3>
+  <table>
+    <thead>
+      <tr><th>Hizmet Sağlayıcı</th><th>Ülke</th><th>Aktarılan Veri</th><th>Hukuki Dayanak</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Google Places API</td><td>ABD</td><td>Koordinat, arama sorgusu (kişisel veri yok)</td><td>Açık rıza + SCC</td></tr>
+      <tr><td>Expo Push Notifications</td><td>ABD</td><td>Push token (cihaz ID)</td><td>Açık rıza</td></tr>
+      <tr><td>Open Library API</td><td>ABD</td><td>ISBN (kişisel veri yok)</td><td>KVKK kapsamı dışı</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>5. Veri Toplama Yöntemi</h2>
+  <p>Kişisel verileriniz, aşağıdaki yöntemlerle toplanmaktadır:</p>
+  <ul>
+    <li>Kayıt formu ve profil düzenleme ekranları aracılığıyla doğrudan sizin tarafınızdan,</li>
+    <li>Platform'u kullanımınız sırasında otomatik olarak (IP adresi, cihaz bilgisi, audit log),</li>
+    <li>Mobil cihazınızdaki GPS, kamera ve depolama izinleri aracılığıyla,</li>
+    <li>Üçüncü taraf API'ler (Open Library) aracılığıyla dolaylı olarak.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>6. Veri Saklama Süreleri</h2>
+  <p>Kişisel verileriniz, işleme amacının gerektirdiği süre boyunca ve ilgili mevzuatta öngörülen yasal süreler içinde saklanmaktadır:</p>
+  <table>
+    <thead>
+      <tr><th>Veri Türü</th><th>Saklama Süresi</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Kimlik ve iletişim verileri</td><td>Hesap aktif + 1 yıl</td></tr>
+      <tr><td>Konum (güvenlik modu)</td><td>30 gün (otomatik silinir)</td></tr>
+      <tr><td>Takas/ödünç kayıtları</td><td>10 yıl</td></tr>
+      <tr><td>Eylem günlükleri (audit log)</td><td>10 yıl</td></tr>
+      <tr><td>Crash raporları</td><td>2 yıl</td></tr>
+      <tr><td>KVKK onay kayıtları</td><td>10 yıl</td></tr>
+    </tbody>
+  </table>
+  <p>Detaylı saklama süreleri için <a href="/legal/gizlilik-politikasi#bolum-8">Gizlilik Politikası Bölüm 8</a>'e bakınız.</p>
+</section>
+
+<section>
+  <h2>7. Haklarınız (KVKK md.11)</h2>
+  <p>KVKK md.11 uyarınca, veri sorumlusuna başvurarak aşağıdaki haklara sahipsiniz:</p>
+  <ol>
+    <li>Kişisel verinizin işlenip işlenmediğini öğrenme,</li>
+    <li>İşlenmişse buna ilişkin bilgi talep etme,</li>
+    <li>İşlenme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme,</li>
+    <li>Yurt içi/yurt dışı aktarıldığı üçüncü kişileri bilme,</li>
+    <li>Eksik/yanlış işlenmişse düzeltilmesini talep etme,</li>
+    <li>KVKK şartları çerçevesinde silinmesini/anonimleştirilmesini talep etme (unutulma hakkı),</li>
+    <li>Düzeltme/silme taleplerinin aktarıldığı üçüncü kişilere bildirilmesini talep etme,</li>
+    <li>İşlenen verilerin münhasıran otomatik sistemlerle analiz edilmesi suretiyle aleyhinize sonuç doğmasına itiraz etme,</li>
+    <li>Verilerinizin kanuna aykırı işlenmesi sebebiyle zarara uğramanız hâlinde zararın giderilmesini talep etme.</li>
+  </ol>
+  <p>Bu haklarınızı kullanmak için <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine e-posta gönderebilir veya <a href="/legal/veri-sahibi-basvuru">Veri Sahibi Başvuru Formu</a>'nu doldurabilirsiniz. Talepleriniz 30 gün içinde ücretsiz olarak yanıtlanır.</p>
+
+  <div class="highlight-box">
+    <strong>KVKK'ya Şikayet Hakkı:</strong> Başvurunuzun reddedilmesi, eksik/ yetersiz yanıtlanması veya süresinde yanıtlanmaması hâlinde, KVKK Kurulu'na şikâyette bulunabilirsiniz. Detaylı bilgi: <a href="https://www.kvkk.gov.tr" target="_blank" rel="noopener">www.kvkk.gov.tr</a>
+  </div>
+</section>
+
+<section>
+  <h2>8. Politika Değişiklikleri ve Yeniden Onay</h2>
+  <p>Bu Aydınlatma Metni güncellendiğinde, kullanıcılarımıza push bildirimi gönderilir ve yeni metni okuyup onaylayana kadar Platform'u kullanmaları engellenir. Güncel metne her zaman <a href="/legal/kvkk-aydinlatma-metni">/legal/kvkk-aydinlatma-metni</a> adresinden erişebilirsiniz.</p>
+  <p>İşbu Aydınlatma Metni'ni okuyup kabul ederek, kişisel verilerinizin yukarıda açıklanan kapsamda işlenmesine, yurt içi ve yurt dışı aktarımına ve Gizlilik Politikası'nda belirtilen diğer koşullara açık rıza verdiğinizi beyan edersiniz.</p>
+</section>
+
+<div style="background:var(--primary); color:#fff; padding:20px; border-radius:var(--radius); margin-top:16px; text-align:center;">
+  <p style="margin:0; font-size:.85rem; opacity:.9;">Son güncelleme: 2 Temmuz 2026 · Sürüm 1.0</p>
+  <p style="margin:8px 0 0; font-size:.8rem; opacity:.7;">© 2026 MeetBook · 6698 sayılı KVKK uyarınca hazırlanmıştır</p>
+  <p style="margin-top:8px;"><a href="/legal/gizlilik-politikasi" style="color:#e2b714; font-size:.85rem;">Tam Gizlilik Politikası</a></p>
+</div>
+
+</div>
+
+<div class="footer container">
+  <p><strong>MeetBook</strong> · KVKK Aydınlatma Metni Sürüm 1.0 · 2 Temmuz 2026</p>
+  <p><a href="/legal/gizlilik-politikasi">Gizlilik Politikası</a> · <a href="/legal/kullanim-kosullari">Kullanım Koşulları</a> · <a href="/legal/cerez-politikasi">Çerez Politikası</a> · <a href="/legal/kotuye-kullanim-ve-dolandiricilikla-mucadele-politikasi">Kötüye Kullanım Politikası</a></p>
+</div>
+
+</body>
+</html>

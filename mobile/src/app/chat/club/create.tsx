@@ -34,6 +34,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import {
   saveClub,
   makeClubId,
+  addClubIndexEntry,
   type Club,
   type ClubMember,
   type ClubBook,
@@ -116,6 +117,7 @@ export default function CreateClubScreen() {
         {
           id: currentUser.id,
           name: currentUser.name,
+          avatarUrl: currentUser.avatarUrl,
           book: { title: '' },
         },
         ...prev,
@@ -176,6 +178,7 @@ export default function CreateClubScreen() {
       createdAt: new Date().toISOString(),
     };
     saveClub(club);
+    addClubIndexEntry({ id: club.id, name: club.name, createdAt: club.createdAt }).catch(() => {});
     router.push(`/chat/club/${club.id}`);
   };
 
@@ -342,7 +345,7 @@ const MemberRow: React.FC<MemberRowProps> = ({
     <View style={[styles.memberCard, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
       <View style={styles.memberHead}>
         <View style={[styles.avatarRing, { borderColor: pastel.bg }]}>
-          <Avatar name={member.name} size="small" />
+          <Avatar name={member.name} imageUrl={member.avatarUrl} size="small" />
         </View>
         <View style={styles.memberInfo}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>

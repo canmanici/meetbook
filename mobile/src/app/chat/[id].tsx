@@ -14,6 +14,8 @@ import {
   Dimensions,
   ScrollView,
   Modal,
+  Alert,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -28,6 +30,7 @@ import { TypingIndicator } from '@/components/ui/typing-indicator';
 import { EmojiPicker } from '@/components/ui/emoji-picker';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  chatWS,
   getMessages,
   listChats,
   markMessagesRead,
@@ -40,7 +43,11 @@ import { useChatStore } from '@/stores/chat-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useShadowBlocked } from '@/hooks/use-shadow-blocked';
 import { getExchange, listMyBooks, type BookListResponse } from '@/lib/api/client';
+import { MapView, Marker } from '@/lib/map-adapter';
 import { BookCover } from '@/components/ui/book-cover';
+import { SafetyPermissionError, hasSentAnyLocationFix, getLastSentLocation } from '@/lib/safety';
+import { useNerdeyimMode } from '@/hooks/use-nerdeyim-mode';
+import { useLocationSharingStore } from '@/stores/location-sharing-store';
 
 // ---------------------------------------------------------------------------
 // Date separator helpers
@@ -101,6 +108,7 @@ export default function ChatDetailScreen() {
   const queryClient = useQueryClient();
 
   const currentUserId = useAuthStore((s) => s.user?.id);
+  const currentUserName = useAuthStore((s) => s.user?.name);
   const { shadowBlocked, isBlocked, reload: reloadShadowBlocked } = useShadowBlocked();
   const connect = useChatStore((s) => s.connect);
   const sendMessage = useChatStore((s) => s.sendMessage);
@@ -118,6 +126,7 @@ export default function ChatDetailScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<MessageView[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [liveMapExpanded, setLiveMapExpanded] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const lastReadRef = useRef<string | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -151,6 +160,7 @@ export default function ChatDetailScreen() {
 
   const counterpartName = exchange?.counterpart?.name ?? chatSummary?.counterpart_name ?? 'Sohbet';
   const counterpartId = exchange?.counterpart?.id ?? chatSummary?.counterpart_id;
+  const counterpartAvatarUrl = (exchange?.counterpart as any)?.avatar_url ?? chatSummary?.counterpart_avatar_url ?? undefined;
 
   // Ensure WebSocket is connected whenever this screen is focused.
   // Without this, navigating from the chats tab (which connects WS on focus
@@ -165,6 +175,93 @@ export default function ChatDetailScreen() {
       reloadShadowBlocked();
     }, [connect, reloadShadowBlocked]),
   );
+
+  // ---- Nerdeyim Modu (live location sharing) — single shared hook, see
+  // hooks/use-nerdeyim-mode.ts + stores/location-sharing-store.ts for why
+  // this replaced a local, screen-only implementation.
+  const isMeetupConfirmed = exchange?.status === 'meetup_confirmed';
+  const { isSharing: myLocationSharing, partnerSharing, partnerLocation, start: startNerdeyim } = useNerdeyimMode(
+    exchangeId,
+    isMeetupConfirmed,
+  );
+  // My own last-sent fix — shown as a second labeled pin so BOTH parties are
+  // visible on the live map. Read at render; re-renders arrive with every
+  // status poll / WS push, which tracks the 30s heartbeat closely enough.
+  const myLiveLocation = myLocationSharing ? getLastSentLocation() : null;
+
+  // Region for the live map: fit partner pin + my pin + (if any) the meetup
+  // point in one frame, with sane zoom bounds.
+  const liveMapRegion = useMemo(() => {
+    if (!partnerLocation) return null;
+    const lats = [partnerLocation.latitude];
+    const lngs = [partnerLocation.longitude];
+    if (myLiveLocation) {
+      lats.push(myLiveLocation.latitude);
+      lngs.push(myLiveLocation.longitude);
+    }
+    if (exchange?.meetup?.lat != null && exchange?.meetup?.lng != null) {
+      lats.push(exchange.meetup.lat);
+      lngs.push(exchange.meetup.lng);
+    }
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    return {
+      latitude: (minLat + maxLat) / 2,
+      longitude: (minLng + maxLng) / 2,
+      latitudeDelta: Math.max((maxLat - minLat) * 2.6, 0.012),
+      longitudeDelta: Math.max((maxLng - minLng) * 2.6, 0.012),
+    };
+  }, [
+    partnerLocation,
+    myLiveLocation?.latitude,
+    myLiveLocation?.longitude,
+    exchange?.meetup?.lat,
+    exchange?.meetup?.lng,
+  ]);
+
+  // Permission being granted doesn't mean the device ever produces an actual
+  // fix — no last-known cache, no GPS/network lock, nothing. That failure
+  // was completely silent before (a console.warn only): the UI would show
+  // "sharing active" while zero coordinates ever reached the backend, so the
+  // partner's map/banner never populated. Give it a few seconds to land the
+  // first fix, then warn if nothing arrived.
+  const warnIfNoLocationFix = useCallback(() => {
+    setTimeout(() => {
+      if (!hasSentAnyLocationFix()) {
+        Alert.alert(
+          'Konum Gönderilemiyor',
+          'Konum paylaşımı başladı ama cihazından hiç konum alınamadı. Lütfen konum servislerinin (GPS) açık olduğundan emin ol.',
+        );
+      }
+    }, 8000);
+  }, []);
+
+  const handleReciprocateLocation = useCallback(async () => {
+    if (!exchangeId) return;
+    const meetupTime = exchange?.meetup?.scheduled_at
+      ? new Date(exchange.meetup.scheduled_at)
+      : new Date();
+    try {
+      await startNerdeyim(meetupTime);
+      warnIfNoLocationFix();
+      if (chatId) {
+        sendMessage(chatId, 'Canlı konum paylaşımı başlattı', null, 'location_invite', {
+          exchange_id: exchangeId,
+        });
+      }
+    } catch (error) {
+      if (error instanceof SafetyPermissionError) {
+        Alert.alert('Arka Plan Konum İzni Gerekli', error.message, [
+          { text: 'İptal', style: 'cancel' },
+          { text: 'Ayarlara Git', onPress: () => Linking.openSettings() },
+        ]);
+      } else {
+        Alert.alert('Konum Paylaşılamadı', 'Konum paylaşımı başlatılamadı. Lütfen tekrar deneyin.');
+      }
+    }
+  }, [exchangeId, exchange?.meetup?.scheduled_at, chatId, warnIfNoLocationFix, startNerdeyim]);
 
   // Don't reveal a shadow-blocked counterpart's typing — their messages are
   // hidden, so a "yazıyor..." indicator would leak the shadow block.
@@ -319,6 +416,64 @@ export default function ChatDetailScreen() {
     }, 500);
   };
 
+  // ---- Nerdeyim Modu invite (live location sharing consent) ----
+  const handleSendLocationInvite = () => {
+    if (!chatId || !exchangeId) return;
+    sendMessage(chatId, 'Canlı konum paylaşımı teklif etti', null, 'location_invite', {
+      exchange_id: exchangeId,
+    });
+    // Sender starts sharing right away — once the other side accepts, both
+    // markers show up live without a second round trip.
+    const meetupTime = exchange?.meetup?.scheduled_at
+      ? new Date(exchange.meetup.scheduled_at)
+      : new Date();
+    startNerdeyim(meetupTime).catch(() => {});
+    warnIfNoLocationFix();
+    scrollToBottom(true);
+  };
+
+  const handleAcceptLocationInvite = async (msg: MessageView) => {
+    const targetExchangeId = msg.extra?.exchange_id ?? exchangeId;
+    if (!targetExchangeId) return;
+    const meetupTime = exchange?.meetup?.scheduled_at
+      ? new Date(exchange.meetup.scheduled_at)
+      : new Date();
+    try {
+      await useLocationSharingStore.getState().start(targetExchangeId, meetupTime);
+      warnIfNoLocationFix();
+      if (chatId) {
+        // Announce the ACCEPTER's own action — this was previously using
+        // `counterpartName` (the other party's name), so the system message
+        // read backwards: "Can Manici accepted" would show up on Arif's own
+        // accept action. Both sides then saw messages attributing acceptance
+        // to the wrong person, which reads exactly like an infinite
+        // back-and-forth loop even though the invite had already resolved.
+        sendMessage(
+          chatId,
+          'Canlı konum paylaşımını kabul etti',
+          null,
+          'system',
+          { action: 'location_accepted' },
+        );
+      }
+    } catch (error) {
+      if (error instanceof SafetyPermissionError) {
+        Alert.alert('Arka Plan Konum İzni Gerekli', error.message, [
+          { text: 'İptal', style: 'cancel' },
+          { text: 'Ayarlara Git', onPress: () => Linking.openSettings() },
+        ]);
+      } else {
+        Alert.alert('Konum Paylaşılamadı', 'Konum paylaşımı başlatılamadı. Lütfen tekrar deneyin.');
+      }
+      throw error;
+    }
+  };
+
+  const handleDeclineLocationInvite = (_msg: MessageView) => {
+    // No backend state — declining just leaves the sender's share running
+    // until it naturally times out; the bubble reflects the decline locally.
+  };
+
   // ---- Search ----
   const handleSearch = async () => {
     if (!searchQuery.trim() || !exchangeId) return;
@@ -388,15 +543,82 @@ export default function ChatDetailScreen() {
         isMine={isMine}
         isGrouped={isGrouped}
         currentUserId={currentUserId ?? ''}
+        counterpartAvatarUrl={counterpartAvatarUrl}
         onReply={handleReply}
         onDelete={handleDelete}
         onReaction={handleReaction}
+        onAcceptLocationInvite={handleAcceptLocationInvite}
+        onDeclineLocationInvite={handleDeclineLocationInvite}
       />
     );
   };
 
   // Exchange info banner
   const exchangeBook = exchange?.book;
+
+  // Shared marker set for the inline live-map card and the fullscreen modal:
+  // labeled partner avatar pin + (if scheduled) the meetup point flag.
+  const renderLiveMapMarkers = () => {
+    if (!partnerLocation) return null;
+    return (
+      <>
+        {exchange?.meetup?.lat != null && exchange?.meetup?.lng != null && (
+          <Marker
+            coordinate={{ latitude: exchange.meetup.lat, longitude: exchange.meetup.lng }}
+            anchor={{ x: 0.5, y: 1 }}
+          >
+            <View style={styles.markerColumn}>
+              <View style={[styles.partnerMarkerName, { backgroundColor: colors.surface, ...shadows.card }]}>
+                <Text style={[styles.partnerMarkerNameText, { color: colors.text }]} numberOfLines={1}>
+                  Buluşma
+                </Text>
+              </View>
+              <View style={[styles.meetupMarkerBubble, { backgroundColor: colors.primary }]}>
+                <Ionicons name="flag" size={13} color="#ffffff" />
+              </View>
+              <View style={[styles.markerStem, { borderTopColor: colors.primary }]} />
+            </View>
+          </Marker>
+        )}
+        {myLiveLocation && (
+          <Marker
+            coordinate={{ latitude: myLiveLocation.latitude, longitude: myLiveLocation.longitude }}
+            anchor={{ x: 0.5, y: 1 }}
+            testID="chat-my-location-marker"
+          >
+            <View style={styles.markerColumn}>
+              <View style={[styles.partnerMarkerName, { backgroundColor: colors.primary, ...shadows.card }]}>
+                <Text style={[styles.partnerMarkerNameText, { color: '#ffffff' }]} numberOfLines={1}>
+                  Sen
+                </Text>
+              </View>
+              <View style={[styles.partnerMarkerBubble, { borderColor: colors.primary }]}>
+                <Avatar name={currentUserName ?? 'Sen'} size="small" />
+              </View>
+              <View style={[styles.markerStem, { borderTopColor: colors.primary }]} />
+            </View>
+          </Marker>
+        )}
+        <Marker
+          coordinate={{ latitude: partnerLocation.latitude, longitude: partnerLocation.longitude }}
+          anchor={{ x: 0.5, y: 1 }}
+          testID="chat-partner-location-marker"
+        >
+          <View style={styles.markerColumn}>
+            <View style={[styles.partnerMarkerName, { backgroundColor: colors.surface, ...shadows.card }]}>
+              <Text style={[styles.partnerMarkerNameText, { color: colors.text }]} numberOfLines={1}>
+                {counterpartName}
+              </Text>
+            </View>
+            <View style={styles.partnerMarkerBubble}>
+              <Avatar name={counterpartName} imageUrl={counterpartAvatarUrl} size="small" />
+            </View>
+            <View style={[styles.markerStem, { borderTopColor: '#34C759' }]} />
+          </View>
+        </Marker>
+      </>
+    );
+  };
 
   return (
     <KeyboardAvoidingView
@@ -411,7 +633,7 @@ export default function ChatDetailScreen() {
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
-          <Avatar name={counterpartName} size="small" />
+          <Avatar name={counterpartName} imageUrl={counterpartAvatarUrl} size="small" />
           <View style={{ marginLeft: spacing.sm, flex: 1 }}>
             <Text style={[styles.headerName, { color: colors.text }]} numberOfLines={1}>
               {counterpartName}
@@ -479,6 +701,89 @@ export default function ChatDetailScreen() {
           <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
           <Text style={[styles.contextText, { color: colors.primary }]} numberOfLines={1}>
             Takas: {exchange.book?.title ?? '—'}
+          </Text>
+        </View>
+      )}
+
+      {/* ---- Nerdeyim Modu reciprocation banner ---- */}
+      {!isSearchMode && !myLocationSharing && partnerSharing && (
+        <View style={[styles.locationBanner, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
+          <Ionicons name="locate" size={16} color={colors.success} />
+          <Text style={[styles.locationBannerText, { color: colors.text }]} numberOfLines={1}>
+            {counterpartName} canlı konumunu paylaşıyor
+          </Text>
+          <TouchableOpacity
+            style={[styles.locationBannerButton, { backgroundColor: colors.success }]}
+            onPress={handleReciprocateLocation}
+            testID="chat-location-reciprocate-button"
+          >
+            <Text style={styles.locationBannerButtonText}>Sen de Paylaş</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ---- Nerdeyim Modu: both sides sharing — live map embedded in the DM ---- */}
+      {!isSearchMode && myLocationSharing && partnerLocation && liveMapRegion && (
+        <View style={[styles.locationMapCard, { backgroundColor: colors.surface, borderColor: colors.success + '30', ...shadows.card }]}>
+          <TouchableOpacity
+            activeOpacity={0.92}
+            onPress={() => setLiveMapExpanded(true)}
+            testID="chat-location-map"
+            accessibilityRole="button"
+            accessibilityLabel="Canlı konum haritasını büyüt"
+          >
+            {/* Fixed-height wrapper is required: the map adapter applies
+                flex:1 (flexBasis:0%) to every MapView, which overrides an
+                explicit height in an auto-height parent and collapses the
+                map to 0px. Bounding it from outside sidesteps that. */}
+            <View style={styles.locationMap} pointerEvents="none">
+              <MapView style={{ flex: 1 }} region={liveMapRegion}>
+                {renderLiveMapMarkers()}
+              </MapView>
+            </View>
+
+            {/* CANLI badge */}
+            <View style={styles.liveBadge}>
+              <View style={styles.liveBadgeDot} />
+              <Text style={styles.liveBadgeText}>CANLI</Text>
+            </View>
+
+            {/* expand hint */}
+            <View style={styles.expandHint}>
+              <Ionicons name="expand-outline" size={14} color="#ffffff" />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.locationMapFooter}
+            onPress={() => setLiveMapExpanded(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Canlı konum detayları"
+          >
+            <Avatar name={counterpartName} imageUrl={counterpartAvatarUrl} size="small" />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.locationMapFooterText, { color: colors.text }]} numberOfLines={1}>
+                {counterpartName} canlı konumunu paylaşıyor
+              </Text>
+              {partnerLocation.updated_at ? (
+                <Text style={[styles.locationMapFooterSub, { color: colors.textMuted }]}>
+                  Son güncelleme {formatTime(partnerLocation.updated_at)}
+                </Text>
+              ) : null}
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ---- Nerdeyim Modu: I'm sharing, no partner pin yet ---- */}
+      {!isSearchMode && myLocationSharing && !partnerLocation && (
+        <View style={[styles.locationBanner, { backgroundColor: colors.info + '15', borderColor: colors.info + '30' }]}>
+          <Ionicons name="time-outline" size={16} color={colors.info} />
+          <Text style={[styles.locationBannerText, { color: colors.text }]} numberOfLines={1}>
+            {partnerSharing
+              ? `Paylaşım aktif — ${counterpartName} konumu alınıyor…`
+              : `Canlı konum paylaşımı aktif — ${counterpartName} bekleniyor…`}
           </Text>
         </View>
       )}
@@ -632,6 +937,19 @@ export default function ChatDetailScreen() {
           <Ionicons name="book-outline" size={22} color={colors.primary} />
         </TouchableOpacity>
 
+        {/* Nerdeyim Modu invite button — only once a meetup is confirmed */}
+        {exchange?.status === 'meetup_confirmed' && (
+          <TouchableOpacity
+            style={[styles.inputAction, { backgroundColor: colors.surfaceAlt }]}
+            onPress={handleSendLocationInvite}
+            accessibilityRole="button"
+            accessibilityLabel="Canlı konum paylaş"
+            testID="chat-location-invite"
+          >
+            <Ionicons name="navigate-outline" size={22} color={colors.info} />
+          </TouchableOpacity>
+        )}
+
         {/* Text input */}
         <View style={[styles.inputWrapper, { backgroundColor: colors.background, borderColor: colors.border }]}>
           <TextInput
@@ -733,6 +1051,70 @@ export default function ChatDetailScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* ---- Fullscreen live location map ---- */}
+      <Modal
+        visible={liveMapExpanded}
+        animationType="slide"
+        onRequestClose={() => setLiveMapExpanded(false)}
+      >
+        <View style={[styles.liveMapModal, { backgroundColor: colors.background }]}>
+          <View
+            style={[
+              styles.liveMapHeader,
+              { backgroundColor: colors.surface, paddingTop: insets.top + spacing.xs, ...shadows.card },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() => setLiveMapExpanded(false)}
+              style={styles.backBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Haritayı kapat"
+              testID="live-map-close"
+            >
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.liveMapTitle, { color: colors.text }]}>Canlı Konum</Text>
+              <Text style={[styles.liveMapSubtitle, { color: colors.textMuted }]} numberOfLines={1}>
+                {counterpartName}
+              </Text>
+            </View>
+            <View style={[styles.liveBadge, styles.liveBadgeInline]}>
+              <View style={styles.liveBadgeDot} />
+              <Text style={styles.liveBadgeText}>CANLI</Text>
+            </View>
+          </View>
+
+          <View style={{ flex: 1 }}>
+            {liveMapRegion && (
+              <MapView style={{ flex: 1 }} region={liveMapRegion} testID="live-map-fullscreen">
+                {renderLiveMapMarkers()}
+              </MapView>
+            )}
+          </View>
+
+          <View
+            style={[
+              styles.liveMapFooter,
+              { backgroundColor: colors.surface, paddingBottom: insets.bottom + spacing.md, ...shadows.sheet },
+            ]}
+          >
+            <Avatar name={counterpartName} imageUrl={counterpartAvatarUrl} size="small" />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.locationMapFooterText, { color: colors.text }]} numberOfLines={1}>
+                {counterpartName} canlı konumunu paylaşıyor
+              </Text>
+              {partnerLocation?.updated_at ? (
+                <Text style={[styles.locationMapFooterSub, { color: colors.textMuted }]}>
+                  Son güncelleme {formatTime(partnerLocation.updated_at)}
+                  {exchange?.meetup?.place_name ? ` • ${exchange.meetup.place_name}` : ''}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -831,6 +1213,166 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     fontWeight: '600',
     flex: 1,
+  },
+  locationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    gap: spacing.sm,
+  },
+  locationBannerText: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
+    flex: 1,
+  },
+  locationBannerButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+  },
+  locationBannerButtonText: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  locationMapCard: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  locationMap: {
+    width: '100%',
+    height: 160,
+  },
+  locationMapFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  locationMapFooterText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+  },
+  locationMapFooterSub: {
+    fontSize: fontSize.caption,
+    marginTop: 1,
+  },
+  // Live badge overlaid on the map
+  liveBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#E5484D',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
+  liveBadgeInline: {
+    position: 'relative',
+    top: 0,
+    left: 0,
+  },
+  liveBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#ffffff',
+  },
+  liveBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: 0.8,
+  },
+  expandHint: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Map markers (avatar pin + meetup flag)
+  markerColumn: {
+    alignItems: 'center',
+  },
+  partnerMarkerName: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    marginBottom: 4,
+    maxWidth: 120,
+  },
+  partnerMarkerNameText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  partnerMarkerBubble: {
+    borderWidth: 2,
+    borderColor: '#34C759',
+    borderRadius: 20,
+    padding: 1,
+    backgroundColor: '#ffffff',
+  },
+  meetupMarkerBubble: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  markerStem: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderTopWidth: 7,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    marginTop: -1,
+  },
+  // Fullscreen live map modal
+  liveMapModal: {
+    flex: 1,
+  },
+  liveMapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  liveMapTitle: {
+    fontSize: fontSize.title,
+    fontWeight: '700',
+  },
+  liveMapSubtitle: {
+    fontSize: fontSize.caption,
+    marginTop: 1,
+  },
+  liveMapFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
   },
   // Messages
   messagesContainer: {

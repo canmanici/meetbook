@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---------------------------------------------------------------------------
 // In-memory mock store for book clubs.
@@ -16,6 +17,7 @@ export interface ClubMember {
   id: string;
   name: string;
   phone?: string;
+  avatarUrl?: string;
   book: ClubBook;
 }
 
@@ -77,9 +79,45 @@ export function shuffleAssignments(members: ClubMember[]): Record<string, string
   return map;
 }
 
+// ---------------------------------------------------------------------------
+// Lightweight persisted index — the club data itself is still the in-memory
+// mock above (lost on reload), but keeping an index of {id, name, createdAt}
+// in AsyncStorage lets the user find their way back to "Kulüplerim" instead
+// of a club being reachable only once, right after creation.
+// ---------------------------------------------------------------------------
+
+const CLUBS_INDEX_KEY = '@meetbook_clubs_index';
+
+export interface ClubIndexEntry {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export async function addClubIndexEntry(entry: ClubIndexEntry): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(CLUBS_INDEX_KEY);
+    const list: ClubIndexEntry[] = raw ? JSON.parse(raw) : [];
+    list.unshift(entry);
+    await AsyncStorage.setItem(CLUBS_INDEX_KEY, JSON.stringify(list));
+  } catch {
+    // best-effort — worst case the club is only reachable via device back-stack
+  }
+}
+
+export async function listClubIndex(): Promise<ClubIndexEntry[]> {
+  try {
+    const raw = await AsyncStorage.getItem(CLUBS_INDEX_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function ClubLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
       <Stack.Screen name="create" />
       <Stack.Screen name="[id]" />
     </Stack>

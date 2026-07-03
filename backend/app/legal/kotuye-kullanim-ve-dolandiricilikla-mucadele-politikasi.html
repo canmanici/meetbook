@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kötüye Kullanım ve Dolandırıcılıkla Mücadele Politikası — MeetBook</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #1a1a2e;
+    --accent: #0f3460;
+    --gold: #e2b714;
+    --text: #1a1a2e;
+    --text-light: #555;
+    --bg: #fafafa;
+    --card: #fff;
+    --border: #e0e0e0;
+    --radius: 12px;
+    --red: #c0392b;
+    --red-bg: #fff0f0;
+    --orange: #e67e22;
+    --orange-bg: #fff8f0;
+  }
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Roboto, Oxygen, Ubuntu, sans-serif;
+    line-height: 1.7;
+    color: var(--text);
+    background: var(--bg);
+    padding: 0;
+  }
+  .container { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+  .header {
+    background: linear-gradient(135deg, #2c0a0a 0%, #5c1010 50%, #8b1a1a 100%);
+    color: #fff;
+    padding: 40px 0 36px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -30px;
+    left: -20%;
+    right: -20%;
+    height: 60px;
+    background: var(--bg);
+    border-radius: 50%;
+  }
+  .header h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 4px; }
+  .header .meta { opacity: .85; font-size: .85rem; }
+  .header .badge {
+    display: inline-block;
+    background: #e74c3c;
+    color: #fff;
+    padding: 2px 14px;
+    border-radius: 20px;
+    font-size: .7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+  .content { padding: 0 0 40px; }
+  section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 16px;
+  }
+  section h2 {
+    font-size: 1.15rem;
+    color: var(--accent);
+    margin-bottom: 14px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--gold);
+  }
+  section h3 { font-size: 1.02rem; color: var(--primary); margin: 18px 0 8px; }
+  section p { margin-bottom: 10px; text-align: justify; font-size: .92rem; }
+  section ul, section ol { margin: 6px 0 12px 20px; }
+  section li { margin-bottom: 5px; font-size: .92rem; }
+  section table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: .85rem;
+  }
+  section th, section td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  section th { background: var(--primary); color: #fff; font-weight: 600; }
+  section tr:nth-child(even) { background: #f5f5f5; }
+  .warning-box {
+    background: var(--red-bg);
+    border-left: 4px solid var(--red);
+    padding: 14px 18px;
+    margin: 14px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: .9rem;
+  }
+  .warning-box strong { color: var(--red); }
+  .info-box {
+    background: var(--orange-bg);
+    border-left: 4px solid var(--orange);
+    padding: 14px 18px;
+    margin: 14px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: .9rem;
+  }
+  .info-box strong { color: var(--orange); }
+  .highlight-box {
+    background: #fff8e1;
+    border-left: 4px solid var(--gold);
+    padding: 14px 18px;
+    margin: 14px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: .9rem;
+  }
+  .back-to-top { display: block; text-align: right; margin-top: 8px; }
+  .back-to-top a { color: var(--accent); font-size: .85rem; text-decoration: none; }
+  .back-to-top a:hover { text-decoration: underline; }
+  .footer {
+    text-align: center;
+    padding: 24px 0;
+    color: var(--text-light);
+    font-size: .8rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 600px) {
+    .header h1 { font-size: 1.2rem; }
+    section { padding: 16px 18px; }
+    section table { font-size: .78rem; }
+    section th, section td { padding: 5px 6px; }
+  }
+  @media print { section { break-inside: avoid; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="container">
+    <div class="badge">⚠ Sıfır Tolerans Politikası · Sürüm 1.1</div>
+    <h1>Kötüye Kullanım ve Dolandırıcılıkla Mücadele Politikası</h1>
+    <p class="meta">
+      <span>📅 Yürürlük: 2 Temmuz 2026</span>
+      <span>📄 Sürüm: 1.1</span>
+      <span>⚖️ İşbu politika <a href="/legal/kullanim-kosullari" style="color:#e2b714;">Kullanım Koşulları</a>'nın ayrılmaz parçasıdır</span>
+    </p>
+  </div>
+</div>
+
+<div class="content container">
+
+<section>
+  <h2>1. Politikanın Amacı ve Kapsamı</h2>
+  <p>İşbu Kötüye Kullanım ve Dolandırıcılıkla Mücadele Politikası ("Politika"), MeetBook Platformu'nun güvenli, güvenilir ve adil bir topluluk olarak kalmasını sağlamak amacıyla hazırlanmıştır. Bu Politika, Platform'un <strong>bütünlüğünü korumak, kullanıcıları dolandırıcılıktan korumak ve kötü niyetli faaliyetleri önlemek</strong> için MeetBook'un uyguladığı tedbirleri, teknik önlemleri ve yaptırımları tanımlar.</p>
+
+  <p>Bu Politika, <a href="/legal/kullanim-kosullari">Kullanım Koşulları</a>'nın ayrılmaz bir parçasıdır. Bu Politikada tanımlanan yasaklar, Kullanım Koşulları Bölüm 4'teki (Yasak Faaliyetler) genel yasaklara ek olup, bunları tamamlayıcı niteliktedir. Bu Politikada belirtilmeyen ancak Kullanım Koşulları'nda yasaklanan faaliyetler de yasak olmaya devam eder.</p>
+
+  <div class="warning-box">
+    <strong>SIFIR TOLERANS:</strong> MeetBook, bu Politikada tanımlanan yasak faaliyetlere karşı <strong>sıfır tolerans</strong> politikası uygular. Tespit edilen her ihlal, önceden uyarı yapılmaksızın hesabın derhâl ve kalıcı olarak yasaklanması, tüm verilerin silinmesi/anonimleştirilmesi ve gerekli hâllerde adli/kolluk makamlarına suç duyurusunda bulunulması ile sonuçlanır.
+  </div>
+</section>
+
+<section>
+  <h2>2. Tanımlı Dolandırıcılık ve Kötüye Kullanım Türleri</h2>
+  <p>Aşağıda, MeetBook Platformu'nda tespit edilmesi halinde en ağır yaptırımların uygulanacağı dolandırıcılık ve kötüye kullanım türleri tanımlanmıştır. Bu liste sınırlı olmayıp, Platform'un ruhuna aykırı her türlü davranış MeetBook'un tek taraflı takdirinde bu kapsamda değerlendirilir.</p>
+
+  <h3>2.1. Organize Dolandırıcılık (Organized Fraud)</h3>
+  <p>Gerçek veya tüzel kişiler tarafından, birden fazla hesap, kimlik veya cihaz kullanılarak Platform'u sistematik şekilde dolandırmaya yönelik her türlü girişim. Bu kapsamda:</p>
+  <ul>
+    <li><strong>Çoklu Hesap Ağları:</strong> Aynı kişi veya grup tarafından yönetilen 2 (iki) veya daha fazla hesap oluşturmak ve bu hesapları birbirlerinin güven puanını yapay olarak yükseltmek, sahte takas işlemleri gerçekleştirmek veya diğer kullanıcıları yanıltmak amacıyla kullanmak.</li>
+    <li><strong>Kimlik Hırsızlığı:</strong> Başka bir gerçek kişinin kimlik bilgilerini (ad, soyad, fotoğraf, konum) izinsiz kullanarak hesap oluşturmak veya işlem gerçekleştirmek.</li>
+    <li><strong>Sahte Güven Puanı İnşası:</strong> Bir veya birden fazla hesap aracılığıyla, gerçek olmayan takas işlemleri, karşılıklı kefillik (vouch) ve puanlama yaparak güven puanını yapay olarak yükseltmek.</li>
+    <li><strong>Katır Hesap Kullanımı (Mule Accounts):</strong> Başka bir kişi adına açılmış hesabı, o kişinin bilgisi dışında veya ücret karşılığı kullanarak işlem yapmak.</li>
+  </ul>
+
+  <h3>2.2. Finansal Dolandırıcılık (Financial Fraud)</h3>
+  <ul>
+    <li><strong>Platform Dışı İşlem Teşviki:</strong> Kullanıcıları Platform dışında (elden, havale/EFT, kripto para) ödeme yapmaya veya işlem gerçekleştirmeye teşvik etmek.</li>
+    <li><strong>Sahte İlan:</strong> Var olmayan bir kitabı, sahte fotoğraflarla veya yanıltıcı bilgilerle listeleyerek diğer kullanıcıları kandırmak.</li>
+    <li><strong>Değersiz Kitap Gönderimi:</strong> Takas/ödünç işleminde anlaşılandan farklı, hasarlı, değersiz veya sahte bir kitap göndermek.</li>
+    <li><strong>İkame/Değiştirme Dolandırıcılığı:</strong> Bir kitabı alıp yerine aynı görünüme sahip değersiz bir kitabı iade etmek.</li>
+    <li><strong>Rehin/Satış Dolandırıcılığı:</strong> Ödünç aldığı kitabı rehin vermek, satmak veya üçüncü bir kişiye devretmek.</li>
+  </ul>
+
+  <h3>2.3. Hesap Güvenliği İhlalleri (Account Security Violations)</h3>
+  <ul>
+    <li><strong>Hesap Ele Geçirme:</strong> Başka bir kullanıcının hesabına yetkisiz erişim sağlamak, şifresini kırmak, oturumunu çalmak.</li>
+    <li><strong>Hesap Ticareti:</strong> MeetBook hesabını üçüncü kişilere satmak, kiralamak, devretmek veya takas etmek.</li>
+    <li><strong>Hesap Çoklaması:</strong> Yasaklanmış bir hesabın yerine, aynı veya farklı kimlik bilgileriyle yeni hesap açmak.</li>
+    <li><strong>OTP/SMS Doğrulama Atlatması:</strong> Telefon doğrulamasını geçmek için sanal numara, geçici SIM veya VoIP hizmetleri kullanmak.</li>
+  </ul>
+
+  <h3>2.4. Platform Manipülasyonu (Platform Manipulation)</h3>
+  <ul>
+    <li><strong>Bot / Otomasyon Kullanımı:</strong> Platform'a otomatik araçlar, botlar, scraper'lar, script'ler veya yapay zeka ajanları aracılığıyla erişmek, veri çekmek veya işlem yapmak.</li>
+    <li><strong>API Kötüye Kullanımı:</strong> MeetBook API'sini belirtilen rate limitlerin üzerinde kullanmak, API'yi tersine mühendislikle analiz etmek, yetkisiz API istemcileri geliştirmek.</li>
+    <li><strong>Konum Sahteciliği:</strong> GPS konumunu değiştirerek (spoofing) sahte konum bildirimi yapmak, Türkiye coğrafi sınırlamasını aşmak.</li>
+    <li><strong>Puan / İstatistik Manipülasyonu:</strong> Görüntülenme sayısı, favori sayısı, güven puanı gibi metrikleri yapay olarak şişirmek veya düşürmek.</li>
+    <li><strong>Sahte İhbar / Rapor:</strong> Rakipleri saf dışı bırakmak amacıyla asılsız şikayet ve raporlamada bulunmak.</li>
+  </ul>
+
+  <h3>2.5. Sosyal Mühendislik ve Phishing</h3>
+  <ul>
+    <li><strong>Destek Personeli Taklidi:</strong> MeetBook yöneticisi, moderatörü veya destek personeli gibi davranarak diğer kullanıcıların şifre, token veya kişisel bilgilerini elde etmeye çalışmak.</li>
+    <li><strong>Sahte İletişim:</strong> MeetBook adına sahte e-posta, SMS veya push bildirimi göndererek kullanıcıları sahte sitelere yönlendirmek.</li>
+    <li><strong>Dostluk/Kandırma Dolandırıcılığı:</strong> Uzun süreli iletişim kurarak güven kazandıktan sonra değerli kitap veya para talep etmek.</li>
+  </ul>
+
+  <h3>2.6. Taciz, Tehdit ve Yasa Dışı İçerik</h3>
+  <ul>
+    <li><strong>Fiziksel Tehdit:</strong> Diğer kullanıcıları fiziksel şiddetle tehdit etmek, takip etmek (stalking), taciz etmek.</li>
+    <li><strong>Şantaj ve Gasp:</strong> Diğer kullanıcıların özel bilgilerini, fotoğraflarını veya yazışmalarını ifşa etmekle tehdit ederek menfaat temin etmek.</li>
+    <li><strong>Nefret Söylemi:</strong> Irk, etnik köken, din, cinsiyet, cinsel yönelim, yaş, engellilik temelinde ayrımcılık, nefret söylemi veya şiddet içeren ifadeler kullanmak.</li>
+    <li><strong>Yasa Dışı İçerik Paylaşımı:</strong> Müstehcen, pornografik, şiddet içerikli, terör propagandası yapan veya yürürlükteki mevzuata aykırı her türlü içeriği paylaşmak.</li>
+  </ul>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<section>
+  <h2>3. Teknik Önlemler ve İzleme Faaliyetleri</h2>
+  <p>MeetBook, kötüye kullanım ve dolandırıcılığı tespit etmek, önlemek ve caydırmak amacıyla aşağıdaki teknik önlemleri uygular. Kullanıcı, bu önlemlerin varlığını ve uygulanacağını peşinen kabul eder:</p>
+
+  <table>
+    <thead>
+      <tr><th>Önlem / Teknoloji</th><th>Açıklama</th><th>Yasal Dayanak</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Cihaz Parmak İzi (Device Fingerprinting)</strong></td>
+        <td>Cihazın benzersiz özellikleri (işletim sistemi, model, ekran çözünürlüğü, dil ayarları, saat dilimi, yüklü fontlar, donanım özellikleri, ağ konfigürasyonu) kullanılarak bir "cihaz parmak izi" oluşturulur. Bu parmak izi, çoklu hesap tespiti ve yasaklı kullanıcıların yeniden kaydolmasının engellenmesi amacıyla kullanılır.</td>
+        <td>Açık rıza (KVKK md.5/1) + Meşru menfaat (KVKK md.5/2-f)</td>
+      </tr>
+      <tr>
+        <td><strong>IP Adresi ve Proxy/VPN Tespiti</strong></td>
+        <td>Tüm API isteklerinin IP adresi kaydedilir ve analiz edilir. Bilinen proxy, VPN, Tor çıkış düğümü veya veri merkezi IP'lerinden gelen bağlantılar tespit edilir ve gerekirse engellenir. Aynı IP'den birden fazla hesaba erişim tespit edilir.</td>
+        <td>Hukuki yükümlülük (KVKK md.5/2-ç) + Meşru menfaat</td>
+      </tr>
+      <tr>
+        <td><strong>SIM Kart / Telefon Numarası Doğrulama</strong></td>
+        <td>Her hesap için benzersiz bir telefon numarası zorunludur. Sanal numara operatörleri (VOIP, geçici SIM) kara listeye alınır ve bu numaralarla kayıt engellenir. Her numara yalnızca bir hesap için kullanılabilir.</td>
+        <td>Sözleşmenin ifası (KVKK md.5/2-c)</td>
+      </tr>
+      <tr>
+        <td><strong>Davranışsal Analiz (Behavioral Analytics)</strong></td>
+        <td>Kullanıcı davranışları (giriş sıklığı, sayfa görüntüleme süreleri, tıklama desenleri, hız, rotasyon süreleri) analiz edilerek anormal desenler tespit edilir. Bot ve otomasyon trafiği, insan trafiğinden ayrıştırılır.</td>
+        <td>Meşru menfaat (KVKK md.5/2-f)</td>
+      </tr>
+      <tr>
+        <td><strong>Rate Limiting (Hız Sınırlaması)</strong></td>
+        <td>Her kullanıcı, IP adresi ve cihaz için belirli zaman dilimlerinde yapılabilecek istek sayısı sınırlandırılır. Anormal istek artışları otomatik olarak bloklanır.</td>
+        <td>Meşru menfaat (KVKK md.5/2-f)</td>
+      </tr>
+      <tr>
+        <td><strong>Otomatik Dolandırıcılık Tespit Sistemi</strong></td>
+        <td>Yukarıdaki verilerin tamamını analiz eden ve makine öğrenmesi algoritmaları kullanarak şüpheli hesapları ve işlemleri otomatik olarak işaretleyen bir sistem. İşaretlenen hesaplar insan moderatöre yönlendirilir.</td>
+        <td>Meşru menfaat (KVKK md.5/2-f)</td>
+      </tr>
+      <tr>
+        <td><strong>Mesaj İçerik Denetimi</strong></td>
+        <td>Platform üzerinden gönderilen mesajlar, spam, dolandırıcılık, yasaklı içerik ve platform dışı işlem teşviki açısından otomatik ve manuel olarak taranır. İşaretlenen mesajlar moderatör incelemesine tabi tutulur.</td>
+        <td>Açık rıza (KVKK md.5/1) + Meşru menfaat</td>
+      </tr>
+      <tr>
+        <td><strong>Fotoğraf Metaveri Temizleme</strong></td>
+        <td>Yüklenen tüm fotoğraflardan EXIF, GPS, cihaz bilgisi, tarih/saat gibi metaveriler otomatik olarak temizlenir. Manipüle edilmiş metaveri tespit edilen fotoğraflar işaretlenir.</td>
+        <td>Hukuki yükümlülük (KVKK md.5/2-ç)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="info-box">
+    <strong>Kullanıcıya Not:</strong> Yukarıdaki teknik önlemler, Platform'un güvenliğini sağlamak ve tüm kullanıcıları korumak amacıyla uygulanmaktadır. Bu önlemler, KVKK ve ilgili mevzuata uygun olarak, veri minimizasyonu ve amaç sınırlaması ilkeleri çerçevesinde yürütülür. Kullanıcı, bu önlemlerin uygulanacağını peşinen kabul eder.
+  </div>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<section>
+  <h2>4. Yaptırımlar ve Müeyyideler</h2>
+
+  <p>Bu Politikada tanımlanan yasak faaliyetlerden herhangi birinin ihlal edilmesi halinde, MeetBook tek taraflı takdir yetkisine dayanarak aşağıdaki yaptırımlardan bir veya birkaçını, önceden bildirim yapmaksızın uygulayabilir:</p>
+
+  <table>
+    <thead>
+      <tr><th style="width:30px">#</th><th>Yaptırım</th><th>Açıklama</th><th>Tipik Uygulama</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--accent);">1</td>
+        <td><strong>Uyarı</strong></td>
+        <td>Kullanıcıya ihlal bildirimi yapılır ve tekrarı halinde ağır yaptırım uygulanacağı belirtilir.</td>
+        <td>Hafif ihlaller, ilk kez ihlal</td>
+      </tr>
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--accent);">2</td>
+        <td><strong>Geçici Askıya Alma</strong></td>
+        <td>Hesap 7 ila 90 gün arasında kullanıma kapatılır. Kullanıcı bu sürede Platform'a erişemez.</td>
+        <td>Tekrarlayan hafif ihlaller, orta düzey ihlaller</td>
+      </tr>
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--accent);">3</td>
+        <td><strong>İşlem Kısıtlama</strong></td>
+        <td>Kullanıcının belirli Platform özelliklerine erişimi kısıtlanır (yeni kitap ekleme, mesaj gönderme, takas talebi oluşturma).</td>
+        <td>Şüpheli davranış desenleri, soruşturma süreci</td>
+      </tr>
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--accent);">4</td>
+        <td><strong>Kalıcı Yasaklama</strong></td>
+        <td>Hesap kalıcı olarak kapatılır. Kullanıcının aynı veya farklı bir hesapla Platform'a yeniden kaydolması yasaktır. Cihaz parmak izi, IP adresi ve telefon numarası kara listeye alınır.</td>
+        <td>Tüm dolandırıcılık türleri, hesap ele geçirme, organize dolandırıcılık</td>
+      </tr>
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--accent);">5</td>
+        <td><strong>Suç Duyurusu</strong></td>
+        <td>İhlal, Türk Ceza Kanunu kapsamında suç teşkil ediyorsa (TCK md.142 — hırsızlık, md.157 — dolandırıcılık, md.244 — bilişim sistemine izinsiz erişim, md.134 — özel hayatın gizliliğini ihlal), durum derhâl adli makamlara bildirilir.</td>
+        <td>Kimlik hırsızlığı, hesap ele geçirme, şantaj, organize dolandırıcılık</td>
+      </tr>
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--accent);">6</td>
+        <td><strong>Veri Paylaşımı (Kara Liste)</strong></td>
+        <td>Kötü niyetli kullanıcıya ait cihaz parmak izi, IP adresi, telefon numarası ve diğer tanımlayıcı bilgiler, dolandırıcılıkla mücadele amacıyla diğer platformlar veya güvenlik hizmet sağlayıcıları ile paylaşılabilir.</td>
+        <td>Organize dolandırıcılık, çoklu hesap ağları, tekrarlayan yasaklama ihlalleri</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>4.1. Yasaklı Kullanıcının Yeniden Kayıt Denemesi</h3>
+  <p>Kalıcı olarak yasaklanmış bir kullanıcının, aynı veya farklı kimlik bilgileriyle, farklı bir cihazdan, farklı bir IP adresinden veya farklı bir telefon numarasıyla yeniden kaydolmaya çalışması halinde:</p>
+  <ul>
+    <li>Yeni hesap derhâl tespit edilir ve otomatik olarak yasaklanır.</li>
+    <li>Kullanıcının bu girişimi, "ısrarlı ihlal" olarak kaydedilir ve TCK md.244/2 kapsamında değerlendirilmek üzere adli makamlara bildirilir.</li>
+    <li>Yeni hesap oluşturmak için kullanılan tüm tanımlayıcı bilgiler (cihaz, IP, telefon) mevcut kara listeye eklenir.</li>
+  </ul>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<section>
+  <h2>5. İhbar ve Ödül Sistemi</h2>
+
+  <h3>5.1. İhbar Bildirimi</h3>
+  <p>Kullanıcılar, Platform üzerinde karşılaştıkları şüpheli faaliyetleri, dolandırıcılık girişimlerini, yasaklı içerikleri veya bu Politikaya aykırı her türlü davranışı aşağıdaki yollarla bildirebilir:</p>
+  <ul>
+    <li>Platform üzerindeki "Raporla" (Report) butonu ile</li>
+    <li><a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine e-posta göndererek</li>
+    <li>Uygulama içi destek kanalı üzerinden</li>
+  </ul>
+
+  <h3>5.2. Ödül Programı</h3>
+  <p>MeetBook, Platform'un güvenliğine katkıda bulunan kullanıcıları teşvik etmek amacıyla bir <strong>İhbar Ödül Programı</strong> işletme hakkını saklı tutar. Bu program kapsamında:</p>
+  <ul>
+    <li>Doğrulanmış ve ciddi dolandırıcılık ihbarlarında bulunan kullanıcılara takdirî ödüller (güven puanı artışı, rozet, özel statü) verilebilir.</li>
+    <li>Ödül programının kapsamı, şartları ve ödül miktarları MeetBook tarafından tek taraflı olarak belirlenir ve değiştirilebilir.</li>
+    <li>Ödül programına katılım, kullanıcıya herhangi bir hak veya beklenti kazandırmaz.</li>
+    <li>Asılsız veya kötü niyetli ihbarlar, ihbarcı hakkında yaptırım uygulanmasına yol açabilir.</li>
+  </ul>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<section>
+  <h2>6. Veri Paylaşımı ve Kara Liste</h2>
+
+  <h3>6.1. Dolandırıcılıkla Mücadele Verilerinin Paylaşımı</h3>
+  <p>MeetBook, kötüye kullanım ve dolandırıcılıkla mücadele amacıyla, aşağıdaki verileri diğer platformlar, güvenlik hizmet sağlayıcıları, kolluk kuvvetleri ve adli makamlarla paylaşma hakkına sahiptir:</p>
+  <ul>
+    <li><strong>Cihaz Parmak İzi:</strong> Hesap kapatma/kara listeye ekleme durumunda, cihazın benzersiz tanımlayıcı özellikleri.</li>
+    <li><strong>IP Adresi ve Ağ Bilgileri:</strong> Kötü niyetli bağlantıların tespiti ve engellenmesi amacıyla.</li>
+    <li><strong>Telefon Numarası:</strong> Sanal numara, VoIP ve kara listedeki numaraların tespiti amacıyla.</li>
+    <li><strong>İhlal Desenleri:</strong> Kullanıcının gerçekleştirdiği ihlal türü, zamanı, yöntemi ve sıklığı.</li>
+  </ul>
+
+  <p>Bu veri paylaşımı, KVKK md.5/2-ç (hukuki yükümlülük) ve md.5/2-f (meşru menfaat) hukuki sebeplerine dayanmaktadır. Kullanıcı, bu veri paylaşımını peşinen kabul eder.</p>
+
+  <h3>6.2. Kara Liste Yönetimi</h3>
+  <p>MeetBook, kalıcı olarak yasaklanmış kullanıcılara ait tanımlayıcı bilgileri (cihaz parmak izi, IP adresleri, telefon numaraları, e-posta adresleri) bir kara listede tutar. Kara liste:</p>
+  <ul>
+    <li>Yasaklamanın kalıcı olduğu süre boyunca saklanır.</li>
+    <li>Yalnızca dolandırıcılık tespit ve önleme amacıyla kullanılır.</li>
+    <li>Üçüncü taraf güvenlik hizmet sağlayıcıları ile paylaşılabilir.</li>
+    <li>Kullanıcının itirazı halinde, kara listeden çıkarılma talebi değerlendirilir.</li>
+  </ul>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<section>
+  <h2>7. İtiraz ve İnceleme Süreci</h2>
+
+  <h3>7.1. Hatalı Yasaklama İtirazı</h3>
+  <p>Bir kullanıcının hesabının hatalı olarak yasaklandığını veya kısıtlandığını düşünmesi halinde, aşağıdaki süreç uygulanır:</p>
+  <ol>
+    <li>Kullanıcı, <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine itiraz gerekçelerini ve varsa kanıtlarını içeren bir e-posta gönderir.</li>
+    <li>MeetBook, itirazı 15 (on beş) iş günü içinde inceler.</li>
+    <li>İnceleme sonucunda:
+      <ul>
+        <li>Yasaklamanın hatalı olduğu tespit edilirse, hesap derhâl iade edilir.</li>
+        <li>Yasaklamanın doğru olduğu tespit edilirse, gerekçeli ret cevabı verilir.</li>
+      </ul>
+    </li>
+    <li>İtirazı reddedilen kullanıcı, KVKK Kurulu'na veya yetkili mahkemeye başvurma hakkına sahiptir.</li>
+  </ol>
+
+  <h3>7.2. Kanıt Saklama</h3>
+  <p>MeetBook, yasaklama/kısıtlama kararlarına esas teşkil eden tüm kanıtları (log kayıtları, ekran görüntüleri, mesaj içerikleri, sistem kayıtları) olası hukuki uyuşmazlıklar için <strong>5 (beş) yıl</strong> süreyle saklar.</p>
+
+  <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
+</section>
+
+<section>
+  <h2>8. İletişim ve Bildirim</h2>
+  <p>Bu Politika kapsamındaki her türlü ihbar, şikayet, itiraz ve bildirim için:</p>
+  <table>
+    <tr><th style="width:160px;">İhbar/Şikayet</th><td><a href="mailto:support@meetbook.com">support@meetbook.com</a></td></tr>
+    <tr><th>Hata Bildirimi</th><td><a href="mailto:canmanici@gmail.com">canmanici@gmail.com</a></td></tr>
+    <tr><th>Acil Güvenlik</th><td><a href="mailto:canmanici@gmail.com">canmanici@gmail.com</a> (7/24 ulaşılabilir)</td></tr>
+  </table>
+
+  <div style="background:#2c0a0a; color:#fff; padding:20px; border-radius:var(--radius); margin-top:20px; text-align:center;">
+    <p style="margin:0; font-size:.9rem; opacity:.9;">Son güncelleme: 2 Temmuz 2026 · Sürüm 1.1</p>
+    <p style="margin:8px 0 0; font-size:.85rem; opacity:.8;">⚠ MeetBook'da dolandırıcılığa <strong>sıfır tolerans</strong> gösterilir.</p>
+    <p style="margin:4px 0 0; font-size:.8rem; opacity:.7;">Bu Politika Kullanım Koşulları'nın ayrılmaz parçasıdır.</p>
+  </div>
+</section>
+
+</div>
+
+<div class="footer container">
+  <p><strong>MeetBook</strong> · Kötüye Kullanım ve Dolandırıcılıkla Mücadele Politikası · Sürüm 1.1 · 2 Temmuz 2026</p>
+  <p><a href="/legal/kullanim-kosullari">Kullanım Koşulları</a> · <a href="/legal/gizlilik-politikasi">Gizlilik Politikası</a> · <a href="/legal/kvkk-aydinlatma-metni">KVKK Aydınlatma Metni</a> · <a href="/legal/kotuye-kullanim-ve-dolandiricilikla-mucadele-politikasi">Kötüye Kullanım Politikası</a></p>
+</div>
+
+</body>
+</html>

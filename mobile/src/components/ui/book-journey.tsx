@@ -75,7 +75,7 @@ export function BookJourney({ bookId }: BookJourneyProps) {
             return (
               <View key={stop.id} style={styles.stop}>
                 <View style={styles.stopLeft}>
-                  <Avatar name={name} size="small" />
+                  <Avatar name={name} imageUrl={(stop.counterpart as any)?.avatar_url ?? undefined} size="small" />
                   {!isLast && (
                     <View style={[styles.stopLine, { backgroundColor: colors.textMuted + '30' }]} />
                   )}

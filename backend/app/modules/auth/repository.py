@@ -12,6 +12,7 @@ from app.modules.auth.models import (
     RefreshToken,
     User,
     UserCredential,
+    UserStatus,
 )
 
 
@@ -45,10 +46,42 @@ class AuthRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_user_by_username(self, username: str) -> User | None:
+        result = await self.session.execute(
+            select(User).where(User.username == username.lower())
+        )
+        return result.scalar_one_or_none()
+
+    async def search_users(
+        self, query: str, exclude_user_id: uuid.UUID, limit: int = 20
+    ) -> list[User]:
+        """Find active users by name or @username, excluding the caller and
+        anyone blocked in either direction (mirrors the visibility rule
+        chat/exchanges use)."""
+        from app.modules.exchanges.models import Block
+
+        blocked_by_me = select(Block.blocked_id).where(Block.blocker_id == exclude_user_id)
+        blocked_me = select(Block.blocker_id).where(Block.blocked_id == exclude_user_id)
+        needle = query.lstrip("@")
+
+        result = await self.session.execute(
+            select(User)
+            .where(
+                (User.name.ilike(f"%{needle}%") | User.username.ilike(f"%{needle}%")),
+                User.id != exclude_user_id,
+                User.status == UserStatus.active,
+                User.id.notin_(blocked_by_me),
+                User.id.notin_(blocked_me),
+            )
+            .order_by(User.name)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def create_user(
-        self, email: str, name: str, password_hash: str
+        self, email: str, name: str, username: str, password_hash: str
     ) -> tuple[User, UserCredential]:
-        user = User(email=email, name=name)
+        user = User(email=email, name=name, username=username.lower())
         self.session.add(user)
         await self.session.flush()  # get user.id
 

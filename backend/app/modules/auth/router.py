@@ -3,7 +3,7 @@
 import uuid
 
 import redis.asyncio as aioredis
-from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -26,7 +26,9 @@ from app.modules.auth.schemas import (
     SessionView,
     TokenResponse,
     UpdateMeRequest,
+    UsernameAvailabilityResponse,
     UserPublicProfile,
+    UserSearchResponse,
     VouchListResponse,
     VouchRequest,
     VouchView,
@@ -59,9 +61,26 @@ async def register(
     service: AuthService = Depends(_get_service),
 ) -> AuthTokensResponse:
     try:
-        return await service.register(body.email, body.password, body.name, body.kvkk_consent)
+        return await service.register(
+            body.email,
+            body.password,
+            body.name,
+            body.kvkk_consent,
+            username=body.username,
+        )
     except AuthError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.get("/username-available", response_model=UsernameAvailabilityResponse)
+async def check_username_available(
+    username: str = Query(..., min_length=3, max_length=30),
+    service: AuthService = Depends(_get_service),
+) -> UsernameAvailabilityResponse:
+    """Live-check while typing on register / profile edit — no auth required
+    since it must work before the account exists."""
+    available = await service.is_username_available(username)
+    return UsernameAvailabilityResponse(available=available)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -166,6 +185,17 @@ async def upload_my_avatar(
         return {"avatar_url": url}
     except AuthError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.get("/users/search", response_model=UserSearchResponse)
+async def search_users(
+    q: str = Query(..., min_length=1, max_length=100),
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> UserSearchResponse:
+    """Find other users by name — used by the in-app user directory search."""
+    items = await service.search_users(user.id, q)
+    return UserSearchResponse(items=items)
 
 
 @router.get("/users/{user_id}", response_model=UserPublicProfile)

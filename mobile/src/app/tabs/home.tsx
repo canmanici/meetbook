@@ -1229,7 +1229,7 @@ export default function HomeScreen() {
       <View style={styles.floatingOverlay} pointerEvents="box-none">
         {/* Search bar + chips (glassmorphism, §3.11) */}
         <View style={[styles.floatingSearch, { paddingTop: insets.top + spacing.sm }]}>
-          {/* Search row: search bar (with green camera) + separate filter button */}
+          {/* Search row: search bar + notification bell + bookmark */}
           <View style={styles.searchRow}>
             {/* Search bar — vision: rgba(255,255,255,0.92), borderRadius 22, height 44 */}
             <View style={[styles.searchBarBlur, { backgroundColor: isDark ? 'rgba(33,31,26,0.90)' : 'rgba(255,255,255,0.92)' }]}>
@@ -1243,33 +1243,8 @@ export default function HomeScreen() {
                   onChangeText={setSearchText}
                   testID="search-input"
                 />
-                {/* Green circle camera button (vision: 22px, #11806B bg, white icon) */}
-                <TouchableOpacity
-                  onPress={() => router.push('/book/scan-isbn')}
-                  style={[styles.cameraCircle, { backgroundColor: colors.primary }]}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  testID="search-camera"
-                >
-                  <Ionicons name="camera" size={13} color="#FFFFFF" />
-                </TouchableOpacity>
               </View>
             </View>
-
-            {/* Separate filter button — vision: 44×44, rgba(255,255,255,0.92), 3-lines icon */}
-            <TouchableOpacity
-              onPress={handleFilterPress}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              testID="search-filter"
-            >
-              <View style={[styles.filterBtn, { backgroundColor: isDark ? 'rgba(33,31,26,0.90)' : 'rgba(255,255,255,0.92)' }]}>
-                <Ionicons name="options" size={20} color={colors.primary} />
-                {filterCount > 0 && (
-                  <View style={styles.filterBadge} testID="search-filter-badge">
-                    <Text style={styles.filterBadgeText}>{filterCount}</Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
 
             {/* Bell icon → /notifications, with unread dot */}
             <TouchableOpacity
@@ -1550,15 +1525,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: fontSize.bodySm,
   },
-  // Green circle camera button (vision: 22px, #11806B bg)
-  cameraCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Separate filter button (vision: 44×44, blur, 3-lines icon)
+  // Floating action button (vision: 44×44, blur, used by bell + bookmark)
   filterBtn: {
     width: 44,
     height: 44,
@@ -1568,25 +1535,6 @@ const styles = StyleSheet.create({
     overflow: 'visible',
     marginLeft: spacing.sm,
     ...shadows.float,
-  },
-  filterBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#F2766B',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    paddingHorizontal: 3,
-  },
-  filterBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '800',
   },
   // Bell unread dot (top-right of the bell button)
   bellDot: {

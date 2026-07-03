@@ -55,6 +55,27 @@ class ExtensionRequestBody(BaseModel):
     days: int = Field(ge=MIN_LOAN_DAYS, le=MAX_LOAN_DAYS)
 
 
+class LocationUpdateRequest(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    precision: str = Field(default="exact", pattern="^(exact|approximate)$")
+
+
+class LocationResponse(BaseModel):
+    latitude: float
+    longitude: float
+    updated_at: datetime
+    precision: str = "exact"
+
+
+class LocationStatusResponse(BaseModel):
+    """Sharing state for both participants — the client's single source of truth."""
+
+    me_sharing: bool
+    partner_sharing: bool
+    partner_location: LocationResponse | None = None
+
+
 class BlockCreateRequest(BaseModel):
     user_id: uuid.UUID
 
@@ -99,6 +120,7 @@ class TrustView(BaseModel):
 class CounterpartView(BaseModel):
     id: uuid.UUID
     name: str
+    avatar_url: str | None = None
     trust: TrustView | None = None
 
 

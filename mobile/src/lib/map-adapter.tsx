@@ -19,7 +19,7 @@ import type { Feature, GeoJsonProperties } from 'geojson';
 const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY ?? '';
 const MAP_STYLE = MAPTILER_KEY
   ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
-  : 'https://demotiles.maplibre.org/style.json'; // fallback: no labels, but works
+  : 'https://api.maptiler.com/maps/streets-v2/style.json?key=eKJft93A5dolP425TPfm'; // fallback: same key, env boşalsa bile çalışır
 
 // ── Safe MapLibre import ────────────────────────────────────────────────────
 // Use dynamic require so the app doesn't crash if the native module is missing.
@@ -133,15 +133,19 @@ const RealMapView = forwardRef<any, any>(
         ? deltaToZoom(region.latitudeDelta)
         : 12;
 
-    // Dynamic camera target: when `region` prop changes, Camera flyTo animates
-    const cameraTarget = region
-      ? {
-          centerCoordinate: regionToCenter(region) as [number, number],
-          zoomLevel: deltaToZoom(region.latitudeDelta),
-          animationDuration: 800,
-          animationMode: 'flyTo' as const,
-        }
-      : {};
+    // ── Fly camera when `region` prop changes ──────────────────────────────
+    // Props-based cameraTarget spread doesn't animate when going from no region
+    // to having one (MapLibre Camera doesn't detect "new props appeared" as a
+    // change). Imperative flyTo via useEffect is reliable — same pattern as
+    // home.tsx line 439.
+    useEffect(() => {
+      if (!region || !cameraRef.current) return;
+      cameraRef.current.flyTo?.({
+        center: [region.longitude, region.latitude],
+        zoom: deltaToZoom(region.latitudeDelta),
+        duration: 800,
+      });
+    }, [region?.latitude, region?.longitude, region?.latitudeDelta, region?.longitudeDelta]);
 
     // Adapt MapLibre onPress → react-native-maps style { nativeEvent: { coordinate: { lat, lng } } }
     // v11+ : event is NativeSyntheticEvent → event.nativeEvent.lngLat: [lng, lat]
@@ -198,7 +202,6 @@ const RealMapView = forwardRef<any, any>(
             center: initialCenter,
             zoom: initialZoom,
           }}
-          {...cameraTarget}
         />
         {children}
       </MapComponent>

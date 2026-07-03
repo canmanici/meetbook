@@ -2,7 +2,7 @@
 # ── MeetBook Local APK Builder ────────────────────────────────────────────────
 # Detects your LAN IP, writes .env, builds a release APK.
 # Usage: bash build-local.sh
-# Output: meetbook-<version>-local-<ip>.apk
+# Output: meetbook-<version>-b<buildCode>-local.apk
 # ==============================================================================
 
 set -euo pipefail
@@ -16,6 +16,24 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
+
+# ── Versioning ────────────────────────────────────────────────────────────────
+# app.json (expo.version) is the single source of truth for the human-facing
+# version. versionCode is a separate monotonically-increasing build counter
+# (Android requires it to strictly increase between releases), persisted in
+# .version-code and bumped once per invocation of this script.
+APP_VERSION=$(python3 -c "import json; print(json.load(open('app.json'))['expo']['version'])" 2>/dev/null || echo "1.0.0")
+VERSION_CODE_FILE=".version-code"
+VERSION_CODE=$(($(cat "$VERSION_CODE_FILE" 2>/dev/null || echo 0) + 1))
+echo "$VERSION_CODE" > "$VERSION_CODE_FILE"
+
+# ── Display version ───────────────────────────────────────────────────────────
+# Show as semver-like: app_version.build_code  (e.g., 1.1.0.1)
+echo ""
+echo -e "${CYAN}════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}  MeetBook v${APP_VERSION} (build ${VERSION_CODE}) — Local APK${NC}"
+echo -e "${CYAN}════════════════════════════════════════════════════${NC}"
+echo ""
 
 # ── Detect LAN IP ─────────────────────────────────────────────────────────────
 detect_ip() {
@@ -40,18 +58,11 @@ detect_ip() {
 detect_ip
 
 API_URL="http://$LAN_IP:8000/api/v1"
+OUTPUT_APK="meetbook-v${APP_VERSION}-b${VERSION_CODE}-local.apk"
 
-# ── Read app version from app.json ────────────────────────────────────────────
-APP_VERSION=$(python3 -c "import json; print(json.load(open('app.json'))['expo']['version'])" 2>/dev/null || echo "1.0.0")
-OUTPUT_APK="meetbook-v${APP_VERSION}-local.apk"
-
-echo ""
-echo -e "${CYAN}══════════════════════════════════════════════${NC}"
-echo -e "${CYAN}  MeetBook v${APP_VERSION} — Local APK Build${NC}"
-echo -e "${CYAN}══════════════════════════════════════════════${NC}"
-echo ""
 echo -e "  ${BOLD}LAN IP:${NC}      $LAN_IP"
 echo -e "  ${BOLD}API URL:${NC}     $API_URL"
+echo -e "  ${BOLD}Version:${NC}     ${APP_VERSION} (build ${VERSION_CODE})"
 echo -e "  ${BOLD}Output:${NC}      $OUTPUT_APK"
 echo ""
 
@@ -87,8 +98,8 @@ fi
 echo ""
 
 # ── 3. Fix Android build (signing configs, ABI splits, etc) ──────────────────
-echo -e "${YELLOW}[3/6]${NC} Running fix-android-build.py..."
-python3 fix-android-build.py
+echo -e "${YELLOW}[3/6]${NC} Running fix-android-build.py (v${APP_VERSION}, build ${VERSION_CODE})..."
+python3 fix-android-build.py "$APP_VERSION" "$VERSION_CODE"
 echo ""
 
 # ── 4. Generate keystore if missing ──────────────────────────────────────────
@@ -132,6 +143,8 @@ echo ""
 BUILD_START=$(date +%s)
 
 cd android
+EXPO_PUBLIC_API_URL="$API_URL" \
+EXPO_PUBLIC_MAPTILER_KEY="eKJft93A5dolP425TPfm" \
 ./gradlew assembleRelease \
   -PreactNativeArchitectures=arm64-v8a \
   -Pandroid.enableMinifyInReleaseBuilds=true \
