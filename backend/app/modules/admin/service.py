@@ -1,9 +1,9 @@
 """Admin business logic — moderation queue, user/book actions, blocked places, metrics."""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.admin.repository import AdminRepository
@@ -27,6 +27,7 @@ from app.modules.admin.schemas import (
 )
 from app.modules.auth.models import AuditLog, User, UserStatus
 from app.modules.books.models import Book
+from app.modules.crash_reports.models import CrashReport, CrashReportGroup
 from app.modules.exchanges.models import BlockedPlace, ExchangeRequest, ExchangeStatus
 from app.modules.notifications.service import NotificationService
 from app.modules.reports.models import Report, ReportStatus
@@ -290,9 +291,9 @@ class AdminService:
         limit: int = 50,
         offset: int = 0,
     ) -> AdminUserListResponse:
-        users, total = await self.repo.list_users(search, status, limit, offset)
+        users_with_counts, total = await self.repo.list_users(search, status, limit, offset)
         return AdminUserListResponse(
-            items=[_user_to_list_item(u) for u in users],
+            items=[_user_to_list_item(u, bc, mc, ec) for u, bc, mc, ec in users_with_counts],
             total=total,
         )
 
@@ -398,9 +399,41 @@ class AdminService:
                 for row in await self.session.execute(stmt_exc):
                     e = row[0]
                     exchanges.append({"id": str(e.id), "status": e.status.value})
-        except ValueError, AttributeError:
+        except (ValueError, AttributeError):
             pass
         return {"users": users, "books": books, "exchanges": exchanges}
+
+    async def get_badges(self) -> dict:
+        """Badge counts for the admin navbar polling endpoint."""
+        # New crash report groups (status='new')
+        result = await self.session.execute(
+            select(func.count(CrashReportGroup.id)).where(CrashReportGroup.status == "new")
+        )
+        new_crashes = result.scalar() or 0
+
+        # Open user reports (status='open')
+        result = await self.session.execute(
+            select(func.count(Report.id)).where(Report.status == ReportStatus.open)
+        )
+        open_reports = result.scalar() or 0
+
+        # Recent audit log entries (last 24h)
+        since = datetime.now(UTC) - timedelta(hours=24)
+        result = await self.session.execute(
+            select(func.count(AuditLog.id)).where(AuditLog.created_at >= since)
+        )
+        recent_audit = result.scalar() or 0
+
+        # Total crash reports
+        result = await self.session.execute(select(func.count(CrashReport.id)))
+        total_crashes = result.scalar() or 0
+
+        return {
+            "new_crashes": new_crashes,
+            "open_reports": open_reports,
+            "recent_audit": recent_audit,
+            "total_crashes": total_crashes,
+        }
 
 
 def _user_to_view(user) -> AdminUserView:
@@ -416,7 +449,7 @@ def _user_to_view(user) -> AdminUserView:
     )
 
 
-def _user_to_list_item(user) -> "AdminUserListItem":  # noqa: F821 -- imported locally below to avoid a schemas<->service circular import
+def _user_to_list_item(user, book_count: int = 0, message_count: int = 0, exchange_count: int = 0) -> "AdminUserListItem":  # noqa: F821 -- imported locally below to avoid a schemas<->service circular import
     from app.modules.admin.schemas import AdminUserListItem
 
     return AdminUserListItem(
@@ -430,6 +463,9 @@ def _user_to_list_item(user) -> "AdminUserListItem":  # noqa: F821 -- imported l
         completed_exchanges=user.completed_exchanges,
         created_at=user.created_at,
         last_active_at=user.last_active_at,
+        book_count=book_count,
+        message_count=message_count,
+        exchange_count=exchange_count,
     )
 
 

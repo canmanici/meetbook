@@ -171,11 +171,10 @@ cd android
 EXPO_PUBLIC_API_URL="$API_URL" \
 EXPO_PUBLIC_MAPTILER_KEY="$MAPTILER_KEY" \
 ./gradlew assembleRelease \
-  --no-daemon \
   -PreactNativeArchitectures=arm64-v8a \
-  -Pandroid.enableMinifyInReleaseBuilds=true \
-  -Pandroid.enableShrinkResourcesInReleaseBuilds=true \
-  -Pandroid.enablePngCrunchInReleaseBuilds=true \
+  -Pandroid.enableMinifyInReleaseBuilds=false \
+  -Pandroid.enableShrinkResourcesInReleaseBuilds=false \
+  -Pandroid.enablePngCrunchInReleaseBuilds=false \
   2>&1
 
 BUILD_END=$(date +%s)

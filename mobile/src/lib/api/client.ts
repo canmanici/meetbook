@@ -108,6 +108,8 @@ async function rawRequest(
     // letting the raw rejection crash the app.
     console.log(`[API] ${method} ${url} → network error`, err);
     emitApiError({ kind: 'network', status: 0, message: messageForStatus(0) });
+    // Auto-report network failures so we can track backend reliability
+    crashReporter.captureError(err, 'ApiNetworkError');
     throw new ApiError(0, { detail: 'network_error' });
   }
   const duration = Date.now() - start;
@@ -135,6 +137,11 @@ async function parse<T>(res: Response): Promise<T> {
     // 5xx → backend is down/erroring. Show the animated popup globally.
     if (res.status >= 500) {
       emitApiError({ kind: 'server', status: res.status, message: messageForStatus(res.status) });
+      // Auto-report 5xx so we can catch backend regressions quickly
+      crashReporter.captureError(
+        new Error(`Server ${res.status}: ${method} ${res.url} → ${JSON.stringify(data).slice(0, 500)}`),
+        'ApiServerError',
+      );
     }
     throw new ApiError(res.status, data);
   }

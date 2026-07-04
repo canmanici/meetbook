@@ -17,7 +17,7 @@ import { create } from 'zustand';
 import { Vibration } from 'react-native';
 
 import { chatWS, getTurnCredentials, type IceServerConfig, type WSMessage } from '@/lib/api/chat';
-import { getWebRTC, getInCallManager, requestCallPermissions, FALLBACK_ICE_SERVERS } from '@/lib/webrtc';
+import { getWebRTC, getInCallManager, requestCallPermissions, getUserMediaDirect, FALLBACK_ICE_SERVERS } from '@/lib/webrtc';
 
 export type CallStatus = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'active' | 'ended';
 export type CallKind = 'audio' | 'video';
@@ -93,12 +93,21 @@ async function getIceServers(): Promise<IceServerConfig[]> {
   try {
     const res = await getTurnCredentials();
     if (res.ice_servers.length > 0) {
+      // Strip null username/credential — native WebRTC throws
+      // "Exception in HostFunction: username == null" if a STUN-only
+      // server object carries `"username": null, "credential": null`.
+      const clean = res.ice_servers.map((s) => {
+        const out: IceServerConfig = { urls: s.urls };
+        if (s.username) out.username = s.username;
+        if (s.credential) out.credential = s.credential;
+        return out;
+      });
       cachedIce = {
-        servers: res.ice_servers,
+        servers: clean,
         // ttl 0 == STUN-only response; still cache briefly to avoid hammering
         expiresAt: Date.now() + Math.max(res.ttl_seconds, 300) * 1000,
       };
-      return res.ice_servers;
+      return clean;
     }
   } catch {
     // Backend unreachable or endpoint missing — degrade to STUN-only.
@@ -145,14 +154,39 @@ async function applyVideoPreset(level: 'low' | 'medium' | 'high') {
     if (!videoSender) return;
     const preset = VIDEO_PRESETS[level];
     const params = videoSender.getParameters();
-    if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+    const encCount = params.encodings?.length ?? 0;
+
+    // ── Encoding count parity ─────────────────────────────────────────
+    // The native `updateRtpParameters` (both Android & iOS) STRICTLY
+    // checks that the incoming encodings array size matches the native
+    // sender's current encoding count. If they differ, the call silently
+    // rejects (Android returns null → NPE in setParameters → promise
+    // reject; iOS returns nil → setParameters:nil is a no-op).
+    //
+    // Our `getParameters()` returns the JS-side `_rtpParameters` which
+    // is initialized from the native sender's serialized rtpParameters.
+    // If they diverge (e.g., 0 native encodings), pad with `active: true`.
+    //
+    // Second pitfall: `RTCRtpEncodingParameters.toJSON()` always includes
+    // `active` — but the `[{}]` fallback is a plain object WITHOUT it.
+    // Android's `getBoolean("active")` throws on missing keys.  Always
+    // ensure every encoding object has `active: true` set explicitly.
+    if (encCount === 0) {
+      params.encodings = [{ active: true }];
+    } else {
+      for (let i = 0; i < encCount; i++) {
+        if (params.encodings[i].active == null) {
+          (params.encodings[i] as any).active = true;
+        }
+      }
+    }
+
     params.encodings[0].maxBitrate = preset.maxBitrate;
     params.encodings[0].scaleResolutionDownBy = preset.scaleDown;
     params.encodings[0].maxFramerate = preset.maxFramerate;
     await videoSender.setParameters(params);
-  } catch {
-    // Older webrtc builds may not support setParameters — congestion
-    // control still adapts, we just lose the explicit ceiling.
+  } catch (e) {
+    console.warn('[call-store] applyVideoPreset failed — encoder may ignore dynamic params:', e);
   }
 }
 
@@ -280,14 +314,17 @@ export const useCallStore = create<CallState>((set, get) => {
     });
 
     const permission = await requestCallPermissions(kind);
-    if (permission !== 'granted') {
-      throw new Error(permission === 'blocked' ? 'permission-blocked' : 'permission-denied');
+
+    // 'blocked' = user selected "never ask again" → nothing we can do.
+    // 'denied'  = user denied OR the native PermissionsAndroid module is
+    //             unavailable (common in Expo 54 dev-client w/ New Arch) —
+    //             still try getUserMedia in case the user granted manually
+    //             via Settings, or the WebRTC native layer handles it.
+    if (permission === 'blocked') {
+      throw new Error('permission-blocked');
     }
 
-    const stream = await rtc.mediaDevices.getUserMedia({
-      audio: true,
-      video: kind === 'video' ? { facingMode: 'user', width: 1280, height: 720 } : false,
-    });
+    const stream = await getUserMediaDirect(rtc, kind);
     stream.getTracks().forEach((t: any) => conn.addTrack(t, stream));
     set({ localStream: stream });
     return conn;
@@ -451,7 +488,11 @@ export const useCallStore = create<CallState>((set, get) => {
     startCall: async (chatId, kind, peer) => {
       if (get().status !== 'idle') return false;
       const rtc = getWebRTC();
-      if (!rtc) return false;
+      if (!rtc) {
+        console.warn('[call-store] getWebRTC() returned null');
+        set({ endReason: 'failed', status: 'idle' });
+        return false;
+      }
 
       const callId = newCallId();
       set({
@@ -467,7 +508,9 @@ export const useCallStore = create<CallState>((set, get) => {
         const sent = chatWS.sendCall(chatId, 'offer', callId, kind, pc.localDescription);
         if (!sent) throw new Error('ws closed');
       } catch (e) {
-        teardown(permissionReason(e) ?? 'failed');
+        const reason = permissionReason(e) ?? 'failed';
+        console.warn(`[call-store] startCall failed: endReason=${reason} error=`, e);
+        teardown(reason);
         return false;
       }
 

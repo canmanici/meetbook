@@ -128,6 +128,22 @@ if "minifyEnabled enableMinifyInReleaseBuilds" in current:
     )
     changes.append("Enabled R8 minification in release build (default: true)")
 
+# ── 4b. Fix hermesCommand for RN 0.81+ — hermes-compiler is no longer a
+# standalone npm package; it lives inside react-native/sdks/hermesc.
+old_hermes = "require.resolve('hermes-compiler/package.json', { paths: [require.resolve('react-native/package.json')] })"
+new_hermes = "require.resolve('react-native/package.json')"
+if old_hermes in content:
+    content = content.replace(
+        old_hermes,
+        new_hermes
+    )
+    # Also fix the path suffix: "hermesc/%OS-BIN%/hermesc" → "sdks/hermesc/%OS-BIN%/hermesc"
+    content = content.replace(
+        'getAbsolutePath() + "/hermesc/%OS-BIN%/hermesc"',
+        'getAbsolutePath() + "/sdks/hermesc/%OS-BIN%/hermesc"'
+    )
+    changes.append("Fixed hermesCommand path for RN 0.81+ (hermes-compiler → react-native/sdks)")
+
 # ── 5. Ensure expo.useLegacyPackaging=true in gradle.properties ─────────
 GRADLE_PROPS = "android/gradle.properties"
 with open(GRADLE_PROPS, "r") as f:

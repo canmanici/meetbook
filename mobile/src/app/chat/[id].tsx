@@ -282,10 +282,42 @@ export default function ChatDetailScreen() {
         avatarUrl: counterpartAvatarUrl ?? null,
       });
       if (!ok) {
-        Alert.alert(
-          'Arama Başlatılamadı',
-          'Arama başlatılamadı. Mikrofon/kamera izinlerini ve bağlantını kontrol et.',
-        );
+        // startCall başarısız — endReason'a göre spesifik hata göster.
+        // Store state'i doğrudan oku (useCallback closure'ına güvenme).
+        const reason = useCallStore.getState().endReason;
+        switch (reason) {
+          case 'permission-denied':
+            Alert.alert(
+              'Mikrofon İzni Gerekli',
+              'Arama yapabilmek için mikrofon izni gerekiyor. Lütfen Ayarlar > Uygulamalar > MeetBook > İzinler bölümünden mikrofon iznini aç.',
+              [
+                { text: 'İptal', style: 'cancel' },
+                { text: 'Ayarlara Git', onPress: () => { try { Linking.openSettings(); } catch {} } },
+              ],
+            );
+            break;
+          case 'permission-blocked':
+            Alert.alert(
+              'İzin Kalıcı Olarak Reddedildi',
+              'Mikrofon izni kalıcı olarak reddedilmiş. Arama yapabilmek için Ayarlar > Uygulamalar > MeetBook > İzinler bölümünden mikrofon iznini açmalısın.',
+              [
+                { text: 'İptal', style: 'cancel' },
+                { text: 'Ayarlara Git', onPress: () => { try { Linking.openSettings(); } catch {} } },
+              ],
+            );
+            break;
+          case 'failed':
+            Alert.alert(
+              'Arama Başlatılamadı',
+              'Arama başlatılamadı. Bağlantını ve mikrofon/kamera izinlerini kontrol edip tekrar dene.',
+            );
+            break;
+          default:
+            Alert.alert(
+              'Arama Başlatılamadı',
+              'Arama başlatılamadı. Lütfen tekrar dene.',
+            );
+        }
       }
     },
     [chatId, callStatus, counterpartId, counterpartName, counterpartAvatarUrl, startCall, isBlocked],

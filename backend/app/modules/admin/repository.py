@@ -10,6 +10,7 @@ from app.core.geo import make_point
 from app.modules.auth.models import AuditLog, User, UserStatus
 from app.modules.books.models import Book
 from app.modules.books.repository import BookRepository
+from app.modules.chat.models import Message
 from app.modules.exchanges.models import BlockedPlace, ExchangeRequest, ExchangeStatus
 from app.modules.reports.models import Report, ReportStatus
 
@@ -125,7 +126,8 @@ class AdminRepository:
         status: UserStatus | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[list[User], int]:
+    ) -> tuple[list[tuple[User, int, int, int]], int]:
+        """Returns users with (user, book_count, message_count, exchange_count)."""
         stmt = select(User)
         count_stmt = select(func.count()).select_from(User)
 
@@ -147,7 +149,53 @@ class AdminRepository:
         result = await self.session.execute(stmt)
         users = list(result.scalars().all())
 
-        return users, total
+        if not users:
+            return [(u, 0, 0, 0) for u in users], total
+
+        user_ids = [u.id for u in users]
+
+        # Batch book counts
+        book_counts = {r[0]: r[1] for r in (
+            await self.session.execute(
+                select(Book.owner_id, func.count(Book.id))
+                .where(Book.owner_id.in_(user_ids))
+                .group_by(Book.owner_id)
+            )
+        ).all()}
+
+        # Batch message counts
+        msg_counts = {r[0]: r[1] for r in (
+            await self.session.execute(
+                select(Message.sender_id, func.count(Message.id))
+                .where(Message.sender_id.in_(user_ids))
+                .group_by(Message.sender_id)
+            )
+        ).all()}
+
+        # Batch exchange counts (user is either requester or owner)
+        exch_as_requester = {r[0]: r[1] for r in (
+            await self.session.execute(
+                select(ExchangeRequest.requested_by, func.count(ExchangeRequest.id))
+                .where(ExchangeRequest.requested_by.in_(user_ids))
+                .group_by(ExchangeRequest.requested_by)
+            )
+        ).all()}
+        exch_as_owner = {r[0]: r[1] for r in (
+            await self.session.execute(
+                select(ExchangeRequest.requested_to, func.count(ExchangeRequest.id))
+                .where(ExchangeRequest.requested_to.in_(user_ids))
+                .group_by(ExchangeRequest.requested_to)
+            )
+        ).all()}
+
+        result_users = []
+        for u in users:
+            bc = book_counts.get(u.id, 0)
+            mc = msg_counts.get(u.id, 0)
+            ec = exch_as_requester.get(u.id, 0) + exch_as_owner.get(u.id, 0)
+            result_users.append((u, bc, mc, ec))
+
+        return result_users, total
 
     async def get_user_detail(self, user_id: uuid.UUID) -> User | None:
         result = await self.session.execute(select(User).where(User.id == user_id))

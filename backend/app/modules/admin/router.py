@@ -18,6 +18,7 @@ from app.modules.admin.schemas import (
     AdminUserListResponse,
     AdminUserView,
     AuditLogListResponse,
+    BadgeResponse,
     BlockedPlaceCreateRequest,
     BlockedPlaceListResponse,
     BlockedPlaceView,
@@ -369,6 +370,15 @@ async def admin_search(
 ) -> dict:
     """Global admin search across users, books, and exchanges."""
     return await service.global_search(q)
+
+
+@router.get("/badges", response_model=BadgeResponse)
+async def get_badges(
+    user: User = Depends(get_admin_user),
+    service: AdminService = Depends(_get_service),
+) -> BadgeResponse:
+    """Badge counts for navbar polling — new crashes, open reports, recent audit."""
+    return await service.get_badges()
 
 
 @router.get("/audit-log", response_model=AuditLogListResponse)

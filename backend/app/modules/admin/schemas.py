@@ -104,6 +104,9 @@ class AdminUserListItem(BaseModel):
     completed_exchanges: int
     created_at: datetime
     last_active_at: datetime | None
+    book_count: int = 0
+    message_count: int = 0
+    exchange_count: int = 0
 
 
 class AdminUserListResponse(BaseModel):
@@ -413,3 +416,10 @@ class SystemHealthResponse(BaseModel):
     crash_reports_total: int
     audit_log_total: int
     audit_log_30d: int
+
+
+class BadgeResponse(BaseModel):
+    new_crashes: int
+    open_reports: int
+    recent_audit: int
+    total_crashes: int

@@ -6,71 +6,130 @@
 <title>MeetBook CEO Command Center</title>
 <style>
 /* ═══════════════════════════════════════════════════════════════
-   OCEAN THEME — custom CSS, zero libraries
+   MEETBOOK GLASS v3 — fully glassmorphic, max-luxury design
    ═══════════════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ── Dark theme (default) — glass-first design tokens ── */
 :root {
-  --bg-deep: #0a0e1a;
-  --bg-surface: #111827;
-  --bg-card: #1a1f35;
-  --bg-card-hover: #1f2544;
-  --bg-elevated: #1e293b;
-  --border: #1e3a5f;
-  --border-light: #2a4a6a;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --accent-blue: #3b82f6;
-  --accent-indigo: #6366f1;
-  --accent-purple: #8b5cf6;
-  --accent-green: #10b981;
-  --accent-yellow: #f59e0b;
-  --accent-orange: #f97316;
-  --accent-red: #ef4444;
-  --accent-pink: #ec4899;
-  --accent-cyan: #06b6d4;
-  --gradient-primary: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  --gradient-success: linear-gradient(135deg, #10b981, #06b6d4);
-  --gradient-warning: linear-gradient(135deg, #f59e0b, #f97316);
-  --gradient-danger: linear-gradient(135deg, #ef4444, #ec4899);
-  --gradient-card-1: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.05));
-  --gradient-card-2: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(6,182,212,0.05));
-  --gradient-card-3: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(249,115,22,0.05));
-  --gradient-card-4: linear-gradient(135deg, rgba(239,68,68,0.12), rgba(236,72,153,0.05));
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
-  --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
-  --shadow-glow-blue: 0 0 20px rgba(59,130,246,0.15);
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
   --sidebar-width: 260px;
   --header-height: 64px;
-  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
+  /* Glass surface colors */
+  --bg-deep: #0D0C0A;
+  --bg-surface: rgba(21, 20, 15, 0.55);
+  --bg-card: rgba(30, 27, 22, 0.50);
+  --bg-card-hover: rgba(37, 33, 26, 0.60);
+  --bg-elevated: rgba(28, 58, 52, 0.30);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-border-hover: rgba(79, 194, 171, 0.20);
+  --glass-blur: blur(18px);
+  --glass-blur-heavy: blur(24px);
+  --header-bg: rgba(13, 12, 10, 0.70);
+  --border: rgba(255, 255, 255, 0.07);
+  --border-light: rgba(79, 194, 171, 0.15);
+  /* Text */
+  --text-primary: #EDE8DD;
+  --text-secondary: #A39E94;
+  --text-muted: #6B655A;
+  /* Accents */
+  --accent-blue: #4FC2AB;
+  --accent-green: #5BD89A;
+  --accent-yellow: #F4BE63;
+  --accent-orange: #F4BE63;
+  --accent-red: #FF8175;
+  --accent-pink: #F08CB2;
+  --accent-purple: #A892E0;
+  --accent-indigo: #A892E0;
+  --accent-cyan: #4FC2AB;
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #4FC2AB, #A892E0);
+  --gradient-success: linear-gradient(135deg, #5BD89A, #4FC2AB);
+  --gradient-warning: linear-gradient(135deg, #F4BE63, #FF9387);
+  --gradient-danger: linear-gradient(135deg, #FF8175, #F08CB2);
+  --gradient-card-1: linear-gradient(135deg, rgba(79,194,171,0.08), rgba(168,146,224,0.03));
+  --gradient-card-2: linear-gradient(135deg, rgba(91,216,154,0.08), rgba(79,194,171,0.03));
+  --gradient-card-3: linear-gradient(135deg, rgba(244,190,99,0.08), rgba(255,147,135,0.03));
+  --gradient-card-4: linear-gradient(135deg, rgba(255,129,117,0.07), rgba(240,140,178,0.03));
+  /* Glass shadows */
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.30);
+  --shadow-glass-lg: 0 16px 48px rgba(0, 0, 0, 0.40);
+  --shadow-glass-sm: 0 4px 16px rgba(0, 0, 0, 0.20);
+  --shadow-glow: 0 0 24px rgba(79, 194, 171, 0.08);
+  --shadow-glow-strong: 0 0 32px rgba(79, 194, 171, 0.15);
+  /* Radius */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
 }
 
+/* ── Light theme ── */
+.theme-light {
+  --bg-deep: #F2EDE0;
+  --bg-surface: rgba(255, 255, 255, 0.60);
+  --bg-card: rgba(247, 241, 230, 0.55);
+  --bg-card-hover: rgba(240, 233, 219, 0.65);
+  --bg-elevated: rgba(214, 239, 231, 0.35);
+  --glass-border: rgba(0, 0, 0, 0.05);
+  --glass-border-hover: rgba(17, 128, 107, 0.15);
+  --header-bg: rgba(242, 237, 224, 0.75);
+  --border: rgba(0, 0, 0, 0.07);
+  --border-light: rgba(17, 128, 107, 0.12);
+  --text-primary: #2A2722;
+  --text-secondary: #8A8378;
+  --text-muted: #B0A99A;
+  --accent-blue: #11806B;
+  --accent-green: #2FA36B;
+  --accent-yellow: #E8A13A;
+  --accent-orange: #E8A13A;
+  --accent-red: #E5645A;
+  --accent-pink: #BC4F7A;
+  --accent-purple: #6E55B0;
+  --accent-indigo: #6E55B0;
+  --accent-cyan: #11806B;
+  --gradient-primary: linear-gradient(135deg, #11806B, #6E55B0);
+  --gradient-success: linear-gradient(135deg, #2FA36B, #11806B);
+  --gradient-warning: linear-gradient(135deg, #E8A13A, #F2766B);
+  --gradient-danger: linear-gradient(135deg, #E5645A, #BC4F7A);
+  --gradient-card-1: linear-gradient(135deg, rgba(17,128,107,0.08), rgba(110,85,176,0.03));
+  --gradient-card-2: linear-gradient(135deg, rgba(47,163,107,0.08), rgba(17,128,107,0.03));
+  --gradient-card-3: linear-gradient(135deg, rgba(232,161,58,0.08), rgba(242,118,107,0.03));
+  --gradient-card-4: linear-gradient(135deg, rgba(229,100,90,0.07), rgba(188,79,122,0.03));
+  --shadow-glass: 0 8px 32px rgba(42, 31, 16, 0.08);
+  --shadow-glass-lg: 0 16px 48px rgba(42, 31, 16, 0.12);
+  --shadow-glass-sm: 0 4px 16px rgba(42, 31, 16, 0.06);
+  --shadow-glow: 0 0 24px rgba(17, 128, 107, 0.06);
+  --shadow-glow-strong: 0 0 32px rgba(17, 128, 107, 0.12);
+}
+
+/* ── Glassmorphic Base ── */
 html { font-size: 15px; }
 body {
   font-family: var(--font);
   background: var(--bg-deep);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 0% 20%, rgba(79, 194, 171, 0.03) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 80%, rgba(168, 146, 224, 0.03) 0%, transparent 60%);
   color: var(--text-primary);
-  line-height: 1.5;
+  line-height: 1.6;
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background 0.3s, color 0.3s;
 }
+::selection { background: var(--accent-blue); color: #fff; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-blue); }
 
-h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; }
-h2 { font-size: 1.35rem; font-weight: 600; }
-h3 { font-size: 1.1rem; font-weight: 600; }
-.text-xs { font-size: 0.75rem; }
-.text-sm { font-size: 0.85rem; }
-.text-lg { font-size: 1.1rem; }
+h1 { font-size: 1.65rem; font-weight: 700; letter-spacing: -0.015em; }
+h2 { font-size: 1.3rem; font-weight: 600; }
+h3 { font-size: 1.05rem; font-weight: 600; }
+.text-xs { font-size: 0.7rem; }
+.text-sm { font-size: 0.82rem; }
+.text-lg { font-size: 1.05rem; }
 .text-muted { color: var(--text-muted); }
 .text-secondary { color: var(--text-secondary); }
 .text-center { text-align: center; }
@@ -78,303 +137,750 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 .font-bold { font-weight: 700; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ── Layout ── */
 .app-container { display: flex; min-height: 100vh; }
 
+/* ── Sidebar (glass panel) ── */
 .sidebar {
   width: var(--sidebar-width);
   background: var(--bg-surface);
-  border-right: 1px solid var(--border);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-right: 1px solid var(--glass-border);
   display: flex; flex-direction: column;
   position: fixed; top: 0; left: 0; bottom: 0;
   z-index: 100; transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
   overflow-y: auto;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.15);
 }
-.sidebar-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.75rem; }
-.logo-icon { width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--gradient-primary); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; color: #fff; }
-.logo-text { font-size: 1.15rem; font-weight: 700; }
-.logo-badge { font-size: 0.65rem; padding: 0.15rem 0.5rem; border-radius: 999px; background: rgba(99,102,241,0.2); color: var(--accent-indigo); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.sidebar-header { padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; gap: 0.65rem; }
+.logo-icon { width: 34px; height: 34px; border-radius: var(--radius-sm); background: var(--gradient-primary); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1rem; color: #fff; flex-shrink: 0; box-shadow: 0 2px 12px rgba(79,194,171,0.25); }
+.logo-text { font-size: 1.1rem; font-weight: 700; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.logo-badge { font-size: 0.6rem; padding: 0.15rem 0.45rem; border-radius: 999px; background: rgba(168,146,224,0.15); color: var(--accent-purple); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; backdrop-filter: blur(4px); }
 
-.sidebar-nav { flex: 1; padding: 1rem 0.75rem; }
-.nav-section { margin-bottom: 0.5rem; }
-.nav-section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); padding: 0.5rem 0.75rem 0.35rem; font-weight: 600; }
-.nav-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.75rem; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; color: var(--text-secondary); font-size: 0.9rem; }
-.nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
-.nav-item.active { background: rgba(59,130,246,0.12); color: var(--accent-blue); font-weight: 600; }
-.nav-item-icon { width: 20px; text-align: center; font-size: 0.95rem; }
+.sidebar-nav { flex: 1; padding: 0.75rem 0.65rem; }
+.nav-section { margin-bottom: 0.25rem; }
+.nav-section-title { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); padding: 0.6rem 0.75rem 0.3rem; font-weight: 600; }
+.nav-item { display: flex; align-items: center; gap: 0.65rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; color: var(--text-secondary); font-size: 0.85rem; user-select: none; }
+.nav-item:hover { background: var(--bg-card); backdrop-filter: blur(8px); color: var(--text-primary); }
+.nav-item.active { background: rgba(79,194,171,0.10); backdrop-filter: blur(8px); color: var(--accent-blue); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent-blue); }
+.theme-light .nav-item.active { background: rgba(17,128,107,0.08); }
+.nav-item-icon { width: 18px; text-align: center; font-size: 0.85rem; flex-shrink: 0; }
 .nav-item-text { flex: 1; }
-.nav-item-badge { font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 999px; background: var(--accent-red); color: #fff; font-weight: 600; min-width: 18px; text-align: center; }
+.nav-item-badge { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 999px; background: var(--accent-red); color: #fff; font-weight: 600; min-width: 18px; text-align: center; box-shadow: 0 2px 8px rgba(255,129,117,0.3); }
 
-.sidebar-footer { padding: 1rem 1.25rem; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 0.75rem; }
-.user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--gradient-primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; color: #fff; }
+.sidebar-footer { padding: 0.85rem 1.25rem; border-top: 1px solid var(--glass-border); display: flex; align-items: center; gap: 0.65rem; }
+.user-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--gradient-primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; color: #fff; flex-shrink: 0; box-shadow: 0 2px 8px rgba(79,194,171,0.2); }
 .user-info { flex: 1; min-width: 0; }
-.user-name { font-size: 0.85rem; font-weight: 600; }
-.user-email { font-size: 0.75rem; color: var(--text-muted); }
-.btn-logout { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; padding: 0.25rem; transition: color 0.2s; }
-.btn-logout:hover { color: var(--accent-red); }
+.user-name { font-size: 0.82rem; font-weight: 600; }
+.user-email { font-size: 0.7rem; color: var(--text-muted); }
+.btn-logout { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 0.25rem; transition: color 0.2s; border-radius: 4px; }
+.btn-logout:hover { color: var(--accent-red); background: rgba(255,129,117,0.08); }
 
+/* ── Main Content ── */
 .main-content { flex: 1; margin-left: var(--sidebar-width); min-height: 100vh; display: flex; flex-direction: column; }
 
+/* ── Header (glass) ── */
 .header {
-  height: var(--header-height); padding: 0 1.75rem; position: sticky; top: 0;
-  background: rgba(10,14,26,0.85); backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border);
+  height: var(--header-height); padding: 0 1.5rem; position: sticky; top: 0;
+  background: var(--header-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-border);
   display: flex; align-items: center; gap: 1rem; z-index: 50;
 }
-.header-left { display: flex; align-items: center; gap: 1rem; flex: 1; }
-.page-title { font-size: 1.25rem; font-weight: 600; }
-.header-right { display: flex; align-items: center; gap: 0.75rem; }
-.menu-toggle { display: none; background: none; border: none; color: var(--text-primary); font-size: 1.25rem; cursor: pointer; padding: 0.25rem; }
+.header-left { display: flex; align-items: center; gap: 1rem; flex: 1; min-width: 0; }
+.page-title { font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; }
+.header-right { display: flex; align-items: center; gap: 0.5rem; }
+.menu-toggle { display: none; background: none; border: none; color: var(--text-primary); font-size: 1.2rem; cursor: pointer; padding: 0.25rem; }
 
-.search-box { display: flex; align-items: center; gap: 0.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.4rem 0.75rem; width: 220px; transition: all 0.2s; }
-.search-box:focus-within { border-color: var(--accent-blue); box-shadow: var(--shadow-glow-blue); width: 260px; }
-.search-icon { color: var(--text-muted); font-size: 0.9rem; }
-.search-input { background: none; border: none; color: var(--text-primary); font-size: 0.85rem; width: 100%; outline: none; }
+/* ── Search ── */
+.search-box { display: flex; align-items: center; gap: 0.4rem; background: var(--bg-card); backdrop-filter: blur(8px); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); padding: 0.35rem 0.7rem; width: 200px; transition: all 0.25s; }
+.search-box:focus-within { border-color: var(--accent-blue); box-shadow: var(--shadow-glow); width: 240px; }
+.search-icon { color: var(--text-muted); font-size: 0.85rem; }
+.search-input { background: none; border: none; color: var(--text-primary); font-size: 0.82rem; width: 100%; outline: none; }
 .search-input::placeholder { color: var(--text-muted); }
 
-.header-actions { display: flex; gap: 0.5rem; }
-.icon-btn { width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-.icon-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); border-color: var(--border-light); }
+/* ── Header Actions ── */
+.header-actions { display: flex; gap: 0.4rem; }
+.icon-btn {
+  width: 34px; height: 34px; border-radius: var(--radius-sm);
+  background: var(--bg-card); backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary); cursor: pointer; font-size: 0.95rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.icon-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); border-color: var(--accent-blue); box-shadow: var(--shadow-glow); }
 
-.content { padding: 1.5rem 1.75rem; flex: 1; }
+/* ── Content ── */
+.content { padding: 1.25rem 1.5rem; flex: 1; }
 
-.card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; transition: all 0.3s; }
-.card:hover { border-color: var(--border-light); }
-.card-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-.card-title { font-size: 0.95rem; font-weight: 600; }
-.card-body { padding: 1.25rem; }
-.card-footer { padding: 0.85rem 1.25rem; border-top: 1px solid var(--border); background: rgba(0,0,0,0.15); }
+/* ── Theme Toggle ── */
+.theme-toggle {
+  width: 36px; height: 36px; border-radius: var(--radius-sm);
+  background: var(--bg-card); backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary); cursor: pointer; font-size: 1rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.25s;
+}
+.theme-toggle:hover {
+  background: var(--bg-card-hover); color: var(--text-primary);
+  border-color: var(--accent-blue); box-shadow: var(--shadow-glow);
+}
 
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+/* ── Glass Card ── */
+.card {
+  background: var(--bg-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-glass-sm);
+  transition: border-color 0.3s, box-shadow 0.3s, transform 0.2s;
+}
+.card:hover { border-color: var(--glass-border-hover); box-shadow: var(--shadow-glass); transform: translateY(-1px); }
+.card-header {
+  padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,255,255,0.02);
+}
+.card-title { font-size: 0.9rem; font-weight: 600; }
+.card-body { padding: 1.1rem; }
+.card-footer {
+  padding: 0.75rem 1.1rem; border-top: 1px solid var(--glass-border);
+  background: rgba(0,0,0,0.04); font-size: 0.82rem; color: var(--text-muted);
+}
 
-.stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; position: relative; overflow: hidden; transition: all 0.3s; cursor: default; }
+/* ── Stats Grid ── */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.9rem; margin-bottom: 1.25rem; }
+
+.stat-card {
+  background: var(--bg-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md); padding: 1.1rem;
+  position: relative; overflow: hidden; transition: all 0.3s; cursor: default;
+  box-shadow: var(--shadow-glass-sm);
+}
 .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
-.stat-card:hover { border-color: var(--border-light); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.stat-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%); pointer-events: none; }
+.stat-card:hover { border-color: var(--glass-border-hover); transform: translateY(-2px); box-shadow: var(--shadow-glass); }
 .stat-card.blue::before { background: var(--gradient-primary); }
 .stat-card.green::before { background: var(--gradient-success); }
 .stat-card.yellow::before { background: var(--gradient-warning); }
 .stat-card.red::before { background: var(--gradient-danger); }
-.stat-card.purple::before { background: linear-gradient(135deg, #8b5cf6, #6366f1); }
-.stat-card.cyan::before { background: linear-gradient(135deg, #06b6d4, #10b981); }
-.stat-card.pink::before { background: linear-gradient(135deg, #ec4899, #f97316); }
-.stat-card.indigo::before { background: linear-gradient(135deg, #6366f1, #3b82f6); }
+.stat-card.purple::before { background: var(--gradient-primary); }
+.stat-card.cyan::before { background: var(--gradient-success); }
 
-.stat-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
-.stat-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
-.stat-icon.blue { background: rgba(59,130,246,0.15); color: var(--accent-blue); }
-.stat-icon.green { background: rgba(16,185,129,0.15); color: var(--accent-green); }
-.stat-icon.yellow { background: rgba(245,158,11,0.15); color: var(--accent-yellow); }
-.stat-icon.red { background: rgba(239,68,68,0.15); color: var(--accent-red); }
-.stat-icon.purple { background: rgba(139,92,246,0.15); color: var(--accent-purple); }
-.stat-icon.cyan { background: rgba(6,182,212,0.15); color: var(--accent-cyan); }
+.stat-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+.stat-icon {
+  width: 36px; height: 36px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center; font-size: 1rem;
+  backdrop-filter: blur(8px);
+}
+.stat-icon.blue { background: rgba(79,194,171,0.12); color: var(--accent-blue); box-shadow: 0 2px 8px rgba(79,194,171,0.1); }
+.stat-icon.green { background: rgba(91,216,154,0.12); color: var(--accent-green); box-shadow: 0 2px 8px rgba(91,216,154,0.1); }
+.stat-icon.yellow { background: rgba(244,190,99,0.12); color: var(--accent-yellow); box-shadow: 0 2px 8px rgba(244,190,99,0.1); }
+.stat-icon.red { background: rgba(255,129,117,0.12); color: var(--accent-red); box-shadow: 0 2px 8px rgba(255,129,117,0.1); }
+.stat-icon.purple { background: rgba(168,146,224,0.12); color: var(--accent-purple); box-shadow: 0 2px 8px rgba(168,146,224,0.1); }
+.stat-icon.cyan { background: rgba(79,194,171,0.12); color: var(--accent-cyan); box-shadow: 0 2px 8px rgba(79,194,171,0.1); }
 
-.stat-change { font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 999px; display: inline-flex; align-items: center; gap: 0.2rem; }
-.stat-change.up { background: rgba(16,185,129,0.12); color: var(--accent-green); }
-.stat-change.down { background: rgba(239,68,68,0.12); color: var(--accent-red); }
-.stat-change.neutral { background: rgba(100,116,139,0.12); color: var(--text-muted); }
+.stat-change {
+  font-size: 0.7rem; font-weight: 600; padding: 0.15rem 0.45rem;
+  border-radius: 999px; display: inline-flex; align-items: center; gap: 0.15rem;
+  backdrop-filter: blur(4px);
+}
+.stat-change.up { background: rgba(91,216,154,0.12); color: var(--accent-green); box-shadow: 0 1px 4px rgba(91,216,154,0.1); }
+.stat-change.down { background: rgba(255,129,117,0.12); color: var(--accent-red); box-shadow: 0 1px 4px rgba(255,129,117,0.1); }
+.stat-change.neutral { background: rgba(107,101,90,0.12); color: var(--text-muted); }
 
-.stat-value { font-size: 1.75rem; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 0.15rem; font-variant-numeric: tabular-nums; }
-.stat-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; }
+.stat-value {
+  font-size: 1.6rem; font-weight: 700; line-height: 1.1;
+  letter-spacing: -0.02em; margin-bottom: 0.1rem;
+  font-variant-numeric: tabular-nums;
+}
+.stat-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; }
 
-.sparkline { height: 36px; margin-top: 0.5rem; opacity: 0.7; }
+.sparkline { height: 32px; margin-top: 0.4rem; opacity: 0.6; }
 .sparkline svg { width: 100%; height: 100%; }
 
-.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
-.chart-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
-.chart-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-.chart-title { font-size: 0.9rem; font-weight: 600; }
-.chart-body { padding: 1rem; position: relative; height: 260px; }
-.chart-body.tall { height: 340px; }
+/* ── KPI Cards (CEO Dashboard) ── */
+.kpi-card {
+  background: var(--bg-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md); padding: 1.1rem;
+  position: relative; overflow: hidden;
+  transition: all 0.3s; cursor: default;
+  box-shadow: var(--shadow-glass-sm);
+}
+.kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--kpi-color, var(--gradient-primary)); }
+.kpi-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%); pointer-events: none; }
+.kpi-card:hover { border-color: var(--glass-border-hover); transform: translateY(-2px); box-shadow: var(--shadow-glass); }
+.kpi-card.mini { padding: 0.65rem 0.9rem; }
+.kpi-card.mini::before { height: 2px; }
 
-.bar-chart { display: flex; align-items: flex-end; gap: 0.4rem; height: 100%; width: 100%; }
+.kpi-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; }
+.kpi-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; background: rgba(255,255,255,0.05); backdrop-filter: blur(4px); }
+.kpi-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+.kpi-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.kpi-suffix { font-size: 0.75rem; font-weight: 400; color: var(--text-muted); margin-left: 0.15rem; }
+.kpi-delta { font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 999px; background: rgba(91,216,154,0.08); color: var(--accent-green); display: inline-flex; align-items: center; gap: 0.15rem; margin-top: 0.3rem; }
+
+/* ── Charts ── */
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; margin-bottom: 1.25rem; }
+.chart-container {
+  background: var(--bg-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-glass-sm);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.chart-container:hover { border-color: var(--glass-border-hover); box-shadow: var(--shadow-glass); }
+.chart-header { padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between; }
+.chart-title { font-size: 0.85rem; font-weight: 600; }
+.chart-body { padding: 0.85rem; position: relative; height: 240px; }
+.chart-body.tall { height: 300px; }
+
+.bar-chart { display: flex; align-items: flex-end; gap: 0.35rem; height: 100%; width: 100%; }
 .bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
-.bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; transition: height 0.6s cubic-bezier(0.4,0,0.2,1); position: relative; cursor: pointer; }
-.bar:hover { opacity: 0.8; }
-.bar-label { font-size: 0.6rem; color: var(--text-muted); margin-top: 0.3rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; transition: height 0.5s; position: relative; cursor: pointer; }
+.bar:hover { opacity: 0.75; }
+.bar-label { font-size: 0.55rem; color: var(--text-muted); margin-top: 0.25rem; text-align: center; }
 
 .line-chart-container { width: 100%; height: 100%; position: relative; }
 .line-chart-container svg { width: 100%; height: 100%; }
 .line-chart-container .line { fill: none; stroke-width: 2; }
 .line-chart-container .area { stroke: none; }
-.line-chart-container .dot { cursor: pointer; }
 
-.donut-chart { display: flex; align-items: center; justify-content: center; gap: 1.5rem; height: 100%; }
-.donut-svg { width: 160px; height: 160px; flex-shrink: 0; }
-.donut-legend { display: flex; flex-direction: column; gap: 0.4rem; max-height: 100%; overflow-y: auto; }
-.donut-legend-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-secondary); }
-.donut-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.donut-legend-count { font-weight: 600; color: var(--text-primary); margin-left: auto; padding-left: 0.5rem; }
+.donut-chart { display: flex; align-items: center; justify-content: center; gap: 1.25rem; height: 100%; }
+.donut-svg { width: 140px; height: 140px; flex-shrink: 0; }
+.donut-legend { display: flex; flex-direction: column; gap: 0.35rem; }
+.donut-legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--text-secondary); }
+.donut-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.donut-legend-count { font-weight: 600; color: var(--text-primary); margin-left: auto; padding-left: 0.4rem; }
 
 .gauge-container { display: flex; align-items: center; justify-content: center; flex-direction: column; height: 100%; }
-.gauge-svg { width: 140px; height: 140px; }
-.gauge-value { font-size: 1.5rem; font-weight: 700; margin-top: -2.5rem; }
-.gauge-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; }
+.gauge-svg { width: 120px; height: 120px; }
+.gauge-value { font-size: 1.35rem; font-weight: 700; margin-top: -2rem; }
+.gauge-label { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; }
 
-.metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
-.metric-mini { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; transition: all 0.2s; }
-.metric-mini:hover { border-color: var(--border-light); }
-.metric-mini-value { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.metric-mini-label { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.1rem; }
+/* ── Metrics Mini ── */
+.metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.65rem; margin-bottom: 1.25rem; }
+.metric-mini {
+  background: var(--bg-card);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm); padding: 0.75rem 0.9rem;
+  transition: border-color 0.2s;
+  box-shadow: var(--shadow-glass-sm);
+}
+.metric-mini:hover { border-color: var(--glass-border-hover); box-shadow: var(--shadow-glass); }
+.metric-mini-value { font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.metric-mini-label { font-size: 0.68rem; color: var(--text-muted); margin-top: 0.05rem; }
 
+/* ── Tables (glass) ── */
 .table-container { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-thead th { text-align: left; padding: 0.75rem 1rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; position: sticky; top: 0; background: var(--bg-card); z-index: 1; }
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+thead th {
+  text-align: left; padding: 0.65rem 0.9rem;
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-muted); font-weight: 600;
+  border-bottom: 1px solid var(--glass-border);
+  white-space: nowrap; user-select: none;
+  position: sticky; top: 0;
+  background: rgba(30, 27, 22, 0.60);
+  backdrop-filter: blur(12px);
+  z-index: 1;
+}
+.theme-light thead th { background: rgba(247, 241, 230, 0.60); }
 thead th:hover { color: var(--text-primary); }
-tbody td { padding: 0.65rem 1rem; border-bottom: 1px solid rgba(30,58,95,0.4); color: var(--text-secondary); vertical-align: middle; }
-tbody tr:hover td { background: rgba(255,255,255,0.02); }
+tbody td {
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid var(--glass-border);
+  color: var(--text-secondary); vertical-align: middle;
+}
+tbody tr { transition: background 0.15s; }
+tbody tr:hover td { background: rgba(79,194,171,0.04); backdrop-filter: blur(4px); }
+.theme-light tbody tr:hover td { background: rgba(17,128,107,0.03); }
 tbody tr:last-child td { border-bottom: none; }
 
-.status-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
-.status-active { background: rgba(16,185,129,0.12); color: var(--accent-green); }
-.status-suspended { background: rgba(245,158,11,0.12); color: var(--accent-yellow); }
-.status-banned { background: rgba(239,68,68,0.12); color: var(--accent-red); }
-.status-deleted { background: rgba(100,116,139,0.12); color: var(--text-muted); }
-.status-open { background: rgba(245,158,11,0.12); color: var(--accent-yellow); }
-.status-reviewing { background: rgba(59,130,246,0.12); color: var(--accent-blue); }
-.status-resolved { background: rgba(16,185,129,0.12); color: var(--accent-green); }
-.status-dismissed { background: rgba(100,116,139,0.12); color: var(--text-muted); }
-.status-pending { background: rgba(245,158,11,0.12); color: var(--accent-yellow); }
-.status-accepted { background: rgba(59,130,246,0.12); color: var(--accent-blue); }
-.status-completed { background: rgba(16,185,129,0.12); color: var(--accent-green); }
-.status-cancelled { background: rgba(239,68,68,0.12); color: var(--accent-red); }
-.status-expired { background: rgba(100,116,139,0.12); color: var(--text-muted); }
+/* ── Filters ── */
+.filters { display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; margin-bottom: 0.85rem; }
+.filter-group { display: flex; align-items: center; gap: 0.35rem; }
+.filter-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+.filter-select, .form-input, .form-textarea {
+  background: var(--bg-card);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm); padding: 0.4rem 0.7rem;
+  color: var(--text-primary); font-size: 0.82rem;
+  outline: none; transition: all 0.2s; font-family: inherit;
+}
+.filter-select:focus, .form-input:focus, .form-textarea:focus {
+  border-color: var(--accent-blue); box-shadow: var(--shadow-glow);
+}
+.filter-select { min-width: 130px; cursor: pointer; }
 
-.filters { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.filter-group { display: flex; align-items: center; gap: 0.4rem; }
-.filter-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
-.filter-select, .form-input, .form-textarea { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.45rem 0.75rem; color: var(--text-primary); font-size: 0.85rem; outline: none; transition: all 0.2s; font-family: inherit; }
-.filter-select:focus, .form-input:focus, .form-textarea:focus { border-color: var(--accent-blue); box-shadow: var(--shadow-glow-blue); }
-.filter-select { min-width: 140px; cursor: pointer; }
+/* ── Pagination ── */
+.pagination { display: flex; align-items: center; justify-content: center; gap: 0.3rem; padding: 0.85rem 0; }
+.page-btn {
+  padding: 0.3rem 0.65rem; border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary); cursor: pointer; font-size: 0.78rem;
+  transition: all 0.2s; min-width: 30px; text-align: center;
+}
+.page-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); border-color: var(--accent-blue); }
+.page-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; box-shadow: 0 2px 12px rgba(79,194,171,0.3); }
+.page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.pagination-inner { display: flex; align-items: center; gap: 0.3rem; }
+.page-info { font-size: 0.72rem; color: var(--text-muted); margin-left: 0.5rem; padding: 0.2rem 0.5rem; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--glass-border); }
 
-.pagination { display: flex; align-items: center; justify-content: center; gap: 0.35rem; padding: 1rem 0; }
-.page-btn { padding: 0.35rem 0.7rem; border-radius: var(--radius-sm); background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer; font-size: 0.8rem; transition: all 0.2s; min-width: 32px; text-align: center; }
-.page-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
-.page-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
-.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.4rem 0.9rem; border-radius: var(--radius-sm);
+  font-size: 0.82rem; font-weight: 500; cursor: pointer;
+  border: 1px solid transparent; transition: all 0.25s;
+  font-family: inherit; white-space: nowrap;
+}
+.btn-primary { background: var(--accent-blue); color: #fff; box-shadow: 0 2px 8px rgba(79,194,171,0.2); }
+.btn-primary:hover { opacity: 0.92; box-shadow: var(--shadow-glow-strong); transform: translateY(-1px); }
+.btn-success { background: var(--accent-green); color: #fff; box-shadow: 0 2px 8px rgba(91,216,154,0.2); }
+.btn-success:hover { opacity: 0.92; transform: translateY(-1px); }
+.btn-danger { background: var(--accent-red); color: #fff; box-shadow: 0 2px 8px rgba(255,129,117,0.2); }
+.btn-danger:hover { opacity: 0.92; transform: translateY(-1px); }
+.btn-warning { background: var(--accent-yellow); color: #1a1a1a; box-shadow: 0 2px 8px rgba(244,190,99,0.2); }
+.btn-warning:hover { opacity: 0.92; transform: translateY(-1px); }
+.btn-ghost { background: var(--bg-card); backdrop-filter: blur(8px); border-color: var(--glass-border); color: var(--text-secondary); }
+.btn-ghost:hover { background: var(--bg-card-hover); color: var(--text-primary); border-color: var(--accent-blue); box-shadow: var(--shadow-glow); }
+.btn-sm { padding: 0.25rem 0.6rem; font-size: 0.75rem; }
+.btn-xs { padding: 0.15rem 0.45rem; font-size: 0.68rem; border-radius: 6px; }
 
-.btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 1rem; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; font-family: inherit; white-space: nowrap; }
-.btn-primary { background: var(--gradient-primary); color: #fff; }
-.btn-primary:hover { opacity: 0.9; box-shadow: var(--shadow-glow-blue); }
-.btn-success { background: var(--gradient-success); color: #fff; }
-.btn-success:hover { opacity: 0.9; }
-.btn-danger { background: var(--gradient-danger); color: #fff; }
-.btn-danger:hover { opacity: 0.9; }
-.btn-warning { background: var(--gradient-warning); color: #000; }
-.btn-warning:hover { opacity: 0.9; }
-.btn-ghost { background: transparent; border-color: var(--border); color: var(--text-secondary); }
-.btn-ghost:hover { background: var(--bg-card); color: var(--text-primary); }
-.btn-sm { padding: 0.3rem 0.7rem; font-size: 0.75rem; }
-.btn-xs { padding: 0.2rem 0.5rem; font-size: 0.7rem; border-radius: 4px; }
+/* ── Action Buttons ── */
+.action-btns { display: flex; gap: 0.3rem; flex-wrap: nowrap; }
 
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); z-index: 1000; align-items: center; justify-content: center; padding: 1rem; animation: fadeIn 0.2s ease; }
+/* ── Modals (glass) ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.50);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000; align-items: center; justify-content: center;
+  padding: 1rem; animation: fadeIn 0.2s ease;
+}
 .modal-overlay.active { display: flex; }
-.modal { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); animation: slideUp 0.25s ease; }
+.modal {
+  background: rgba(30, 27, 22, 0.75);
+  backdrop-filter: var(--glass-blur-heavy);
+  -webkit-backdrop-filter: var(--glass-blur-heavy);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg); width: 100%; max-width: 540px;
+  max-height: 85vh; overflow-y: auto;
+  box-shadow: var(--shadow-glass-lg);
+  animation: slideUp 0.3s ease;
+}
+.theme-light .modal { background: rgba(255, 255, 255, 0.80); }
 .modal.wide { max-width: 720px; }
-.modal-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-.modal-title { font-size: 1.05rem; font-weight: 600; }
-.modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.3rem; padding: 0.25rem; line-height: 1; transition: color 0.2s; }
-.modal-close:hover { color: var(--text-primary); }
-.modal-body { padding: 1.5rem; }
-.modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; }
-.form-group { margin-bottom: 1rem; }
-.form-label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.3rem; }
-.form-input, .form-textarea { width: 100%; }
-.form-textarea { min-height: 80px; resize: vertical; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.modal-header {
+  padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-title { font-size: 1rem; font-weight: 600; }
+.modal-close {
+  background: none; border: none; color: var(--text-muted);
+  cursor: pointer; font-size: 1.25rem; padding: 0.2rem;
+  line-height: 1; transition: color 0.2s; border-radius: 6px;
+}
+.modal-close:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+.modal-body { padding: 1.25rem; }
 
-.page { display: none; animation: fadeIn 0.25s ease; }
+/* ── Stat chips (user detail header) ── */
+.stat-chip { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.4rem 0.85rem; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--glass-border); min-width: 56px; }
+.stat-chip-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.stat-chip-value { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+
+/* ── User message list (chat-style) ── */
+.chat-viewer-msgs { display: flex; flex-direction: column; gap: 0.5rem; }
+.chat-msg { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; }
+.chat-msg.deleted { opacity: 0.5; }
+.chat-msg-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+.chat-msg-time { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
+.chat-msg-text { font-size: 0.85rem; color: var(--text-primary); line-height: 1.4; word-break: break-word; }
+.chat-msg-media { margin-top: 0.3rem; font-size: 0.78rem; color: var(--accent-cyan); background: var(--bg-elevated); padding: 0.2rem 0.5rem; border-radius: var(--radius-sm); display: inline-block; }
+.msg-type-badge { font-size: 0.6rem; background: var(--bg-elevated); color: var(--text-secondary); padding: 0.1rem 0.35rem; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.03em; }
+
+/* ── Conversation groups (user detail messages) ── */
+.conversation-group { border: 1px solid var(--glass-border); border-radius: var(--radius-md); overflow: hidden; background: var(--bg-card); }
+.conv-header { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0.85rem; background: var(--bg-elevated); border-bottom: 1px solid var(--glass-border); gap: 0.5rem; flex-wrap: wrap; }
+.conv-header-left { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.conv-partner { font-weight: 600; font-size: 0.85rem; color: var(--text-primary); }
+.conv-meta { font-size: 0.7rem; color: var(--text-muted); }
+.conv-exch { font-size: 0.65rem; background: var(--bg-surface); color: var(--accent-cyan); padding: 0.15rem 0.4rem; border-radius: 4px; border: 1px solid var(--border-light); }
+.conv-messages { padding: 0.5rem 0.75rem; display: flex; flex-direction: column; gap: 0.25rem; }
+/* System messages: compact single-line */
+.sys-msg { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: var(--text-secondary); padding: 0.15rem 0; border-bottom: 1px solid var(--border); }
+.sys-msg.deleted { opacity: 0.4; }
+/* User messages: bubble style */
+.user-msg { padding: 0.4rem 0.6rem; margin: 0.15rem 0; background: var(--bg-surface); border-radius: var(--radius-sm); border: 1px solid var(--glass-border); }
+.user-msg.deleted { opacity: 0.4; }
+.user-msg-header { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.15rem; }
+.user-msg-text { font-size: 0.82rem; color: var(--text-primary); line-height: 1.4; word-break: break-word; }
+.call-inline { color: var(--accent-cyan); font-weight: 500; }
+.repeat-badge { font-size: 0.6rem; background: var(--bg-elevated); color: var(--text-muted); padding: 0.05rem 0.35rem; border-radius: 8px; border: 1px solid var(--glass-border); }
+/* Badge color variants (base .badge is in design system) */
+.badge-success { background: rgba(16,185,129,0.15); color: #10b981; }
+.badge-warning { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.badge-danger { background: rgba(239,68,68,0.15); color: #ef4444; }
+.badge-info { background: rgba(59,130,246,0.15); color: #3b82f6; }
+
+/* ═══════════════════════════════════════════════════════════════
+   USERS PAGE — max-level glassmorphic card design
+   ═══════════════════════════════════════════════════════════════ */
+/* Stats bar */
+.users-stats-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.us-stat { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; padding: 0.6rem 1rem; background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-md); backdrop-filter: var(--glass-blur); min-width: 72px; flex: 1; transition: all 0.2s; }
+.us-stat:hover { background: var(--bg-card-hover); border-color: var(--glass-border-hover); transform: translateY(-1px); box-shadow: var(--shadow-glass-sm); }
+.us-stat-value { font-size: 1.2rem; font-weight: 800; color: var(--text-primary); line-height: 1.2; }
+.us-stat-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+/* Toolbar */
+.users-toolbar { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+.users-search-wrap { position: relative; flex: 1; min-width: 180px; }
+.users-search-icon { position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); font-size: 0.85rem; opacity: 0.5; pointer-events: none; }
+.users-search-input { width: 100%; padding: 0.6rem 2rem 0.6rem 2.4rem; background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.85rem; transition: all 0.2s; }
+.users-search-input:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(79,194,171,0.1); background: var(--bg-card-hover); }
+.users-search-input::placeholder { color: var(--text-muted); }
+.users-search-clear { position: absolute; right: 0.65rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); font-size: 1.1rem; display: none; }
+.users-search-input:not(:placeholder-shown) ~ .users-search-clear { display: block; }
+.users-filter-group { display: flex; align-items: center; gap: 0.5rem; }
+.users-filter-select { padding: 0.55rem 0.75rem; background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.82rem; cursor: pointer; transition: all 0.2s; min-width: 140px; }
+.users-filter-select:focus { outline: none; border-color: var(--accent-blue); }
+.users-total-badge { font-size: 0.75rem; padding: 0.2rem 0.55rem; background: var(--bg-elevated); border: 1px solid var(--glass-border); border-radius: 999px; color: var(--text-secondary); white-space: nowrap; }
+/* User cards grid */
+.users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.85rem; margin-bottom: 1rem; }
+.users-loading { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem; }
+/* Individual user card */
+.user-card { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-md); backdrop-filter: var(--glass-blur); overflow: hidden; transition: all 0.25s ease; position: relative; }
+.user-card:hover { background: var(--bg-card-hover); border-color: var(--glass-border-hover); transform: translateY(-2px); box-shadow: var(--shadow-glass); }
+.user-card-inner { display: flex; flex-direction: column; }
+/* Card header with gradient avatar */
+.user-card-header { display: flex; align-items: center; gap: 0.85rem; padding: 1rem 1rem 0.65rem; }
+.user-card-avatar { width: 48px; height: 48px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 700; color: #fff; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+.user-card-info { flex: 1; min-width: 0; }
+.user-card-name { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-card-email { font-size: 0.75rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-card-status { display: flex; gap: 0.35rem; flex-shrink: 0; align-items: center; }
+/* Card body - chips */
+.user-card-body { padding: 0.25rem 1rem 0.75rem; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.user-chip { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: var(--radius-sm); background: var(--bg-surface); border: 1px solid var(--glass-border); color: var(--text-secondary); }
+.user-chip strong { color: var(--text-primary); font-weight: 600; }
+.user-chip .chip-icon { font-size: 0.65rem; }
+/* Card footer - actions */
+.user-card-footer { display: flex; align-items: center; justify-content: space-between; padding: 0.55rem 1rem; border-top: 1px solid var(--glass-border); background: var(--bg-elevated); gap: 0.5rem; flex-wrap: wrap; }
+.user-card-date { font-size: 0.68rem; color: var(--text-muted); }
+.user-card-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.user-card-actions .btn { font-size: 0.7rem; padding: 0.25rem 0.55rem; border-radius: var(--radius-sm); }
+.user-card-actions .btn-detay { background: rgba(79,194,171,0.12); color: var(--accent-cyan); border: 1px solid rgba(79,194,171,0.2); }
+.user-card-actions .btn-detay:hover { background: rgba(79,194,171,0.2); }
+.user-card-actions .btn-suspend { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
+.user-card-actions .btn-suspend:hover { background: rgba(245,158,11,0.2); }
+.user-card-actions .btn-ban { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.2); }
+.user-card-actions .btn-ban:hover { background: rgba(239,68,68,0.2); }
+.user-card-actions .btn-reinstate { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.2); }
+.user-card-actions .btn-reinstate:hover { background: rgba(16,185,129,0.2); }
+/* Status dot indicator */
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.3rem; }
+.status-dot.active { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.4); }
+.status-dot.suspended { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,0.4); }
+.status-dot.banned { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.4); }
+.status-dot.deleted { background: #6b7280; }
+/* ── end users page ── */
+
+/* ── Shared CRUD card grid (reused across all table pages) ── */
+.crud-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 0.8rem; margin-bottom: 1rem; }
+.crud-loading { grid-column: 1 / -1; text-align: center; padding: 2rem; }
+.crud-toolbar { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+.crud-toolbar-left { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; flex: 1; }
+.crud-toolbar-right { display: flex; gap: 0.5rem; align-items: center; }
+.crud-search-wrap { position: relative; flex: 1; min-width: 180px; max-width: 320px; }
+.crud-search-input { width: 100%; padding: 0.55rem 0.85rem; background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.82rem; transition: all 0.2s; }
+.crud-search-input:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(79,194,171,0.1); background: var(--bg-card-hover); }
+.crud-search-input::placeholder { color: var(--text-muted); }
+.crud-search-clear { position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); font-size: 1rem; display: none; background: none; border: none; padding: 0; line-height: 1; }
+.crud-search-input:not(:placeholder-shown) ~ .crud-search-clear { display: block; }
+.crud-filter-group { display: flex; align-items: center; gap: 0.5rem; }
+.crud-filter-select { padding: 0.5rem 0.7rem; background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; cursor: pointer; transition: all 0.2s; min-width: 120px; }
+.crud-filter-select:focus { outline: none; border-color: var(--accent-blue); }
+.crud-total-badge { font-size: 0.7rem; color: var(--text-muted); padding: 0.2rem 0.5rem; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--glass-border); white-space: nowrap; }
+
+/* Data Card (generic card — reuse across books/exchanges/reports/blocked/audit) */
+.data-card { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-md); backdrop-filter: var(--glass-blur); overflow: hidden; transition: all 0.25s ease; position: relative; }
+.data-card:hover { background: var(--bg-card-hover); border-color: var(--glass-border-hover); transform: translateY(-2px); box-shadow: var(--shadow-glass); }
+.data-card-inner { display: flex; flex-direction: column; }
+.data-card-header { display: flex; align-items: center; gap: 0.7rem; padding: 0.9rem 0.9rem 0.4rem; }
+.data-card-cover { width: 40px; height: 52px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 600; color: #fff; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.data-card-avatar-sm { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 600; color: #fff; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+.data-card-info { flex: 1; min-width: 0; }
+.data-card-title { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.data-card-sub { font-size: 0.72rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.data-card-badge { flex-shrink: 0; }
+.data-card-body { padding: 0.1rem 0.9rem 0.5rem; }
+.data-card-meta { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.data-chip { display: inline-flex; align-items: center; gap: 0.2rem; font-size: 0.67rem; padding: 0.15rem 0.4rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--glass-border); color: var(--text-secondary); }
+.data-chip strong { color: var(--text-primary); font-weight: 600; }
+.data-card-footer { display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.9rem; border-top: 1px solid var(--glass-border); background: var(--bg-elevated); gap: 0.5rem; flex-wrap: wrap; }
+.data-card-date { font-size: 0.64rem; color: var(--text-muted); }
+.data-card-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.data-card-actions .btn { font-size: 0.67rem; padding: 0.2rem 0.5rem; border-radius: 6px; }
+.data-card-actions .btn-detay { background: rgba(79,194,171,0.12); color: var(--accent-cyan); border: 1px solid rgba(79,194,171,0.2); }
+.data-card-actions .btn-detay:hover { background: rgba(79,194,171,0.2); }
+.data-card-actions .btn-danger { background: rgba(239,68,68,0.12); color: var(--accent-red); border: 1px solid rgba(239,68,68,0.2); }
+.data-card-actions .btn-danger:hover { background: rgba(239,68,68,0.2); }
+.data-card-actions .btn-warning { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
+.data-card-actions .btn-warning:hover { background: rgba(245,158,11,0.2); }
+.data-card-actions .btn-success { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.2); }
+.data-card-actions .btn-success:hover { background: rgba(16,185,129,0.2); }
+.data-card-actions .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--glass-border); }
+.data-card-actions .btn-ghost:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+
+/* Audit log specific */
+.audit-event-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.audit-event-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--text-primary); }
+
+/* ── Detail grids (user/book/exchange modals) ── */
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.detail-section { }
+.detail-section h4 { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.65rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
+.detail-row { display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0; font-size: 0.82rem; }
+.detail-row span { color: var(--text-secondary); }
+.detail-row strong { color: var(--text-primary); font-weight: 500; text-align: right; }
+.modal-footer {
+  padding: 0.85rem 1.25rem; border-top: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem;
+  background: rgba(0,0,0,0.03);
+}
+
+/* ── Forms ── */
+.form-group { margin-bottom: 0.85rem; }
+.form-label { display: block; font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.25rem; }
+.form-input, .form-textarea { width: 100%; }
+.form-textarea { min-height: 72px; resize: vertical; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+
+/* ── Pages ── */
+.page { display: none; animation: fadeIn 0.2s ease; }
 .page.active { display: block; }
 
-.empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
-.empty-state-icon { font-size: 2.5rem; margin-bottom: 0.75rem; opacity: 0.5; }
-.empty-state-text { font-size: 0.9rem; }
+/* ── States ── */
+.empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); }
+.empty-state-icon { font-size: 2.25rem; margin-bottom: 0.65rem; opacity: 0.4; }
+.empty-state-text { font-size: 0.85rem; }
+.error-state { text-align: center; padding: 2rem; color: var(--accent-red); }
+.error-icon { font-size: 2rem; margin-bottom: 0.5rem; }
 
+/* ── Stats List ── */
+.stats-list { display: flex; flex-direction: column; gap: 0.35rem; }
+.stat-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; padding: 0.2rem 0; }
+.stat-divider { height: 1px; background: var(--glass-border); margin: 0.15rem 0; }
+
+/* ── Chat Message Viewer ── */
+.chat-messages { display: flex; flex-direction: column; gap: 0.5rem; }
+.chat-msg {
+  padding: 0.6rem 0.85rem; border-radius: var(--radius-md);
+  background: var(--bg-card); backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border); max-width: 85%;
+}
+.chat-msg.system { background: transparent; border-color: transparent; text-align: center; font-size: 0.8rem; color: var(--text-muted); max-width: 100%; }
+.chat-msg.deleted { opacity: 0.6; }
+.chat-msg-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem; }
+.chat-msg-text { font-size: 0.85rem; line-height: 1.4; word-break: break-word; }
+.chat-msg-media { margin-top: 0.3rem; font-size: 0.8rem; color: var(--accent-blue); }
+
+/* ── Loading ── */
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-.skeleton { background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-elevated) 50%, var(--bg-card) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: var(--radius-sm); }
-.loading-spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent-blue); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 2rem auto; }
+.skeleton {
+  background: linear-gradient(90deg, rgba(30,27,22,0.3) 25%, rgba(37,33,26,0.5) 50%, rgba(30,27,22,0.3) 75%);
+  background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: var(--radius-sm);
+}
+.loading-spinner {
+  width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.05);
+  border-top-color: var(--accent-blue); border-radius: 50%;
+  animation: spin 0.6s linear infinite; margin: 1.5rem auto;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 2000; display: flex; flex-direction: column; gap: 0.5rem; }
-.toast { padding: 0.85rem 1.25rem; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 500; box-shadow: var(--shadow-lg); cursor: pointer; animation: slideIn 0.3s ease; max-width: 380px; display: flex; align-items: center; gap: 0.5rem; }
-.toast-success { background: var(--accent-green); color: #fff; }
-.toast-error { background: var(--accent-red); color: #fff; }
-.toast-info { background: var(--accent-blue); color: #fff; }
-.toast-warning { background: var(--accent-yellow); color: #000; }
+/* ── Toasts (glass) ── */
+.toast-container {
+  position: fixed; bottom: 1.25rem; right: 1.25rem;
+  z-index: 2000; display: flex; flex-direction: column; gap: 0.4rem;
+  pointer-events: none;
+}
+.toast {
+  padding: 0.75rem 1.1rem; border-radius: var(--radius-md);
+  font-size: 0.82rem; font-weight: 500; max-width: 360px;
+  display: flex; align-items: center; gap: 0.5rem;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass); cursor: pointer;
+  animation: slideIn 0.3s ease; pointer-events: all;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.toast-success { background: rgba(91,216,154,0.85); color: #fff; }
+.toast-error { background: rgba(255,129,117,0.85); color: #fff; }
+.toast-info { background: rgba(79,194,171,0.85); color: #fff; }
+.toast-warning { background: rgba(244,190,99,0.85); color: #1a1a1a; }
+
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-.login-container { max-width: 400px; margin: 4rem auto; }
-.login-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; box-shadow: var(--shadow-lg); }
+/* ── Login (glass) ── */
+.login-container { max-width: 400px; margin: 5rem auto; }
+.login-card {
+  background: var(--bg-card);
+  backdrop-filter: var(--glass-blur-heavy);
+  -webkit-backdrop-filter: var(--glass-blur-heavy);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: 2rem;
+  box-shadow: var(--shadow-glass-lg);
+}
 .login-logo { text-align: center; margin-bottom: 1.5rem; }
 .login-logo .logo-icon { margin: 0 auto 0.75rem; width: 48px; height: 48px; font-size: 1.3rem; }
-.login-title { font-size: 1.25rem; font-weight: 700; }
-.login-subtitle { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
+.login-title { font-size: 1.2rem; font-weight: 700; }
+.login-subtitle { font-size: 0.82rem; color: var(--text-muted); margin-top: 0.15rem; }
 
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
-.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+/* ── Utility ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.85rem; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.85rem; }
 .flex-center { display: flex; align-items: center; justify-content: center; }
 .flex-between { display: flex; align-items: center; justify-content: space-between; }
-.gap-1 { gap: 0.5rem; }
-.gap-2 { gap: 1rem; }
-.mt-1 { margin-top: 0.5rem; }
-.mt-2 { margin-top: 1rem; }
-.mt-3 { margin-top: 1.5rem; }
-.mb-1 { margin-bottom: 0.5rem; }
-.mb-2 { margin-bottom: 1rem; }
-.mb-3 { margin-bottom: 1.5rem; }
+.gap-1 { gap: 0.35rem; }
+.gap-2 { gap: 0.85rem; }
+.mt-1 { margin-top: 0.35rem; }
+.mt-2 { margin-top: 0.85rem; }
+.mt-3 { margin-top: 1.25rem; }
+.mb-1 { margin-bottom: 0.35rem; }
+.mb-2 { margin-bottom: 0.85rem; }
+.mb-3 { margin-bottom: 1.25rem; }
 
-.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
-.tab { padding: 0.6rem 1.25rem; font-size: 0.85rem; cursor: pointer; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s; font-weight: 500; background: none; border-top: none; border-left: none; border-right: none; font-family: inherit; }
+/* ── Tabs ── */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--glass-border); margin-bottom: 0.85rem; }
+.tab {
+  padding: 0.55rem 1.1rem; font-size: 0.82rem; cursor: pointer;
+  color: var(--text-muted); border-bottom: 2px solid transparent;
+  transition: all 0.2s; font-weight: 500;
+  background: none; border-top: none; border-left: none; border-right: none; font-family: inherit;
+}
 .tab:hover { color: var(--text-secondary); }
 .tab.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
 
-.timeline { position: relative; padding-left: 1.5rem; }
-.timeline::before { content: ''; position: absolute; left: 6px; top: 4px; bottom: 4px; width: 2px; background: var(--border); }
-.timeline-item { position: relative; padding-bottom: 1rem; }
+/* ── Timeline ── */
+.timeline { position: relative; padding-left: 1.25rem; }
+.timeline::before { content: ''; position: absolute; left: 5px; top: 4px; bottom: 4px; width: 2px; background: rgba(255,255,255,0.06); }
+.timeline-item { position: relative; padding-bottom: 0.85rem; }
 .timeline-item:last-child { padding-bottom: 0; }
-.timeline-dot { position: absolute; left: -1.5rem; top: 4px; width: 14px; height: 14px; border-radius: 50%; background: var(--bg-card); border: 2px solid var(--accent-blue); }
+.timeline-dot { position: absolute; left: -1.25rem; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--bg-card); border: 2px solid var(--accent-blue); backdrop-filter: blur(4px); }
 .timeline-dot.green { border-color: var(--accent-green); }
 .timeline-dot.red { border-color: var(--accent-red); }
 .timeline-dot.yellow { border-color: var(--accent-yellow); }
-.timeline-content { font-size: 0.85rem; }
-.timeline-time { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem; }
+.timeline-content { font-size: 0.82rem; }
+.timeline-time { font-size: 0.68rem; color: var(--text-muted); margin-top: 0.1rem; }
 
-.kpi-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem; margin-bottom: 1.25rem; }
-.kpi-cell { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.6rem 0.85rem; text-align: center; }
-.kpi-cell-value { font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.kpi-cell-label { font-size: 0.65rem; color: var(--text-muted); margin-top: 0.1rem; text-transform: uppercase; letter-spacing: 0.04em; }
+/* ── KPI Row (mini grid) ── */
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.45rem; margin-bottom: 1rem; }
+.kpi-cell {
+  background: var(--bg-card);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; text-align: center;
+}
+.kpi-cell-value { font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.kpi-cell-label { font-size: 0.62rem; color: var(--text-muted); margin-top: 0.05rem; text-transform: uppercase; letter-spacing: 0.04em; }
 
-.copy-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; padding: 0.1rem 0.3rem; border-radius: 3px; transition: all 0.2s; font-family: inherit; }
-.copy-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+/* ── Analytics Grid ── */
+.analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+.analytics-grid > .card:nth-child(3n+1) { grid-column: span 1; }
 
+/* ── Gauges Grid ── */
+.gauges-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.65rem; }
+.gauge-wrap { text-align: center; padding: 0.5rem; }
+
+/* ── Misc ── */
+.copy-btn {
+  background: none; border: none; color: var(--text-muted);
+  cursor: pointer; font-size: 0.72rem; padding: 0.1rem 0.25rem;
+  border-radius: 4px; transition: all 0.2s; font-family: inherit;
+}
+.copy-btn:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
 .highlight-green { color: var(--accent-green); }
 .highlight-red { color: var(--accent-red); }
+code { font-family: var(--font-mono); font-size: 0.78rem; padding: 0.1rem 0.3rem; background: rgba(255,255,255,0.04); border-radius: 4px; }
 
+/* ── Status Badge (inline, used by JS) ── */
+.badge {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.15rem 0.5rem; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 500;
+  backdrop-filter: blur(4px);
+}
+
+/* ── Status Colors ── */
+.status-green { color: var(--accent-green); }
+.status-yellow { color: var(--accent-yellow); }
+.status-red { color: var(--accent-red); }
+.status-blue { color: var(--accent-blue); }
+.status-gray { color: var(--text-muted); }
+
+/* ── Animations ── */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.float-anim { animation: float 3s ease-in-out infinite; }
+
+/* ── Responsive ── */
 @media (max-width: 1200px) {
   .charts-grid { grid-template-columns: 1fr; }
   .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .analytics-grid { grid-template-columns: 1fr; }
+  .gauges-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 768px) {
   .sidebar { transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); }
   .menu-toggle { display: block; }
   .main-content { margin-left: 0; }
-  .header { padding: 0 1rem; }
-  .content { padding: 1rem; }
-  .search-box { width: 160px; }
+  .header { padding: 0 0.85rem; }
+  .content { padding: 0.85rem; }
+  .search-box { width: 140px; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
-  .stat-value { font-size: 1.35rem; }
+  .stat-value { font-size: 1.3rem; }
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
   .filters { flex-direction: column; align-items: stretch; }
   .filter-select { width: 100%; }
   .modal { margin: 0.5rem; }
   .form-row { grid-template-columns: 1fr; }
   .donut-chart { flex-direction: column; }
+  .gauges-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: 1fr; }
-  .search-box { width: 120px; }
+  .search-box { width: 110px; }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .gauges-grid { grid-template-columns: 1fr; }
+}
 }
 </style>
 </head>
@@ -407,6 +913,7 @@ tbody tr:last-child td { border-bottom: none; }
       <div class="nav-section">
         <div class="nav-section-title">Sistem</div>
         <div class="nav-item" data-page="system"><span class="nav-item-icon">&#9881;</span><span class="nav-item-text">Sistem Sağlığı</span></div>
+        <div class="nav-item" data-page="crash-reports"><span class="nav-item-icon">&#9888;</span><span class="nav-item-text">Hata Raporları</span><span class="nav-item-badge" id="crash-badge">0</span></div>
       </div>
     </nav>
     <div class="sidebar-footer">
@@ -414,6 +921,7 @@ tbody tr:last-child td { border-bottom: none; }
       <div class="user-info"><div class="user-name" id="sidebar-name">Admin</div><div class="user-email" id="sidebar-email">admin@meetbook.app</div></div>
       <button class="btn-logout" onclick="logout()" title="Çıkış">&#10227;</button>
     </div>
+    <div style="padding:0.5rem 1.25rem;font-size:0.65rem;color:var(--mb-text-muted);border-top:1px solid var(--mb-border);text-align:center;letter-spacing:0.03em">MeetBook v1.0 · CEO Panel</div>
   </aside>
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
@@ -431,6 +939,7 @@ tbody tr:last-child td { border-bottom: none; }
         <div class="header-actions">
           <button class="icon-btn" onclick="refreshPage()" title="Yenile">&#8635;</button>
           <button class="icon-btn" onclick="exportCSV()" title="CSV Dışa Aktar">&#8605;</button>
+          <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Tema Değiştir">&#9790;</button>
         </div>
       </div>
     </header>
@@ -438,7 +947,8 @@ tbody tr:last-child td { border-bottom: none; }
 
 <div class="page" id="page-login">
   <div class="login-container">
-    <div class="login-card">
+    <div class="login-card" style="position:relative">
+      <button class="theme-toggle" onclick="toggleTheme()" title="Tema Değiştir" style="position:absolute;top:1rem;right:1rem">&#9790;</button>
       <div class="login-logo">
         <div class="logo-icon">M</div>
         <div class="login-title">MeetBook CEO</div>
@@ -503,87 +1013,209 @@ tbody tr:last-child td { border-bottom: none; }
     <button class="tab" data-tab="books-tab">Kitaplar</button>
     <button class="tab" data-tab="exchanges-tab">Takaslar</button>
     <button class="tab" data-tab="trust-tab">Güvenlik</button>
+    <button class="tab" data-tab="calls-tab">Çağrılar</button>
+    <button class="tab" data-tab="messages-tab">Mesajlar</button>
+    <button class="tab" data-tab="sessions-tab">Oturum</button>
+    <button class="tab" data-tab="deep-tab">Derin</button>
+    <button class="tab" data-tab="retention-tab">Retention</button>
+    <button class="tab" data-tab="content-tab">İçerik</button>
   </div></div>
   <div id="analytics-content"><div class="loading-spinner"></div></div>
 </div>
 
 <div class="page" id="page-reports">
-  <div class="filters">
-    <div class="filter-group"><label class="filter-label">Durum:</label><select class="filter-select" id="reports-status-filter"><option value="">Tümü</option><option value="open">Açık</option><option value="reviewing">İnceleniyor</option><option value="resolved">Çözülmüş</option><option value="dismissed">Reddedilmiş</option></select></div>
-    <span style="flex:1"></span><span id="reports-total" class="text-sm text-muted"></span>
+  <div class="crud-toolbar">
+    <div class="crud-toolbar-left">
+      <div class="crud-filter-group">
+        <select class="crud-filter-select" id="reports-status-filter">
+          <option value="">Tüm Durumlar</option>
+          <option value="open">🟠 Açık</option>
+          <option value="reviewing">🔵 İnceleniyor</option>
+          <option value="resolved">🟢 Çözülmüş</option>
+          <option value="dismissed">⚪ Reddedilmiş</option>
+        </select>
+      </div>
+    </div>
+    <div class="crud-toolbar-right">
+      <span class="crud-total-badge" id="reports-total">0</span>
+    </div>
   </div>
-  <div class="card">
-    <div class="table-container"><table><thead><tr><th>ID</th><th>Raporçu</th><th>Hedef</th><th>Neden</th><th>Durum</th><th>Tarih</th><th>İşlemler</th></tr></thead><tbody id="reports-table-body"><tr><td colspan="7" class="text-center text-muted">Yükleniyor...</td></tr></tbody></table></div>
-    <div class="pagination" id="reports-pagination"></div>
+  <div class="crud-grid" id="reports-grid">
+    <div class="crud-loading"><div class="loading-spinner"></div></div>
   </div>
+  <div class="pagination" id="reports-pagination"></div>
 </div>
 
 <div class="page" id="page-users">
-  <div class="filters">
-    <div class="filter-group"><label class="filter-label">Ara:</label><input type="text" class="form-input" id="users-search" placeholder="İsim veya e-posta..." style="width:220px"></div>
-    <div class="filter-group"><label class="filter-label">Durum:</label><select class="filter-select" id="users-status-filter"><option value="">Tümü</option><option value="active">Aktif</option><option value="suspended">Askıda</option><option value="banned">Banlı</option><option value="deleted">Silinmiş</option></select></div>
-    <span style="flex:1"></span><span id="users-total" class="text-sm text-muted"></span>
+  <!-- Stats Header -->
+  <div class="users-stats-bar" id="users-stats-bar">
+    <div class="us-stat"><span class="us-stat-value" id="us-total">0</span><span class="us-stat-label">Toplam</span></div>
+    <div class="us-stat"><span class="us-stat-value" id="us-active">0</span><span class="us-stat-label">Aktif</span></div>
+    <div class="us-stat"><span class="us-stat-value" id="us-suspended">0</span><span class="us-stat-label">Askıda</span></div>
+    <div class="us-stat"><span class="us-stat-value" id="us-banned">0</span><span class="us-stat-label">Banlı</span></div>
+    <div class="us-stat"><span class="us-stat-value" id="us-admin">0</span><span class="us-stat-label">Admin</span></div>
+    <div class="us-stat"><span class="us-stat-value" id="us-messages">0</span><span class="us-stat-label">Mesaj</span></div>
+    <div class="us-stat"><span class="us-stat-value" id="us-books">0</span><span class="us-stat-label">Kitap</span></div>
   </div>
-  <div class="card">
-    <div class="table-container"><table><thead><tr><th>İsim</th><th>E-posta</th><th>Durum</th><th>Puan</th><th>Takas</th><th>Admin</th><th>Katılım</th><th>İşlemler</th></tr></thead><tbody id="users-table-body"><tr><td colspan="8" class="text-center text-muted">Yükleniyor...</td></tr></tbody></table></div>
-    <div class="pagination" id="users-pagination"></div>
+
+  <!-- Search + Filter -->
+  <div class="users-toolbar">
+    <div class="users-search-wrap">
+      <span class="users-search-icon">🔍</span>
+      <input type="text" class="users-search-input" id="users-search" placeholder="İsim veya e-posta ile ara..." autocomplete="off">
+      <span class="users-search-clear" id="users-search-clear" onclick="document.getElementById('users-search').value='';loadUsersPage()">&times;</span>
+    </div>
+    <div class="users-filter-group">
+      <select class="users-filter-select" id="users-status-filter">
+        <option value="">Tüm Durumlar</option>
+        <option value="active">🟢 Aktif</option>
+        <option value="suspended">🟡 Askıda</option>
+        <option value="banned">🔴 Banlı</option>
+        <option value="deleted">⚪ Silinmiş</option>
+      </select>
+      <span class="users-total-badge" id="users-total-badge">0</span>
+    </div>
   </div>
+
+  <!-- User Cards Grid -->
+  <div class="users-grid" id="users-grid">
+    <div class="users-loading">
+      <div class="loading-spinner"></div>
+      <div class="text-muted" style="margin-top:0.5rem">Kullanıcılar yükleniyor...</div>
+    </div>
+  </div>
+  <div class="pagination" id="users-pagination"></div>
 </div>
 
 <div class="page" id="page-books">
-  <div class="filters">
-    <div class="filter-group"><label class="filter-label">Ara:</label><input type="text" class="form-input" id="books-search" placeholder="Başlık veya yazar..." style="width:220px"></div>
-    <div class="filter-group"><label class="filter-label">Durum:</label><select class="filter-select" id="books-available-filter"><option value="">Tümü</option><option value="available">Müsait</option></select></div>
-    <span style="flex:1"></span><span id="books-total" class="text-sm text-muted"></span>
+  <div class="crud-toolbar">
+    <div class="crud-toolbar-left">
+      <div class="crud-search-wrap">
+        <input type="text" class="crud-search-input" id="books-search" placeholder="Başlık veya yazar ile ara..." autocomplete="off">
+        <button class="crud-search-clear" onclick="document.getElementById('books-search').value='';loadBooksPage()">&times;</button>
+      </div>
+      <div class="crud-filter-group">
+        <select class="crud-filter-select" id="books-available-filter">
+          <option value="">Tüm Durumlar</option>
+          <option value="available">✅ Müsait</option>
+        </select>
+      </div>
+    </div>
+    <div class="crud-toolbar-right">
+      <span class="crud-total-badge" id="books-total">0</span>
+    </div>
   </div>
-  <div class="card">
-    <div class="table-container"><table><thead><tr><th>Başlık</th><th>Yazar</th><th>Kategori</th><th>Durum</th><th>Müsait</th><th>Görüntülenme</th><th>Sahibi</th><th>İşlemler</th></tr></thead><tbody id="books-table-body"><tr><td colspan="8" class="text-center text-muted">Yükleniyor...</td></tr></tbody></table></div>
-    <div class="pagination" id="books-pagination"></div>
+  <div class="crud-grid" id="books-grid">
+    <div class="crud-loading"><div class="loading-spinner"></div></div>
   </div>
+  <div class="pagination" id="books-pagination"></div>
 </div>
 
 <div class="page" id="page-exchanges">
-  <div class="filters">
-    <div class="filter-group"><label class="filter-label">Durum:</label><select class="filter-select" id="exchanges-status-filter"><option value="">Tümü</option><option value="pending">Bekliyor</option><option value="accepted">Kabul</option><option value="rejected">Red</option><option value="cancelled">İptal</option><option value="completed">Tamam</option><option value="expired">Süre Doldu</option></select></div>
-    <span style="flex:1"></span><span id="exchanges-total" class="text-sm text-muted"></span>
+  <div class="crud-toolbar">
+    <div class="crud-toolbar-left">
+      <div class="crud-filter-group">
+        <select class="crud-filter-select" id="exchanges-status-filter">
+          <option value="">Tüm Durumlar</option>
+          <option value="pending">⏳ Bekliyor</option>
+          <option value="accepted">✅ Kabul</option>
+          <option value="rejected">❌ Red</option>
+          <option value="cancelled">🚫 İptal</option>
+          <option value="completed">🎉 Tamam</option>
+          <option value="expired">⌛ Süre Doldu</option>
+        </select>
+      </div>
+    </div>
+    <div class="crud-toolbar-right">
+      <span class="crud-total-badge" id="exchanges-total">0</span>
+    </div>
   </div>
-  <div class="card">
-    <div class="table-container"><table><thead><tr><th>ID</th><th>Kitap</th><th>İsteyen</th><th>Sahip</th><th>Durum</th><th>Oluşturma</th><th>İşlemler</th></tr></thead><tbody id="exchanges-table-body"><tr><td colspan="7" class="text-center text-muted">Yükleniyor...</td></tr></tbody></table></div>
-    <div class="pagination" id="exchanges-pagination"></div>
+  <div class="crud-grid" id="exchanges-grid">
+    <div class="crud-loading"><div class="loading-spinner"></div></div>
   </div>
+  <div class="pagination" id="exchanges-pagination"></div>
 </div>
 
 <div class="page" id="page-blocked-places">
-  <div class="flex-between mb-2">
-    <span class="text-sm text-muted" id="blocked-places-total"></span>
-    <button class="btn btn-primary btn-sm" onclick="showModal('blocked-place-modal')">+ Yer Ekle</button>
+  <div class="crud-toolbar">
+    <div class="crud-toolbar-left">
+      <span class="crud-total-badge" id="blocked-places-total">0</span>
+    </div>
+    <div class="crud-toolbar-right">
+      <button class="btn btn-primary btn-sm" onclick="showModal('blocked-place-modal')">+ Yer Ekle</button>
+    </div>
   </div>
-  <div class="card">
-    <div class="table-container"><table><thead><tr><th>ID</th><th>Yer ID</th><th>Enlem</th><th>Boylam</th><th>Sebep</th><th>Tarih</th><th>İşlem</th></tr></thead><tbody id="blocked-places-table-body"><tr><td colspan="7" class="text-center text-muted">Yükleniyor...</td></tr></tbody></table></div>
+  <div class="crud-grid" id="blocked-places-grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">
+    <div class="crud-loading"><div class="loading-spinner"></div></div>
   </div>
 </div>
 
 <div class="page" id="page-audit-log">
-  <div class="filters">
-    <div class="filter-group"><label class="filter-label">Olay Türü:</label><select class="filter-select" id="audit-event-filter"><option value="">Tümü</option><option value="login_success">Giriş</option><option value="login_failure">Başarısız Giriş</option><option value="user_suspended">Askıya Alma</option><option value="user_banned">Banlama</option><option value="user_reinstated">Ger Getirme</option><option value="report_resolved">Rapor Çözümü</option><option value="book_takedown">Kitap Kaldırma</option></select></div>
-    <span style="flex:1"></span><span id="audit-total" class="text-sm text-muted"></span>
+  <div class="crud-toolbar">
+    <div class="crud-toolbar-left">
+      <div class="crud-filter-group">
+        <select class="crud-filter-select" id="audit-event-filter">
+          <option value="">Tüm Olaylar</option>
+          <option value="login_success">✅ Giriş</option>
+          <option value="login_failure">❌ Başarısız Giriş</option>
+          <option value="user_suspended">⏸ Askıya Alma</option>
+          <option value="user_banned">🚫 Banlama</option>
+          <option value="user_reinstated">↩️ Geri Getirme</option>
+          <option value="report_resolved">🟢 Rapor Çözümü</option>
+          <option value="book_takedown">📕 Kitap Kaldırma</option>
+        </select>
+      </div>
+    </div>
+    <div class="crud-toolbar-right">
+      <span class="crud-total-badge" id="audit-total">0</span>
+    </div>
   </div>
-  <div class="card">
-    <div class="table-container"><table><thead><tr><th>Zaman</th><th>Kullanıcı</th><th>Olay</th><th>IP</th><th>Detay</th></tr></thead><tbody id="audit-table-body"><tr><td colspan="5" class="text-center text-muted">Yükleniyor...</td></tr></tbody></table></div>
-    <div class="pagination" id="audit-pagination"></div>
+  <div class="crud-grid" id="audit-grid" style="grid-template-columns:1fr">
+    <div class="crud-loading"><div class="loading-spinner"></div></div>
   </div>
+  <div class="pagination" id="audit-pagination"></div>
 </div>
 
 <div class="page" id="page-system">
   <div id="system-content"><div class="loading-spinner"></div></div>
 </div>
 
+<div class="page" id="page-crash-reports">
+  <div class="filters">
+    <div class="filter-group"><label class="filter-label">Durum:</label><select class="filter-select" id="crash-status-filter"><option value="">Tümü</option><option value="new">Yeni</option><option value="investigating">İnceleniyor</option><option value="fixed">Çözülmüş</option><option value="closed">Kapatılmış</option></select></div>
+    <div class="filter-group"><label class="filter-label">Seviye:</label><select class="filter-select" id="crash-severity-filter"><option value="">Tümü</option><option value="fatal">Kritik</option><option value="error">Hata</option><option value="warning">Uyarı</option></select></div>
+    <div class="filter-group"><label class="filter-label">Uygulama:</label><select class="filter-select" id="crash-app-filter"><option value="">Tümü</option><option value="mobile">Mobil</option><option value="backend">Backend</option></select></div>
+    <span style="flex:1"></span><span id="crash-total" class="text-sm text-muted"></span>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>Hata Trendi (14 Gün)</h3></div>
+    <div class="chart-body" id="crash-trend-chart" style="height:180px"><div class="loading-spinner"></div></div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <h3>Gruplanmış Hata Raporları</h3>
+      <div style="display:flex;gap:0.5rem">
+        <button class="btn btn-ghost btn-xs" onclick="loadCrashVersionStats()">Sürüm İstatistikleri</button>
+      </div>
+    </div>
+    <div class="table-container"><table><thead><tr><th>Tip</th><th>Hata Mesajı</th><th>Seviye</th><th>Durum</th><th>Adet</th><th>Kullanıcı</th><th>Sürüm</th><th>Son Görülme</th><th>İşlemler</th></tr></thead><tbody id="crash-groups-body"><tr><td colspan="9" class="text-center text-muted">Yükleniyor...</td></tr></tbody></table></div>
+    <div class="pagination" id="crash-pagination"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="crash-detail-modal" onclick="if(event.target===this)closeModal('crash-detail-modal')"><div class="modal wide"><div class="modal-header"><h2 class="modal-title">Hata Detayı</h2><button class="modal-close" onclick="closeModal('crash-detail-modal')">&times;</button></div><div class="modal-body" id="crash-detail-body">Yükleniyor...</div></div></div>
+<div class="modal-overlay" id="crash-versions-modal" onclick="if(event.target===this)closeModal('crash-versions-modal')"><div class="modal"><div class="modal-header"><h2 class="modal-title">Sürüm İstatistikleri</h2><button class="modal-close" onclick="closeModal('crash-versions-modal')">&times;</button></div><div class="modal-body" id="crash-versions-body">Yükleniyor...</div></div></div>
+<div class="modal-overlay" id="crash-action-modal" onclick="if(event.target===this)closeModal('crash-action-modal')"><div class="modal"><div class="modal-header"><h2 class="modal-title" id="crash-action-title">Hata Aksiyonu</h2><button class="modal-close" onclick="closeModal('crash-action-modal')">&times;</button></div><div class="modal-body" id="crash-action-body"></div></div></div>
+
 </div></main></div>
 
-<div class="modal-overlay" id="user-detail-modal" onclick="if(event.target===this)closeModal('user-detail-modal')"><div class="modal wide"><div class="modal-header"><h2 class="modal-title">Kullanıcı Detayı</h2><button class="modal-close" onclick="closeModal('user-detail-modal')">&times;</button></div><div class="modal-body" id="user-detail-body">Yükleniyor...</div></div></div>
+<div class="modal-overlay" id="user-detail-modal" onclick="if(event.target===this)closeModal('user-detail-modal')"><div class="modal" style="max-width:860px"><div class="modal-header"><h2 class="modal-title">Kullanıcı Detayı</h2><button class="modal-close" onclick="closeModal('user-detail-modal')">&times;</button></div><div class="modal-body" id="user-detail-body" style="padding:0"><div class="loading-spinner" style="padding:2rem;text-align:center"></div></div></div></div>
 <div class="modal-overlay" id="book-detail-modal" onclick="if(event.target===this)closeModal('book-detail-modal')"><div class="modal wide"><div class="modal-header"><h2 class="modal-title">Kitap Detayı</h2><button class="modal-close" onclick="closeModal('book-detail-modal')">&times;</button></div><div class="modal-body" id="book-detail-body">Yükleniyor...</div></div></div>
 <div class="modal-overlay" id="exchange-detail-modal" onclick="if(event.target===this)closeModal('exchange-detail-modal')"><div class="modal"><div class="modal-header"><h2 class="modal-title">Takas Detayı</h2><button class="modal-close" onclick="closeModal('exchange-detail-modal')">&times;</button></div><div class="modal-body" id="exchange-detail-body">Yükleniyor...</div></div></div>
 <div class="modal-overlay" id="report-detail-modal" onclick="if(event.target===this)closeModal('report-detail-modal')"><div class="modal wide"><div class="modal-header"><h2 class="modal-title">Rapor Detayı</h2><button class="modal-close" onclick="closeModal('report-detail-modal')">&times;</button></div><div class="modal-body" id="report-detail-body">Yükleniyor...</div></div></div>
+
+<!-- Chat Message Viewer Modal -->
+<div class="modal-overlay" id="chat-viewer-modal" onclick="if(event.target===this)closeModal('chat-viewer-modal')"><div class="modal wide"><div class="modal-header"><h2 class="modal-title">Mesajlar</h2><button class="modal-close" onclick="closeModal('chat-viewer-modal')">&times;</button></div><div class="modal-body" id="chat-viewer-body" style="max-height:70vh;overflow-y:auto;padding:1rem"><div class="loading-spinner"></div></div></div></div>
 <div class="modal-overlay" id="confirm-modal" onclick="if(event.target===this)closeModal('confirm-modal')"><div class="modal" style="max-width:420px"><div class="modal-header"><h2 class="modal-title" id="confirm-title">Onay</h2><button class="modal-close" onclick="closeModal('confirm-modal')">&times;</button></div><div class="modal-body"><p id="confirm-message" style="color:var(--text-secondary)"></p></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('confirm-modal')">İptal</button><button class="btn btn-danger" id="confirm-btn">Onayla</button></div></div></div>
 <div class="modal-overlay" id="action-modal" onclick="if(event.target===this)closeModal('action-modal')"><div class="modal" style="max-width:480px"><div class="modal-header"><h2 class="modal-title" id="action-modal-title">İşlem</h2><button class="modal-close" onclick="closeModal('action-modal')">&times;</button></div><div class="modal-body"><div class="form-group"><label class="form-label">Sebep</label><textarea class="form-textarea" id="action-modal-reason" maxlength="500" placeholder="İşlem sebebi..."></textarea></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('action-modal')">İptal</button><button class="btn btn-danger" id="action-modal-btn">Uygula</button></div></div></div>
 <div class="modal-overlay" id="blocked-place-modal" onclick="if(event.target===this)closeModal('blocked-place-modal')"><div class="modal" style="max-width:480px"><div class="modal-header"><h2 class="modal-title">Yer Ekle</h2><button class="modal-close" onclick="closeModal('blocked-place-modal')">&times;</button></div><div class="modal-body"><div class="form-row"><div class="form-group"><label class="form-label">Enlem</label><input class="form-input" type="number" step="any" id="bp-lat"></div><div class="form-group"><label class="form-label">Boylam</label><input class="form-input" type="number" step="any" id="bp-lng"></div></div><div class="form-group"><label class="form-label">Yer ID</label><input class="form-input" id="bp-place-id" placeholder="Google Places ID"></div><div class="form-group"><label class="form-label">Sebep</label><textarea class="form-textarea" id="bp-reason" maxlength="500"></textarea></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('blocked-place-modal')">İptal</button><button class="btn btn-primary" onclick="createBlockedPlace()">Ekle</button></div></div></div>
@@ -677,15 +1309,81 @@ const API = (() => {
     metricsExchanges: () => request('/admin/metrics/exchanges'),
     metricsTrust: () => request('/admin/metrics/trust'),
     search: (q) => request('/admin/search', { params: { q } }),
+    // Crash reports
+    crashGroups: (params) => request('/admin/crash-reports/groups', { params }),
+    crashGroupDetail: (id) => request(`/admin/crash-reports/groups/${id}`),
+    crashGroupAction: (id, action, value) => request(`/admin/crash-reports/groups/${id}/action`, { method: 'POST', body: { action, value } }),
+    crashTrends: (days = 14) => request('/admin/crash-reports/trends', { params: { days } }),
+    crashVersionStats: () => request('/admin/crash-reports/versions'),
+    // Badges (for navbar polling)
+    badges: () => request('/admin/badges'),
+    // NEW: Extended metrics
+    metricsCalls: () => request('/admin/metrics/calls'),
+    metricsCallsTrends: (days = 30) => request('/admin/metrics/calls/trends', { params: { days } }),
+    metricsMessages: () => request('/admin/metrics/messages'),
+    metricsSessions: () => request('/admin/metrics/sessions'),
+    metricsExchangesDeep: () => request('/admin/metrics/exchanges/deep'),
+    metricsRetention: (weeks = 12) => request('/admin/metrics/retention', { params: { weeks } }),
+    metricsBookViews: () => request('/admin/metrics/book-views'),
+    metricsSearch: () => request('/admin/metrics/search'),
+    metricsReportsDeep: () => request('/admin/metrics/reports/deep'),
+    // NEW: Chat moderation
+    chatByExchange: (id) => request(`/admin/chats/by-exchange/${id}`),
+    chatMessages: (id, params) => request(`/admin/chats/${id}/messages`, { params }),
+    chatByUser: (id) => request(`/admin/chats/by-user/${id}`),
+    reportChatContext: (id) => request(`/admin/reports/${id}/chat-context`),
     // Helper
     adminRequest: (path, opts) => request(`/admin${path}`, opts),
   };
 })();
 
+// ─── Theme Toggle ────────────────────────────────────────────
+function setThemeIcons(isLight) {
+  document.querySelectorAll('.theme-toggle').forEach(el => el.innerHTML = isLight ? '&#9789;' : '&#9790;');
+}
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('theme-light');
+  localStorage.setItem('admin_theme', isLight ? 'light' : 'dark');
+  setThemeIcons(isLight);
+}
+function loadTheme() {
+  const saved = localStorage.getItem('admin_theme');
+  if (saved === 'light') {
+    document.body.classList.add('theme-light');
+    setThemeIcons(true);
+  } else {
+    setThemeIcons(false);
+  }
+}
+
+// ─── Badge Polling ───────────────────────────────────────────
+let _badgeInterval = null;
+async function pollBadges() {
+  if (!state.token) return;
+  try {
+    const b = await API.badges();
+    const crashBadge = document.getElementById('crash-badge');
+    const reportsBadge = document.getElementById('reports-badge');
+    if (crashBadge) {
+      crashBadge.textContent = b.new_crashes || 0;
+      crashBadge.style.display = b.new_crashes > 0 ? '' : 'none';
+    }
+    if (reportsBadge) {
+      reportsBadge.textContent = b.open_reports || 0;
+      reportsBadge.style.display = b.open_reports > 0 ? '' : 'none';
+    }
+  } catch (e) { /* silent */ }
+}
+function startBadgePolling() {
+  if (_badgeInterval) clearInterval(_badgeInterval);
+  pollBadges();
+  _badgeInterval = setInterval(pollBadges, 30000);
+}
+
 // ─── Toast System ──────────────────────────────────────────────
 function showToast(message, type = 'info', duration = 4000) {
   const container = document.getElementById('toast-container');
-  const colors = { info: '#3b82f6', success: '#10b981', error: '#ef4444', warning: '#f59e0b' };
+  const colors = { info: 'var(--mb-primary)', success: 'var(--mb-success)', error: 'var(--mb-danger)', warning: 'var(--mb-warning)' };
   const el = document.createElement('div');
   el.className = 'toast';
   el.style.cssText = `background:rgba(15,23,42,0.95);border-left:3px solid ${colors[type]||colors.info};`;
@@ -736,7 +1434,7 @@ function navigateTo(page) {
   const pg = document.getElementById(`page-${page}`);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
-  const titles = { dashboard: 'CEO Dashboard', analytics: 'Derin Analiz', reports: 'Raporlar', users: 'Kullanıcılar', books: 'Kitaplar', exchanges: 'Takaslar', 'blocked-places': 'Engellenen Yerler', 'audit-log': 'Denetim Kaydı', system: 'Sistem Sağlığı' };
+  const titles = { dashboard: 'CEO Dashboard', analytics: 'Derin Analiz', reports: 'Raporlar', users: 'Kullanıcılar', books: 'Kitaplar', exchanges: 'Takaslar', 'blocked-places': 'Engellenen Yerler', 'audit-log': 'Denetim Kaydı', system: 'Sistem Sağlığı', 'crash-reports': 'Hata Raporları' };
   document.getElementById('page-title').textContent = titles[page] || page;
   loadPage(page);
 }
@@ -798,7 +1496,7 @@ const Charts = {
     const max = Math.max(...allVals) * 1.1 || 1;
     const xScale = (i) => pad.left + (i / (data[0].values.length - 1 || 1)) * cw;
     const yScale = (v) => pad.top + ch - ((v - min) / (max - min)) * ch;
-    const colors = _colors || ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+    const colors = _colors || ['var(--mb-primary)', 'var(--mb-success)', 'var(--mb-warning)', 'var(--mb-danger)', 'var(--mb-purple)', 'var(--mb-pink)'];
     let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%">`;
     // Grid lines
     const gridLines = 5;
@@ -983,18 +1681,27 @@ function formatDate(d) {
   return dt.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+function escHtml(str) {
+  if (!str) return '';
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
 function shortId(id) {
   if (!id) return '-';
   return id.substring(0, 8) + '...';
 }
 
 function statusBadge(status, labels = {}) {
+  const root = getComputedStyle(document.documentElement);
+  const g = (v) => root.getPropertyValue(v).trim() || v;
   const colors = {
-    active: '#10b981', pending: '#f59e0b', accepted: '#3b82f6', completed: '#10b981',
-    cancelled: '#ef4444', expired: '#64748b', suspended: '#f97316', banned: '#ef4444',
-    deleted: '#64748b', open: '#ef4444', reviewing: '#f59e0b', resolved: '#10b981',
-    dismissed: '#64748b', available: '#10b981', unavailable: '#ef4444',
-    true: '#10b981', false: '#64748b'
+    active: g('--mb-success'), pending: g('--mb-warning'), accepted: g('--mb-primary'), completed: g('--mb-success'),
+    cancelled: g('--mb-danger'), expired: g('--mb-text-muted'), suspended: g('--mb-warning'), banned: g('--mb-danger'),
+    deleted: g('--mb-text-muted'), open: g('--mb-danger'), reviewing: g('--mb-warning'), resolved: g('--mb-success'),
+    dismissed: g('--mb-text-muted'), available: g('--mb-success'), unavailable: g('--mb-danger'),
+    true: g('--mb-success'), false: g('--mb-text-muted')
   };
   const defLabels = {
     active: 'Aktif', pending: 'Bekliyor', accepted: 'Kabul', completed: 'Tamamlandı',
@@ -1060,6 +1767,7 @@ function loadPage(page) {
     case 'blocked-places': loadBlockedPlacesPage(); break;
     case 'audit-log': loadAuditLogPage(); break;
     case 'system': loadSystemPage(); break;
+    case 'crash-reports': loadCrashReportsPage(); break;
   }
 }
 
@@ -1078,24 +1786,29 @@ async function loadDashboard() {
   }
   _dashRetry = 0;
   try {
-    const [overview, trends, booksMetrics] = await Promise.all([
+    const [overview, trends, booksMetrics, calls, msgs, sessions] = await Promise.all([
       API.dashboard(),
       API.trends(30),
-      API.metricsBooks().catch(() => null)
+      API.metricsBooks().catch(() => null),
+      API.metricsCalls().catch(() => null),
+      API.metricsMessages().catch(() => null),
+      API.metricsSessions().catch(() => null),
     ]);
 
     // ── KPI Cards ──
     const kpis = document.getElementById('dash-kpis');
     const o = overview;
+    const C = (v) => `var(--${v})`;
     const kpiCards = [
-      { label: 'Toplam Kullanıcı', value: o.total_users || 0, icon: '&#9787;', color: '#3b82f6', delta: o.users_growth_30d || 0, deltaLabel: '30g' },
-      { label: 'Günlük Aktif', value: o.daily_active_users || 0, icon: '&#9889;', color: '#10b981' },
-      { label: 'Toplam Kitap', value: o.total_books || 0, icon: '&#9733;', color: '#8b5cf6', delta: o.books_added_30d || 0, deltaLabel: '30g' },
-      { label: 'Takas', value: o.exchanges_total || 0, icon: '&#8644;', color: '#f59e0b', delta: o.exchanges_30d || 0, deltaLabel: '30g' },
-      { label: 'Başarı Oranı', value: o.exchanges_success_rate ? (o.exchanges_success_rate * 100).toFixed(1) + '%' : '%0', icon: '&#9889;', color: '#06b6d4' },
-      { label: 'Açık Rapor', value: o.open_reports || 0, icon: '&#9888;', color: o.open_reports > 0 ? '#ef4444' : '#10b981' },
-      { label: 'Aylık Aktif', value: o.weekly_active_users || 0, icon: '&#9787;', color: '#f97316', delta: o.monthly_active_users || 0, deltaLabel: 'aylık' },
-      { label: 'Haftalık Büyüme', value: o.users_growth_pct ? o.users_growth_pct.toFixed(1) + '%' : '%0', icon: '&#9650;', color: '#10b981' },
+      { label: 'Toplam Kullanıcı', value: o.total_users || 0, icon: '&#9787;', color: C('mb-primary'), delta: o.users_growth_30d || 0, deltaLabel: '30g' },
+      { label: 'Günlük Aktif', value: o.daily_active_users || 0, icon: '&#9889;', color: C('mb-success') },
+      { label: 'Toplam Kitap', value: o.total_books || 0, icon: '&#9733;', color: C('mb-purple'), delta: o.books_added_30d || 0, deltaLabel: '30g' },
+      { label: 'Takas', value: o.exchanges_total || 0, icon: '&#8644;', color: C('mb-warning'), delta: o.exchanges_30d || 0, deltaLabel: '30g' },
+      { label: 'Başarı Oranı', value: o.exchanges_success_rate ? (o.exchanges_success_rate * 100).toFixed(1) + '%' : '%0', icon: '&#9889;', color: C('mb-info') },
+      { label: 'Açık Rapor', value: o.open_reports || 0, icon: '&#9888;', color: `var(--mb-${o.open_reports > 0 ? 'danger' : 'success'})` },
+      { label: 'Çağrı', value: (calls && calls.total_calls) || 0, icon: '&#9742;', color: '#06b6d4', delta: (calls && calls.calls_today) || 0, deltaLabel: 'bugün' },
+      { label: 'Mesaj', value: (msgs && msgs.total_messages) || 0, icon: '&#9993;', color: '#8b5cf6', delta: (msgs && msgs.messages_today) || 0, deltaLabel: 'bugün' },
+      { label: 'Oturum', value: (sessions && sessions.total_sessions) || 0, icon: '&#9000;', color: '#14b8a6', delta: (sessions && sessions.active_sessions_30d) || 0, deltaLabel: '30g' },
     ];
     kpis.innerHTML = kpiCards.map(k => {
       const deltaHtml = k.delta !== undefined ? `<span class="kpi-delta ${k.delta > 0 ? 'positive' : ''}" style="${k.delta <= 0 ? 'color:var(--text-muted)' : ''}">${k.delta > 0 ? '&#9650;' : '&#9660;'} ${formatNum(Math.abs(k.delta))} ${k.deltaLabel || ''}</span>` : '';
@@ -1293,6 +2006,156 @@ async function loadAnalyticsTab(tab) {
           ${(trust.top_reported_users || []).slice(0, 8).map(u => `<div class="stat-row"><span>${u.email || u._id || '???'}</span><strong>${formatNum(u.count || u.report_count || 0)} rapor</strong></div>`).join('<div class="stat-divider"></div>')}
         </div></div></div>
       </div>`;
+    } else if (tab === 'calls-tab') {
+      const [calls, trends] = await Promise.all([API.metricsCalls().catch(() => null), API.metricsCallsTrends(30).catch(() => null)]);
+      if (!calls) { el.innerHTML = '<div class="text-center text-muted">Veri yok</div>'; return; }
+      el.innerHTML = `<div class="charts-grid analytics-grid">
+        <div class="card"><div class="card-header"><h3>Çağrı İstatistikleri</h3></div><div class="card-body"><div class="stats-list">
+          <div class="stat-row"><span>Toplam Çağrı</span><strong>${formatNum(calls.total_calls || 0)}</strong></div>
+          <div class="stat-row"><span>Bu Ay</span><strong>${formatNum(calls.calls_30d || 0)}</strong></div>
+          <div class="stat-row"><span>Bugün</span><strong>${formatNum(calls.calls_today || 0)}</strong></div>
+          <div class="stat-row"><span>Ort. Süre</span><strong>${(calls.avg_duration_seconds || 0).toFixed(1)}sn</strong></div>
+          <div class="stat-row"><span>Toplam Süre</span><strong>${(calls.total_duration_minutes || 0).toFixed(1)}dk</strong></div>
+          <div class="stat-row"><span>En Uzun</span><strong>${calls.longest_call_seconds || 0}sn</strong></div>
+        </div></div></div>
+        <div class="card"><div class="card-header"><h3>Türe Göre</h3></div><div class="card-body"><div id="analytics-calls-kind"></div></div></div>
+        <div class="card"><div class="card-header"><h3>Duruma Göre</h3></div><div class="card-body"><div id="analytics-calls-status"></div></div></div>
+        <div class="card" style="grid-column:span 2"><div class="card-header"><h3>En Çok Arayanlar</h3></div><div class="card-body"><div class="stats-list">
+          ${(calls.top_callers || []).slice(0, 8).map(u => `<div class="stat-row"><span>${u.name || u.email || '???'}</span><strong>${formatNum(u.call_count || 0)} çağrı (${((u.total_duration_seconds || 0) / 60).toFixed(0)}dk)</strong></div>`).join('') || '<div class="text-muted">Veri yok</div>'}
+        </div></div></div>
+      </div>`;
+      Charts.donut('analytics-calls-kind', Object.entries(calls.by_kind || {}).map(([k, v]) => ({ label: k === 'audio' ? 'Sesli' : 'Görüntülü', value: v })));
+      Charts.donut('analytics-calls-status', Object.entries(calls.by_status || {}).map(([k, v]) => ({ label: k, value: v })));
+    } else if (tab === 'messages-tab') {
+      const msgs = await API.metricsMessages().catch(() => null);
+      if (!msgs) { el.innerHTML = '<div class="text-center text-muted">Veri yok</div>'; return; }
+      el.innerHTML = `<div class="charts-grid analytics-grid">
+        <div class="card"><div class="card-header"><h3>Mesaj İstatistikleri</h3></div><div class="card-body"><div class="stats-list">
+          <div class="stat-row"><span>Toplam Mesaj</span><strong>${formatNum(msgs.total_messages || 0)}</strong></div>
+          <div class="stat-row"><span>30 Gün</span><strong>${formatNum(msgs.messages_30d || 0)}</strong></div>
+          <div class="stat-row"><span>Bugün</span><strong>${formatNum(msgs.messages_today || 0)}</strong></div>
+        </div></div></div>
+        <div class="card"><div class="card-header"><h3>Tipe Göre</h3></div><div class="card-body"><div id="analytics-msgs-type"></div></div></div>
+        <div class="card" style="grid-column:span 2"><div class="card-header"><h3>En Çok Mesaj Gönderenler</h3></div><div class="card-body"><div class="stats-list">
+          ${(msgs.top_senders || []).slice(0, 8).map(u => `<div class="stat-row"><span>${u.name || u.email || 'Sistem'}</span><strong>${formatNum(u.message_count || 0)} mesaj</strong></div>`).join('') || '<div class="text-muted">Veri yok</div>'}
+        </div></div></div>
+      </div>`;
+      Charts.donut('analytics-msgs-type', Object.entries(msgs.by_type || {}).map(([k, v]) => ({ label: k, value: v })));
+    } else if (tab === 'sessions-tab') {
+      const sess = await API.metricsSessions().catch(() => null);
+      if (!sess) { el.innerHTML = '<div class="text-center text-muted">Veri yok</div>'; return; }
+      el.innerHTML = `<div class="charts-grid analytics-grid">
+        <div class="card"><div class="card-header"><h3>Oturum İstatistikleri</h3></div><div class="card-body"><div class="stats-list">
+          <div class="stat-row"><span>Aktif Oturum</span><strong>${formatNum(sess.total_sessions || 0)}</strong></div>
+          <div class="stat-row"><span>30 Günlük</span><strong>${formatNum(sess.active_sessions_30d || 0)}</strong></div>
+          <div class="stat-row"><span>Kullanıcı Başı</span><strong>${(sess.sessions_per_user_avg || 0).toFixed(2)}</strong></div>
+          <div class="stat-row"><span>Eşsiz Kullanıcı</span><strong>${formatNum(sess.unique_users_with_sessions || 0)}</strong></div>
+        </div></div></div>
+        <div class="card"><div class="card-header"><h3>Cihaz Dağılımı</h3></div><div class="card-body"><div id="analytics-sess-devices"></div></div></div>
+        <div class="card" style="grid-column:span 2"><div class="card-header"><h3>En Çok Kullanılan Cihazlar</h3></div><div class="card-body"><div class="stats-list">
+          ${(sess.most_used_devices || []).slice(0, 8).map(d => `<div class="stat-row"><span>${d.model || 'Bilinmeyen'}</span><strong>${formatNum(d.count || 0)}</strong></div>`).join('') || '<div class="text-muted">Veri yok</div>'}
+        </div></div></div>
+      </div>`;
+      Charts.donut('analytics-sess-devices', Object.entries(sess.device_type_breakdown || {}).map(([k, v]) => ({ label: k, value: v })));
+    } else if (tab === 'deep-tab') {
+      const [deep, bv, search, rp] = await Promise.all([
+        API.metricsExchangesDeep().catch(() => null),
+        API.metricsBookViews().catch(() => null),
+        API.metricsSearch().catch(() => null),
+        API.metricsReportsDeep().catch(() => null),
+      ]);
+      if (!deep && !bv && !search && !rp) { el.innerHTML = '<div class="text-center text-muted">Veri yok</div>'; return; }
+      let html = '<div class="charts-grid analytics-grid">';
+      if (deep) html += `
+        <div class="card"><div class="card-header"><h3>Takas Derin</h3></div><div class="card-body"><div class="stats-list">
+          <div class="stat-row"><span>Takas (Trade)</span><strong>${formatNum(deep.total_trade || 0)}</strong></div>
+          <div class="stat-row"><span>Ödünç (Borrow)</span><strong>${formatNum(deep.total_borrow || 0)}</strong></div>
+          <div class="stat-row"><span>Trade/Borrow Oranı</span><strong>${(deep.trade_borrow_ratio || 0).toFixed(2)}</strong></div>
+          <div class="stat-row"><span>Gecikme Sayısı</span><strong>${formatNum(deep.overdue_count || 0)}</strong></div>
+          <div class="stat-row"><span>Gecikme Oranı</span><strong>${(deep.overdue_rate || 0).toFixed(1)}%</strong></div>
+          <div class="stat-row"><span>Zamanında İade</span><strong>${(deep.on_time_return_rate || 0).toFixed(1)}%</strong></div>
+          <div class="stat-row"><span>Uzatma Oranı</span><strong>${(deep.extension_request_rate || 0).toFixed(1)}%</strong></div>
+          <div class="stat-row"><span>Uzatma Onay</span><strong>${(deep.extension_approval_rate || 0).toFixed(1)}%</strong></div>
+        </div></div></div>`;
+      if (bv) html += `
+        <div class="card"><div class="card-header"><h3>Kitap Görüntüleme</h3></div><div class="card-body"><div class="stats-list">
+          <div class="stat-row"><span>Toplam Görüntüleme</span><strong>${formatNum(bv.total_views || 0)}</strong></div>
+          <div class="stat-row"><span>Kitap Başı Ort.</span><strong>${(bv.avg_views_per_book || 0).toFixed(2)}</strong></div>
+          <div class="stat-row"><span>Görüntülenen Kitap</span><strong>${formatNum(bv.books_with_views || 0)}</strong></div>
+          <div class="stat-row"><span>Hiç Görüntülenmeyen</span><strong>${formatNum(bv.books_with_zero_views || 0)}</strong></div>
+        </div></div></div>`;
+      if (search) html += `
+        <div class="card"><div class="card-header"><h3>Arama Analitiği</h3></div><div class="card-body"><div class="stats-list">
+          <div class="stat-row"><span>Toplam Arama</span><strong>${formatNum(search.total_searches_logged || 0)}</strong></div>
+          <div class="stat-row"><span>30 Gün</span><strong>${formatNum(search.searches_30d || 0)}</strong></div>
+          <div class="stat-row"><span>Sonuçsuz Arama</span><strong>${search.searches_without_results !== null ? formatNum(search.searches_without_results) : 'N/A'}</strong></div>
+        </div></div></div>`;
+      if (rp) html += `
+        <div class="card"><div class="card-header"><h3>Rapor Derin</h3></div><div class="card-body"><div class="stats-list">
+          <div class="stat-row"><span>Toplam Rapor</span><strong>${formatNum(rp.total_reports || 0)}</strong></div>
+          <div class="stat-row"><span>Çözüm Oranı</span><strong>${(rp.resolution_rate || 0).toFixed(1)}%</strong></div>
+          <div class="stat-row"><span>Ort. Çözüm</span><strong>${rp.avg_resolution_hours ? rp.avg_resolution_hours.toFixed(1) + 's' : '0s'}</strong></div>
+        </div></div></div>`;
+      if (deep && deep.top_borrowers && deep.top_borrowers.length) html += `
+        <div class="card" style="grid-column:span 2"><div class="card-header"><h3>En Çok Ödünç Alanlar</h3></div><div class="card-body"><div class="stats-list">
+          ${deep.top_borrowers.slice(0, 8).map(u => `<div class="stat-row"><span>${u.name || u.email || '???'}</span><strong>${formatNum(u.borrow_count || 0)} ödünç (${formatNum(u.return_on_time_count || 0)} zamanında)</strong></div>`).join('')}
+        </div></div></div>`;
+      if (rp && rp.top_reporters && rp.top_reporters.length) html += `
+        <div class="card" style="grid-column:span 2"><div class="card-header"><h3>En Çok Raporlayanlar</h3></div><div class="card-body"><div class="stats-list">
+          ${rp.top_reporters.slice(0, 8).map(u => `<div class="stat-row"><span>${u.name || u.email || '???'}</span><strong>${formatNum(u.report_count || 0)} rapor</strong></div>`).join('')}
+        </div></div></div>`;
+      if (rp && rp.by_target_type) html += `
+        <div class="card"><div class="card-header"><h3>Rapor Hedefleri</h3></div><div class="card-body"><div id="analytics-rp-targets"></div></div></div>`;
+      html += '</div>';
+      el.innerHTML = html;
+      if (rp && rp.by_target_type) Charts.donut('analytics-rp-targets', Object.entries(rp.by_target_type).map(([k, v]) => ({ label: k.replace('ReportTarget.', ''), value: v })));
+    } else if (tab === 'retention-tab') {
+      const ret = await API.metricsRetention(12).catch(() => null);
+      if (!ret || !ret.cohorts || !ret.cohorts.length) { el.innerHTML = '<div class="text-center text-muted">Henüz retention verisi yok (yeni uygulama)</div>'; return; }
+      el.innerHTML = `<div class="card"><div class="card-header"><h3>Kohort Retention (Haftalık)</h3></div><div class="card-body" style="overflow-x:auto"><table style="font-size:0.75rem">
+        <thead><tr><th>Hafta</th><th>Kayıt</th><th>W0</th><th>W1</th><th>W2</th><th>W4</th><th>W8</th><th>W12</th></tr></thead>
+        <tbody>${ret.cohorts.map(c => `<tr>
+          <td><strong>${c.cohort_week}</strong></td>
+          <td>${formatNum(c.total_users)}</td>
+          <td style="color:${c.week_0 > 20 ? '#10b981' : c.week_0 > 5 ? '#f59e0b' : '#ef4444'}">${c.week_0.toFixed(1)}%</td>
+          <td style="color:${c.week_1 > 10 ? '#10b981' : c.week_1 > 3 ? '#f59e0b' : '#6b7280'}">${c.week_1.toFixed(1)}%</td>
+          <td style="color:${c.week_2 > 10 ? '#10b981' : c.week_2 > 3 ? '#f59e0b' : '#6b7280'}">${c.week_2.toFixed(1)}%</td>
+          <td style="color:${c.week_4 > 5 ? '#10b981' : c.week_4 > 1 ? '#f59e0b' : '#6b7280'}">${c.week_4.toFixed(1)}%</td>
+          <td style="color:${c.week_8 > 5 ? '#10b981' : c.week_8 > 1 ? '#f59e0b' : '#6b7280'}">${c.week_8.toFixed(1)}%</td>
+          <td style="color:${c.week_12 > 5 ? '#10b981' : c.week_12 > 1 ? '#f59e0b' : '#6b7280'}">${c.week_12.toFixed(1)}%</td>
+        </tr>`).join('')}</tbody></table></div></div>`;
+    } else if (tab === 'content-tab') {
+      const [bv, search, rp] = await Promise.all([
+        API.metricsBookViews().catch(() => null),
+        API.metricsSearch().catch(() => null),
+        API.metricsReportsDeep().catch(() => null),
+      ]);
+      let html = '<div class="charts-grid analytics-grid">';
+      if (bv && bv.top_viewed_books && bv.top_viewed_books.length) html += `
+        <div class="card" style="grid-column:span 2"><div class="card-header"><h3>En Çok Görüntülenen Kitaplar</h3></div><div class="card-body"><div class="stats-list">
+          ${bv.top_viewed_books.slice(0, 10).map(b => `<div class="stat-row"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.title || '???'}</span><strong>${formatNum(b.view_count || 0)}</strong></div>`).join('')}
+        </div></div></div>`;
+      if (bv && bv.view_count_distribution && bv.view_count_distribution.length) html += `
+        <div class="card"><div class="card-header"><h3>Görüntülenme Dağılımı</h3></div><div class="card-body"><div id="analytics-view-dist"></div></div></div>`;
+      if (rp && rp.by_status) html += `
+        <div class="card"><div class="card-header"><h3>Rapor Durumu</h3></div><div class="card-body"><div id="analytics-rp-status"></div></div></div>`;
+      if (search && search.top_search_terms && search.top_search_terms.length) html += `
+        <div class="card" style="grid-column:span 2"><div class="card-header"><h3>En Çok Arananlar</h3></div><div class="card-body"><div class="stats-list">
+          ${search.top_search_terms.slice(0, 10).map(t => `<div class="stat-row"><span>${t.term || '???'}</span><strong>${formatNum(t.count || 0)}</strong></div>`).join('')}
+        </div></div></div>`;
+      if (rp && rp.daily_report_trend && rp.daily_report_trend.length) html += `
+        <div class="card" style="grid-column:span 2"><div class="card-header"><h3>Günlük Rapor Trendi (30g)</h3></div><div class="card-body" style="height:200px"><div id="analytics-rp-trend"></div></div></div>`;
+      html += '</div>';
+      el.innerHTML = html;
+      if (bv && bv.view_count_distribution) Charts.donut('analytics-view-dist', bv.view_count_distribution.map(d => ({ label: d.range, value: d.count })));
+      if (rp && rp.by_status) Charts.donut('analytics-rp-status', Object.entries(rp.by_status).map(([k, v]) => ({ label: k.replace('ReportStatus.', ''), value: v })));
+      if (rp && rp.daily_report_trend && rp.daily_report_trend.length) {
+        const dates = rp.daily_report_trend.map(d => d.date.slice(5));
+        Charts.line('analytics-rp-trend', [
+          { label: 'Rapor', values: rp.daily_report_trend.map(d => d.value) },
+          ...(rp.reports_vs_resolved_trend ? [{ label: 'Çözülen', values: rp.reports_vs_resolved_trend.map(d => d.resolved || 0) }] : []),
+        ], { xLabels: dates, yLabel: 'Adet' });
+      }
     }
   } catch (e) {
     el.innerHTML = `<div class="error-state"><div class="error-icon">&#9888;</div><p>${e.message}</p></div>`;
@@ -1317,52 +2180,128 @@ async function loadTrendChart(days) {
 // ─── Reports Page ───────────────────────────────────────────────
 let reportsState = { page: 1, limit: 20, status: '' };
 
+let reportsListenersAttached = false;
+
 async function loadReportsPage() {
-  const el = document.getElementById('reports-table-body');
+  const grid = document.getElementById('reports-grid');
   const pag = document.getElementById('reports-pagination');
   try {
     const status = document.getElementById('reports-status-filter').value;
     reportsState.status = status; reportsState.page = 1;
     const res = await API.reports({ status: status || undefined, skip: 0, limit: reportsState.limit });
-    document.getElementById('reports-total').textContent = `Toplam: ${(res.total || res.items?.length || 0)} rapor`;
-    if (!res.items || !res.items.length) { el.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Rapor bulunamadı</td></tr>'; pag.innerHTML = ''; return; }
-    el.innerHTML = res.items.map(r => `<tr>
-      <td class="text-sm"><code>${shortId(r.id)}</code></td>
-      <td>${r.reporter_email || '???'}</td>
-      <td>${r.target_type || '?'}: ${r.target_id ? shortId(r.target_id) : '-'}</td>
-      <td>${r.reason || '-'}</td>
-      <td>${statusBadge(r.status)}</td>
-      <td class="text-sm text-muted">${formatDate(r.created_at)}</td>
-      <td>${r.status === 'open' ? `<div class="action-btns"><button class="btn btn-primary btn-xs" onclick="handleReport('${r.id}','reviewing')">İncele</button><button class="btn btn-ghost btn-xs" onclick="handleReport('${r.id}','dismissed')">Reddet</button></div>` : r.status === 'reviewing' ? `<div class="action-btns"><button class="btn btn-success btn-xs" onclick="handleReport('${r.id}','resolved')">Çöz</button><button class="btn btn-ghost btn-xs" onclick="handleReport('${r.id}','dismissed')">Reddet</button></div>` : '-'}</td>
-    </tr>`).join('');
-    // Filters
-    document.getElementById('reports-status-filter').addEventListener('change', () => loadReportsPage());
-    // Pagination placeholder
-    const total = res.total || res.items.length;
-    renderPagination('reports-pagination', Math.ceil(total / reportsState.limit), reportsState.page, (p) => { reportsState.page = p; loadReportsPage(); });
-  } catch (e) { el.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Hata: ${e.message}</td></tr>`; }
+    const items = res.items || [];
+    const total = res.total || items.length;
+    const totalPages = Math.ceil(total / reportsState.limit);
+    document.getElementById('reports-total').textContent = `${total} rapor`;
+    if (!items.length) { grid.innerHTML = '<div class="crud-loading"><div class="text-muted">Rapor bulunamadı</div></div>'; pag.innerHTML = ''; return; }
+    const repStatusColors = { open: '#f59e0b', reviewing: '#3b82f6', resolved: '#10b981', dismissed: '#94a3b8' };
+    const repStatusLabels = { open: '🟠 Açık', reviewing: '🔵 İnceleniyor', resolved: '🟢 Çözülmüş', dismissed: '⚪ Reddedilmiş' };
+    grid.innerHTML = items.map(r => {
+      const sc = repStatusColors[r.status] || '#94a3b8';
+      const label = repStatusLabels[r.status] || r.status;
+      let acts = '';
+      if (r.status === 'open') acts += `<button class="btn btn-detay" onclick="handleReport('${r.id}','reviewing')">İncele</button><button class="btn btn-warning" onclick="handleReport('${r.id}','dismissed')">Reddet</button>`;
+      else if (r.status === 'reviewing') acts += `<button class="btn btn-success" onclick="handleReport('${r.id}','resolved')">Çöz</button><button class="btn btn-warning" onclick="handleReport('${r.id}','dismissed')">Reddet</button>`;
+      acts += `<button class="btn btn-ghost" onclick="showChatContext('${r.id}','${r.target_type}','${r.target_id}')" title="Sohbet mesajlarını gör">✉️</button>`;
+      return `<div class="data-card">
+        <div class="data-card-inner">
+          <div class="data-card-header">
+            <div class="data-card-avatar-sm" style="background:linear-gradient(135deg,${sc},${sc}88)">🚩</div>
+            <div class="data-card-info">
+              <div class="data-card-title">Rapor #${shortId(r.id)}</div>
+              <div class="data-card-sub">Raporçu: ${shortId(r.reporter_id)}</div>
+            </div>
+            <div class="data-card-badge"><span class="badge" style="background:${sc}22;color:${sc};border:1px solid ${sc}44">${label}</span></div>
+          </div>
+          <div class="data-card-body">
+            <div class="data-card-meta">
+              <span class="data-chip">🎯 ${r.target_type}: ${shortId(r.target_id)}</span>
+              <span class="data-chip">📝 ${escHtml((r.reason||'').substring(0,40))}</span>
+              ${r.moderator_id ? `<span class="data-chip">👮 ${shortId(r.moderator_id)}</span>` : ''}
+            </div>
+          </div>
+          <div class="data-card-footer">
+            <span class="data-card-date">📅 ${formatDate(r.created_at)}${r.resolved_at ? ' · ✅ ' + formatDate(r.resolved_at) : ''}</span>
+            <div class="data-card-actions">${acts}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    // Pagination
+    if (totalPages > 1) {
+      let phtml = '<div class="pagination-inner">';
+      if (reportsState.page > 1) phtml += `<button class="page-btn" onclick="loadReportsPagePaginated(${reportsState.page - 1})">‹</button>`;
+      for (let i = Math.max(1, reportsState.page - 2); i <= Math.min(totalPages, reportsState.page + 2); i++) {
+        phtml += `<button class="page-btn ${i === reportsState.page ? 'active' : ''}" onclick="loadReportsPagePaginated(${i})">${i}</button>`;
+      }
+      if (reportsState.page < totalPages) phtml += `<button class="page-btn" onclick="loadReportsPagePaginated(${reportsState.page + 1})">›</button>`;
+      phtml += `<span class="page-info">${total} rapor</span></div>`;
+      pag.innerHTML = phtml;
+    } else { pag.innerHTML = ''; }
+    // Filter events (once)
+    if (!reportsListenersAttached) {
+      reportsListenersAttached = true;
+      document.getElementById('reports-status-filter').addEventListener('change', () => loadReportsPage());
+    }
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
 }
 
 async function loadReportsPagePaginated(page) {
-  const el = document.getElementById('reports-table-body');
+  const grid = document.getElementById('reports-grid');
+  const pag = document.getElementById('reports-pagination');
+  reportsState.page = page;
   try {
     const skip = (page - 1) * reportsState.limit;
     const res = await API.reports({ status: reportsState.status || undefined, skip, limit: reportsState.limit });
-    if (!res.items || !res.items.length) { el.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Rapor bulunamadı</td></tr>'; return; }
-    el.innerHTML = res.items.map(r => `<tr>...`).join('');
-    // Same row template
-    el.innerHTML = res.items.map(r => `<tr>
-      <td class="text-sm"><code>${shortId(r.id)}</code></td>
-      <td>${r.reporter_email || '???'}</td>
-      <td>${r.target_type || '?'}: ${r.target_id ? shortId(r.target_id) : '-'}</td>
-      <td>${r.reason || '-'}</td>
-      <td>${statusBadge(r.status)}</td>
-      <td class="text-sm text-muted">${formatDate(r.created_at)}</td>
-      <td>${r.status === 'open' ? `<div class="action-btns"><button class="btn btn-primary btn-xs" onclick="handleReport('${r.id}','reviewing')">İncele</button><button class="btn btn-ghost btn-xs" onclick="handleReport('${r.id}','dismissed')">Reddet</button></div>` : r.status === 'reviewing' ? `<div class="action-btns"><button class="btn btn-success btn-xs" onclick="handleReport('${r.id}','resolved')">Çöz</button><button class="btn btn-ghost btn-xs" onclick="handleReport('${r.id}','dismissed')">Reddet</button></div>` : '-'}</td>
-    </tr>`).join('');
-    const total = res.total || res.items.length;
-    renderPagination('reports-pagination', Math.ceil(total / reportsState.limit), page, (p) => { reportsState.page = p; loadReportsPagePaginated(p); });
-  } catch (e) { el.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Hata: ${e.message}</td></tr>`; }
+    const items = res.items || [];
+    const total = res.total || items.length;
+    const totalPages = Math.ceil(total / reportsState.limit);
+    if (!items.length) { grid.innerHTML = '<div class="crud-loading"><div class="text-muted">Rapor bulunamadı</div></div>'; pag.innerHTML = ''; return; }
+    const repStatusColors = { open: '#f59e0b', reviewing: '#3b82f6', resolved: '#10b981', dismissed: '#94a3b8' };
+    const repStatusLabels = { open: '🟠 Açık', reviewing: '🔵 İnceleniyor', resolved: '🟢 Çözülmüş', dismissed: '⚪ Reddedilmiş' };
+    grid.innerHTML = items.map(r => {
+      const sc = repStatusColors[r.status] || '#94a3b8';
+      const label = repStatusLabels[r.status] || r.status;
+      let acts = '';
+      if (r.status === 'open') acts += `<button class="btn btn-detay" onclick="handleReport('${r.id}','reviewing')">İncele</button><button class="btn btn-warning" onclick="handleReport('${r.id}','dismissed')">Reddet</button>`;
+      else if (r.status === 'reviewing') acts += `<button class="btn btn-success" onclick="handleReport('${r.id}','resolved')">Çöz</button><button class="btn btn-warning" onclick="handleReport('${r.id}','dismissed')">Reddet</button>`;
+      acts += `<button class="btn btn-ghost" onclick="showChatContext('${r.id}','${r.target_type}','${r.target_id}')" title="Sohbet mesajlarını gör">✉️</button>`;
+      return `<div class="data-card">
+        <div class="data-card-inner">
+          <div class="data-card-header">
+            <div class="data-card-avatar-sm" style="background:linear-gradient(135deg,${sc},${sc}88)">🚩</div>
+            <div class="data-card-info">
+              <div class="data-card-title">Rapor #${shortId(r.id)}</div>
+              <div class="data-card-sub">Raporçu: ${shortId(r.reporter_id)}</div>
+            </div>
+            <div class="data-card-badge"><span class="badge" style="background:${sc}22;color:${sc};border:1px solid ${sc}44">${label}</span></div>
+          </div>
+          <div class="data-card-body">
+            <div class="data-card-meta">
+              <span class="data-chip">🎯 ${r.target_type}: ${shortId(r.target_id)}</span>
+              <span class="data-chip">📝 ${escHtml((r.reason||'').substring(0,40))}</span>
+              ${r.moderator_id ? `<span class="data-chip">👮 ${shortId(r.moderator_id)}</span>` : ''}
+            </div>
+          </div>
+          <div class="data-card-footer">
+            <span class="data-card-date">📅 ${formatDate(r.created_at)}${r.resolved_at ? ' · ✅ ' + formatDate(r.resolved_at) : ''}</span>
+            <div class="data-card-actions">${acts}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    // Pagination
+    if (totalPages > 1) {
+      let phtml = '<div class="pagination-inner">';
+      if (page > 1) phtml += `<button class="page-btn" onclick="loadReportsPagePaginated(${page - 1})">‹</button>`;
+      for (let i = Math.max(1, page - 2); i <= Math.min(totalPages, page + 2); i++) {
+        phtml += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="loadReportsPagePaginated(${i})">${i}</button>`;
+      }
+      if (page < totalPages) phtml += `<button class="page-btn" onclick="loadReportsPagePaginated(${page + 1})">›</button>`;
+      phtml += `<span class="page-info">${total} rapor</span></div>`;
+      pag.innerHTML = phtml;
+    } else { pag.innerHTML = ''; }
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
 }
 
 async function handleReport(id, action) {
@@ -1379,8 +2318,56 @@ async function handleReport(id, action) {
   }
 }
 
-// ─── Users Page ─────────────────────────────────────────────────
-let usersState = { page: 1, limit: 20, search: '', status: '' };
+// ─── Chat Context Viewer (for moderators) ────────────────────────
+async function showChatContext(reportId, targetType, targetId) {
+  const modal = document.getElementById('chat-viewer-modal');
+  const body = document.getElementById('chat-viewer-body');
+  body.innerHTML = '<div class="loading-spinner"></div>';
+  modal.classList.add('active');
+  try {
+    const ctx = await API.reportChatContext(reportId);
+    if (!ctx.chat || !ctx.messages || !ctx.messages.length) {
+      body.innerHTML = `<div class="text-center text-muted" style="padding:2rem">
+        <div style="font-size:3rem;margin-bottom:1rem">&#128172;</div>
+        <p>Bu rapor için sohbet mesajı bulunamadı.</p>
+        <p class="text-sm">Hedef: ${targetType} (${shortId(targetId)})</p>
+      </div>`;
+      return;
+    }
+    body.innerHTML = `<div style="margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--border)">
+      <span class="text-sm text-muted">Rapor #${shortId(reportId)} — ${ctx.report.reason}</span>
+    </div>
+    <div class="chat-messages">${ctx.messages.map(m => {
+      const isSystem = m.message_type === 'system';
+      const isDeleted = m.is_deleted;
+      const time = formatTime(m.created_at);
+      const sender = isSystem ? 'Sistem' : (m.sender_name || m.sender_email || 'Bilinmeyen');
+      const msgText = isDeleted ? '<em style="color:var(--text-muted)">[Mesaj silindi]</em>' : escHtml(m.text || '');
+      const extra = m.extra ? (m.extra.image ? `<div class="chat-msg-media">📷 ${m.extra.image.url ? 'Resim' : ''}</div>` :
+        m.extra.voice ? `<div class="chat-msg-media">🎤 Ses kaydı (${m.extra.voice.duration_seconds || '?'}sn)</div>` :
+        m.extra.location ? `<div class="chat-msg-media">📍 ${m.extra.location.name || 'Konum'}</div>` :
+        m.extra.book_card ? `<div class="chat-msg-media">📖 ${m.extra.book_card.title || 'Kitap'}</div>` :
+        m.extra.action === 'call_log' ? `<div class="chat-msg-media">${m.extra.kind === 'video' ? '📹' : '📞'} ${m.extra.status} (${m.extra.duration_seconds || 0}sn)</div>` : '') : '';
+      return `<div class="chat-msg ${isSystem ? 'system' : ''} ${isDeleted ? 'deleted' : ''}">
+        <div class="chat-msg-header"><strong>${escHtml(sender)}</strong><span class="text-xs text-muted">${time}</span></div>
+        <div class="chat-msg-text">${msgText}</div>
+        ${extra}
+      </div>`;
+    }).join('')}</div>`;
+  } catch (e) {
+    body.innerHTML = `<div class="error-state"><p>${e.message}</p></div>`;
+  }
+}
+
+function formatTime(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  return dt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+}
+
+// ─── Users Page — Max Level Design ──────────────────────────────
+let usersState = { page: 1, limit: 24, search: '', status: '' };
+let usersListenersAttached = false;
 
 async function loadUsersPage() {
   usersState.search = document.getElementById('users-search').value.trim();
@@ -1390,37 +2377,165 @@ async function loadUsersPage() {
 }
 
 async function loadUsersPageData(page) {
-  const el = document.getElementById('users-table-body');
+  const grid = document.getElementById('users-grid');
+  const pag = document.getElementById('users-pagination');
   usersState.page = page;
   try {
     const params = { skip: (page - 1) * usersState.limit, limit: usersState.limit };
     if (usersState.search) params.q = usersState.search;
     if (usersState.status) params.status = usersState.status;
     const res = await API.users(params);
-    document.getElementById('users-total').textContent = `Toplam: ${(res.total || res.items?.length || 0)} kullanıcı`;
-    if (!res.items || !res.items.length) { el.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Kullanıcı bulunamadı</td></tr>'; return; }
-    el.innerHTML = res.items.map(u => `<tr>
-      <td><div style="display:flex;align-items:center;gap:0.5rem"><div class="user-avatar-sm" style="background:linear-gradient(135deg,${stringToColor(u.email||'')},${stringToColor((u.email||'')[2]||'')})">${(u.name||u.email||'?')[0].toUpperCase()}</div><div><div style="color:var(--text-primary);font-weight:500">${u.name || 'İsimsiz'}</div></div></div></td>
-      <td class="text-sm">${u.email || '-'}</td>
-      <td>${u.status === 'active' ? statusBadge('active') : u.status === 'suspended' ? statusBadge('suspended') : u.status === 'banned' ? statusBadge('banned') : statusBadge('deleted')}</td>
-      <td><span style="color:#f59e0b;font-weight:600">${u.rating_average ? u.rating_average.toFixed(1) : '-'}</span></td>
-      <td class="text-sm">${u.completed_exchanges || 0}</td>
-      <td class="text-sm">${u.is_admin ? statusBadge('true') : statusBadge('false')}</td>
-      <td class="text-sm text-muted">${formatDate(u.created_at)}</td>
-      <td><div class="action-btns"><button class="btn btn-ghost btn-xs" onclick="viewUserDetail('${u.id}')">Detay</button>${u.status === 'active' ? `<button class="btn btn-ghost btn-xs" onclick="userActionWrapper('${u.id}','suspend')">Askıya Al</button>` : u.status === 'suspended' ? `<button class="btn btn-success btn-xs" onclick="userActionWrapper('${u.id}','reinstate')">Ger getir</button><button class="btn btn-danger btn-xs" onclick="userActionWrapper('${u.id}','ban')">Banla</button>` : u.status === 'banned' ? `<button class="btn btn-success btn-xs" onclick="userActionWrapper('${u.id}','reinstate')">Ger getir</button>` : ''}</div></td>
-    </tr>`).join('');
-    renderPagination('users-pagination', Math.ceil((res.total || res.items.length) / usersState.limit), page, (p) => loadUsersPageData(p));
-    // Filter events
-    document.getElementById('users-search').addEventListener('input', debounce(loadUsersPage, 400));
-    document.getElementById('users-status-filter').addEventListener('change', loadUsersPage);
-  } catch (e) { el.innerHTML = `<tr><td colspan="8" class="text-center text-muted">Hata: ${e.message}</td></tr>`; }
+    const items = res.items || [];
+    const total = res.total || items.length;
+    const totalPages = Math.ceil(total / usersState.limit);
+
+    // Update stats bar
+    const stats = { total: 0, active: 0, suspended: 0, banned: 0, admin: 0, messages: 0, books: 0 };
+    for (const u of items) {
+      stats.total++;
+      if (u.status === 'active') stats.active++;
+      if (u.status === 'suspended') stats.suspended++;
+      if (u.status === 'banned') stats.banned++;
+      if (u.is_admin) stats.admin++;
+      stats.messages += u.message_count || 0;
+      stats.books += u.book_count || 0;
+    }
+    document.getElementById('us-total').textContent = total;
+    document.getElementById('us-active').textContent = stats.active;
+    document.getElementById('us-suspended').textContent = stats.suspended;
+    document.getElementById('us-banned').textContent = stats.banned;
+    document.getElementById('us-admin').textContent = stats.admin;
+    document.getElementById('us-messages').textContent = stats.messages;
+    document.getElementById('us-books').textContent = stats.books;
+    document.getElementById('users-total-badge').textContent = `${total} kullanıcı`;
+
+    if (!items.length) {
+      grid.innerHTML = `<div class="users-loading"><div style="font-size:2rem;margin-bottom:0.5rem;opacity:0.4">👤</div><div class="text-muted">Kullanıcı bulunamadı</div></div>`;
+      pag.innerHTML = '';
+      return;
+    }
+
+    // Build user cards
+    const statusDots = { active: '🟢', suspended: '🟡', banned: '🔴', deleted: '⚪' };
+    const statusColors = { active: 'rgba(16,185,129,0.15)', suspended: 'rgba(245,158,11,0.15)', banned: 'rgba(239,68,68,0.15)', deleted: 'rgba(107,114,128,0.15)' };
+    const statusTextColors = { active: '#10b981', suspended: '#f59e0b', banned: '#ef4444', deleted: '#6b7280' };
+
+    grid.innerHTML = items.map(u => {
+      const sc = stringToColor(u.email || '');
+      const sc2 = stringToColor((u.email || '')[2] || '') || sc;
+      const initial = (u.name || u.email || '?')[0].toUpperCase();
+      const joinedDays = Math.floor((Date.now() - new Date(u.created_at).getTime()) / 86400000);
+      const joinedStr = joinedDays < 1 ? 'Bugün' : joinedDays < 30 ? `${joinedDays}g önce` : joinedDays < 365 ? `${Math.floor(joinedDays/30)}ay önce` : `${Math.floor(joinedDays/365)}y önce`;
+
+      const actions = [];
+      actions.push(`<button class="btn btn-detay" onclick="viewUserDetail('${u.id}')">📋 Detay</button>`);
+      if (u.status === 'active') {
+        actions.push(`<button class="btn btn-suspend" onclick="userActionWrapper('${u.id}','suspend')">⏸ Askıya Al</button>`);
+      } else if (u.status === 'suspended') {
+        actions.push(`<button class="btn btn-reinstate" onclick="userActionWrapper('${u.id}','reinstate')">↩️ Geri Getir</button>`);
+        actions.push(`<button class="btn btn-ban" onclick="showActionModal('Kullanıcıyı Banla', 'Banla', async (r) => { try { await API.userAction('${u.id}', 'ban', r); showToast('Kullanıcı banlandı', 'success'); loadUsersPageData(usersState.page); } catch(e) { showToast(e.message, 'error'); }})">🚫 Banla</button>`);
+      } else if (u.status === 'banned') {
+        actions.push(`<button class="btn btn-reinstate" onclick="userActionWrapper('${u.id}','reinstate')">↩️ Geri Getir</button>`);
+      }
+
+      const chips = [];
+      if (u.is_admin) chips.push(`<span class="user-chip" style="background:rgba(79,194,171,0.12);border-color:rgba(79,194,171,0.15)"><span style="color:var(--accent-cyan)">🛡️ Admin</span></span>`);
+      if (u.message_count > 0) chips.push(`<span class="user-chip"><span class="chip-icon">💬</span> <strong>${u.message_count}</strong> mesaj</span>`);
+      if (u.book_count > 0) chips.push(`<span class="user-chip"><span class="chip-icon">📚</span> <strong>${u.book_count}</strong> kitap</span>`);
+      if (u.exchange_count > 0) chips.push(`<span class="user-chip"><span class="chip-icon">🔄</span> <strong>${u.exchange_count}</strong> takas</span>`);
+      if (u.completed_exchanges > 0) chips.push(`<span class="user-chip"><span class="chip-icon">✅</span> <strong>${u.completed_exchanges}</strong> tamam</span>`);
+      if (u.rating_average > 0) chips.push(`<span class="user-chip"><span class="chip-icon">⭐</span> <strong>${u.rating_average.toFixed(1)}</strong></span>`);
+      chips.push(`<span class="user-chip"><span style="color:${statusTextColors[u.status] || '#6b7280'}">●</span> ${statusDots[u.status] || u.status}</span>`);
+
+      return `<div class="user-card">
+        <div class="user-card-inner">
+          <div class="user-card-header">
+            <div class="user-card-avatar" style="background:linear-gradient(135deg,${sc},${sc2})">${initial}</div>
+            <div class="user-card-info">
+              <div class="user-card-name">${escHtml(u.name || 'İsimsiz')}</div>
+              <div class="user-card-email">${escHtml(u.email || '-')}</div>
+            </div>
+            <div class="user-card-status"><span class="badge" style="background:${statusColors[u.status] || 'rgba(107,114,128,0.15)'};color:${statusTextColors[u.status] || '#6b7280'}">${statusDots[u.status] || u.status}</span></div>
+          </div>
+          ${chips.length ? `<div class="user-card-body">${chips.join('')}</div>` : ''}
+          <div class="user-card-footer">
+            <span class="user-card-date">📅 ${joinedStr}</span>
+            <div class="user-card-actions">${actions.join('')}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Pagination
+    if (totalPages > 1) {
+      let phtml = '<div class="pagination-inner">';
+      if (page > 1) phtml += `<button class="page-btn" onclick="loadUsersPageData(${page - 1})">‹</button>`;
+      for (let i = Math.max(1, page - 2); i <= Math.min(totalPages, page + 2); i++) {
+        phtml += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="loadUsersPageData(${i})">${i}</button>`;
+      }
+      if (page < totalPages) phtml += `<button class="page-btn" onclick="loadUsersPageData(${page + 1})">›</button>`;
+      phtml += `<span class="page-info">${total} kullanıcı</span></div>`;
+      pag.innerHTML = phtml;
+    } else {
+      pag.innerHTML = '';
+    }
+
+    // Filter events (attach once)
+    if (!usersListenersAttached) {
+      usersListenersAttached = true;
+      document.getElementById('users-search').addEventListener('input', debounce(loadUsersPage, 400));
+      document.getElementById('users-status-filter').addEventListener('change', loadUsersPage);
+    }
+
+  } catch (e) {
+    grid.innerHTML = `<div class="users-loading"><div style="font-size:2rem;margin-bottom:0.5rem;opacity:0.4">⚠️</div><div class="text-muted">Hata: ${escHtml(e.message)}</div><button class="btn btn-primary btn-sm" style="margin-top:0.75rem" onclick="loadUsersPage()">Tekrar Dene</button></div>`;
+  }
 }
 
 async function viewUserDetail(id) {
   try {
-    const u = await API.userDetail(id);
+    const container = document.getElementById('user-detail-body');
+    container.innerHTML = '<div class="loading-spinner" style="padding:2rem;text-align:center"></div>';
+    showModal('user-detail-modal');
+
+    // Load profile + activity overview in parallel
+    const [u, overview] = await Promise.all([
+      API.userDetail(id).catch(() => null),
+      API.adminRequest(`/users/${id}/activity/overview`).catch(() => null),
+    ]);
+
+    if (!u) { container.innerHTML = '<div class="text-center text-muted" style="padding:2rem">Kullanıcı bulunamadı</div>'; return; }
+
     const statusMap = { active: 'Aktif', suspended: 'Askıda', banned: 'Banlı', deleted: 'Silinmiş' };
-    document.getElementById('user-detail-body').innerHTML = u ? `<div class="detail-grid">
+    const o = overview || {};
+
+    // Build header with activity stats
+    let html = `
+    <div style="padding:1.25rem;border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
+        <div><span class="text-muted">${u.name || 'İsimsiz'}</span> <strong>${u.email}</strong></div>
+        <div><span class="badge ${u.status === 'active' ? 'badge-success' : u.status === 'suspended' ? 'badge-warning' : 'badge-danger'}">${statusMap[u.status] || u.status}</span>${u.is_admin ? ' <span class="badge badge-info">Admin</span>' : ''} · <span class="badge badge-info" style="background:rgba(79,194,171,0.15);color:var(--accent-cyan)">ID: ${shortId(id)}</span></div>
+      </div>
+      <div style="display:flex;gap:2rem;flex-wrap:wrap">
+        <div class="stat-chip"><span class="stat-chip-label">Mesaj</span><span class="stat-chip-value">${o.message_count || 0}</span></div>
+        <div class="stat-chip"><span class="stat-chip-label">Çağrı</span><span class="stat-chip-value">${o.call_count || 0}</span></div>
+        <div class="stat-chip"><span class="stat-chip-label">Görüşme</span><span class="stat-chip-value">${o.call_total_duration_minutes || 0}dk</span></div>
+        <div class="stat-chip"><span class="stat-chip-label">Kitap</span><span class="stat-chip-value">${o.book_count || 0}</span></div>
+        <div class="stat-chip"><span class="stat-chip-label">Takas</span><span class="stat-chip-value">${o.exchange_count || 0}</span></div>
+        <div class="stat-chip"><span class="stat-chip-label">Puan</span><span class="stat-chip-value" style="color:#f59e0b">${u.rating_average ? u.rating_average.toFixed(1) : '0'}</span></div>
+        <div class="stat-chip"><span class="stat-chip-label">Güven</span><span class="stat-chip-value">${u.trust_score ?? '-'}</span></div>
+      </div>
+      <div class="text-sm text-muted" style="margin-top:0.5rem">Katılım: ${formatDate(u.created_at)} · Son aktif: ${u.last_active_at ? formatDate(u.last_active_at) : '-'} · E-posta: ${u.email_verified_at ? '✅ Doğrulanmış' : '❌ Doğrulanmamış'}</div>
+    </div>
+    <div class="tabs" style="padding:0.75rem 1.25rem 0;border-bottom:1px solid var(--border)" id="user-detail-tabs">
+      <button class="tab active" data-utab="profile">Profil</button>
+      <button class="tab" data-utab="messages">Mesajlar (${o.message_count || 0})</button>
+      <button class="tab" data-utab="calls">Çağrılar (${o.call_count || 0})</button>
+    </div>
+    <div id="user-detail-tab-content" style="padding:1.25rem;min-height:200px;max-height:50vh;overflow-y:auto">`;
+
+    // Profile tab content
+    html += `<div class="detail-grid" id="ud-profile" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
       <div class="detail-section"><h4>Profil Bilgileri</h4>
         <div class="detail-row"><span>E-posta</span><strong>${u.email || '-'}</strong></div>
         <div class="detail-row"><span>İsim</span><strong>${u.name || '-'}</strong></div>
@@ -1438,13 +2553,180 @@ async function viewUserDetail(id) {
         <div class="detail-row"><span>Geç Teslim</span><strong>${u.loans_returned_late || 0}</strong></div>
         <div class="detail-row"><span>Güven Puanı</span><strong>${u.trust_score ?? '-'}</strong></div>
       </div>
-    </div>` : '<div class="text-center text-muted">Kullanıcı bulunamadı</div>';
-    showModal('user-detail-modal');
+    </div>`;
+
+    html += `<div id="ud-messages" style="display:none"><div class="text-center text-muted" style="padding:2rem">Yükleniyor...</div></div>`;
+    html += `<div id="ud-calls" style="display:none"><div class="text-center text-muted" style="padding:2rem">Yükleniyor...</div></div>`;
+    html += `</div>`;
+
+    container.innerHTML = html;
+
+    // Tab switching
+    document.querySelectorAll('#user-detail-tabs .tab').forEach(t => {
+      t.addEventListener('click', async () => {
+        document.querySelectorAll('#user-detail-tabs .tab').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        const tab = t.dataset.utab;
+        document.getElementById('ud-profile').style.display = tab === 'profile' ? 'grid' : 'none';
+        document.getElementById('ud-messages').style.display = tab === 'messages' ? 'block' : 'none';
+        document.getElementById('ud-calls').style.display = tab === 'calls' ? 'block' : 'none';
+        if (tab === 'messages') await loadUserMessages(id);
+        if (tab === 'calls') await loadUserCalls(id);
+      });
+    });
+
+    // Preload first tab data
+    loadUserMessages(id);
+
   } catch (e) { showToast(e.message, 'error'); }
 }
 
+async function loadUserMessages(id) {
+  const el = document.getElementById('ud-messages');
+  if (!el || el.dataset.loaded) return;
+  el.dataset.loaded = 'true';
+  try {
+    const res = await API.adminRequest(`/users/${id}/activity/messages?limit=50`);
+    if (!res || !res.items || !res.items.length) {
+      el.innerHTML = '<div class="text-center text-muted" style="padding:2rem">Henüz mesaj yok</div>';
+      return;
+    }
+
+    // Group messages by conversation (chat_id)
+    const groups = {};
+    for (const m of res.items) {
+      const key = m.chat_id;
+      if (!groups[key]) groups[key] = { chat_id: key, exchange_id: m.exchange_id, other_user_name: m.other_user_name, other_user_id: m.other_user_id, messages: [] };
+      groups[key].messages.push(m);
+    }
+
+    // Sort conversations by most recent message
+    const sortedGroups = Object.values(groups).sort((a, b) => {
+      const aLast = a.messages[a.messages.length - 1]?.created_at || '';
+      const bLast = b.messages[b.messages.length - 1]?.created_at || '';
+      return bLast.localeCompare(aLast);
+    });
+
+    let html = '<div style="display:flex;flex-direction:column;gap:1.25rem">';
+    for (const g of sortedGroups) {
+      // Conversation header
+      const msgs = g.messages.sort((a, b) => a.created_at.localeCompare(b.created_at));
+      const firstMsg = msgs[0];
+      const lastMsg = msgs[msgs.length - 1];
+      const otherName = g.other_user_name || 'Bilinmeyen';
+      const totalMsgs = msgs.length;
+
+      html += `<div class="conversation-group">
+        <div class="conv-header">
+          <div class="conv-header-left">
+            <span class="conv-partner">💬 ${escHtml(otherName)}</span>
+            <span class="conv-meta">${totalMsgs} mesaj · ${formatDate(firstMsg.created_at)} - ${formatDate(lastMsg.created_at)}</span>
+          </div>
+          ${g.exchange_id ? `<span class="conv-exch">Takas #${shortId(g.exchange_id)}</span>` : ''}
+        </div>
+        <div class="conv-messages">`;
+
+      // Group consecutive same-type system messages
+      let compacted = [];
+      for (let i = 0; i < msgs.length; i++) {
+        const m = msgs[i];
+        const isSystem = m.message_type !== 'text' && m.message_type !== 'image' && m.message_type !== 'voice';
+        if (isSystem) {
+          // Count consecutive same-text system messages
+          let count = 1;
+          while (i + 1 < msgs.length &&
+                 msgs[i+1].message_type === m.message_type &&
+                 msgs[i+1].text === m.text &&
+                 msgs[i+1].sender_id === m.sender_id) {
+            count++;
+            i++;
+          }
+          compacted.push({ ...m, repeat_count: count > 1 ? count : 0 });
+        } else {
+          compacted.push({ ...m, repeat_count: 0 });
+        }
+      }
+
+      for (const m of compacted) {
+        const isDeleted = m.is_deleted;
+        const isSystem = m.message_type !== 'text' && m.message_type !== 'image' && m.message_type !== 'voice';
+        const msgText = isDeleted ? '<em style="color:var(--text-muted)">[Silindi]</em>' : escHtml(m.text || '');
+        const typeLabel = m.message_type === 'text' ? '' : `<span class="msg-type-badge">${m.message_type}</span>`;
+        const callHtml = m.extra && m.extra.action === 'call_log'
+          ? `<span class="call-inline">${m.extra.kind === 'video' ? '📹' : '📞'} ${m.extra.status} (${m.extra.duration_seconds || 0}sn)</span>`
+          : '';
+        const repeatBadge = m.repeat_count > 0 ? `<span class="repeat-badge">×${m.repeat_count + 1}</span>` : '';
+
+        if (isSystem) {
+          // System messages: compact layout
+          html += `<div class="sys-msg${isDeleted ? ' deleted' : ''}">
+            <span class="chat-msg-time">${formatDate(m.created_at)}</span>
+            ${typeLabel} ${callHtml || msgText} ${repeatBadge}
+          </div>`;
+        } else {
+          // User messages: bubble style
+          html += `<div class="user-msg${isDeleted ? ' deleted' : ''}">
+            <div class="user-msg-header">
+              <span class="chat-msg-time">${formatDate(m.created_at)}</span>
+              ${typeLabel}
+            </div>
+            <div class="user-msg-text">${msgText}</div>
+          </div>`;
+        }
+      }
+
+      html += `</div></div>`;
+    }
+    html += '</div>';
+    el.innerHTML = html;
+
+  } catch (e) {
+    el.innerHTML = `<div class="text-center text-muted" style="padding:2rem">Mesajlar yüklenemedi: ${e.message}</div>`;
+  }
+}
+
+async function loadUserCalls(id) {
+  const el = document.getElementById('ud-calls');
+  if (!el || el.dataset.loaded) return;
+  el.dataset.loaded = 'true';
+  try {
+    const res = await API.adminRequest(`/users/${id}/activity/calls?limit=50`);
+    if (!res || !res.items || !res.items.length) {
+      el.innerHTML = '<div class="text-center text-muted" style="padding:2rem">Henüz arama kaydı yok</div>';
+      return;
+    }
+    // Summary stats
+    let html = '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">';
+    Object.entries(res.by_kind || {}).forEach(([k, v]) => {
+      html += `<div class="stat-chip"><span class="stat-chip-label">${k === 'audio' ? 'Sesli' : 'Görüntülü'}</span><span class="stat-chip-value">${v}</span></div>`;
+    });
+    Object.entries(res.by_status || {}).forEach(([k, v]) => {
+      html += `<div class="stat-chip"><span class="stat-chip-label">${k}</span><span class="stat-chip-value">${v}</span></div>`;
+    });
+    html += `<div class="stat-chip"><span class="stat-chip-label">Toplam Süre</span><span class="stat-chip-value">${res.total_duration_minutes || 0}dk</span></div>`;
+    html += '</div>';
+
+    html += '<div class="chat-viewer-msgs">' + res.items.map(c => {
+      const who = c.initiated_by_me ? 'Arayan' : 'Gelen';
+      const kind = c.kind === 'video' ? '📹' : '📞';
+      const statusColors = { ended: '#10b981', missed: '#ef4444', failed: '#f97316', rejected: '#8b5cf6' };
+      return `<div class="chat-msg">
+        <div class="chat-msg-header">
+          <span class="chat-msg-time">${formatDate(c.created_at)}</span>
+          <span class="text-muted text-sm">${c.other_user_name ? escHtml(c.other_user_name) : '?'} (${who})</span>
+        </div>
+        <div class="chat-msg-text">${kind} ${c.kind === 'video' ? 'Görüntülü' : 'Sesli'} arama · <span style="color:${statusColors[c.status] || '#94a3b8'};font-weight:600">${c.status}</span> · ${c.duration_seconds}sn</div>
+      </div>`;
+    }).join('') + '</div>';
+
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<div class="text-center text-muted" style="padding:2rem">Çağrılar yüklenemedi: ${e.message}</div>`;
+  }
+}
+
 function userActionWrapper(id, action) {
-  const labels = { suspend: 'Askıya Al', ban: 'Banla', reinstate: 'Ger Getir' };
+  const labels = { suspend: 'Askıya Al', ban: 'Banla', reinstate: 'Geri Getir' };
   showActionModal(`Kullanıcıyı ${labels[action]}`, labels[action], async (reason) => {
     try { await API.userAction(id, action, reason); showToast(`Kullanıcı ${labels[action].toLowerCase()}dı`, 'success'); loadUsersPageData(usersState.page); } catch (e) { showToast(e.message, 'error'); }
   });
@@ -1460,30 +2742,72 @@ async function loadBooksPage() {
   await loadBooksPageData(1);
 }
 
+let booksListenersAttached = false;
 async function loadBooksPageData(page) {
-  const el = document.getElementById('books-table-body');
+  const grid = document.getElementById('books-grid');
+  const pag = document.getElementById('books-pagination');
   booksState.page = page;
   try {
     const params = { skip: (page - 1) * booksState.limit, limit: booksState.limit };
     if (booksState.search) params.q = booksState.search;
     if (booksState.available) params.available = booksState.available === 'available';
     const res = await API.books(params);
-    document.getElementById('books-total').textContent = `Toplam: ${(res.total || res.items?.length || 0)} kitap`;
-    if (!res.items || !res.items.length) { el.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Kitap bulunamadı</td></tr>'; return; }
-    el.innerHTML = res.items.map(b => `<tr>
-      <td><div style="display:flex;align-items:center;gap:0.5rem"><div class="book-cover-sm" style="background:linear-gradient(135deg,${stringToColor(b.title||'')},${stringToColor((b.title||'')[2]||'')})">${(b.title||'?')[0]}</div><div><div style="color:var(--text-primary);font-weight:500">${(b.title||'???').substring(0,40)}</div></div></div></td>
-      <td class="text-sm">${b.author || '-'}</td>
-      <td class="text-sm">${b.category || '-'}</td>
-      <td>${statusBadge(b.is_available ? 'available' : 'unavailable')}</td>
-      <td class="text-sm">${b.is_available ? '&#10004;' : '&#10008;'}</td>
-      <td class="text-sm">${b.view_count || 0}</td>
-      <td class="text-sm"><code>${b.owner_id ? shortId(b.owner_id) : '-'}</code></td>
-      <td><div class="action-btns"><button class="btn btn-ghost btn-xs" onclick="viewBookDetail('${b.id}')">Detay</button>${!b.is_available ? '' : `<button class="btn btn-danger btn-xs" onclick="deleteBookAction('${b.id}')">Kaldır</button>`}</div></td>
-    </tr>`).join('');
-    renderPagination('books-pagination', Math.ceil((res.total || res.items.length) / booksState.limit), page, (p) => loadBooksPageData(p));
-    document.getElementById('books-search').addEventListener('input', debounce(loadBooksPage, 400));
-    document.getElementById('books-available-filter').addEventListener('change', loadBooksPage);
-  } catch (e) { el.innerHTML = `<tr><td colspan="8" class="text-center text-muted">Hata: ${e.message}</td></tr>`; }
+    const items = res.items || [];
+    const total = res.total || items.length;
+    const totalPages = Math.ceil(total / booksState.limit);
+    document.getElementById('books-total').textContent = `${total} kitap`;
+    if (!items.length) { grid.innerHTML = '<div class="crud-loading"><div class="text-muted">Kitap bulunamadı</div></div>'; pag.innerHTML = ''; return; }
+    grid.innerHTML = items.map(b => {
+      const sc = stringToColor(b.title||'');
+      const sc2 = stringToColor((b.title||'??')[1]||'');
+      const availLabel = b.is_available ? '<span class="badge badge-success" style="background:rgba(16,185,129,0.15);color:#10b981">✅ Müsait</span>' : '<span class="badge badge-danger" style="background:rgba(239,68,68,0.15);color:#ef4444">❌ Takaslı</span>';
+      return `<div class="data-card">
+        <div class="data-card-inner">
+          <div class="data-card-header">
+            <div class="data-card-cover" style="background:linear-gradient(135deg,${sc},${sc2})">${(b.title||'?')[0]}</div>
+            <div class="data-card-info">
+              <div class="data-card-title">${escHtml((b.title||'???').substring(0,50))}</div>
+              <div class="data-card-sub">${escHtml(b.author||'-')}</div>
+            </div>
+            <div class="data-card-badge">${availLabel}</div>
+          </div>
+          <div class="data-card-body">
+            <div class="data-card-meta">
+              <span class="data-chip">📂 ${escHtml(b.category||'-')}</span>
+              <span class="data-chip">📖 ${escHtml(b.condition||'-')}</span>
+              <span class="data-chip">👁 ${b.view_count||0}</span>
+              <span class="data-chip">⭐ ${b.favorite_count||0}</span>
+              <span class="data-chip">🔖 ${b.is_available ? 'Müsait' : 'Takaslı'}</span>
+            </div>
+          </div>
+          <div class="data-card-footer">
+            <span class="data-card-date">👤 ${shortId(b.owner_id)} · 📅 ${formatDate(b.created_at)}</span>
+            <div class="data-card-actions">
+              <button class="btn btn-detay" onclick="viewBookDetail('${b.id}')">Detay</button>
+              ${b.is_available ? `<button class="btn btn-danger" onclick="deleteBookAction('${b.id}')">Kaldır</button>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    // Pagination
+    if (totalPages > 1) {
+      let phtml = '<div class="pagination-inner">';
+      if (page > 1) phtml += `<button class="page-btn" onclick="loadBooksPageData(${page - 1})">‹</button>`;
+      for (let i = Math.max(1, page - 2); i <= Math.min(totalPages, page + 2); i++) {
+        phtml += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="loadBooksPageData(${i})">${i}</button>`;
+      }
+      if (page < totalPages) phtml += `<button class="page-btn" onclick="loadBooksPageData(${page + 1})">›</button>`;
+      phtml += `<span class="page-info">${total} kitap</span></div>`;
+      pag.innerHTML = phtml;
+    } else { pag.innerHTML = ''; }
+    // Filter events (once)
+    if (!booksListenersAttached) {
+      booksListenersAttached = true;
+      document.getElementById('books-search').addEventListener('input', debounce(loadBooksPage, 400));
+      document.getElementById('books-available-filter').addEventListener('change', loadBooksPage);
+    }
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
 }
 
 async function viewBookDetail(id) {
@@ -1519,6 +2843,7 @@ function deleteBookAction(id) {
 
 // ─── Exchanges Page ─────────────────────────────────────────────
 let excState = { page: 1, limit: 20, status: '' };
+let excListenersAttached = false;
 
 async function loadExchangesPage() {
   excState.status = document.getElementById('exchanges-status-filter').value;
@@ -1527,26 +2852,66 @@ async function loadExchangesPage() {
 }
 
 async function loadExchangesPageData(page) {
-  const el = document.getElementById('exchanges-table-body');
+  const grid = document.getElementById('exchanges-grid');
+  const pag = document.getElementById('exchanges-pagination');
   excState.page = page;
   try {
     const params = { skip: (page - 1) * excState.limit, limit: excState.limit };
     if (excState.status) params.status = excState.status;
     const res = await API.exchanges(params);
-    document.getElementById('exchanges-total').textContent = `Toplam: ${(res.total || res.items?.length || 0)} takas`;
-    if (!res.items || !res.items.length) { el.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Takas bulunamadı</td></tr>'; return; }
-    el.innerHTML = res.items.map(e => `<tr>
-      <td class="text-sm"><code>${shortId(e.id)}</code></td>
-      <td class="text-sm">${(e.book_title || '???').substring(0, 30)}</td>
-      <td class="text-sm">${e.requester_email || '-'}</td>
-      <td class="text-sm">${e.owner_email || '-'}</td>
-      <td>${statusBadge(e.status)}</td>
-      <td class="text-sm text-muted">${formatDate(e.created_at)}</td>
-      <td><div class="action-btns"><button class="btn btn-ghost btn-xs" onclick="viewExchangeDetail('${e.id}')">Detay</button></div></td>
-    </tr>`).join('');
-    renderPagination('exchanges-pagination', Math.ceil((res.total || res.items.length) / excState.limit), page, (p) => loadExchangesPageData(p));
-    document.getElementById('exchanges-status-filter').addEventListener('change', loadExchangesPage);
-  } catch (e) { el.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Hata: ${e.message}</td></tr>`; }
+    const items = res.items || [];
+    const total = res.total || items.length;
+    const totalPages = Math.ceil(total / excState.limit);
+    document.getElementById('exchanges-total').textContent = `${total} takas`;
+    if (!items.length) { grid.innerHTML = '<div class="crud-loading"><div class="text-muted">Takas bulunamadı</div></div>'; pag.innerHTML = ''; return; }
+    const excStatusColors = { pending: '#f59e0b', accepted: '#3b82f6', rejected: '#ef4444', cancelled: '#6b7280', completed: '#10b981', expired: '#94a3b8', meetup_proposed: '#8b5cf6' };
+    const excStatusLabels = { pending: '⏳ Bekliyor', accepted: '✅ Kabul', rejected: '❌ Red', cancelled: '🚫 İptal', completed: '🎉 Tamam', expired: '⌛ Süre Doldu', meetup_proposed: '🔮 Buluşma Önerildi' };
+    grid.innerHTML = items.map(e => {
+      const sc = excStatusColors[e.status] || '#94a3b8';
+      const label = excStatusLabels[e.status] || e.status;
+      return `<div class="data-card">
+        <div class="data-card-inner">
+          <div class="data-card-header">
+            <div class="data-card-avatar-sm" style="background:linear-gradient(135deg,${sc},${sc}88)">🔄</div>
+            <div class="data-card-info">
+              <div class="data-card-title">Takas #${shortId(e.id)}</div>
+              <div class="data-card-sub">📚 Kitap: ${shortId(e.book_id)}</div>
+            </div>
+            <div class="data-card-badge"><span class="badge" style="background:${sc}22;color:${sc};border:1px solid ${sc}44">${label}</span></div>
+          </div>
+          <div class="data-card-body">
+            <div class="data-card-meta">
+              <span class="data-chip">👤 İsteyen: ${shortId(e.requested_by)}</span>
+              <span class="data-chip">👤 Sahip: ${shortId(e.requested_to)}</span>
+              <span class="data-chip">⌛ Bitiş: ${formatDate(e.expires_at)}</span>
+            </div>
+          </div>
+          <div class="data-card-footer">
+            <span class="data-card-date">📅 ${formatDate(e.created_at)}${e.updated_at !== e.created_at ? ' · ✏️ ' + formatDate(e.updated_at) : ''}</span>
+            <div class="data-card-actions">
+              <button class="btn btn-detay" onclick="viewExchangeDetail('${e.id}')">Detay</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    // Pagination
+    if (totalPages > 1) {
+      let phtml = '<div class="pagination-inner">';
+      if (page > 1) phtml += `<button class="page-btn" onclick="loadExchangesPageData(${page - 1})">‹</button>`;
+      for (let i = Math.max(1, page - 2); i <= Math.min(totalPages, page + 2); i++) {
+        phtml += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="loadExchangesPageData(${i})">${i}</button>`;
+      }
+      if (page < totalPages) phtml += `<button class="page-btn" onclick="loadExchangesPageData(${page + 1})">›</button>`;
+      phtml += `<span class="page-info">${total} takas</span></div>`;
+      pag.innerHTML = phtml;
+    } else { pag.innerHTML = ''; }
+    // Filter events (once)
+    if (!excListenersAttached) {
+      excListenersAttached = true;
+      document.getElementById('exchanges-status-filter').addEventListener('change', loadExchangesPage);
+    }
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
 }
 
 async function viewExchangeDetail(id) {
@@ -1569,21 +2934,39 @@ async function viewExchangeDetail(id) {
 
 // ─── Blocked Places Page ────────────────────────────────────────
 async function loadBlockedPlacesPage() {
-  const el = document.getElementById('blocked-places-table-body');
+  const grid = document.getElementById('blocked-places-grid');
   try {
     const res = await API.blockedPlaces({ limit: 100 });
-    document.getElementById('blocked-places-total').textContent = `Toplam: ${(res.items || []).length} engellenmiş yer`;
-    if (!res.items || !res.items.length) { el.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Engellenmiş yer bulunamadı</td></tr>'; return; }
-    el.innerHTML = res.items.map(b => `<tr>
-      <td class="text-sm"><code>${shortId(b.id)}</code></td>
-      <td class="text-sm">${b.place_id ? shortId(b.place_id) : '-'}</td>
-      <td class="text-sm">${b.latitude?.toFixed(4) || '-'}</td>
-      <td class="text-sm">${b.longitude?.toFixed(4) || '-'}</td>
-      <td class="text-sm">${b.reason || '-'}</td>
-      <td class="text-sm text-muted">${formatDate(b.created_at)}</td>
-      <td><button class="btn btn-danger btn-xs" onclick="deleteBlockedPlace('${b.id}')">Sil</button></td>
-    </tr>`).join('');
-  } catch (e) { el.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Hata: ${e.message}</td></tr>`; }
+    const items = res.items || [];
+    document.getElementById('blocked-places-total').textContent = `${items.length} engellenmiş yer`;
+    if (!items.length) { grid.innerHTML = '<div class="crud-loading"><div class="text-muted">Engellenmiş yer bulunamadı</div></div>'; return; }
+    grid.innerHTML = items.map(b => {
+      const sc = stringToColor(b.place_id || b.id || '');
+      return `<div class="data-card">
+        <div class="data-card-inner">
+          <div class="data-card-header">
+            <div class="data-card-avatar-sm" style="background:linear-gradient(135deg,${sc},${sc}88)">🚫</div>
+            <div class="data-card-info">
+              <div class="data-card-title">Yer #${shortId(b.id)}</div>
+              <div class="data-card-sub">${b.place_id ? '📍 ' + shortId(b.place_id) : '📍 Koordinat bazlı'}</div>
+            </div>
+          </div>
+          <div class="data-card-body">
+            <div class="data-card-meta">
+              <span class="data-chip">🌐 ${b.lat.toFixed(4)}, ${b.lng.toFixed(4)}</span>
+              <span class="data-chip">📝 ${escHtml((b.reason||'-').substring(0,35))}</span>
+            </div>
+          </div>
+          <div class="data-card-footer">
+            <span class="data-card-date">📅 ${formatDate(b.created_at)}</span>
+            <div class="data-card-actions">
+              <button class="btn btn-danger" onclick="deleteBlockedPlace('${b.id}')">Sil</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
 }
 
 async function createBlockedPlace() {
@@ -1612,6 +2995,7 @@ async function deleteBlockedPlace(id) {
 
 // ─── Audit Log Page ─────────────────────────────────────────────
 let auditState = { page: 1, limit: 30, event: '' };
+let auditListenersAttached = false;
 
 async function loadAuditLogPage() {
   auditState.event = document.getElementById('audit-event-filter').value;
@@ -1620,25 +3004,63 @@ async function loadAuditLogPage() {
 }
 
 async function loadAuditLogData(page) {
-  const el = document.getElementById('audit-table-body');
+  const grid = document.getElementById('audit-grid');
+  const pag = document.getElementById('audit-pagination');
   auditState.page = page;
   try {
     const params = { skip: (page - 1) * auditState.limit, limit: auditState.limit };
     if (auditState.event) params.event_type = auditState.event;
     const res = await API.auditLog(params);
-    document.getElementById('audit-total').textContent = `Toplam: ${(res.total || res.items?.length || 0)} kayıt`;
-    if (!res.items || !res.items.length) { el.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Kayıt bulunamadı</td></tr>'; return; }
-    evColors = { login_success: '#10b981', login_failure: '#ef4444', user_suspended: '#f97316', user_banned: '#ef4444', user_reinstated: '#3b82f6', report_resolved: '#10b981', book_takedown: '#ef4444' };
-    el.innerHTML = res.items.map(a => `<tr>
-      <td class="text-sm text-muted">${formatDate(a.timestamp)}</td>
-      <td class="text-sm">${a.user_email || (a.actor_email || '-')}</td>
-      <td><span style="display:inline-flex;align-items:center;gap:0.3rem;color:${evColors[a.event_type] || '#94a3b8'}"><span style="width:6px;height:6px;border-radius:50%;background:${evColors[a.event_type] || '#64748b'};display:inline-block"></span>${a.action || a.event_type || '-'}</span></td>
-      <td class="text-sm text-muted">${a.ip_address || '-'}</td>
-      <td class="text-sm text-muted">${a.detail || a.reason || '-'}</td>
-    </tr>`).join('');
-    renderPagination('audit-pagination', Math.ceil((res.total || res.items.length) / auditState.limit), page, (p) => loadAuditLogData(p));
-    document.getElementById('audit-event-filter').addEventListener('change', loadAuditLogPage);
-  } catch (e) { el.innerHTML = `<tr><td colspan="5" class="text-center text-muted">Hata: ${e.message}</td></tr>`; }
+    const items = res.items || [];
+    const total = res.total || items.length;
+    const totalPages = Math.ceil(total / auditState.limit);
+    document.getElementById('audit-total').textContent = `${total} kayıt`;
+    if (!items.length) { grid.innerHTML = '<div class="crud-loading"><div class="text-muted">Kayıt bulunamadı</div></div>'; pag.innerHTML = ''; return; }
+    const evColors = { login_success: '#10b981', login_failure: '#ef4444', user_suspended: '#f97316', user_banned: '#ef4444', user_reinstated: '#3b82f6', report_resolved: '#10b981', book_takedown: '#ef4444' };
+    const evLabels = { login_success: '✅ Giriş', login_failure: '❌ Başarısız Giriş', user_suspended: '⏸ Askıya Alma', user_banned: '🚫 Banlama', user_reinstated: '↩️ Geri Getirme', report_resolved: '🟢 Rapor Çözümü', book_takedown: '📕 Kitap Kaldırma' };
+    grid.innerHTML = items.map(a => {
+      const ec = evColors[a.event_type] || '#94a3b8';
+      const el = evLabels[a.event_type] || a.event_type;
+      // Parse metadata_ for detail
+      let detail = a.metadata_ ? (a.metadata_.reason || a.metadata_.detail || JSON.stringify(a.metadata_)) : '-';
+      if (detail.length > 60) detail = detail.substring(0,60) + '...';
+      return `<div class="data-card">
+        <div class="data-card-inner">
+          <div class="data-card-header" style="padding:0.6rem 0.9rem">
+            <span class="audit-event-dot" style="background:${ec};box-shadow:0 0 6px ${ec}66"></span>
+            <div class="data-card-info">
+              <div class="data-card-title" style="font-size:0.78rem">
+                <span style="color:${ec}">${el}</span>
+                <span class="text-muted" style="font-weight:400;margin-left:0.5rem">${formatDate(a.created_at)}</span>
+              </div>
+              <div class="data-card-sub" style="font-size:0.7rem">${escHtml(a.user_name || a.user_email || 'Anonim')}${a.ip_address ? ' · ' + a.ip_address : ''}</div>
+            </div>
+          </div>
+          <div class="data-card-body" style="padding:0.1rem 0.9rem 0.5rem">
+            <div class="data-card-meta">
+              <span class="data-chip">${escHtml(detail)}</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    // Pagination
+    if (totalPages > 1) {
+      let phtml = '<div class="pagination-inner">';
+      if (page > 1) phtml += `<button class="page-btn" onclick="loadAuditLogData(${page - 1})">‹</button>`;
+      for (let i = Math.max(1, page - 2); i <= Math.min(totalPages, page + 2); i++) {
+        phtml += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="loadAuditLogData(${i})">${i}</button>`;
+      }
+      if (page < totalPages) phtml += `<button class="page-btn" onclick="loadAuditLogData(${page + 1})">›</button>`;
+      phtml += `<span class="page-info">${total} kayıt</span></div>`;
+      pag.innerHTML = phtml;
+    } else { pag.innerHTML = ''; }
+    // Filter events (once)
+    if (!auditListenersAttached) {
+      auditListenersAttached = true;
+      document.getElementById('audit-event-filter').addEventListener('change', loadAuditLogPage);
+    }
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
 }
 
 // ─── System Page ────────────────────────────────────────────────
@@ -1675,6 +3097,185 @@ function stringToColor(str) {
   return colors[Math.abs(hash) % colors.length];
 }
 
+// ─── Crash Reports Page ──────────────────────────────────────────
+let _crashPage = 1;
+async function loadCrashReportsPage(page) {
+  _crashPage = page || 1;
+  const body = document.getElementById('crash-groups-body');
+  const pag = document.getElementById('crash-pagination');
+  if (!body) return;
+  try {
+    const status = document.getElementById('crash-status-filter')?.value || '';
+    const severity = document.getElementById('crash-severity-filter')?.value || '';
+    const app = document.getElementById('crash-app-filter')?.value || '';
+    const params = { page: _crashPage, page_size: 20 };
+    if (status) params.status = status;
+    if (severity) params.severity = severity;
+    if (app) params.app = app;
+    const [groups, trends] = await Promise.all([
+      API.crashGroups(params),
+      API.crashTrends(14).catch(() => null)
+    ]);
+    // Badge
+    if (groups?.total !== undefined) document.getElementById('crash-badge').textContent = groups.total;
+    document.getElementById('crash-total').textContent = `Toplam: ${groups?.total || 0} hata grubu`;
+    // Trend chart
+    if (trends?.items?.length) {
+      const data = [
+        { label: 'Toplam', values: trends.items.map(t => t.total), color: '#3b82f6' },
+        { label: 'Kritik', values: trends.items.map(t => t.fatal), color: '#ef4444' },
+      ];
+      Charts.line('crash-trend-chart', data, {
+        xLabels: trends.items.map(t => { const d = t.date.slice(5); return d.replace('-', '/'); }),
+        height: 160, fillOpacity: 0.1
+      });
+    }
+    // Table
+    if (!groups?.items?.length) {
+      body.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Hata raporu bulunamadı</td></tr>';
+      pag.innerHTML = '';
+      return;
+    }
+    const severityColors = { fatal: '#ef4444', error: '#f59e0b', warning: '#3b82f6' };
+    const statusColors = { new: '#ef4444', investigating: '#f59e0b', fixed: '#10b981', closed: '#64748b' };
+    const statusLabels = { new: 'Yeni', investigating: 'İnceleniyor', fixed: 'Çözüldü', closed: 'Kapatıldı' };
+    body.innerHTML = groups.items.map(g => {
+      const sevColor = severityColors[g.severity] || '#64748b';
+      const stColor = statusColors[g.status] || '#64748b';
+      const errType = g.error_type || 'Bilinmeyen';
+      const errMsg = (g.error_message || '').substring(0, 80);
+      return `<tr style="cursor:pointer" onclick="showCrashDetail('${g.id}')">
+        <td><span class="badge" style="background:${sevColor}20;color:${sevColor};border:1px solid ${sevColor}40">${errType}</span></td>
+        <td class="text-sm" title="${g.error_message || ''}">${errMsg}${(g.error_message || '').length > 80 ? '…' : ''}</td>
+        <td><span class="badge" style="background:${sevColor}20;color:${sevColor}">${g.severity === 'fatal' ? 'Kritik' : g.severity === 'warning' ? 'Uyarı' : 'Hata'}</span></td>
+        <td><span class="badge" style="background:${stColor}20;color:${stColor}">${statusLabels[g.status] || g.status}</span></td>
+        <td><strong>${formatNum(g.occurrence_count)}</strong></td>
+        <td class="text-sm">${formatNum(g.affected_users)}</td>
+        <td class="text-sm text-muted">${g.first_seen_version || '-'}</td>
+        <td class="text-sm text-muted">${formatDate(g.last_seen)}</td>
+        <td>
+          <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();showCrashDetail('${g.id}')">Detay</button>
+          <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();showCrashActionModal('${g.id}', '${g.status}')">İşlem</button>
+        </td>
+      </tr>`;
+    }).join('');
+    renderPagination('crash-pagination', Math.ceil((groups.total || 0) / 20), _crashPage, (p) => loadCrashReportsPage(p));
+    // Filter change listeners
+    ['crash-status-filter', 'crash-severity-filter', 'crash-app-filter'].forEach(id => {
+      document.getElementById(id)?.addEventListener('change', () => loadCrashReportsPage(1));
+    });
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="9" class="text-center text-muted">Hata: ${e.message}</td></tr>`;
+  }
+}
+
+async function showCrashDetail(id) {
+  const body = document.getElementById('crash-detail-body');
+  showModal('crash-detail-modal');
+  body.innerHTML = '<div class="loading-spinner"></div>';
+  try {
+    const g = await API.crashGroupDetail(id);
+    // Fetch individual crashes in this group
+    const crashes = await API.adminRequest('/crash-reports', { params: { group_id: id, page_size: 10 } });
+    let html = `
+      <div class="card" style="margin-bottom:1rem">
+        <div class="card-header"><h3>${g.error_type || 'Bilinmeyen Hata'}</h3></div>
+        <div class="card-body">
+          <div class="stats-list">
+            <div class="stat-row"><span>Durum</span><strong>${g.status}</strong></div>
+            <div class="stat-row"><span>Seviye</span><strong>${g.severity}</strong></div>
+            <div class="stat-row"><span>Toplam Oluşum</span><strong>${formatNum(g.occurrence_count)}</strong></div>
+            <div class="stat-row"><span>Etkilenen Kullanıcı</span><strong>${formatNum(g.affected_users)}</strong></div>
+            <div class="stat-row"><span>İlk Görülme</span><strong class="text-sm text-muted">${formatDate(g.first_seen)}</strong></div>
+            <div class="stat-row"><span>Son Görülme</span><strong class="text-sm text-muted">${formatDate(g.last_seen)}</strong></div>
+            <div class="stat-row"><span>İlk Sürüm</span><strong class="text-sm">${g.first_seen_version || '-'}</strong></div>
+            <div class="stat-row"><span>Çözüm Sürümü</span><strong class="text-sm">${g.fixed_in_version || '-'}</strong></div>
+          </div>
+        </div>
+      </div>`;
+    // Error message + stack trace
+    if (g.error_message) html += `<div class="card" style="margin-bottom:1rem"><div class="card-header"><h3>Hata Mesajı</h3></div><div class="card-body"><pre style="background:var(--bg-elevated);padding:1rem;border-radius:var(--radius-sm);overflow:auto;max-height:200px;font-size:0.8rem;line-height:1.5;color:var(--text-secondary);white-space:pre-wrap;word-break:break-word">${escHtml(g.error_message)}</pre></div></div>`;
+    if (g.stack_trace) html += `<div class="card" style="margin-bottom:1rem"><div class="card-header"><h3>Stack Trace</h3></div><div class="card-body"><pre style="background:#1a1a2e;padding:1rem;border-radius:var(--radius-sm);overflow:auto;max-height:300px;font-size:0.75rem;line-height:1.4;color:#e2e8f0;white-space:pre-wrap;word-break:break-word">${escHtml(g.stack_trace)}</pre></div></div>`;
+    // Platform/screen distribution
+    if (g.top_platforms && Object.keys(g.top_platforms).length) {
+      html += `<div class="card" style="margin-bottom:1rem"><div class="card-header"><h3>Platform Dağılımı</h3></div><div class="card-body"><div class="stats-list">${
+        Object.entries(g.top_platforms).map(([k, v]) => `<div class="stat-row"><span>${k}</span><strong>${v}</strong></div>`).join('')
+      }</div></div></div>`;
+    }
+    if (g.top_screens && Object.keys(g.top_screens).length) {
+      html += `<div class="card" style="margin-bottom:1rem"><div class="card-header"><h3>Ekran Dağılımı</h3></div><div class="card-body"><div class="stats-list">${
+        Object.entries(g.top_screens).map(([k, v]) => `<div class="stat-row"><span>${k}</span><strong>${v}</strong></div>`).join('')
+      }</div></div></div>`;
+    }
+    // Affected versions
+    if (g.affected_versions && Object.keys(g.affected_versions).length) {
+      html += `<div class="card" style="margin-bottom:1rem"><div class="card-header"><h3>Sürüm Dağılımı</h3></div><div class="card-body"><div class="stats-list">${
+        Object.entries(g.affected_versions).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="stat-row"><span>${k}</span><strong>${v}</strong></div>`).join('')
+      }</div></div></div>`;
+    }
+    // Admin notes
+    if (g.notes) html += `<div class="card" style="margin-bottom:1rem"><div class="card-header"><h3>Admin Notu</h3></div><div class="card-body"><p style="color:var(--text-secondary);white-space:pre-wrap">${escHtml(g.notes)}</p></div></div>`;
+    // Individual crashes in group
+    if (crashes?.items?.length) {
+      html += `<div class="card"><div class="card-header"><h3>Son ${crashes.items.length} Hata Kaydı</h3></div><div class="table-container"><table><thead><tr><th>Sürüm</th><th>Platform</th><th>Ekran</th><th>Kullanıcı</th><th>Tarih</th></tr></thead><tbody>${
+        crashes.items.map(c => `<tr><td class="text-sm">${c.app_version || '-'}</td><td class="text-sm">${c.device_info?.platform || '-'}</td><td class="text-sm">${c.screen_name || '-'}</td><td class="text-sm text-muted">${c.user_id ? c.user_id.slice(0, 8)+'…' : '-'}</td><td class="text-sm text-muted">${formatDate(c.created_at)}</td></tr>`).join('')
+      }</tbody></table></div></div>`;
+    }
+    body.innerHTML = html;
+  } catch (e) { body.innerHTML = `<div class="text-center text-muted">Hata: ${e.message}</div>`; }
+}
+
+function showCrashActionModal(id, currentStatus) {
+  const body = document.getElementById('crash-action-body');
+  const title = document.getElementById('crash-action-title');
+  title.textContent = 'Hata Aksiyonu';
+  const statusOpts = ['new', 'investigating', 'fixed', 'closed'];
+  body.innerHTML = `
+    <div class="form-group"><label class="form-label">Durum</label>
+      <select class="form-input" id="crash-action-status">
+        ${statusOpts.map(s => `<option value="${s}" ${s === currentStatus ? 'selected' : ''}>${s === 'new' ? 'Yeni' : s === 'investigating' ? 'İnceleniyor' : s === 'fixed' ? 'Çözüldü' : 'Kapatıldı'}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Çözüm Sürümü (opsiyonel)</label><input type="text" class="form-input" id="crash-action-version" placeholder="örn. 1.3.0"></div>
+    <div class="form-group"><label class="form-label">Not (opsiyonel)</label><textarea class="form-input" id="crash-action-notes" rows="3" placeholder="Araştırma notları..."></textarea></div>
+    <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+      <button class="btn btn-ghost" onclick="closeModal('crash-action-modal')">İptal</button>
+      <button class="btn btn-primary" onclick="submitCrashAction('${id}')">Kaydet</button>
+    </div>
+  `;
+  showModal('crash-action-modal');
+}
+
+async function submitCrashAction(id) {
+  const status = document.getElementById('crash-action-status')?.value;
+  const version = document.getElementById('crash-action-version')?.value || '';
+  const notes = document.getElementById('crash-action-notes')?.value || '';
+  try {
+    // Map status to action
+    if (status === 'new') await API.crashGroupAction(id, 'reopen', '');
+    else if (status === 'investigating') await API.crashGroupAction(id, 'investigate', '');
+    else if (status === 'fixed') await API.crashGroupAction(id, 'fix', version);
+    else if (status === 'closed') await API.crashGroupAction(id, 'close', '');
+    if (notes) await API.crashGroupAction(id, 'notes', notes);
+    closeModal('crash-action-modal');
+    showToast('Hata durumu güncellendi', 'success');
+    loadCrashReportsPage(_crashPage);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function loadCrashVersionStats() {
+  const body = document.getElementById('crash-versions-body');
+  showModal('crash-versions-modal');
+  body.innerHTML = '<div class="loading-spinner"></div>';
+  try {
+    const v = await API.crashVersionStats();
+    if (!v?.items?.length) { body.innerHTML = '<div class="text-center text-muted">Veri yok</div>'; return; }
+    body.innerHTML = `<div class="table-container"><table><thead><tr><th>Sürüm</th><th>Hata Sayısı</th><th>Farklı Hata</th><th>Son Hata</th></tr></thead><tbody>${
+      v.items.map(i => `<tr><td><strong>${i.version}</strong></td><td>${formatNum(i.count)}</td><td>${i.distinct_errors}</td><td class="text-sm text-muted">${formatDate(i.last_seen)}</td></tr>`).join('')
+    }</tbody></table></div>`;
+  } catch (e) { body.innerHTML = `<div class="text-center text-muted">Hata: ${e.message}</div>`; }
+}
+
 // ─── Pagination ─────────────────────────────────────────────────
 function renderPagination(containerId, totalPages, currentPage, callback) {
   const el = document.getElementById(containerId);
@@ -1694,10 +3295,12 @@ function renderPagination(containerId, totalPages, currentPage, callback) {
 
 // ─── Init ────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  loadTheme();
   if (state.token) {
     document.getElementById('sidebar-email').textContent = state.user?.email || 'admin@meetbook.app';
     document.getElementById('sidebar-name').textContent = (state.user?.email || 'Admin').split('@')[0];
     document.getElementById('sidebar-avatar').textContent = (state.user?.email || 'A')[0].toUpperCase();
+    startBadgePolling();
     const page = window.location.hash.replace('#', '') || 'dashboard';
     navigateTo(page);
   } else {
@@ -1707,6 +3310,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'r' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); refreshPage(); }
     if (e.key === 'Escape') { document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active')); }
+    if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+      showToast('Kısayollar: Ctrl+R → Yenile | ? → Yardım', 'info', 5000);
+    }
   });
 });
 </script>

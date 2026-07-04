@@ -160,6 +160,16 @@ class CrashReporter {
     }
   }
 
+  /** Known false-positive error patterns — skip these silently. */
+  private _isKnownFalsePositive(errorMessage: string): boolean {
+    const patterns = [
+      // react-native-webrtc native module not linked in this build.
+      // This is caught safely by the lazy loader and doesn't crash the app.
+      'WebRTC native module not found',
+    ];
+    return patterns.some((p) => errorMessage.includes(p));
+  }
+
   /** Report a caught error. Use in try-catch blocks and error boundaries. */
   async captureError(error: unknown, context?: string) {
     if (!this.initialized) {
@@ -168,6 +178,15 @@ class CrashReporter {
     }
 
     const err = error instanceof Error ? error : new Error(String(error));
+
+    // Filter known false positives that don't actually crash the app
+    if (this._isKnownFalsePositive(err.message)) {
+      if (__DEV__) {
+        console.log('[CrashReporter] skipping known false-positive:', err.message);
+      }
+      return;
+    }
+
     const payload: CrashPayload = {
       app: 'mobile',
       app_version: Constants.expoConfig?.version ?? null,
