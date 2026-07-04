@@ -10,6 +10,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { palette, spacing, fontSize, radius, shadows } from './tokens';
 
 const EMOJI_CATEGORIES = [
@@ -41,6 +42,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ visible, onClose, onSe
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = palette[isDark ? 'dark' : 'light'];
+  const insets = useSafeAreaInsets();
   const [activeCategory, setActiveCategory] = useState(0);
 
   const currentEmojis = EMOJI_CATEGORIES[activeCategory].emojis;
@@ -49,7 +51,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ visible, onClose, onSe
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
         <View
-          style={[styles.container, { backgroundColor: colors.surface, ...shadows.sheet }]}
+          style={[styles.container, { backgroundColor: colors.surface, paddingBottom: Math.max(20, insets.bottom), ...shadows.sheet }]}
           onStartShouldSetResponder={() => true}
         >
           {/* Handle */}
@@ -137,7 +139,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
     maxHeight: '50%',
-    paddingBottom: 34,
   },
   handle: {
     width: 36,

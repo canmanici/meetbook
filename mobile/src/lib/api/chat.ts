@@ -347,7 +347,7 @@ class ChatWebSocketManager {
     callId: string,
     kind: 'audio' | 'video',
     payload?: unknown,
-    log?: { status: 'ended' | 'missed' | 'rejected' | 'failed'; duration_seconds: number },
+    log?: { status: 'ended' | 'missed' | 'rejected' | 'failed'; duration_seconds: number; route?: 'direct' | 'relay' | null },
   ): boolean {
     if (this.ws?.readyState === WebSocket.OPEN) {
       const msg: Record<string, unknown> = { type: 'call', chat_id: chatId, event, call_id: callId, kind };
@@ -357,6 +357,45 @@ class ChatWebSocketManager {
       return true;
     }
     return false;
+  }
+
+  /** Resolves once the socket reaches OPEN, or false if it doesn't within timeoutMs.
+   *  Kicks a reconnect attempt immediately instead of waiting for the backoff timer. */
+  private waitForOpen(timeoutMs: number): Promise<boolean> {
+    if (this.ws?.readyState === WebSocket.OPEN) return Promise.resolve(true);
+    void this.connect();
+    return new Promise((resolve) => {
+      const start = Date.now();
+      const poll = setInterval(() => {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+          clearInterval(poll);
+          resolve(true);
+        } else if (Date.now() - start >= timeoutMs) {
+          clearInterval(poll);
+          resolve(false);
+        }
+      }, 150);
+    });
+  }
+
+  /** Like sendCall, but tolerates a socket that's mid-reconnect (screen lock,
+   *  network blip) by waiting up to timeoutMs for it to come back before
+   *  giving up. Use for the offer/answer handshake, where a silently dropped
+   *  message strands the other side with no recovery path. */
+  async sendCallReliable(
+    chatId: string,
+    event: CallEvent,
+    callId: string,
+    kind: 'audio' | 'video',
+    payload?: unknown,
+    log?: { status: 'ended' | 'missed' | 'rejected' | 'failed'; duration_seconds: number; route?: 'direct' | 'relay' | null },
+    timeoutMs = 4000,
+  ): Promise<boolean> {
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      const opened = await this.waitForOpen(timeoutMs);
+      if (!opened) return false;
+    }
+    return this.sendCall(chatId, event, callId, kind, payload, log);
   }
 
   ping() {

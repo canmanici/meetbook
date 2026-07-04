@@ -214,6 +214,51 @@ for path in png_dupes:
     os.remove(path)
     changes.append(f"Removed duplicate PNG (WEBP exists): {os.path.basename(path)}")
 
+# ── 9. Strip biometric permissions from AndroidManifest ───────────────────
+# expo-secure-store's dependency (androidx.biometric) auto-injects
+# USE_BIOMETRIC / USE_FINGERPRINT into the merged manifest via library AAR.
+# We don't use biometric auth, and these permissions cause some devices
+# (Samsung, Xiaomi, etc.) to prompt for fingerprint during APK install.
+# Adding tools:node="remove" declarations tells the manifest merger to strip
+# these from ALL sources (including library AARs).
+MANIFEST_PATH = "android/app/src/main/AndroidManifest.xml"
+if os.path.exists(MANIFEST_PATH):
+    with open(MANIFEST_PATH, "r") as f:
+        manifest_content = f.read()
+
+    # Ensure tools namespace is declared
+    tools_ns = 'xmlns:tools="http://schemas.android.com/tools"'
+    if tools_ns not in manifest_content:
+        manifest_content = manifest_content.replace(
+            '<manifest ',
+            '<manifest ' + tools_ns + ' '
+        )
+
+    # Add tools:node="remove" for biometric permissions (if not already present)
+    remove_biometric = '<uses-permission android:name="android.permission.USE_BIOMETRIC" tools:node="remove"/>'
+    remove_fingerprint = '<uses-permission android:name="android.permission.USE_FINGERPRINT" tools:node="remove"/>'
+
+    if remove_biometric not in manifest_content:
+        # Insert AFTER ACCESS_BACKGROUND_LOCATION (first permission line)
+        insert_point = manifest_content.find('<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"')
+        if insert_point != -1:
+            line_end = manifest_content.find('\n', insert_point)
+            if line_end != -1:
+                indent = '  '
+                manifest_content = (
+                    manifest_content[:line_end + 1] +
+                    f'{indent}<!-- Biometric permissions removed: androidx.biometric adds these but we do not use them -->\n'
+                    f'{indent}{remove_biometric}\n'
+                    f'{indent}{remove_fingerprint}\n' +
+                    manifest_content[line_end + 1:]
+                )
+                changes.append("Added tools:node=\"remove\" for USE_BIOMETRIC/USE_FINGERPRINT")
+
+    with open(MANIFEST_PATH, "w") as f:
+        f.write(manifest_content)
+    if not any("USE_BIOMETRIC" in c for c in changes):
+        changes.append("USE_BIOMETRIC/USE_FINGERPRINT removal already present")
+
 with open(BUILD_GRADLE, "w") as f:
     f.write(content)
 

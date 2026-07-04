@@ -17,7 +17,7 @@ from app.core.redis import get_redis
 from app.modules.auth.models import User
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.trust import compute_trust
-from app.modules.books.repository import BookRepository, BookRow, encode_cursor
+from app.modules.books.repository import BookRepository, BookRow, encode_ts_cursor
 from app.modules.books.schemas import LocationOutput, PhotoView
 from app.modules.exchanges.models import (
     Chat,
@@ -359,7 +359,7 @@ class ExchangeService:
         next_cursor = None
         if len(rows) == limit:
             last = rows[-1]
-            next_cursor = encode_cursor(last.created_at, last.id)
+            next_cursor = encode_ts_cursor(last.created_at, last.id)
         items = [await self._to_summary(request, role) for request in rows]
         return ExchangeListResponse(items=items, next_cursor=next_cursor)
 

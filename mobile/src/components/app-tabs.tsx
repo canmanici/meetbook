@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Text, View, useColorScheme, ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 
@@ -58,6 +59,8 @@ export function AppTabs() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = palette[isDark ? 'dark' : 'light'];
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(20, insets.bottom);
 
   const { data: receivedData } = useQuery({
     queryKey: ['exchanges', 'received', 'badge'],
@@ -91,8 +94,8 @@ export function AppTabs() {
           backgroundColor: colors.surface,
           borderTopWidth: 1,
           borderTopColor: colors.border,
-          height: 88,
-          paddingBottom: 20,
+          height: 68 + bottomInset,
+          paddingBottom: bottomInset,
           paddingTop: 4,
         },
       }}>

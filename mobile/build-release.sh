@@ -12,25 +12,48 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 # ── Versioning ────────────────────────────────────────────────────────────
-# app.json (expo.version) is the single source of truth for the human-facing
-# version. versionCode is a separate monotonically-increasing build counter
-# (Android requires it to strictly increase between releases), persisted in
-# .version-code and bumped once per invocation of this script.
-VERSION=$(python3 -c "import json; print(json.load(open('app.json'))['expo']['version'])")
+# VERSION is derived from VERSION_CODE so they stay in sync.
+# versionCode is a monotonically-increasing build counter (Android requires
+# it to strictly increase between releases), persisted in .version-code and
+# bumped once per invocation of this script.
+# The version format is: MAJOR.MINOR.VERSION_CODE
 VERSION_CODE_FILE=".version-code"
 VERSION_CODE=$(($(cat "$VERSION_CODE_FILE" 2>/dev/null || echo 0) + 1))
 echo "$VERSION_CODE" > "$VERSION_CODE_FILE"
 
-echo "🔨 MeetBook v$VERSION (build $VERSION_CODE) — Production APK Build"
+MAJOR=1
+MINOR=1
+VERSION="${MAJOR}.${MINOR}.${VERSION_CODE}"
+
+# Sync app.json so the app's About screen and Play Store listing match
+python3 -c "
+import json
+p = 'app.json'
+d = json.load(open(p))
+d['expo']['version'] = '$VERSION'
+json.dump(d, open(p, 'w'), indent=2)
+"
+
+echo "🔨 MeetBook v$VERSION — Production APK Build"
 echo "   API: https://canmanici.com/meetbook/api/v1"
 echo "   ABIs: arm64-v8a"
 echo ""
+
+# ── Export production API URL for entire build ──────────────────────────
+# This MUST be exported as a process env var so Metro reads it during the
+# JS bundle step (gradle assembleRelease runs Metro internally). The .env
+# file typically contains a local dev IP and would produce a broken APK
+# that can't reach the production server.
+# Source from .env.production to keep the URL defined in one place.
+export EXPO_PUBLIC_API_URL
+EXPO_PUBLIC_API_URL=$(grep '^EXPO_PUBLIC_API_URL=' .env.production | cut -d= -f2-)
+echo "   EXPO_PUBLIC_API_URL=$EXPO_PUBLIC_API_URL"
 
 # ── Prebuild (regenerate android/ios if needed) ───────────────────────────
 # Only run if android/ doesn't exist yet (saves ~5s on subsequent builds)
 if [ ! -d "android/app" ]; then
     echo "📦 Running prebuild..."
-    EXPO_PUBLIC_API_URL="https://canmanici.com/meetbook/api/v1" npx expo prebuild --platform android --no-install 2>&1 | tail -3
+    npx expo prebuild --platform android --no-install 2>&1 | tail -3
 else
     echo "📦 Android project exists, skipping prebuild"
 fi
@@ -86,7 +109,7 @@ APK=$(find "$APK_DIR" -name "*.apk" 2>/dev/null | head -1)
 
 if [ -f "$APK" ]; then
     SIZE=$(du -sh "$APK" | cut -f1)
-    OUT="../meetbook-v${VERSION}-build${VERSION_CODE}-release.apk"
+    OUT="../meetbook-v${VERSION}-release.apk"
     cp "$APK" "$OUT"
     echo ""
     echo "✅ BUILD SUCCESSFUL — $SIZE"

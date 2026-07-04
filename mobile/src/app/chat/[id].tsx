@@ -1140,7 +1140,7 @@ export default function ChatDetailScreen() {
       <Modal visible={showBookPicker} transparent animationType="slide" onRequestClose={() => setShowBookPicker(false)}>
         <TouchableOpacity style={styles.bookPickerOverlay} activeOpacity={1} onPress={() => setShowBookPicker(false)}>
           <View
-            style={[styles.bookPickerContainer, { backgroundColor: colors.surface, ...shadows.sheet }]}
+            style={[styles.bookPickerContainer, { backgroundColor: colors.surface, paddingBottom: Math.max(20, insets.bottom), ...shadows.sheet }]}
             onStartShouldSetResponder={() => true}
           >
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
@@ -1700,7 +1700,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
     maxHeight: '60%',
-    paddingBottom: 34,
   },
   handle: {
     width: 36,

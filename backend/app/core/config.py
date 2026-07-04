@@ -25,10 +25,20 @@ class Settings(BaseSettings):
     # Shared HMAC secret with coturn (`static-auth-secret`). Empty -> the
     # /chat/turn-credentials endpoint returns STUN-only ICE servers.
     turn_secret: str = ""
-    # Public hostname or static IP of the TURN server (never a docker name).
+    # Public hostname(s) or static IP(s) of TURN server(s) — comma-separated
+    # for multi-region (client offers all; ICE picks the lowest-latency one).
+    # Never a docker name.
     turn_host: str = ""
     turn_port: int = 3478
+    # TLS listener port for `turns:` (TURN-over-TLS). 0 = disabled. Run coturn
+    # with tls-listening-port=443 + a real cert: it's the only transport that
+    # survives UDP-blocking corporate/hotel networks.
+    turn_tls_port: int = 0
     turn_credential_ttl_seconds: int = 3600
+
+    @property
+    def turn_hosts_list(self) -> list[str]:
+        return [h.strip() for h in self.turn_host.split(",") if h.strip()]
 
     google_places_key: str = ""
     s3_endpoint: str = ""

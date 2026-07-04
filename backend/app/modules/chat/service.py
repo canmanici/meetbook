@@ -352,9 +352,9 @@ class ChatService:
 
         next_cursor = None
         if has_more:
-            from app.modules.books.repository import encode_cursor
+            from app.modules.books.repository import encode_ts_cursor
             last = msgs[-1]
-            next_cursor = encode_cursor(last.created_at, last.id)
+            next_cursor = encode_ts_cursor(last.created_at, last.id)
 
         from app.modules.auth.repository import AuthRepository
         auth_repo = AuthRepository(self.session)
@@ -828,32 +828,51 @@ class ChatService:
         await ConnectionManager.send_to_user(other_id, relay)
 
         if event == "offer":
-            # Callee offline → tell the caller immediately and try a push so
-            # the callee at least sees a missed-call notification.
+            # Callee's WS is down (app backgrounded / Doze) → push an
+            # incoming-call notification and hold a grace window: if the
+            # callee opens the app (WS reconnects) before the caller's ring
+            # timeout, re-deliver the buffered offer so the phone rings
+            # in-app. Only if the window expires do we tell the caller
+            # 'unavailable'.
             if not await ConnectionManager.check_online(other_id):
-                try:
-                    await ws.send_text(json.dumps({
-                        "type": "call",
-                        "event": "unavailable",
-                        "chat_id": str(chat_id),
-                        "call_id": call_id,
-                        "kind": kind,
-                    }))
-                except Exception:
-                    pass
                 try:
                     label = "görüntülü" if kind == "video" else "sesli"
                     await send_push_to_user(
                         str(other_id),
                         PushMessage(
-                            title="📞 Cevapsız Arama",
-                            body=f"{caller_name} sana {label} arama yaptı",
-                            data={"type": "missed_call", "chat_id": str(chat_id)},
+                            title="📞 Gelen Arama",
+                            body=f"{caller_name} seni arıyor ({label})",
+                            data={
+                                "type": "incoming_call",
+                                "chat_id": str(chat_id),
+                                "call_id": call_id,
+                                "kind": kind,
+                            },
                         ),
                         session=self.session,
                     )
                 except Exception as exc:
                     logger.warning("Call push failed for user %s: %s", other_id, exc)
+
+                async def _ring_grace_window() -> None:
+                    # 12 × 2s ≈ 24s — inside the caller's 30s ring timeout.
+                    for _ in range(12):
+                        await asyncio.sleep(2)
+                        if await ConnectionManager.check_online(other_id):
+                            await ConnectionManager.send_to_user(other_id, relay)
+                            return
+                    try:
+                        await ws.send_text(json.dumps({
+                            "type": "call",
+                            "event": "unavailable",
+                            "chat_id": str(chat_id),
+                            "call_id": call_id,
+                            "kind": kind,
+                        }))
+                    except Exception:
+                        pass  # caller's WS closed meanwhile — their own timer handles it
+
+                asyncio.create_task(_ring_grace_window())
 
         # Persist a call-log system message when the terminating side asks
         # for it (exactly one side sends `log`, so no duplicates).
@@ -878,6 +897,10 @@ class ChatService:
                     "kind": kind,
                     "status": status,
                     "duration_seconds": duration,
+                    # Connection route telemetry: 'direct' (host/srflx P2P),
+                    # 'relay' (TURN), or None for calls that never connected.
+                    # Feeds the admin metrics P2P-vs-relay ratio.
+                    "route": log.get("route") if log.get("route") in ("direct", "relay") else None,
                 },
             )
             await self.session.commit()

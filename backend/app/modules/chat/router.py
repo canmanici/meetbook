@@ -337,17 +337,19 @@ async def get_turn_credentials(
         settings.turn_secret.encode(), username.encode(), hashlib.sha1
     ).digest()
     credential = base64.b64encode(digest).decode()
-    host = settings.turn_host
     port = settings.turn_port
-    turn = IceServer(
-        urls=[
+    servers = [stun]
+    for host in settings.turn_hosts_list:
+        urls = [
             f"turn:{host}:{port}?transport=udp",
             f"turn:{host}:{port}?transport=tcp",
-        ],
-        username=username,
-        credential=credential,
-    )
-    return TurnCredentialsResponse(ice_servers=[stun, turn], ttl_seconds=ttl)
+        ]
+        if settings.turn_tls_port:
+            # TURN-over-TLS on 443: the only transport UDP-blocking
+            # corporate/hotel networks let through.
+            urls.append(f"turns:{host}:{settings.turn_tls_port}?transport=tcp")
+        servers.append(IceServer(urls=urls, username=username, credential=credential))
+    return TurnCredentialsResponse(ice_servers=servers, ttl_seconds=ttl)
 
 
 @chat_router.post("/ticket", response_model=ChatTicketResponse)

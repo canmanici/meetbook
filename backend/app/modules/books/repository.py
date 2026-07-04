@@ -51,6 +51,19 @@ def decode_cursor(cursor: str) -> tuple[int, datetime, uuid.UUID]:
     return sort_order, created_at, book_id
 
 
+# Two-field (created_at, id) cursor used by chat messages and exchanges,
+# which have no sort_order dimension.
+def encode_ts_cursor(created_at: datetime, item_id: uuid.UUID) -> str:
+    raw = f"{created_at.isoformat()}|{str(item_id)}"
+    return base64.urlsafe_b64encode(raw.encode()).decode()
+
+
+def decode_ts_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
+    raw = base64.urlsafe_b64decode(cursor.encode()).decode()
+    parts = raw.split("|", maxsplit=1)
+    return datetime.fromisoformat(parts[0]), uuid.UUID(parts[1])
+
+
 class BookRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session

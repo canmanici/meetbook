@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.geo import make_point
-from app.modules.books.repository import decode_cursor
+from app.modules.books.repository import decode_ts_cursor
 from app.modules.exchanges.models import (
     ACTIVE_LOAN_STATUSES,
     ACTIVE_STATUSES,
@@ -101,7 +101,7 @@ class ExchangeRepository:
         if status is not None:
             stmt = stmt.where(ExchangeRequest.status == status)
         if cursor:
-            cursor_created_at, cursor_id = decode_cursor(cursor)
+            cursor_created_at, cursor_id = decode_ts_cursor(cursor)
             stmt = stmt.where(
                 or_(
                     ExchangeRequest.created_at < cursor_created_at,

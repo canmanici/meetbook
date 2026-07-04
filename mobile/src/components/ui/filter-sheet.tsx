@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, useColorScheme, Modal, Pressa
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Slider from '@react-native-community/slider';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { palette, spacing, fontSize, radius } from './tokens';
 
 export interface FilterState {
@@ -47,6 +48,7 @@ const RADIUS_PRESETS = [1, 5, 10, 25, 50, 100, 200];
 export function FilterSheet({ visible, onClose, onApply, resultCount, initialFilters, radiusKm, onRadiusChange }: FilterSheetProps) {
   const scheme = useColorScheme();
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
+  const insets = useSafeAreaInsets();
 
   const [filters, setFilters] = useState<FilterState>(
     initialFilters ?? { category: null, condition: null, language: null },
@@ -86,7 +88,7 @@ export function FilterSheet({ visible, onClose, onApply, resultCount, initialFil
       onRequestClose={onClose}
     >
       <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={[styles.sheet, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={[styles.sheet, { backgroundColor: colors.surface, paddingBottom: Math.max(20, insets.bottom) }]} onPress={(e) => e.stopPropagation()}>
           {/* Handle */}
           <View style={[styles.handle, { backgroundColor: colors.textMuted }]} />
 
@@ -293,7 +295,6 @@ const styles = StyleSheet.create({
   sheet: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingBottom: 34,
     maxHeight: '85%',
   },
   handle: {

@@ -232,8 +232,8 @@ class ChatRepository:
         )
 
         if cursor:
-            from app.modules.books.repository import decode_cursor
-            cursor_created_at, cursor_id = decode_cursor(cursor)
+            from app.modules.books.repository import decode_ts_cursor
+            cursor_created_at, cursor_id = decode_ts_cursor(cursor)
             stmt = stmt.where(
                 or_(
                     Message.created_at < cursor_created_at,

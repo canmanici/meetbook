@@ -32,6 +32,15 @@ export type NetworkQuality = 'good' | 'fair' | 'poor';
 
 const RING_TIMEOUT_MS = 30_000;
 const ENDED_SCREEN_MS = 1_800;
+// Max time allowed in 'connecting' (answer sent/received but no media yet)
+// before giving up — without this the callee can sit on "bağlanıyor" forever.
+const CONNECT_TIMEOUT_MS = 20_000;
+// ICE restart budget per call: WiFi→4G handoff needs 1; give a spare for a
+// double network change. Beyond that the link is genuinely gone.
+const MAX_ICE_RESTARTS = 2;
+// How long 'disconnected' must persist before we try an ICE restart —
+// transient radio blips usually self-heal within a couple of seconds.
+const DISCONNECT_GRACE_MS = 3_000;
 
 interface PeerInfo {
   id?: string;
@@ -77,9 +86,24 @@ interface CallState {
 let pc: any | null = null;
 let ringTimer: ReturnType<typeof setTimeout> | null = null;
 let endedTimer: ReturnType<typeof setTimeout> | null = null;
+let connectTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingOffer: any | null = null;
+// ICE candidates buffered before the PC has a remote description. Tagged with
+// the call id they belong to so a new call can never ingest a stale batch,
+// and so candidates that arrive BEFORE the offer (very common: the caller's
+// host/srflx candidates fire within ms of setLocalDescription and can outrun
+// the offer over the relay) are kept instead of dropped.
 let pendingIce: any[] = [];
+let pendingIceCallId: string | null = null;
 let signalingBound = false;
+
+function bufferIce(callId: string, candidate: any) {
+  if (pendingIceCallId !== callId) {
+    pendingIce = [];
+    pendingIceCallId = callId;
+  }
+  pendingIce.push(candidate);
+}
 
 // Cached ephemeral TURN credentials — refetched when within 5 min of expiry.
 // The credential itself is a time-limited HMAC minted by the backend, so
@@ -145,6 +169,47 @@ let prevPackets: { sent: number; lost: number } | null = null;
 let goodStreak = 0;
 let badStreak = 0;
 let autoLevel: 'low' | 'medium' | 'high' = 'high';
+// How this call's media actually flows: 'direct' = P2P (host/srflx),
+// 'relay' = through our TURN server. Attached to the call log for the
+// admin P2P-vs-relay ratio metric.
+let connRoute: 'direct' | 'relay' | null = null;
+// Relayed calls burn OUR bandwidth, not just the users' — cap the video
+// ceiling at 'medium' (~800 kbit/s) when the selected pair is a relay.
+let maxLevel: 'medium' | 'high' = 'high';
+let restartAttempts = 0;
+let disconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Clamp a preset level to the relay-aware ceiling. */
+function clampLevel(l: 'low' | 'medium' | 'high'): 'low' | 'medium' | 'high' {
+  return l === 'high' && maxLevel === 'medium' ? 'medium' : l;
+}
+
+/** Read the selected candidate pair off getStats and classify the route. */
+async function detectRoute(): Promise<'direct' | 'relay' | null> {
+  if (!pc) return null;
+  try {
+    const stats: Map<string, any> = await pc.getStats();
+    const pairs = new Map<string, any>();
+    const locals = new Map<string, any>();
+    let selectedId: string | null = null;
+    stats.forEach((s) => {
+      if (s.type === 'transport' && s.selectedCandidatePairId) selectedId = s.selectedCandidatePairId;
+      if (s.type === 'candidate-pair') pairs.set(s.id, s);
+      if (s.type === 'local-candidate') locals.set(s.id, s);
+    });
+    let pair = selectedId ? pairs.get(selectedId) : null;
+    if (!pair) {
+      pairs.forEach((p) => {
+        if (p.selected || (p.state === 'succeeded' && p.nominated)) pair = p;
+      });
+    }
+    const local = pair ? locals.get(pair.localCandidateId) : null;
+    if (!local) return null;
+    return local.candidateType === 'relay' ? 'relay' : 'direct';
+  } catch {
+    return null;
+  }
+}
 
 async function applyVideoPreset(level: 'low' | 'medium' | 'high') {
   if (!pc) return;
@@ -219,6 +284,10 @@ function stopStatsMonitor() {
   goodStreak = 0;
   badStreak = 0;
   autoLevel = 'high';
+  connRoute = null;
+  maxLevel = 'high';
+  restartAttempts = 0;
+  if (disconnectTimer) { clearTimeout(disconnectTimer); disconnectTimer = null; }
 }
 
 function permissionReason(e: unknown): CallEndReason | null {
@@ -230,18 +299,47 @@ function permissionReason(e: unknown): CallEndReason | null {
 function clearTimers() {
   if (ringTimer) { clearTimeout(ringTimer); ringTimer = null; }
   if (endedTimer) { clearTimeout(endedTimer); endedTimer = null; }
+  if (connectTimer) { clearTimeout(connectTimer); connectTimer = null; }
+}
+
+/**
+ * Force-releases a PeerConnection + its local tracks in the safe order:
+ * detach senders → close the PC → THEN stop/release local tracks. Releasing
+ * a native track while it's still attached to a live PeerConnection corrupts
+ * the app-lifetime-shared native AudioDeviceModule, killing audio on every
+ * call after the first until the app is restarted (the bug this whole file
+ * was hardened against). Every exceptional path — including partial setup
+ * failures inside `createPeerConnection` — must funnel through this, not
+ * just the normal teardown path, so no native resource can leak silently.
+ *
+ * Each step is independently try/caught: one throwing (e.g. a sender already
+ * detached) must never skip the later steps, or we're back to leaking.
+ */
+function forceCloseConn(conn: any | null, stream?: any | null) {
+  try {
+    conn?.getSenders?.().forEach((s: any) => { try { conn.removeTrack(s); } catch {} });
+  } catch {}
+  try { conn?.close(); } catch {}
+  // stop() alone only disables the track on react-native-webrtc; release()
+  // is required to actually free the native AudioTrack/AudioSource.
+  try {
+    stream?.getTracks?.().forEach((t: any) => { try { t.stop(); t.release?.(); } catch {} });
+  } catch {}
 }
 
 function stopMedia(state: { localStream: any | null }) {
-  try {
-    state.localStream?.getTracks?.().forEach((t: any) => t.stop());
-  } catch {}
-  try { pc?.close(); } catch {}
+  forceCloseConn(pc, state.localStream);
   pc = null;
+
   pendingOffer = null;
   pendingIce = [];
+  pendingIceCallId = null;
   const icm = getInCallManager();
-  try { icm?.stopRingtone(); icm?.stop(); } catch {}
+  // Separate try/catch per call: if stopRingtone() throws, stop() must still
+  // run — otherwise native `audioManagerActivated` stays stuck true and the
+  // NEXT call's icm.start() silently no-ops, never reconfiguring audio routing.
+  try { icm?.stopRingtone(); } catch {}
+  try { icm?.stop(); } catch {}
   Vibration.cancel();
 }
 
@@ -254,9 +352,12 @@ export const useCallStore = create<CallState>((set, get) => {
     if (log && chatId && callId) {
       const duration = startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0;
       const event = log === 'rejected' ? 'reject' : status === 'outgoing' ? 'cancel' : 'end';
-      chatWS.sendCall(chatId, event, callId, kind, undefined, {
+      // Reliable, fire-and-forget: a dropped cancel/end/reject leaves the
+      // other side ringing or in a dead call with no way to know it's over.
+      void chatWS.sendCallReliable(chatId, event, callId, kind, undefined, {
         status: log,
         duration_seconds: duration,
+        route: connRoute,
       });
     }
     stopStatsMonitor();
@@ -286,7 +387,9 @@ export const useCallStore = create<CallState>((set, get) => {
 
     conn.addEventListener('icecandidate', (e: any) => {
       if (e.candidate && chatId && callId) {
-        chatWS.sendCall(chatId, 'ice', callId, kind, e.candidate);
+        // Reliable: a dropped candidate is invisible but degrades or kills
+        // connectivity (the "connects 15s late / never" bug).
+        void chatWS.sendCallReliable(chatId, 'ice', callId, kind, e.candidate);
       }
     });
     conn.addEventListener('track', (e: any) => {
@@ -296,38 +399,108 @@ export const useCallStore = create<CallState>((set, get) => {
     });
     conn.addEventListener('connectionstatechange', () => {
       const cs = conn.connectionState;
-      if (cs === 'connected' && get().status !== 'active') {
-        clearTimers();
-        set({ status: 'active', startedAt: get().startedAt ?? Date.now() });
-        startStatsMonitor();
-        // Apply the user's preference (or the auto ceiling) once media flows.
-        const q = get().quality;
-        if (get().kind === 'video') void applyVideoPreset(q === 'auto' ? autoLevel : q);
-        const icm = getInCallManager();
-        try {
-          icm?.stopRingback();
-          if (get().kind === 'audio' && !get().isSpeakerOn) icm?.setForceSpeakerphoneOn(false);
-        } catch {}
+      if (cs === 'connected') {
+        if (disconnectTimer) { clearTimeout(disconnectTimer); disconnectTimer = null; }
+        restartAttempts = 0;
+        // Classify the route (P2P vs TURN relay) once media flows — feeds
+        // the call-log telemetry and the relay bandwidth cap. Re-run after
+        // an ICE restart too: the route may have changed with the network.
+        void detectRoute().then((route) => {
+          if (!route || pc !== conn) return;
+          connRoute = route;
+          if (route === 'relay') {
+            maxLevel = 'medium';
+            autoLevel = clampLevel(autoLevel);
+            const q = get().quality;
+            if (get().kind === 'video' && get().status === 'active') {
+              void applyVideoPreset(q === 'auto' ? autoLevel : clampLevel(q));
+            }
+          }
+        });
+        if (get().status !== 'active') {
+          clearTimers();
+          set({ status: 'active', startedAt: get().startedAt ?? Date.now() });
+          startStatsMonitor();
+          // Apply the user's preference (or the auto ceiling) once media flows.
+          const q = get().quality;
+          if (get().kind === 'video') void applyVideoPreset(q === 'auto' ? autoLevel : clampLevel(q));
+          const icm = getInCallManager();
+          try {
+            icm?.stopRingback();
+            if (get().kind === 'audio' && !get().isSpeakerOn) icm?.setForceSpeakerphoneOn(false);
+          } catch {}
+        }
+      } else if (cs === 'disconnected') {
+        // Usually a network handoff (WiFi→4G) — give it a grace period to
+        // self-heal, then let the caller drive an ICE restart. Only the
+        // caller restarts: both sides restarting glares the negotiation.
+        if (get().status === 'active' && get().isCaller && !disconnectTimer) {
+          disconnectTimer = setTimeout(() => {
+            disconnectTimer = null;
+            if (conn.connectionState === 'disconnected' && get().status === 'active') {
+              void attemptIceRestart();
+            }
+          }, DISCONNECT_GRACE_MS);
+        }
       } else if (cs === 'failed') {
+        if (get().status === 'active' && get().isCaller && restartAttempts < MAX_ICE_RESTARTS) {
+          void attemptIceRestart();
+          return;
+        }
         teardown('failed', get().isCaller ? 'failed' : undefined);
       }
     });
 
-    const permission = await requestCallPermissions(kind);
+    // Everything below can throw partway through (permission denied/blocked,
+    // getUserMedia rejecting, addTrack throwing) — at that point `conn` is
+    // already a live native RTCPeerConnection with listeners registered, and
+    // `stream` may already hold live native tracks. Neither is referenced by
+    // module-level `pc` yet (that assignment happens in the caller after we
+    // return), so if we just let the exception propagate, both leak silently.
+    // Route every failure through forceCloseConn before rethrowing.
+    let stream: any = null;
+    try {
+      const permission = await requestCallPermissions(kind);
 
-    // 'blocked' = user selected "never ask again" → nothing we can do.
-    // 'denied'  = user denied OR the native PermissionsAndroid module is
-    //             unavailable (common in Expo 54 dev-client w/ New Arch) —
-    //             still try getUserMedia in case the user granted manually
-    //             via Settings, or the WebRTC native layer handles it.
-    if (permission === 'blocked') {
-      throw new Error('permission-blocked');
+      // 'blocked' = user selected "never ask again" → nothing we can do.
+      // 'denied'  = user denied OR the native PermissionsAndroid module is
+      //             unavailable (common in Expo 54 dev-client w/ New Arch) —
+      //             still try getUserMedia in case the user granted manually
+      //             via Settings, or the WebRTC native layer handles it.
+      if (permission === 'blocked') {
+        throw new Error('permission-blocked');
+      }
+
+      stream = await getUserMediaDirect(rtc, kind);
+      stream.getTracks().forEach((t: any) => conn.addTrack(t, stream));
+      set({ localStream: stream });
+      return conn;
+    } catch (e) {
+      forceCloseConn(conn, stream);
+      throw e;
     }
+  }
 
-    const stream = await getUserMediaDirect(rtc, kind);
-    stream.getTracks().forEach((t: any) => conn.addTrack(t, stream));
-    set({ localStream: stream });
-    return conn;
+  /** Caller-side ICE restart: re-negotiate transport without tearing down
+   *  media. Survives WiFi→cellular handoffs that would otherwise kill the
+   *  call. The re-offer rides the same call id; the callee answers it in
+   *  the 'offer' signal handler below. */
+  async function attemptIceRestart() {
+    const { chatId, callId, kind, status } = get();
+    if (!pc || !chatId || !callId || status !== 'active') return;
+    if (restartAttempts >= MAX_ICE_RESTARTS) {
+      teardown('failed', 'failed');
+      return;
+    }
+    restartAttempts += 1;
+    try {
+      const offer = await pc.createOffer({ iceRestart: true });
+      await pc.setLocalDescription(offer);
+      await chatWS.sendCallReliable(chatId, 'offer', callId, kind, pc.localDescription);
+    } catch (e) {
+      console.warn('[call-store] ICE restart failed:', e);
+      teardown('failed', 'failed');
+    }
   }
 
   function startStatsMonitor() {
@@ -359,8 +532,10 @@ export const useCallStore = create<CallState>((set, get) => {
         autoLevel = autoLevel === 'high' ? 'medium' : 'low';
         badStreak = 0;
         void applyVideoPreset(autoLevel);
-      } else if (goodStreak >= 5 && autoLevel !== 'high') {
-        autoLevel = autoLevel === 'low' ? 'medium' : 'high';
+      } else if (goodStreak >= 5 && autoLevel !== maxLevel) {
+        // Step up, but never past the relay-aware ceiling: TURN-relayed
+        // calls stay ≤ medium so they don't eat our server bandwidth.
+        autoLevel = clampLevel(autoLevel === 'low' ? 'medium' : 'high');
         goodStreak = 0;
         void applyVideoPreset(autoLevel);
       }
@@ -371,7 +546,12 @@ export const useCallStore = create<CallState>((set, get) => {
     const icm = getInCallManager();
     if (!icm) return;
     try {
-      icm.start({ media: kind, ringback: ringback ? '_DEFAULT_' : '' });
+      // '_DEFAULT_' plays the device's actual system ringtone (via
+      // getDefaultUserUri on Android), the same sound used for a real
+      // incoming call — that's what made the caller's own phone "ring".
+      // '_BUNDLE_' is a distinct, dedicated dial/ringback tone bundled with
+      // the library, so the caller hears a normal dialing tone instead.
+      icm.start({ media: kind, ringback: ringback ? '_BUNDLE_' : '' });
       if (kind === 'video') {
         icm.setForceSpeakerphoneOn(true);
         set({ isSpeakerOn: true });
@@ -390,13 +570,34 @@ export const useCallStore = create<CallState>((set, get) => {
         // Busy: already in a call (or ringing) for a different call id.
         if (s.status !== 'idle' && s.callId !== msg.call_id) {
           if (msg.chat_id && msg.call_id) {
-            chatWS.sendCall(msg.chat_id, 'busy', msg.call_id, msg.kind ?? 'audio');
+            void chatWS.sendCallReliable(msg.chat_id, 'busy', msg.call_id, msg.kind ?? 'audio');
+          }
+          return;
+        }
+        // Re-offer for the live call = caller-initiated ICE restart
+        // (network handoff). Answer it in place — no ringing, no state
+        // change, media resumes on the new transport.
+        if (s.status === 'active' && s.callId === msg.call_id && pc && msg.chat_id) {
+          const rtc = getWebRTC();
+          if (!rtc || !msg.payload) return;
+          try {
+            await pc.setRemoteDescription(new rtc.RTCSessionDescription(msg.payload as any));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            void chatWS.sendCallReliable(msg.chat_id, 'answer', msg.call_id, s.kind, pc.localDescription);
+          } catch (e) {
+            console.warn('[call-store] ICE restart answer failed:', e);
           }
           return;
         }
         if (s.status !== 'idle') return; // duplicate offer for same call
         pendingOffer = msg.payload;
-        pendingIce = [];
+        // Keep candidates that arrived ahead of this offer; discard buffers
+        // belonging to any other call.
+        if (pendingIceCallId !== msg.call_id) {
+          pendingIce = [];
+          pendingIceCallId = msg.call_id ?? null;
+        }
         set({
           status: 'incoming',
           callId: msg.call_id ?? null,
@@ -420,14 +621,30 @@ export const useCallStore = create<CallState>((set, get) => {
         if (s.callId !== msg.call_id || !pc) return;
         const rtc = getWebRTC();
         if (!rtc) return;
+        // Answer to an ICE-restart re-offer: the call is already live —
+        // just install the new remote description, don't touch UI state.
+        if (s.status === 'active') {
+          try {
+            await pc.setRemoteDescription(new rtc.RTCSessionDescription(msg.payload as any));
+          } catch (e) {
+            console.warn('[call-store] restart answer setRemoteDescription failed:', e);
+          }
+          break;
+        }
         clearTimers();
         set({ status: 'connecting' });
+        connectTimer = setTimeout(() => {
+          if (get().status === 'connecting') teardown('failed', 'failed');
+        }, CONNECT_TIMEOUT_MS);
         try {
           await pc.setRemoteDescription(new rtc.RTCSessionDescription(msg.payload as any));
-          for (const c of pendingIce) {
-            try { await pc.addIceCandidate(new rtc.RTCIceCandidate(c)); } catch {}
+          if (pendingIceCallId === msg.call_id) {
+            for (const c of pendingIce) {
+              try { await pc.addIceCandidate(new rtc.RTCIceCandidate(c)); } catch {}
+            }
           }
           pendingIce = [];
+          pendingIceCallId = null;
         } catch {
           teardown('failed', 'failed');
         }
@@ -435,14 +652,22 @@ export const useCallStore = create<CallState>((set, get) => {
       }
 
       case 'ice': {
-        if (s.callId !== msg.call_id) return;
+        if (!msg.call_id || !msg.payload) return;
+        // Candidates can arrive BEFORE the offer (caller's early candidates
+        // outrunning the offer over the relay) — at that point our callId is
+        // still null. Buffer them keyed by call id instead of dropping; the
+        // offer handler / acceptCall drains the buffer for the matching call.
+        if (s.callId !== msg.call_id) {
+          if (s.status === 'idle') bufferIce(msg.call_id, msg.payload);
+          return;
+        }
         const rtc = getWebRTC();
-        if (!rtc || !msg.payload) return;
+        if (!rtc) return;
         if (pc && pc.remoteDescription) {
           try { await pc.addIceCandidate(new rtc.RTCIceCandidate(msg.payload as any)); } catch {}
         } else {
           // Candidates can arrive before the answer/accept — buffer them.
-          pendingIce.push(msg.payload);
+          bufferIce(msg.call_id, msg.payload);
         }
         break;
       }
@@ -487,6 +712,15 @@ export const useCallStore = create<CallState>((set, get) => {
 
     startCall: async (chatId, kind, peer) => {
       if (get().status !== 'idle') return false;
+      // Defensive: a prior failed attempt should always have cleaned up via
+      // stopMedia()/teardown(), but if anything ever leaked a stale `pc` or
+      // `localStream`, force-release it before acquiring new native
+      // resources rather than layering a second PC/track set on top.
+      if (pc || get().localStream) {
+        forceCloseConn(pc, get().localStream);
+        pc = null;
+        set({ localStream: null });
+      }
       const rtc = getWebRTC();
       if (!rtc) {
         console.warn('[call-store] getWebRTC() returned null');
@@ -500,13 +734,30 @@ export const useCallStore = create<CallState>((set, get) => {
         endReason: null, isCameraOn: true, isMuted: false,
       });
 
+      // The user can hit "iptal" while any of the awaits below are pending
+      // (getUserMedia alone can take seconds behind a permission prompt).
+      // teardown() will have already run at that point — without this guard
+      // the resumed continuation would still send the offer and ring the
+      // other side for a call that no longer exists.
+      const cancelled = () => get().callId !== callId || get().status !== 'outgoing';
       try {
-        pc = await createPeerConnection(kind);
-        if (!pc) throw new Error('no webrtc');
+        const conn = await createPeerConnection(kind);
+        if (!conn) throw new Error('no webrtc');
+        if (cancelled()) { forceCloseConn(conn, get().localStream); return false; }
+        pc = conn;
         const offer = await pc.createOffer({});
         await pc.setLocalDescription(offer);
-        const sent = chatWS.sendCall(chatId, 'offer', callId, kind, pc.localDescription);
+        if (cancelled()) { stopMedia(get()); set({ localStream: null }); return false; }
+        const sent = await chatWS.sendCallReliable(chatId, 'offer', callId, kind, pc.localDescription);
         if (!sent) throw new Error('ws closed');
+        if (cancelled()) {
+          // The cancel raced ahead of this offer over the wire — the other
+          // side will ring unless we cancel again, now that the offer exists.
+          void chatWS.sendCallReliable(chatId, 'cancel', callId, kind);
+          stopMedia(get());
+          set({ localStream: null });
+          return false;
+        }
       } catch (e) {
         const reason = permissionReason(e) ?? 'failed';
         console.warn(`[call-store] startCall failed: endReason=${reason} error=`, e);
@@ -524,6 +775,13 @@ export const useCallStore = create<CallState>((set, get) => {
     acceptCall: async () => {
       const { chatId, callId, kind, status } = get();
       if (status !== 'incoming' || !chatId || !callId || !pendingOffer) return;
+      // Defensive: same rationale as startCall — never build a new PC on top
+      // of a leaked one.
+      if (pc || get().localStream) {
+        forceCloseConn(pc, get().localStream);
+        pc = null;
+        set({ localStream: null });
+      }
       const rtc = getWebRTC();
       if (!rtc) { teardown('failed'); return; }
 
@@ -533,19 +791,33 @@ export const useCallStore = create<CallState>((set, get) => {
       Vibration.cancel();
       set({ status: 'connecting' });
 
+      // Same hang-up-during-await race as startCall: if the user (or a
+      // remote cancel) tore the call down while we were acquiring media,
+      // don't resurrect it by sending an answer.
+      const aborted = () => get().callId !== callId || get().status !== 'connecting';
       try {
-        pc = await createPeerConnection(kind);
-        if (!pc) throw new Error('no webrtc');
+        const conn = await createPeerConnection(kind);
+        if (!conn) throw new Error('no webrtc');
+        if (aborted()) { forceCloseConn(conn, get().localStream); return; }
+        pc = conn;
         await pc.setRemoteDescription(new rtc.RTCSessionDescription(pendingOffer));
         pendingOffer = null;
-        for (const c of pendingIce) {
-          try { await pc.addIceCandidate(new rtc.RTCIceCandidate(c)); } catch {}
+        if (pendingIceCallId === callId) {
+          for (const c of pendingIce) {
+            try { await pc.addIceCandidate(new rtc.RTCIceCandidate(c)); } catch {}
+          }
         }
         pendingIce = [];
+        pendingIceCallId = null;
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        chatWS.sendCall(chatId, 'answer', callId, kind, pc.localDescription);
+        if (aborted()) { stopMedia(get()); set({ localStream: null }); return; }
+        const sent = await chatWS.sendCallReliable(chatId, 'answer', callId, kind, pc.localDescription);
+        if (!sent) throw new Error('ws closed');
         startAudioSession(kind, false);
+        connectTimer = setTimeout(() => {
+          if (get().status === 'connecting') teardown('failed', 'failed');
+        }, CONNECT_TIMEOUT_MS);
       } catch (e) {
         teardown(permissionReason(e) ?? 'failed', 'failed');
       }
@@ -597,7 +869,8 @@ export const useCallStore = create<CallState>((set, get) => {
         // Resume from wherever the monitor last settled.
         void applyVideoPreset(autoLevel);
       } else {
-        void applyVideoPreset(q);
+        // Manual choice still respects the relay bandwidth ceiling.
+        void applyVideoPreset(clampLevel(q));
       }
     },
 

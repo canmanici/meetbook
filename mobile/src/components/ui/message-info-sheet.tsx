@@ -8,6 +8,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { palette, spacing, fontSize, radius, shadows } from './tokens';
 import type { MessageView, MessageDeliveryInfo } from '@/lib/api/chat';
 
@@ -35,6 +36,7 @@ export const MessageInfoSheet: React.FC<MessageInfoSheetProps> = ({
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = palette[isDark ? 'dark' : 'light'];
+  const insets = useSafeAreaInsets();
 
   const formatTime = (iso: string) => {
     const d = new Date(iso);
@@ -50,7 +52,7 @@ export const MessageInfoSheet: React.FC<MessageInfoSheetProps> = ({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
         <View
-          style={[styles.container, { backgroundColor: colors.surface, ...shadows.sheet }]}
+          style={[styles.container, { backgroundColor: colors.surface, paddingBottom: Math.max(20, insets.bottom), ...shadows.sheet }]}
           onStartShouldSetResponder={() => true}
         >
           {/* Handle */}
@@ -133,7 +135,6 @@ const styles = StyleSheet.create({
   container: {
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
-    paddingBottom: 34,
     paddingHorizontal: spacing.lg,
   },
   handle: {

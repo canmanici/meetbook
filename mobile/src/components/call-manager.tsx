@@ -6,6 +6,7 @@
  * the user is on. Renders nothing.
  */
 import { useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 
 import { useCallStore } from '@/stores/call-store';
@@ -31,6 +32,18 @@ export function CallManager() {
       chatWS.connect();
     }
   }, [authStatus]);
+
+  // Doze/backgrounding kills the socket silently; reconnect the moment the
+  // app foregrounds (incl. via an incoming-call push tap) so the backend's
+  // ring grace window can re-deliver a pending call offer.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && useAuthStore.getState().status === 'authenticated') {
+        chatWS.connect();
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     const inCall = status !== 'idle';
