@@ -298,12 +298,35 @@ async def publish_message(chat_id: uuid.UUID, payload: dict[str, Any]) -> None:
     await r.publish(channel, json.dumps(envelope, default=str))
 
 
+CLUB_CHANNEL_TPL = "club:{club_id}"
+
+
+async def publish_club_event(club_id: uuid.UUID, payload: dict[str, Any]) -> None:
+    r = await _get_redis()
+    envelope = {"origin": _INSTANCE_ID, "payload": payload}
+    await r.publish(CLUB_CHANNEL_TPL.format(club_id=club_id), json.dumps(envelope, default=str))
+
+
+async def _deliver_club_event(club_id: uuid.UUID, payload: dict[str, Any]) -> None:
+    """Pub/sub from another instance → this instance's active club members."""
+    from app.modules.clubs.models import ClubMember
+
+    async with get_session_factory()() as session:
+        rows = await session.execute(
+            select(ClubMember.user_id).where(ClubMember.club_id == club_id, ClubMember.status == "active")
+        )
+        member_ids = [r[0] for r in rows.all()]
+    for uid in member_ids:
+        if uid in _connections:
+            await ConnectionManager.send_to_user(uid, payload)
+
+
 async def subscribe_and_listen() -> None:
     while True:
         try:
             r = aioredis.from_url(get_settings().redis_url, socket_timeout=None)
             pubsub = r.pubsub()
-            await pubsub.psubscribe("chat:*")
+            await pubsub.psubscribe("chat:*", "club:*")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -323,8 +346,8 @@ async def subscribe_and_listen() -> None:
                     channel = channel.decode()
 
                 try:
-                    chat_id_str = channel.split(":", 1)[1]
-                    chat_id = uuid.UUID(chat_id_str)
+                    kind, id_str = channel.split(":", 1)
+                    chat_id = uuid.UUID(id_str)
                 except (IndexError, ValueError):
                     continue
 
@@ -337,6 +360,9 @@ async def subscribe_and_listen() -> None:
                     continue
                 payload = envelope.get("payload")
                 if not isinstance(payload, dict):
+                    continue
+                if kind == "club":
+                    await _deliver_club_event(chat_id, payload)
                     continue
 
                 sender_id = payload.get("sender_id")
@@ -353,7 +379,7 @@ async def subscribe_and_listen() -> None:
                         chat_id, payload, exclude_user_id=exclude, repo=ChatRepository(session)
                     )
         except asyncio.CancelledError:
-            await pubsub.punsubscribe("chat:*")
+            await pubsub.punsubscribe("chat:*", "club:*")
             await pubsub.close()
             await r.aclose()
             return

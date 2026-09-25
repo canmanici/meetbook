@@ -53,8 +53,16 @@ class PasswordResetRequest(BaseModel):
 
 
 class PasswordResetConfirmRequest(BaseModel):
-    token: str
+    """Either email + 6-digit code (current flow) or a legacy opaque token."""
+
+    email: EmailStr | None = None
+    code: str | None = Field(default=None, pattern=r"^\s*\d{6}\s*$")
+    token: str | None = None
     new_password: str = Field(min_length=8, max_length=128)
+
+
+class VerifyEmailRequest(BaseModel):
+    code: str = Field(pattern=r"^\s*\d{6}\s*$")
 
 
 class UpdateMeRequest(BaseModel):
@@ -133,12 +141,24 @@ class MessageResponse(BaseModel):
     message: str
 
 
+class GoogleLoginRequest(BaseModel):
+    id_token: str = Field(min_length=20, max_length=4096)
+    # Required only when this Google account creates a NEW MeetBook account.
+    kvkk_consent: bool = False
+
+
+class GoogleLoginResponse(TokenResponse):
+    is_new_user: bool = False
+
+
 class MeResponse(BaseModel):
     id: uuid.UUID
     email: EmailStr
     name: str
     username: str
     avatar_url: str | None = None
+    email_verified: bool = True
+    has_password: bool = True
     trusted_contact_name: str | None
     trusted_contact_phone: str | None
     geofence_radius_km: int = 10

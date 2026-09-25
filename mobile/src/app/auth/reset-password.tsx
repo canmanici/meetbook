@@ -9,23 +9,31 @@ import { apiClient } from '@/lib/api/client';
 export default function ResetPasswordScreen() {
   const colorScheme = useColorScheme();
   const colors = palette[colorScheme === 'dark' ? 'dark' : 'light'];
-  const { token } = useLocalSearchParams<{ token: string }>();
+  // `email` comes from the forgot-password screen (6-digit code flow);
+  // `token` is the legacy link flow, still accepted by the backend.
+  const params = useLocalSearchParams<{ token?: string; email?: string }>();
+  const token = params.token;
 
+  const [email, setEmail] = useState(params.email ?? '');
+  const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const passwordsMatch = password === confirmPassword;
+  const codeReady = !!token || (email.trim().length > 3 && /^\d{6}$/.test(code));
   const canSubmit =
-    password.length >= 8 && confirmPassword.length >= 8 && passwordsMatch && !loading;
+    codeReady && password.length >= 8 && confirmPassword.length >= 8 && passwordsMatch && !loading;
 
   const onSubmit = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.post('/auth/password-reset-confirm', {
-        token,
-        new_password: password,
-      });
+      const res = await apiClient.post(
+        '/auth/password-reset-confirm',
+        token
+          ? { token, new_password: password }
+          : { email: email.trim(), code, new_password: password },
+      );
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw { body: data };
@@ -34,7 +42,11 @@ export default function ResetPasswordScreen() {
         { text: 'Giriş Yap', onPress: () => router.replace('/auth/login') },
       ]);
     } catch (err: any) {
-      const message = err?.body?.detail || 'Bir hata oluştu. Lütfen tekrar deneyin.';
+      const detail = err?.body?.detail;
+      const message =
+        typeof detail === 'string' && /code|token/i.test(detail)
+          ? 'Kod hatalı veya süresi dolmuş. Yeni kod isteyebilirsin.'
+          : 'Bir hata oluştu. Lütfen tekrar deneyin.';
       Alert.alert('Hata', message);
     } finally {
       setLoading(false);
@@ -61,6 +73,26 @@ export default function ResetPasswordScreen() {
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
+          {!token && (
+            <>
+              <Input
+                label="E-posta"
+                placeholder="ornek@eposta.com"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                testID="reset-email-input"
+              />
+              <Input
+                label="E-postana gelen 6 haneli kod"
+                placeholder="123456"
+                value={code}
+                onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
+                keyboardType="number-pad"
+                testID="reset-code-input"
+              />
+            </>
+          )}
           <Input
             label="Yeni Şifre"
             placeholder="En az 8 karakter"

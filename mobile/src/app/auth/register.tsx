@@ -4,7 +4,8 @@ import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, 
 import { Ionicons } from '@expo/vector-icons';
 
 import { Badge, Button, InlineError, Input, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
-import { ApiError, checkUsernameAvailable, register } from '@/lib/api/client';
+import { ApiError, checkUsernameAvailable, getMe, register } from '@/lib/api/client';
+import { GoogleSignInButton } from '@/components/google-sign-in-button';
 import { setTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -84,7 +85,13 @@ export default function RegisterScreen() {
         accessToken: result.access_token,
         refreshToken: result.refresh_token,
       });
-      router.replace('/personality-books');
+      // A 6-digit code was emailed at sign-up (when SMTP is configured).
+      const me = await getMe().catch(() => null);
+      if (me && me.email_verified === false) {
+        router.replace({ pathname: '/verify-email', params: { next: '/personality-books' } });
+      } else {
+        router.replace('/personality-books');
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setError('Bu e-posta veya kullanıcı adı zaten kayıtlı.');
@@ -204,6 +211,7 @@ export default function RegisterScreen() {
           <Button onPress={onSubmit} disabled={!canSubmit} loading={loading}>
             Kayıt ol
           </Button>
+          <GoogleSignInButton onError={setError} />
         </View>
 
         <View style={styles.linkRow}>

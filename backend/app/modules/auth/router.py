@@ -13,6 +13,9 @@ from app.core.throttle import LoginThrottle
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
 from app.modules.auth.schemas import (
+    GoogleLoginRequest,
+    GoogleLoginResponse,
+    VerifyEmailRequest,
     AuthTokensResponse,
     DeleteAccountRequest,
     LoginRequest,
@@ -94,6 +97,18 @@ async def login(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
+@router.post("/google", response_model=GoogleLoginResponse)
+async def login_with_google(
+    body: GoogleLoginRequest,
+    service: AuthService = Depends(_get_service),
+) -> GoogleLoginResponse:
+    """Sign in (or sign up) with a Google ID token from the app."""
+    try:
+        return await service.login_with_google(body.id_token, body.kvkk_consent)
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(
     body: RefreshRequest,
@@ -129,7 +144,32 @@ async def password_reset_confirm(
     service: AuthService = Depends(_get_service),
 ) -> MessageResponse:
     try:
-        return await service.confirm_password_reset(body.token, body.new_password)
+        return await service.confirm_password_reset(
+            body.new_password, token=body.token, email=body.email, code=body.code
+        )
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/verify-email", response_model=MessageResponse)
+async def verify_email(
+    body: VerifyEmailRequest,
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> MessageResponse:
+    try:
+        return await service.verify_email(user.id, body.code)
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/verify-email/resend", response_model=MessageResponse)
+async def resend_verification_email(
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> MessageResponse:
+    try:
+        return await service.resend_verification(user.id)
     except AuthError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 

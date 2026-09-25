@@ -219,14 +219,17 @@ export type CallEvent =
 export interface WSMessage {
   type:
     | 'message' | 'read' | 'typing' | 'reaction' | 'deleted' | 'presence' | 'error' | 'pong'
-    | 'location_update' | 'location_stopped' | 'call' | 'cleared';
+    | 'location_update' | 'location_stopped' | 'call' | 'cleared'
+    | 'club_message' | 'club_deleted' | 'club_updated';
+  // book clubs (message is a ClubMessage for club_message)
+  club_id?: string;
   // call signaling
   event?: CallEvent;
   call_id?: string;
   kind?: 'audio' | 'video';
   sender_name?: string;
   payload?: unknown;
-  message?: MessageView;
+  message?: MessageView & { club_id?: string; sender_name?: string | null; sender_avatar_url?: string | null };
   error?: string;
   chat_id?: string;
   message_id?: string;

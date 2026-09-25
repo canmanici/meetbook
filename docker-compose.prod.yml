@@ -161,6 +161,16 @@ services:
       TURN_SECRET: ${TURN_SECRET}
       TURN_HOST: ${TURN_HOST:-canmanici.com}
       TURN_PORT: "3478"
+      # Sign in with Google — the WEB OAuth client ID (token audience).
+      GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
+      # Outgoing mail (verification / reset codes, KVKK). Empty SMTP_HOST =
+      # no mail sent and email verification not enforced.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-MeetBook <no-reply@canmanici.com>}
+      KVKK_CONTROLLER_EMAIL: ${KVKK_CONTROLLER_EMAIL:-}
     volumes:
       - mediadata:/app/media
     depends_on:

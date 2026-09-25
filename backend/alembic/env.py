@@ -21,6 +21,8 @@ from app.modules.geofence import models as geofence_models  # noqa: F401
 from app.modules.crash_reports import models as crash_reports_models  # noqa: F401
 from app.modules.push_tokens import models as push_tokens_models  # noqa: F401
 from app.modules.saved_searches import models as saved_searches_models  # noqa: F401
+from app.modules.clubs import models as clubs_models  # noqa: F401
+from app.modules.legal import models as legal_models  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url)
@@ -33,7 +35,7 @@ target_metadata = Base.metadata
 
 def include_object(obj, name: str, type_: str, reflected: bool, compare_to) -> bool:
     """Exclude PostGIS TIGER/extension tables from autogenerate detection.
-    
+
     These tables are managed by the PostGIS extension, not by our app.
     Without this filter, alembic autogenerate would try to drop them.
     """

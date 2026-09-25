@@ -222,7 +222,7 @@ export default function SettingsScreen() {
                 String(k).startsWith(IMG_CACHE_PREFIX),
               );
               if (cacheKeys.length > 0) {
-                await AsyncStorage.multiRemove(cacheKeys);
+                await AsyncStorage.removeMany(cacheKeys);
               }
               toast.show(`Önbellek temizlendi (${cacheKeys.length} öğe)`, { variant: 'success' });
             } catch {

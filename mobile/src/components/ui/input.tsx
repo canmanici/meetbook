@@ -19,7 +19,7 @@ interface InputProps {
   helper?: string;
   error?: string;
   secureTextEntry?: boolean;
-  keyboardType?: 'email-address' | 'phone-pad' | 'default';
+  keyboardType?: 'email-address' | 'phone-pad' | 'number-pad' | 'default';
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   testID?: string;
   style?: ViewStyle;

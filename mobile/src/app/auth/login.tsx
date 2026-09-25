@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Button, InlineError, Input, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
 import { ApiError, login } from '@/lib/api/client';
+import { GoogleSignInButton } from '@/components/google-sign-in-button';
 import { setTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -89,6 +90,7 @@ export default function LoginScreen() {
           <Link href="/auth/forgot-password" style={[styles.forgotLink, { color: colors.textMuted }]}>
             Şifremi Unuttum
           </Link>
+          <GoogleSignInButton onError={setError} />
         </View>
 
         <View style={styles.linkRow}>

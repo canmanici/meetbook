@@ -1160,6 +1160,25 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  pageHeaderLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  rulesBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  rulesBtnText: {
+    fontSize: fontSize.caption,
+    fontWeight: '800',
+  },
   pageTitle: {
     fontSize: fontSize.heading,
     fontWeight: '800',

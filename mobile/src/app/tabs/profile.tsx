@@ -589,6 +589,24 @@ export default function ProfileScreen() {
         <Text style={styles.heroEmail}>{displayEmail}</Text>
       </LinearGradient>
 
+      {meData?.email_verified === false && (
+        <TouchableOpacity
+          onPress={() => router.push('/verify-email')}
+          style={[styles.verifyBanner, { backgroundColor: colors.warning + '1F', borderColor: colors.warning }]}
+          testID="profile-verify-banner"
+          accessibilityRole="button"
+        >
+          <Ionicons name="mail-unread-outline" size={20} color={colors.warning} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.verifyTitle, { color: colors.text }]}>E-postanı doğrula</Text>
+            <Text style={[styles.verifySub, { color: colors.textMuted }]}>
+              Kitap eklemek ve takas yapmak için e-postana gelen kodu gir.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </TouchableOpacity>
+      )}
+
       {/* Stats — overlap the hero for depth */}
       <View style={styles.statsRow}>
         {stats.map((stat) => (
@@ -1080,6 +1098,18 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  verifyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.card,
+    borderWidth: 1,
+  },
+  verifyTitle: { fontSize: fontSize.bodySm, fontWeight: '800' },
+  verifySub: { fontSize: fontSize.caption, marginTop: 2 },
   container: {
     flex: 1,
   },

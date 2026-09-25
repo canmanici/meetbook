@@ -905,6 +905,7 @@ code { font-family: var(--font-mono); font-size: 0.78rem; padding: 0.1rem 0.3rem
       </div>
       <div class="nav-section">
         <div class="nav-section-title">Güvenlik</div>
+        <div class="nav-item" data-page="kvkk"><span class="nav-item-icon">&#9878;</span><span class="nav-item-text">KVKK Başvuruları</span></div>
         <div class="nav-item" data-page="blocked-places"><span class="nav-item-icon">&#9873;</span><span class="nav-item-text">Engellenen Yerler</span></div>
         <div class="nav-item" data-page="audit-log"><span class="nav-item-icon">&#9783;</span><span class="nav-item-text">Denetim Kaydı</span></div>
       </div>
@@ -1134,6 +1135,12 @@ code { font-family: var(--font-mono); font-size: 0.78rem; padding: 0.1rem 0.3rem
   <div class="pagination" id="exchanges-pagination"></div>
 </div>
 
+<div class="page" id="page-kvkk">
+  <div class="crud-toolbar"><div class="crud-toolbar-left"><span class="crud-total-badge" id="kvkk-total">0</span></div></div>
+  <div class="crud-grid" id="kvkk-grid" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr))">
+    <div class="crud-loading"><div class="loading-spinner"></div></div>
+  </div>
+</div>
 <div class="page" id="page-blocked-places">
   <div class="crud-toolbar">
     <div class="crud-toolbar-left">
@@ -1440,7 +1447,7 @@ function navigateTo(page) {
   const pg = document.getElementById(`page-${page}`);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
-  const titles = { dashboard: 'CEO Dashboard', analytics: 'Derin Analiz', reports: 'Raporlar', users: 'Kullanıcılar', books: 'Kitaplar', exchanges: 'Takaslar', 'blocked-places': 'Engellenen Yerler', 'audit-log': 'Denetim Kaydı', system: 'Sistem Sağlığı', 'crash-reports': 'Hata Raporları' };
+  const titles = { dashboard: 'CEO Dashboard', analytics: 'Derin Analiz', reports: 'Raporlar', users: 'Kullanıcılar', books: 'Kitaplar', exchanges: 'Takaslar', 'blocked-places': 'Engellenen Yerler', kvkk: 'KVKK Başvuruları', 'audit-log': 'Denetim Kaydı', system: 'Sistem Sağlığı', 'crash-reports': 'Hata Raporları' };
   document.getElementById('page-title').textContent = titles[page] || page;
   loadPage(page);
 }
@@ -1798,6 +1805,7 @@ function loadPage(page) {
     case 'books': loadBooksPage(); break;
     case 'exchanges': loadExchangesPage(); break;
     case 'blocked-places': loadBlockedPlacesPage(); break;
+    case 'kvkk': loadKvkkPage(); break;
     case 'audit-log': loadAuditLogPage(); break;
     case 'system': loadSystemPage(); break;
     case 'crash-reports': loadCrashReportsPage(); break;
@@ -2969,6 +2977,53 @@ async function viewExchangeDetail(id) {
 }
 
 // ─── Blocked Places Page ────────────────────────────────────────
+// ─── KVKK data-subject requests (30-day legal deadline) ─────────
+async function loadKvkkPage() {
+  const grid = document.getElementById('kvkk-grid');
+  try {
+    const res = await API.adminRequest('/kvkk-requests', { params: { limit: 200 } });
+    const items = res.items || [];
+    document.getElementById('kvkk-total').textContent = `${res.open_count} açık · ${res.overdue_count} süresi geçmiş · ${res.total} toplam`;
+    if (!items.length) { grid.innerHTML = '<div class="crud-loading"><div class="text-muted">Başvuru yok</div></div>'; return; }
+    const labels = { open: 'Açık', in_progress: 'İşlemde', answered: 'Yanıtlandı', rejected: 'Reddedildi' };
+    grid.innerHTML = items.map(r => `<div class="data-card">
+      <div class="data-card-inner">
+        <div class="data-card-header">
+          <div class="data-card-avatar-sm" style="background:${r.overdue ? '#ef4444' : '#6366f1'}">⚖</div>
+          <div class="data-card-info">
+            <div class="data-card-title">#${r.reference} — ${r.full_name}</div>
+            <div class="data-card-sub">${r.email} · @${r.username}</div>
+          </div>
+        </div>
+        <div class="data-card-body">
+          <div class="data-card-meta">
+            <span class="data-chip">📋 ${r.request_type}</span>
+            <span class="data-chip">${labels[r.status] || r.status}</span>
+            <span class="data-chip" style="${r.overdue ? 'color:#ef4444' : ''}">⏰ Son: ${formatDate(r.due_at)}</span>
+          </div>
+          <div class="text-sm" style="margin-top:.5rem;white-space:pre-wrap">${r.description.substring(0, 300)}</div>
+          ${r.admin_notes ? `<div class="text-sm text-muted" style="margin-top:.5rem">📝 ${r.admin_notes}</div>` : ''}
+        </div>
+        <div class="data-card-footer">
+          <span class="data-card-date">📅 ${formatDate(r.created_at)}</span>
+          <div class="data-card-actions">
+            ${r.status === 'open' ? `<button class="btn btn-detay" onclick="kvkkAction('${r.id}','in_progress')">İşleme Al</button>` : ''}
+            ${r.closed_at ? '' : `<button class="btn btn-success" onclick="kvkkAction('${r.id}','answered')">Yanıtlandı</button><button class="btn btn-warning" onclick="kvkkAction('${r.id}','rejected')">Reddet</button>`}
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
+}
+
+function kvkkAction(id, status) {
+  const titles = { in_progress: 'İşleme Al', answered: 'Yanıtlandı Olarak İşaretle', rejected: 'Reddet' };
+  showActionModal(`KVKK: ${titles[status]}`, titles[status], async (notes) => {
+    try { await API.adminRequest(`/kvkk-requests/${id}`, { method: 'POST', body: { status, admin_notes: notes } }); showToast('Başvuru güncellendi', 'success'); loadKvkkPage(); }
+    catch (e) { showToast(e.message, 'error'); }
+  });
+}
+
 async function loadBlockedPlacesPage() {
   const grid = document.getElementById('blocked-places-grid');
   try {

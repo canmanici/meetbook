@@ -20,6 +20,24 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_access_ttl_seconds: int = 15 * 60
     refresh_token_ttl_days: int = 30
+    # -- Outgoing mail (SMTP) ---------------------------------------------
+    # Works with any SMTP provider (Gmail app password, Brevo, Zoho, Yandex,
+    # Resend SMTP, ...). When smtp_host is empty, mail is NOT sent: codes are
+    # logged instead and email verification is not enforced (see mail_enabled).
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "MeetBook <no-reply@meetbook.app>"
+    smtp_starttls: bool = True  # port 587
+    smtp_ssl: bool = False  # port 465 (implicit TLS)
+    # Where KVKK data-subject requests are forwarded (data controller inbox).
+    kvkk_controller_email: str = ""
+
+    @property
+    def mail_enabled(self) -> bool:
+        return bool(self.smtp_host)
+
     # Number of reverse proxies we control in front of the app (Traefik = 1).
     # The client IP is read this many entries from the RIGHT of
     # X-Forwarded-For — see app/core/client_ip.py.
@@ -45,6 +63,14 @@ class Settings(BaseSettings):
         return [h.strip() for h in self.turn_host.split(",") if h.strip()]
 
     google_places_key: str = ""
+    # OAuth client IDs whose Google ID tokens we accept (comma-separated).
+    # For Android sign-in the token audience is the WEB client ID passed as
+    # `webClientId` in the app; add iOS/other client IDs here too if used.
+    google_client_ids: str = ""
+
+    @property
+    def google_client_ids_list(self) -> list[str]:
+        return [c.strip() for c in self.google_client_ids.split(",") if c.strip()]
     s3_endpoint: str = ""
     s3_external_endpoint: str = ""
     s3_bucket: str = ""

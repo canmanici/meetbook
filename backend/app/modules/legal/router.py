@@ -2,16 +2,19 @@
 
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.db import get_session
+from app.core.mailer import send_mail
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
+from app.modules.legal.models import DataSubjectRequestRecord
 from app.modules.legal.schemas import (
     AcceptPolicyRequest,
     AcceptPolicyResponse,
@@ -138,15 +141,46 @@ async def current_policy_public() -> dict:
 @router.post("/veri-sahibi-basvuru", response_model=DataSubjectResponse)
 async def submit_data_subject_request(
     body: DataSubjectRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> DataSubjectResponse:
-    """Submit a KVKK data subject access request."""
-    ref = str(uuid.uuid7())[:8].upper()
-    logger.info(
-        "KVKK veri sahibi başvurusu alındı | ref=%s | eposta=%s | kullanici=%s | tur=%s",
-        ref, body.eposta, body.kullaniciadi, body.basvuruTuru,
+    """Submit a KVKK data subject request — persisted, acknowledged by email,
+    and forwarded to the data controller inbox (if configured)."""
+    ref = str(uuid.uuid7()).replace("-", "")[-8:].upper()
+    now = datetime.now(UTC)
+    session.add(
+        DataSubjectRequestRecord(
+            reference=ref,
+            full_name=body.adsoyad,
+            email=str(body.eposta),
+            phone=body.telefon,
+            username=body.kullaniciadi,
+            request_type=body.basvuruTuru,
+            description=body.talepAciklama,
+            extra_info=body.ekBilgi,
+            identity_method=body.kimlikDogrulama,
+            due_at=now + timedelta(days=30),
+        )
     )
-    # In production, this would send an email to the data controller
-    # For now, we log it and acknowledge receipt
+    await session.commit()
+    logger.info("KVKK veri sahibi başvurusu kaydedildi | ref=%s | tur=%s", ref, body.basvuruTuru)
+
+    await send_mail(
+        str(body.eposta),
+        f"KVKK başvurunuz alındı — {ref}",
+        f"Sayın {body.adsoyad},\n\nKVKK kapsamındaki başvurunuz alınmıştır.\n"
+        f"Referans numaranız: {ref}\n\nBaşvurunuz en geç 30 gün içinde yanıtlanacaktır.\n\n— MeetBook",
+    )
+    controller = get_settings().kvkk_controller_email
+    if controller:
+        await send_mail(
+            controller,
+            f"[KVKK] Yeni veri sahibi başvurusu {ref} — {body.basvuruTuru}",
+            f"Referans: {ref}\nAd Soyad: {body.adsoyad}\nE-posta: {body.eposta}\n"
+            f"Telefon: {body.telefon or '-'}\nKullanıcı adı: {body.kullaniciadi}\n"
+            f"Tür: {body.basvuruTuru}\nKimlik doğrulama: {body.kimlikDogrulama}\n"
+            f"Son yanıt tarihi: {(now + timedelta(days=30)).date().isoformat()}\n\n"
+            f"Talep:\n{body.talepAciklama}\n\nEk bilgi:\n{body.ekBilgi or '-'}",
+        )
     return DataSubjectResponse(
         success=True,
         message=f"Başvurunuz başarıyla alınmıştır. Referans numaranız: {ref}. "

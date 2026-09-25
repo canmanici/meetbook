@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
 import {
@@ -28,31 +28,10 @@ import {
 } from '@/components/ui/tokens';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { listMyBooks } from '@/lib/api/client';
+import { ApiError, listMyBooks, searchUsers, type UserSearchResult } from '@/lib/api/client';
+import { MAX_CLUB_MEMBERS, clubErrorMessage, createClub } from '@/lib/api/clubs';
+import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth-store';
-
-import {
-  saveClub,
-  makeClubId,
-  addClubIndexEntry,
-  type Club,
-  type ClubMember,
-  type ClubBook,
-} from './_layout';
-
-// ---------------------------------------------------------------------------
-// Mock library used for non-current-user members (no backend search yet).
-// ---------------------------------------------------------------------------
-
-const MOCK_LIBRARY: ClubBook[] = [
-  { title: 'Tutunamayanlar', author: 'Oğuz Atay' },
-  { title: 'Kürk Mantolu Madonna', author: 'Sabahattin Ali' },
-  { title: 'Saatleri Ayarlama Enstitüsü', author: 'Ahmet Hamdi Tanpınar' },
-  { title: 'Beyaz Geceler', author: 'Fyodor Dostoyevski' },
-  { title: 'Hayvan Çiftliği', author: 'George Orwell' },
-];
-
-const MAX_MEMBERS = 5;
 
 // ---------------------------------------------------------------------------
 // Pastel helper (mirrors the one in chats.tsx for stable accent rings).
@@ -65,16 +44,18 @@ function pastelForName(name: string): PastelName {
   return PASTEL_KEYS[Math.abs(h) % PASTEL_KEYS.length];
 }
 
-function makeMockMemberId(): string {
-  return `mock-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-}
-
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
+function useDebounced<T>(value: T, ms: number): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
 }
 
 // ---------------------------------------------------------------------------
-// Screen
+// Screen — create a club with REAL users. Invitees must accept; each member
+// then picks their own book inside the club.
 // ---------------------------------------------------------------------------
 
 export default function CreateClubScreen() {
@@ -83,109 +64,65 @@ export default function CreateClubScreen() {
   const colors = palette[isDark ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
   const router = useRouter();
-
+  const toast = useToast();
+  const queryClient = useQueryClient();
   const currentUser = useAuthStore((s) => s.user);
 
   const [clubName, setClubName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [members, setMembers] = useState<ClubMember[]>([]);
-  const seededRef = useRef(false);
+  const [invitees, setInvitees] = useState<UserSearchResult[]>([]);
+  const [myBookId, setMyBookId] = useState<string | null>(null);
+  const debouncedQuery = useDebounced(searchQuery.trim(), 300);
 
-  // Current user's real library.
   const { data: myBooksData, isLoading: myBooksLoading } = useQuery({
     queryKey: ['books', 'me', 'flat'],
     queryFn: () => listMyBooks({ limit: 50 }),
     retry: false,
   });
+  const myBooks = useMemo(() => myBooksData?.items ?? [], [myBooksData]);
 
-  const myBooks: ClubBook[] = useMemo(
-    () =>
-      (myBooksData?.items ?? [])
-        .map((b) => ({ title: b.title, author: b.author ?? undefined }))
-        .filter((b) => Boolean(b.title)),
-    [myBooksData],
+  // Preselect the first book once the library arrives.
+  useEffect(() => {
+    if (!myBookId && myBooks.length > 0) setMyBookId(myBooks[0].id);
+  }, [myBooks, myBookId]);
+
+  const { data: searchData, isFetching: searching } = useQuery({
+    queryKey: ['user-search', debouncedQuery],
+    queryFn: () => searchUsers(debouncedQuery),
+    enabled: debouncedQuery.length >= 2,
+  });
+  const results = (searchData?.items ?? []).filter(
+    (u) => u.id !== currentUser?.id && !invitees.some((i) => i.id === u.id),
   );
 
-  // Seed the current user as the first member once we know their id.
-  useEffect(() => {
-    if (seededRef.current) return;
-    if (!currentUser) return;
-    seededRef.current = true;
-    setMembers((prev) => {
-      if (prev.some((m) => m.id === currentUser.id)) return prev;
-      return [
-        {
-          id: currentUser.id,
-          name: currentUser.name,
-          avatarUrl: currentUser.avatarUrl,
-          book: { title: '' },
-        },
-        ...prev,
-      ];
-    });
-  }, [currentUser]);
-
-  // Auto-pick the current user's book when their library arrives.
-  useEffect(() => {
-    if (myBooks.length === 0 || !currentUser) return;
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.id === currentUser.id && !m.book.title
-          ? { ...m, book: myBooks[0] }
-          : m,
-      ),
-    );
-  }, [myBooks, currentUser]);
-
-  const addMember = () => {
-    const name = searchQuery.trim();
-    if (!name) return;
-    if (members.length >= MAX_MEMBERS) return;
-    if (members.some((m) => m.name.toLowerCase() === name.toLowerCase())) {
-      setSearchQuery('');
-      return;
-    }
-    const member: ClubMember = {
-      id: makeMockMemberId(),
-      name,
-      book: pickRandom(MOCK_LIBRARY),
-    };
-    setMembers((prev) => [...prev, member]);
+  const full = invitees.length + 1 >= MAX_CLUB_MEMBERS;
+  const addInvitee = (u: UserSearchResult) => {
+    if (full) return;
+    setInvitees((prev) => [...prev, u]);
     setSearchQuery('');
   };
 
-  const removeMember = (id: string) => {
-    setMembers((prev) => prev.filter((m) => m.id !== id));
-  };
+  const create = useMutation({
+    mutationFn: () =>
+      createClub({ name: clubName.trim(), member_ids: invitees.map((i) => i.id), book_id: myBookId }),
+    onSuccess: (club) => {
+      queryClient.invalidateQueries({ queryKey: ['clubs'] });
+      toast.show(
+        invitees.length ? `Kulüp kuruldu, ${invitees.length} kişiye davet gönderildi` : 'Kulüp kuruldu',
+        { variant: 'success' },
+      );
+      router.replace(`/chat/club/${club.id}`);
+    },
+    onError: (e) =>
+      toast.show(clubErrorMessage(e instanceof ApiError ? (e.body as any)?.detail : null), { variant: 'error' }),
+  });
 
-  const pickBook = (memberId: string, book: ClubBook) => {
-    setMembers((prev) =>
-      prev.map((m) => (m.id === memberId ? { ...m, book } : m)),
-    );
-  };
-
-  const allHaveBooks = members.length > 0 && members.every((m) => m.book.title);
-  const canCreate =
-    clubName.trim().length > 0 && members.length >= 2 && allHaveBooks;
-
-  const handleCreate = () => {
-    if (!canCreate) return;
-    const club: Club = {
-      id: makeClubId(),
-      name: clubName.trim(),
-      members,
-      assignments: {},
-      createdAt: new Date().toISOString(),
-    };
-    saveClub(club);
-    addClubIndexEntry({ id: club.id, name: club.name, createdAt: club.createdAt }).catch(() => {});
-    router.push(`/chat/club/${club.id}`);
-  };
+  const canCreate = clubName.trim().length > 0 && !create.isPending;
 
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Header */}
       <View
@@ -195,12 +132,7 @@ export default function CreateClubScreen() {
           shadows.card,
         ]}
       >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Geri"
-        >
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Geri">
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -227,75 +159,131 @@ export default function CreateClubScreen() {
             onChangeText={setClubName}
             testID="club-name-input"
             accessibilityLabel="Kulüp adı"
-            maxLength={40}
+            maxLength={60}
           />
         </View>
 
-        {/* Member search */}
+        {/* My book */}
+        <Text style={[styles.label, { color: colors.textMuted, marginTop: spacing.lg }]}>Senin Kitabın</Text>
+        {myBooksLoading ? (
+          <View style={styles.pickerLoading}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        ) : myBooks.length === 0 ? (
+          <Text style={[styles.emptyLibrary, { color: colors.textMuted }]}>
+            Kitaplığın boş — kulübü kurabilirsin, kitabını sonra seçersin.
+          </Text>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerScroll}>
+            {myBooks.map((book) => {
+              const selected = myBookId === book.id;
+              return (
+                <TouchableOpacity
+                  key={book.id}
+                  onPress={() => setMyBookId(book.id)}
+                  style={[
+                    styles.bookChip,
+                    selected
+                      ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                      : { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${book.title} kitabını seç`}
+                >
+                  <Text style={[styles.bookChipTitle, { color: selected ? '#fff' : colors.text }]} numberOfLines={1}>
+                    {book.title}
+                  </Text>
+                  {book.author ? (
+                    <Text style={[styles.bookChipAuthor, { color: selected ? '#FFFFFFCC' : colors.textMuted }]} numberOfLines={1}>
+                      {book.author}
+                    </Text>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        {/* Member search (real users) */}
         <Text style={[styles.label, { color: colors.textMuted, marginTop: spacing.lg }]}>
-          Üye Ekle ({members.length}/{MAX_MEMBERS})
+          Üye Davet Et ({invitees.length + 1}/{MAX_CLUB_MEMBERS})
         </Text>
-        <View style={[styles.searchRow]}>
+        <View style={styles.searchRow}>
           <View
             style={[
               styles.searchWrap,
               { backgroundColor: colors.surface, borderColor: colors.border },
-              members.length >= MAX_MEMBERS && { opacity: 0.5 },
+              full && { opacity: 0.5 },
             ]}
           >
             <Ionicons name="search-outline" size={18} color={colors.textMuted} />
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder="İsim veya telefon..."
+              placeholder="İsim veya kullanıcı adı..."
               placeholderTextColor={colors.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
               testID="member-search-input"
               accessibilityLabel="Üye ara"
-              editable={members.length < MAX_MEMBERS}
-              returnKeyType="search"
-              onSubmitEditing={addMember}
+              editable={!full}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
+            {searching && <ActivityIndicator size="small" color={colors.primary} />}
           </View>
-          <TouchableOpacity
-            style={[
-              styles.searchBtn,
-              { backgroundColor: colors.primary },
-              (members.length >= MAX_MEMBERS || !searchQuery.trim()) && { opacity: 0.4 },
-            ]}
-            onPress={addMember}
-            disabled={members.length >= MAX_MEMBERS || !searchQuery.trim()}
-            accessibilityRole="button"
-            accessibilityLabel="Üye ekle"
-          >
-            <Ionicons name="add" size={22} color="#fff" />
-          </TouchableOpacity>
         </View>
+        {debouncedQuery.length >= 2 && !full && (
+          <View style={[styles.results, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            {results.length === 0 && !searching ? (
+              <Text style={[styles.hint, { color: colors.textMuted, padding: spacing.md, marginTop: 0 }]}>
+                Kullanıcı bulunamadı.
+              </Text>
+            ) : (
+              results.slice(0, 6).map((u, i) => (
+                <TouchableOpacity
+                  key={u.id}
+                  onPress={() => addInvitee(u)}
+                  style={[
+                    styles.resultRow,
+                    i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+                  ]}
+                  testID={`member-result-${u.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${u.name} davet et`}
+                >
+                  <Avatar name={u.name} imageUrl={u.avatar_url ?? undefined} size="small" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.memberName, { color: colors.text }]} numberOfLines={1}>{u.name}</Text>
+                    {u.username ? (
+                      <Text style={[styles.memberSub, { color: colors.textMuted }]}>@{u.username}</Text>
+                    ) : null}
+                  </View>
+                  <Ionicons name="add-circle" size={22} color={colors.primary} />
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        )}
         <Text style={[styles.hint, { color: colors.textMuted }]}>
-          Mock arama — yazdığın isim direkt üye olarak eklenir.
+          Davet ettiğin kişiler kabul edince kulübe katılır ve kendi kitabını seçer.
         </Text>
 
         {/* Members */}
-        {members.map((m) => (
+        {currentUser && (
+          <MemberRow name={currentUser.name} avatarUrl={currentUser.avatarUrl} isMe isDark={isDark} colors={colors} />
+        )}
+        {invitees.map((u) => (
           <MemberRow
-            key={m.id}
-            member={m}
-            isMe={!!currentUser && m.id === currentUser.id}
+            key={u.id}
+            name={u.name}
+            subtitle={u.username ? `@${u.username} · davet edilecek` : 'davet edilecek'}
+            avatarUrl={u.avatar_url ?? undefined}
+            isMe={false}
             isDark={isDark}
             colors={colors}
-            library={currentUser && m.id === currentUser.id ? myBooks : MOCK_LIBRARY}
-            libraryLoading={!!currentUser && m.id === currentUser.id && myBooksLoading}
-            onRemove={() => removeMember(m.id)}
-            onPickBook={(book) => pickBook(m.id, book)}
-            canRemove={members.length > 1}
+            onRemove={() => setInvitees((prev) => prev.filter((x) => x.id !== u.id))}
           />
         ))}
-
-        {members.length < 2 && (
-          <Text style={[styles.hint, { color: colors.textMuted, marginTop: spacing.md }]}>
-            Karıştırma için en az 2 üye gerekli.
-          </Text>
-        )}
       </ScrollView>
 
       {/* Footer CTA */}
@@ -305,7 +293,7 @@ export default function CreateClubScreen() {
           { backgroundColor: colors.surface, paddingBottom: insets.bottom + spacing.md, borderTopColor: colors.border },
         ]}
       >
-        <Button onPress={handleCreate} disabled={!canCreate} testID="club-create-btn">
+        <Button onPress={() => create.mutate()} disabled={!canCreate} loading={create.isPending} testID="club-create-btn">
           Oluştur
         </Button>
       </View>
@@ -314,114 +302,51 @@ export default function CreateClubScreen() {
 }
 
 // ---------------------------------------------------------------------------
-// MemberRow — avatar + name + remove + book picker
+// MemberRow — avatar + name + remove
 // ---------------------------------------------------------------------------
 
 interface MemberRowProps {
-  member: ClubMember;
+  name: string;
+  subtitle?: string;
+  avatarUrl?: string;
   isMe: boolean;
   isDark: boolean;
   colors: ThemeColors;
-  library: ClubBook[];
-  libraryLoading: boolean;
-  onRemove: () => void;
-  onPickBook: (book: ClubBook) => void;
-  canRemove: boolean;
+  onRemove?: () => void;
 }
 
-const MemberRow: React.FC<MemberRowProps> = ({
-  member,
-  isMe,
-  isDark,
-  colors,
-  library,
-  libraryLoading,
-  onRemove,
-  onPickBook,
-  canRemove,
-}) => {
-  const pastel = pastels[isDark ? 'dark' : 'light'][pastelForName(member.name)];
+const MemberRow: React.FC<MemberRowProps> = ({ name, subtitle, avatarUrl, isMe, isDark, colors, onRemove }) => {
+  const pastel = pastels[isDark ? 'dark' : 'light'][pastelForName(name)];
   return (
     <View style={[styles.memberCard, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}>
       <View style={styles.memberHead}>
         <View style={[styles.avatarRing, { borderColor: pastel.bg }]}>
-          <Avatar name={member.name} imageUrl={member.avatarUrl} size="small" />
+          <Avatar name={name} imageUrl={avatarUrl} size="small" />
         </View>
         <View style={styles.memberInfo}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-            <Text style={[styles.memberName, { color: colors.text }]} numberOfLines={1}>
-              {member.name}
-            </Text>
+            <Text style={[styles.memberName, { color: colors.text }]} numberOfLines={1}>{name}</Text>
             {isMe && (
               <View style={[styles.youBadge, { backgroundColor: colors.primarySoft }]}>
-                <Text style={[styles.youBadgeText, { color: colors.primary }]}>Sen</Text>
+                <Text style={[styles.youBadgeText, { color: colors.primary }]}>Sen · Kurucu</Text>
               </View>
             )}
           </View>
-          <Text style={[styles.memberSub, { color: colors.textMuted }]} numberOfLines={1}>
-            {member.book.title ? `${member.book.title}${member.book.author ? ' · ' + member.book.author : ''}` : 'Kitap seçilmedi'}
-          </Text>
+          {subtitle ? (
+            <Text style={[styles.memberSub, { color: colors.textMuted }]} numberOfLines={1}>{subtitle}</Text>
+          ) : null}
         </View>
-        {canRemove && !isMe && (
+        {onRemove && (
           <TouchableOpacity
             onPress={onRemove}
             style={[styles.removeBtn, { borderColor: colors.danger + '55' }]}
             accessibilityRole="button"
-            accessibilityLabel={`${member.name} üyeyi kaldır`}
+            accessibilityLabel={`${name} davetini kaldır`}
           >
             <Text style={[styles.removeText, { color: colors.danger }]}>kaldır</Text>
           </TouchableOpacity>
         )}
       </View>
-
-      {/* Book picker */}
-      <Text style={[styles.pickerLabel, { color: colors.textMuted }]}>
-        {isMe ? 'Kitaplığından bir kitap seç' : 'Kitap seç'}
-      </Text>
-      {libraryLoading ? (
-        <View style={styles.pickerLoading}>
-          <ActivityIndicator size="small" color={colors.primary} />
-        </View>
-      ) : library.length === 0 ? (
-        <Text style={[styles.emptyLibrary, { color: colors.textMuted }]}>
-          {isMe ? 'Kitaplığın boş — önce kitap ekle.' : 'Kitap yok.'}
-        </Text>
-      ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerScroll}>
-          {library.map((book, idx) => {
-            const selected = member.book.title === book.title;
-            return (
-              <TouchableOpacity
-                key={`${book.title}-${idx}`}
-                onPress={() => onPickBook(book)}
-                style={[
-                  styles.bookChip,
-                  selected
-                    ? { backgroundColor: colors.primary, borderColor: colors.primary }
-                    : { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={`${book.title} kitabını seç`}
-              >
-                <Text
-                  style={[styles.bookChipTitle, { color: selected ? '#fff' : colors.text }]}
-                  numberOfLines={1}
-                >
-                  {book.title}
-                </Text>
-                {book.author ? (
-                  <Text
-                    style={[styles.bookChipAuthor, { color: selected ? '#FFFFFFCC' : colors.textMuted }]}
-                    numberOfLines={1}
-                  >
-                    {book.author}
-                  </Text>
-                ) : null}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      )}
     </View>
   );
 };
@@ -569,6 +494,15 @@ const styles = StyleSheet.create({
   bookChipAuthor: {
     fontSize: fontSize.caption,
     marginTop: 1,
+  },
+  // Search results
+  results: { marginTop: spacing.sm, borderRadius: radius.card, borderWidth: 1, overflow: 'hidden' },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   // Footer
   footer: {

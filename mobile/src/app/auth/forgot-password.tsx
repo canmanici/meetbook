@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 import { Button, Input, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
 import { apiClient } from '@/lib/api/client';
@@ -22,6 +23,8 @@ export default function ForgotPasswordScreen() {
         throw { body: data };
       }
       setSubmitted(true);
+      // Straight to the code-entry screen; the email is carried over.
+      router.push({ pathname: '/auth/reset-password', params: { email: email.trim() } });
     } catch (err: any) {
       const message = err?.body?.detail || 'Bir hata oluştu. Lütfen tekrar deneyin.';
       Alert.alert('Hata', message);
@@ -45,7 +48,7 @@ export default function ForgotPasswordScreen() {
           </View>
           <Text style={[styles.brand, { color: colors.text }]}>Şifre Sıfırla</Text>
           <Text style={[styles.tagline, { color: colors.textMuted }]}>
-            E-posta adresine sıfırlama bağlantısı göndereceğiz
+            E-posta adresine 6 haneli bir sıfırlama kodu göndereceğiz
           </Text>
         </View>
 
@@ -54,7 +57,7 @@ export default function ForgotPasswordScreen() {
             <View style={styles.success}>
               <Ionicons name="checkmark-circle" size={48} color={colors.success} />
               <Text style={[styles.successText, { color: colors.text }]}>
-                E-postana sıfırlama bağlantısı gönderildi
+                E-postana sıfırlama kodu gönderildi
               </Text>
             </View>
           ) : (
@@ -67,7 +70,7 @@ export default function ForgotPasswordScreen() {
                 keyboardType="email-address"
               />
               <Button onPress={onSubmit} disabled={email.length === 0 || loading} loading={loading}>
-                Sıfırlama bağlantısı gönder
+                Kod gönder
               </Button>
             </>
           )}

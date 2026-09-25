@@ -20,6 +20,9 @@ export class ApiError extends Error {
 
 let refreshPromise: Promise<void> | null = null;
 
+/** Backend detail for 403s from `get_verified_user`. */
+export const VERIFICATION_REQUIRED = 'Email or phone verification required';
+
 type RegisterBody =
   paths['/api/v1/auth/register']['post']['requestBody']['content']['application/json'];
 type RegisterResponse =
@@ -143,6 +146,13 @@ async function parse<T>(res: Response): Promise<T> {
         'ApiServerError',
       );
     }
+    if (res.status === 403 && (data as { detail?: unknown } | undefined)?.detail === VERIFICATION_REQUIRED) {
+      // Unverified account tried a verified-only action → take them to the
+      // code screen instead of surfacing a cryptic error.
+      import('expo-router')
+        .then(({ router }) => router.push('/verify-email'))
+        .catch(() => {});
+    }
     throw new ApiError(res.status, data);
   }
   return data as T;
@@ -215,6 +225,14 @@ export async function checkUsernameAvailable(username: string): Promise<{ availa
 
 export async function login(body: LoginBody): Promise<TokenResponse> {
   return authedRequest<TokenResponse>('/auth/login', 'POST', body);
+}
+
+export type GoogleLoginResponse = TokenResponse & { is_new_user?: boolean };
+
+/** Exchange a Google ID token for MeetBook tokens. New accounts need KVKK consent. */
+export async function loginWithGoogle(idToken: string, kvkkConsent = false): Promise<GoogleLoginResponse> {
+  const res = await rawRequest('/auth/google', 'POST', { id_token: idToken, kvkk_consent: kvkkConsent });
+  return parse<GoogleLoginResponse>(res);
 }
 
 export async function refresh(body: RefreshBody): Promise<TokenResponse> {
@@ -808,12 +826,29 @@ export async function placesNearby(params: {
 // ---------------------------------------------------------------------------
 
 export type MeResponse =
-  paths['/api/v1/auth/me']['get']['responses'][200]['content']['application/json'];
+  paths['/api/v1/auth/me']['get']['responses'][200]['content']['application/json'] & {
+    /** false until the 6-digit email code is confirmed (only when SMTP is on). */
+    email_verified?: boolean;
+    /** false for Google-only accounts (no password set yet). */
+    has_password?: boolean;
+  };
 export type UpdateMeBody =
   paths['/api/v1/auth/me']['patch']['requestBody']['content']['application/json'];
 
 export async function getMe(): Promise<MeResponse> {
   return authedRequest<MeResponse>('/auth/me', 'GET', undefined);
+}
+
+// ---------------------------------------------------------------------------
+// Email verification + password reset (6-digit codes sent by email)
+// ---------------------------------------------------------------------------
+
+export async function verifyEmail(code: string): Promise<{ message: string }> {
+  return authedRequest('/auth/verify-email', 'POST', { code });
+}
+
+export async function resendVerificationEmail(): Promise<{ message: string }> {
+  return authedRequest('/auth/verify-email/resend', 'POST', undefined);
 }
 
 export async function updateMe(body: UpdateMeBody): Promise<MeResponse> {

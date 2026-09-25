@@ -105,6 +105,9 @@ export default function RootLayout() {
         {status === 'authenticated' && <CallManager />}
         <Stack
         screenOptions={{
+          // Every screen draws its own header. Without this, any route not
+          // listed below shows a raw default header ("chat/club", "search/users").
+          headerShown: false,
           headerStyle: {
             backgroundColor: colors.surface,
           },
@@ -123,6 +126,7 @@ export default function RootLayout() {
         <Stack.Protected guard={hasOnboarded === true && status === 'authenticated'}>
           <Stack.Screen name="tabs" options={{ headerShown: false }} />
           <Stack.Screen name="personality-books" options={{ headerShown: false }} />
+          <Stack.Screen name="verify-email" options={{ headerShown: false }} />
           <Stack.Screen name="book" options={{ headerShown: false }} />
           <Stack.Screen name="exchange" options={{ headerShown: false }} />
           <Stack.Screen name="meetup" options={{ headerShown: false }} />
@@ -130,6 +134,10 @@ export default function RootLayout() {
           <Stack.Screen name="settings" options={{ headerShown: false }} />
           <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="chat/club" options={{ headerShown: false }} />
+          <Stack.Screen name="chat/starred" options={{ headerShown: false }} />
+          <Stack.Screen name="chat/info/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="search/users" options={{ headerShown: false }} />
           <Stack.Screen
             name="call"
             options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}

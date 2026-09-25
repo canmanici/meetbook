@@ -15,6 +15,11 @@ services:
       PYTHON_JIT: "1"
       ENV: development
       PYTHONDONTWRITEBYTECODE: "1"
+      # Real SMTP delivery into the local Mailpit catcher (inbox UI: http://localhost:8025)
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_STARTTLS: "false"
+      KVKK_CONTROLLER_EMAIL: kvkk@meetbook.local
     volumes:
       # Writable source mount — overrides the :ro in docker-compose.yml
       - ./backend/app:/app/app
@@ -25,3 +30,10 @@ services:
       - ./admin:/app/admin:ro
       # Keep media volume for uploads
       - mediadata:/app/media
+
+  # Local mail catcher — every email the backend sends lands here.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"   # web inbox
+      - "1025:1025"   # SMTP

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -30,12 +31,15 @@ export default function DeleteAccountScreen() {
   const clearSession = useAuthStore((s) => s.clearSession);
 
   const [password, setPassword] = useState('');
+  // Google-only accounts have no password — don't ask for one.
+  const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => apiClient.getMe() });
+  const needsPassword = me?.has_password !== false;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const performDelete = async () => {
     if (loading) return;
-    if (!password.trim()) {
+    if (needsPassword && !password.trim()) {
       setError('Şifrenizi girin');
       return;
     }
@@ -74,7 +78,7 @@ export default function DeleteAccountScreen() {
 
   const handleDeletePress = () => {
     if (loading) return;
-    if (!password.trim()) {
+    if (needsPassword && !password.trim()) {
       setError('Şifrenizi girin');
       return;
     }
@@ -159,10 +163,13 @@ export default function DeleteAccountScreen() {
             </Text>
           </View>
           <Text style={[styles.cardBody, { color: colors.textMuted }]}>
-            Bu işlem geri alınamaz. Devam etmek için şifrenizi girin.
+            {needsPassword
+              ? 'Bu işlem geri alınamaz. Devam etmek için şifrenizi girin.'
+              : 'Bu işlem geri alınamaz.'}
           </Text>
         </View>
 
+        {needsPassword && (
         <Input
           label="Şifre"
           placeholder="Şifreniz"
@@ -175,6 +182,7 @@ export default function DeleteAccountScreen() {
           error={error}
           testID="delete-account-password"
         />
+        )}
 
         <TouchableOpacity
           onPress={handleDeletePress}

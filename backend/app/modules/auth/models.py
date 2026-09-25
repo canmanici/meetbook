@@ -39,6 +39,8 @@ class User(Base):
     phone = Column(String(20), nullable=True)
     phone_verified_at = Column(DateTime(timezone=True), nullable=True)
     email_verified_at = Column(DateTime(timezone=True), nullable=True)
+    # Google account id ("sub") for Sign in with Google; unique when set.
+    google_sub = Column(String(255), nullable=True, unique=True)
     status = Column(
         Enum(UserStatus, name="user_status", create_type=True),
         nullable=False,
@@ -109,6 +111,31 @@ class PasswordResetToken(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     token_hash = Column(String(64), unique=True, nullable=False)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class EmailCodePurpose(str, enum.Enum):
+    verify_email = "verify_email"
+    password_reset = "password_reset"
+
+
+class EmailCode(Base):
+    """Short-lived 6-digit code mailed to the user (verification / reset).
+
+    Only a hash is stored. `attempts` caps guessing: a 6-digit space is small,
+    so a code dies after MAX_CODE_ATTEMPTS wrong tries.
+    """
+
+    __tablename__ = "email_codes"
+    __table_args__ = (Index("ix_email_codes_user_purpose", "user_id", "purpose"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    purpose = Column(String(20), nullable=False)
+    code_hash = Column(String(64), nullable=False)
+    attempts = Column(Integer, nullable=False, default=0)
     used_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     expires_at = Column(DateTime(timezone=True), nullable=False)
