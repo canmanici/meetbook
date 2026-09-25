@@ -3,7 +3,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,6 @@ from app.core.db import get_session
 from app.modules.auth.dependencies import get_admin_user
 from app.modules.auth.models import User, RefreshToken
 from app.modules.chat.models import Message
-from app.modules.exchanges.models import Chat
 
 router = APIRouter(prefix="/admin", tags=["admin-ext"])
 

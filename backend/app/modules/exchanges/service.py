@@ -21,6 +21,7 @@ from app.modules.books.repository import BookRepository, BookRow, encode_ts_curs
 from app.modules.books.schemas import LocationOutput, PhotoView
 from app.modules.exchanges.models import (
     Chat,
+    ACTIVE_LOAN_STATUSES,
     ExchangeMode,
     ExchangeRequest,
     ExchangeStatus,
@@ -82,6 +83,16 @@ def _trust_view(user: User) -> TrustView:
         on_time_rate=result.on_time_rate,
         loans_borrowed_count=result.loans_borrowed_count,
     )
+
+
+# Open request states where the book has not been handed over yet.
+PRE_HANDOVER_STATUSES = (
+    ExchangeStatus.pending,
+    ExchangeStatus.accepted,
+    ExchangeStatus.meetup_proposed,
+    ExchangeStatus.meetup_confirmed,
+    ExchangeStatus.completion_pending,
+)
 
 
 class ExchangeError(Exception):
@@ -394,19 +405,53 @@ class ExchangeService:
         ):
             raise ExchangeError("WRONG_ACTOR", 409)
 
+        previous_status = request.status
         request.status = next_status
         request.updated_at = datetime.now(UTC)
+
+        if action is ExchangeAction.cancel and previous_status in ACTIVE_LOAN_STATUSES:
+            # Loan cancelled while the book is still out (lost/dispute): the
+            # borrower's trust stats record it as a late, unreturned loan.
+            await self.session.execute(
+                update(User)
+                .where(User.id == request.requested_by)
+                .values(
+                    loans_borrowed_count=User.loans_borrowed_count + 1,
+                    loans_returned_late=User.loans_returned_late + 1,
+                )
+            )
 
         if action is ExchangeAction.complete:
             request.completion_marked_by = current_user_id
 
         if action is ExchangeAction.accept:
+            # The book may have been deleted, taken down, handed to someone
+            # else, or the pair may have blocked each other since the request.
+            book_row = await self.books_repo.get_active_by_id(request.book_id)
+            if book_row is None or not book_row.book.is_available:
+                raise ExchangeError("BOOK_UNAVAILABLE", 409)
+            if await self.repo.is_blocked_pair(request.requested_by, request.requested_to):
+                raise ExchangeError("NOT_FOUND", 404)
             await self.repo.create_chat(request.id)
 
         if action is ExchangeAction.confirm_completion:
             book_row = await self.books_repo.get_active_by_id(request.book_id)
             if book_row is not None:
                 await self.books_repo.update(book_row.book, {"is_available": False})
+            # The book has changed hands — close every other open (pre-loan)
+            # request for it so nobody else can still accept/complete it.
+            others = await self.session.execute(
+                select(ExchangeRequest)
+                .where(
+                    ExchangeRequest.book_id == request.book_id,
+                    ExchangeRequest.id != request.id,
+                    ExchangeRequest.status.in_(PRE_HANDOVER_STATUSES),
+                )
+                .with_for_update()
+            )
+            for other in others.scalars().all():
+                other.status = ExchangeStatus.cancelled
+                other.updated_at = datetime.now(UTC)
 
             await self.session.execute(
                 update(User)
@@ -578,6 +623,14 @@ class ExchangeService:
         participants = (request.requested_by, request.requested_to) if request else ()
         if request is None or current_user_id not in participants:
             raise ExchangeError("NOT_FOUND", 404)
+        # Same rules as book photos: the stored Content-Type is served back
+        # verbatim, so anything but a real image type is a stored-XSS vector.
+        if content_type == "image/jpg":  # common non-standard alias
+            content_type = "image/jpeg"
+        if content_type not in {"image/jpeg", "image/png", "image/webp"}:
+            raise ExchangeError("INVALID_IMAGE_FORMAT", 400)
+        if len(file_bytes) > 10 * 1024 * 1024:
+            raise ExchangeError("FILE_TOO_LARGE", 400)
         result = await upload_photo(request.book_id, file_bytes, content_type)
         return result["url"]
 

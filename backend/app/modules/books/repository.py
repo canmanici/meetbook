@@ -12,7 +12,7 @@ from typing import Any
 
 from geoalchemy2 import Geometry
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import Select, and_, cast, delete, exists, func, or_, select, update
+from sqlalchemy import Select, and_, cast, exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.models import User
@@ -764,6 +764,16 @@ class BookRepository:
             photo = result.scalar_one_or_none()
             if photo:
                 photo.position = idx
+
+    async def list_available_by_title(self, title: str) -> list[BookRow]:
+        """Case-insensitive exact title match (wishlist entries without ISBN)."""
+        stmt = self._select_with_coords().where(
+            Book.deleted_at.is_(None),
+            Book.is_available.is_(True),
+            func.lower(func.trim(Book.title)) == title.strip().lower(),
+        ).limit(10)
+        result = await self.session.execute(stmt)
+        return [self._to_row(row) for row in result.all()]
 
     async def list_available_by_isbn(self, isbn: str) -> list[BookRow]:
         stmt = self._select_with_coords().where(

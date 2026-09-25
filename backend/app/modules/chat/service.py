@@ -9,10 +9,11 @@ from typing import Any
 
 import redis.asyncio as aioredis
 from fastapi import WebSocket
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.redis import get_redis
+from app.core.db import get_session_factory
 from app.core.security import hash_token, generate_opaque_token
 from app.modules.chat.models import Message
 from app.modules.chat.repository import ChatRepository
@@ -24,7 +25,6 @@ from app.modules.chat.schemas import (
     MessageListResponse,
     MessageView,
     ReactionView,
-    WSOutgoing,
 )
 from app.modules.notifications.service import NotificationService
 from app.modules.push_tokens.service import PushMessage, send_push_to_user
@@ -43,12 +43,46 @@ MUTE_DURATION_DELTAS: dict[str, timedelta | None] = {
 
 logger = logging.getLogger(__name__)
 
+# Message types a CLIENT may send. Everything else (call logs, exchange
+# lifecycle events, ...) is server-authored only.
+CLIENT_MESSAGE_TYPES = frozenset(
+    {"text", "image", "voice", "location", "location_invite", "book_card", "system"}
+)
+# The only system bubble a client may author (live-location accept notice).
+CLIENT_SYSTEM_ACTIONS = frozenset({"location_accepted"})
+# Types that carry their content in `extra` and may have empty text.
+EXTRA_ONLY_TYPES = frozenset({"image", "voice", "location", "book_card"})
+MAX_EXTRA_BYTES = 4096
+
+
+def _validate_client_message(message_type: Any, text: str, extra: Any) -> str | None:
+    """Return an error string if a client-sent message is not allowed."""
+    if message_type not in CLIENT_MESSAGE_TYPES:
+        return "Invalid message_type"
+    if extra is not None:
+        if not isinstance(extra, dict):
+            return "extra must be an object"
+        if len(json.dumps(extra, default=str)) > MAX_EXTRA_BYTES:
+            return "extra too large"
+    if message_type == "system":
+        if not isinstance(extra, dict) or set(extra) != {"action"} or extra["action"] not in CLIENT_SYSTEM_ACTIONS:
+            return "Clients cannot send this system message"
+    if not text and not (message_type in EXTRA_ONLY_TYPES and extra):
+        return "text is required"
+    return None
+
+
 # ---------------------------------------------------------------------------
 # In-memory connection pool + Redis presence
 # ---------------------------------------------------------------------------
 _connections: dict[uuid.UUID, set[WebSocket]] = {}
 _redis_pubsub: aioredis.Redis | None = None
 _listener_task: Any = None
+# Identifies this process on the shared Redis channel. Every publish is
+# tagged with it so the listener can skip its own echoes — the publishing
+# process has already delivered locally via broadcast_to_chat().
+_INSTANCE_ID = uuid.uuid4().hex
+_background_tasks: set[asyncio.Task[None]] = set()
 
 PRESENCE_CHANNEL = "presence"
 
@@ -117,11 +151,24 @@ class ConnectionManager:
         await ConnectionManager._broadcast_presence(user_id, True)
 
     @staticmethod
+    async def on_disconnected(user_id: uuid.UUID) -> None:
+        """Called after a socket closed. Only when the user's LAST local
+        socket is gone do we drop the presence key — otherwise a callee who
+        just closed the app looked online for up to PRESENCE_KEY_TTL, so
+        incoming calls skipped the push and the offer went nowhere."""
+        if _connections.get(user_id):
+            return  # another device/socket of this user is still connected
+        r = await _get_redis()
+        await r.delete(f"presence:{user_id}")
+        await ConnectionManager.set_last_seen(user_id)
+        await ConnectionManager._broadcast_presence(user_id, False)
+
+    @staticmethod
     def disconnect(user_id: uuid.UUID, ws: WebSocket) -> None:
         pool = _connections.get(user_id)
-        if pool:
+        if pool is not None:
             pool.discard(ws)
-            if not pool:
+            if not pool and _connections.get(user_id) is pool:
                 _connections.pop(user_id, None)
 
     @staticmethod
@@ -154,22 +201,42 @@ class ConnectionManager:
         await r.setex(f"last_seen:{user_id}", 86400 * 7, datetime.now(UTC).isoformat())
 
     @staticmethod
+    async def _presence_peers(user_id: uuid.UUID) -> set[uuid.UUID]:
+        """Users who share a chat with `user_id` — the only ones entitled to
+        see their online status (was: every connected user)."""
+        from app.modules.exchanges.models import Chat, ExchangeRequest
+
+        async with get_session_factory()() as session:
+            rows = await session.execute(
+                select(ExchangeRequest.requested_by, ExchangeRequest.requested_to)
+                .join(Chat, Chat.exchange_request_id == ExchangeRequest.id)
+                .where(
+                    or_(
+                        ExchangeRequest.requested_by == user_id,
+                        ExchangeRequest.requested_to == user_id,
+                    )
+                )
+            )
+            peers = {uid for row in rows.all() for uid in row}
+        peers.discard(user_id)
+        return peers
+
+    @staticmethod
     async def _broadcast_presence(user_id: uuid.UUID, is_online: bool) -> None:
-        """Broadcast presence change to all connected users who share a chat."""
+        """Broadcast presence change to connected users who share a chat."""
         payload = {
             "type": "presence",
             "user_id": str(user_id),
             "is_online": is_online,
         }
-        # Broadcast to all connected users (they can filter on their end)
-        for uid, pool in _connections.items():
-            if uid != user_id:
-                text = json.dumps(payload, default=str)
-                for ws in pool:
-                    try:
-                        await ws.send_text(text)
-                    except Exception:
-                        pass
+        try:
+            peers = await ConnectionManager._presence_peers(user_id)
+        except Exception:
+            logger.exception("Presence peer lookup failed for %s", user_id)
+            return
+        for uid in peers:
+            if uid in _connections:
+                await ConnectionManager.send_to_user(uid, payload)
 
     @staticmethod
     async def send_to_user(user_id: uuid.UUID, payload: dict[str, Any]) -> None:
@@ -178,14 +245,15 @@ class ConnectionManager:
             return
         text = json.dumps(payload, default=str)
         dead: list[WebSocket] = []
-        for ws in pool:
+        # Snapshot: the set may change while we await a send.
+        for ws in list(pool):
             try:
                 await ws.send_text(text)
             except Exception:
                 dead.append(ws)
         for ws in dead:
             pool.discard(ws)
-        if not pool:
+        if not pool and _connections.get(user_id) is pool:
             _connections.pop(user_id, None)
 
     @staticmethod
@@ -200,8 +268,7 @@ class ConnectionManager:
             exchange = await repo.get_exchange_for_chat(chat_id)
             if exchange:
                 targets = {exchange.requested_by, exchange.requested_to}
-        else:
-            targets = set(_connections.keys())
+        # No repo → no way to know the participants → deliver to nobody.
 
         if exclude_user_id:
             targets.discard(exclude_user_id)
@@ -227,7 +294,8 @@ async def _get_redis() -> aioredis.Redis:
 async def publish_message(chat_id: uuid.UUID, payload: dict[str, Any]) -> None:
     r = await _get_redis()
     channel = CHAT_CHANNEL_TPL.format(chat_id=chat_id)
-    await r.publish(channel, json.dumps(payload, default=str))
+    envelope = {"origin": _INSTANCE_ID, "payload": payload}
+    await r.publish(channel, json.dumps(envelope, default=str))
 
 
 async def subscribe_and_listen() -> None:
@@ -261,8 +329,14 @@ async def subscribe_and_listen() -> None:
                     continue
 
                 try:
-                    payload = json.loads(data)
+                    envelope = json.loads(data)
                 except json.JSONDecodeError:
+                    continue
+                if not isinstance(envelope, dict) or envelope.get("origin") == _INSTANCE_ID:
+                    # Own echo — already delivered locally by the publisher.
+                    continue
+                payload = envelope.get("payload")
+                if not isinstance(payload, dict):
                     continue
 
                 sender_id = payload.get("sender_id")
@@ -272,7 +346,12 @@ async def subscribe_and_listen() -> None:
                         exclude = uuid.UUID(sender_id)
                     except (ValueError, TypeError):
                         pass
-                await ConnectionManager.broadcast_to_chat(chat_id, payload, exclude_user_id=exclude)
+                # Resolve the chat's two participants — NEVER fan out to every
+                # connected socket (that leaked messages to all online users).
+                async with get_session_factory()() as session:
+                    await ConnectionManager.broadcast_to_chat(
+                        chat_id, payload, exclude_user_id=exclude, repo=ChatRepository(session)
+                    )
         except asyncio.CancelledError:
             await pubsub.punsubscribe("chat:*")
             await pubsub.close()
@@ -318,7 +397,7 @@ class ChatService:
                     exchange_id=row["exchange_id"],
                     counterpart_id=row["counterpart_id"],
                     counterpart_name=name,
-                    counterpart_avatar_url=counterpart.avatar_url,
+                    counterpart_avatar_url=counterpart.avatar_url if counterpart else None,
                     last_message=row["last_message"],
                     last_message_type=row.get("last_message_type", "text"),
                     last_message_at=row["last_message_at"],
@@ -682,7 +761,7 @@ class ChatService:
         self, ws_user_id: uuid.UUID, chat_id: uuid.UUID, is_typing: bool
     ) -> None:
         exchange = await self.repo.get_exchange_for_chat(chat_id)
-        if exchange is None:
+        if exchange is None or ws_user_id not in (exchange.requested_by, exchange.requested_to):
             return
 
         other_id = (
@@ -706,6 +785,10 @@ class ChatService:
             await self._ws_error(ws, "Not a participant of this chat")
             return
 
+        target = await self.repo.get_message_by_id(message_id)
+        if target is None or target.chat_id != chat_id:
+            await self._ws_error(ws, "Cannot delete this message")
+            return
         msg = await self.repo.delete_message(message_id, ws_user_id)
         if msg is None:
             await self._ws_error(ws, "Cannot delete this message")
@@ -872,7 +955,10 @@ class ChatService:
                     except Exception:
                         pass  # caller's WS closed meanwhile — their own timer handles it
 
-                asyncio.create_task(_ring_grace_window())
+                task = asyncio.create_task(_ring_grace_window())
+                # Keep a strong reference or the task may be GC'd mid-ring.
+                _background_tasks.add(task)
+                task.add_done_callback(_background_tasks.discard)
 
         # Persist a call-log system message when the terminating side asks
         # for it (exactly one side sends `log`, so no duplicates).
@@ -916,17 +1002,7 @@ class ChatService:
     async def handle_presence(self, ws_user_id: uuid.UUID) -> None:
         """Refresh presence and broadcast to peers."""
         await ConnectionManager.mark_online(ws_user_id)
-        # Broadcast to all connected users
-        for uid in _connections:
-            if uid != ws_user_id:
-                await ConnectionManager.send_to_user(
-                    uid,
-                    {
-                        "type": "presence",
-                        "user_id": str(ws_user_id),
-                        "is_online": True,
-                    },
-                )
+        await ConnectionManager._broadcast_presence(ws_user_id, True)
 
     async def handle_ws_message(
         self, ws_user_id: uuid.UUID, ws: WebSocket, raw: dict[str, Any]
@@ -941,9 +1017,16 @@ class ChatService:
 
         elif msg_type == "send":
             chat_id_raw = raw.get("chat_id")
-            text = raw.get("text", "").strip()
-            if not chat_id_raw or not text:
-                await self._ws_error(ws, "chat_id and text are required")
+            text_raw = raw.get("text") or ""
+            if not isinstance(text_raw, str):
+                await self._ws_error(ws, "text must be a string")
+                return
+            text = text_raw.strip()
+            message_type = raw.get("message_type") or "text"
+            extra = raw.get("extra")
+            problem = _validate_client_message(message_type, text, extra)
+            if not chat_id_raw or problem:
+                await self._ws_error(ws, problem or "chat_id is required")
                 return
             try:
                 chat_id = uuid.UUID(str(chat_id_raw))
@@ -957,8 +1040,6 @@ class ChatService:
                     reply_to_id = uuid.UUID(str(reply_to_raw))
                 except (ValueError, AttributeError):
                     pass
-            message_type = raw.get("message_type", "text")
-            extra = raw.get("extra")
             await self.handle_send(ws_user_id, ws, chat_id, text, reply_to_id, message_type, extra)
 
         elif msg_type == "typing":

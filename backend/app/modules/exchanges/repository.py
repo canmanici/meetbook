@@ -4,7 +4,6 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from geoalchemy2.elements import WKTElement
 from sqlalchemy import and_, func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession

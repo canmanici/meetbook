@@ -287,7 +287,7 @@ export default function WishlistScreen() {
     switch (sortMode) {
       case 'alpha':
         return [...rows].sort((a, b) =>
-          (a.title || a.isbn).localeCompare(b.title || b.isbn, 'tr'),
+          (a.title || a.isbn || '').localeCompare(b.title || b.isbn || '', 'tr'),
         );
       case 'priority':
         return [...rows].sort((a, b) => {
@@ -300,8 +300,11 @@ export default function WishlistScreen() {
     }
   }, [items, priorities, sortMode]);
 
-  const hasMatch = (itemIsbn: string): boolean => {
-    return matches.some((m) => m.isbn === itemIsbn);
+  const hasMatch = (item: { isbn?: string | null; title?: string | null }): boolean => {
+    if (item.isbn) return matches.some((m) => m.isbn === item.isbn);
+    // Title-only entries are matched server-side by (case-insensitive) title.
+    const t = item.title?.trim().toLocaleLowerCase('tr');
+    return !!t && matches.some((m) => m.title?.trim().toLocaleLowerCase('tr') === t);
   };
 
   if (wishlistError && tab === 'personal' && !selectedSharedId) {
@@ -767,7 +770,7 @@ export default function WishlistScreen() {
                           </Text>
                         )}
                         <View style={styles.statusRow}>
-                          {hasMatch(item.isbn) ? (
+                          {hasMatch(item) ? (
                             <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
                               <Ionicons name="checkmark-circle" size={14} color={colors.success} />
                               <Text style={[styles.statusText, { color: colors.success }]}>Eşleşme bulundu</Text>

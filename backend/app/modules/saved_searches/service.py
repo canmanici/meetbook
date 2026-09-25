@@ -72,6 +72,8 @@ class SavedSearchService:
             params=body.params,
         )
         await self.session.commit()
+        if updated is None:  # deleted concurrently
+            raise SavedSearchError("Not found", 404)
         return SavedSearchView(
             id=updated.id,
             user_id=updated.user_id,

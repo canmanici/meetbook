@@ -8,7 +8,6 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select, text, desc, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.core.db import get_session
 from app.modules.crash_reports.models import CrashReport, CrashReportGroup
@@ -166,6 +165,14 @@ async def _find_or_create_group(
     return group
 
 
+def _parse_uuid(value: str | None) -> uuid.UUID | None:
+    """Unauthenticated input — a malformed id must not turn into a 500."""
+    try:
+        return uuid.UUID(value) if value else None
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
 # ── Ingest endpoint (public) ──────────────────────────────────────────────────
 
 
@@ -190,7 +197,7 @@ async def report_crash(
         breadcrumbs=[b.model_dump() for b in payload.breadcrumbs],
         device_info=payload.device_info.model_dump() if payload.device_info else {},
         screen_name=payload.screen_name,
-        user_id=uuid.UUID(payload.user_id) if payload.user_id else None,
+        user_id=_parse_uuid(payload.user_id),
     )
     session.add(crash)
     await session.flush()  # get crash.id

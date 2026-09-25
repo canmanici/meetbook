@@ -81,7 +81,15 @@ class CrashReportGroup(Base):
     # Reference to a sample crash for quick detail view
     sample_crash_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("crash_reports.id", ondelete="SET NULL"),
+        # crash_reports.group_id points back here → FK cycle. use_alter lets
+        # metadata create_all/drop_all (tests) order the two tables; the name
+        # matches the one Postgres gave it in the migration.
+        ForeignKey(
+            "crash_reports.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="crash_report_groups_sample_crash_id_fkey",
+        ),
         nullable=True,
         comment="Latest crash ID in this group (for breadcrumbs/device info)",
     )
@@ -112,7 +120,8 @@ class CrashReport(Base):
         UUID(as_uuid=True),
         ForeignKey("crash_report_groups.id", ondelete="SET NULL"),
         nullable=True,
-        index=True,
+        # Indexed via the explicit ix_crash_reports_group_id in __table_args__
+        # (index=True here produced a duplicate and broke create_all).
         comment="FK to grouped crash fingerprint",
     )
     app: Mapped[str] = mapped_column(

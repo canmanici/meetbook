@@ -589,8 +589,6 @@ class MetricsService:
     # ──────────────────────────────────────────────────────────────────────────
 
     async def get_trust_metrics(self) -> TrustMetricsResponse:
-        now = datetime.now(UTC)
-
         total_bans = await self._count_audit_events("user_banned")
         total_suspensions = await self._count_audit_events("user_suspended")
         total_reinstatements = await self._count_audit_events("user_reinstated")

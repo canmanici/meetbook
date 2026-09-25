@@ -421,10 +421,11 @@ export default function SettingsScreen() {
               </Text>
             </TouchableOpacity>
             <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
-            <TouchableOpacity style={styles.row} onPress={() => {}} activeOpacity={0.6}>
+            {/* Turkish is the only language — informational row, not a button. */}
+            <View style={styles.row}>
               <Text style={[styles.rowLabel, { color: colors.text }]}>Dil</Text>
               <Text style={[styles.rowValue, { color: colors.textMuted }]}>Türkçe</Text>
-            </TouchableOpacity>
+            </View>
             <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
             <TouchableOpacity style={styles.row} onPress={handleClearCache} activeOpacity={0.6}>
               <Text style={[styles.rowLabel, { color: colors.text }]}>Önbelleği Temizle</Text>

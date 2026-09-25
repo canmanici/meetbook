@@ -2,7 +2,6 @@
 
 import httpx
 
-from app.core.config import get_settings
 
 _cache: dict[str, dict] = {}
 CACHE_TTL = 30 * 24 * 3600  # 30 days in seconds

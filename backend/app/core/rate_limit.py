@@ -6,11 +6,11 @@ incompatible with asyncpg's event-loop-bound connections.
 
 import json
 import time
-from collections.abc import Awaitable, Callable
 
 import redis.asyncio as aioredis
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.core.client_ip import resolve_client_ip
 from app.core.security import decode_access_token
 
 
@@ -154,20 +154,9 @@ class RateLimitMiddleware:
 
     @staticmethod
     def _get_client_ip(scope: Scope, headers: dict[str, str]) -> str:
-        forwarded = headers.get("x-forwarded-for", "")
-        if forwarded:
-            client_ip = forwarded.split(",")[0].strip()
-            if client_ip:
-                return client_ip
-
-        real_ip = headers.get("x-real-ip", "")
-        if real_ip:
-            return real_ip.strip()
-
         client = scope.get("client")
-        if client:
-            return client[0]
-        return "unknown"
+        peer = client[0] if client else None
+        return resolve_client_ip(peer, headers.get("x-forwarded-for"))
 
     async def _check_limit(
         self, key: str, limit: int, window_seconds: int

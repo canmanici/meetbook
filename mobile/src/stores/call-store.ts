@@ -173,6 +173,18 @@ let autoLevel: 'low' | 'medium' | 'high' = 'high';
 // 'relay' = through our TURN server. Attached to the call log for the
 // admin P2P-vs-relay ratio metric.
 let connRoute: 'direct' | 'relay' | null = null;
+// ── Media watchdog ────────────────────────────────────────────────────
+// Detects a "connected but silent" call from the stats loop and self-heals:
+//   - 0 outbound audio packets for 2 ticks → our mic track is dead (the
+//     corrupted-AudioDeviceModule / stale-permission class of bugs) →
+//     recreate the audio track via getUserMedia and replaceTrack() it in.
+//   - 0 inbound audio packets for 3 ticks → the path TO us is dead →
+//     caller triggers an ICE restart.
+let prevAudioPackets: { sent: number; recv: number } | null = null;
+let sendStallTicks = 0;
+let recvStallTicks = 0;
+let micRecoveries = 0;
+const MAX_MIC_RECOVERIES = 2;
 // Relayed calls burn OUR bandwidth, not just the users' — cap the video
 // ceiling at 'medium' (~800 kbit/s) when the selected pair is a relay.
 let maxLevel: 'medium' | 'high' = 'high';
@@ -287,6 +299,10 @@ function stopStatsMonitor() {
   connRoute = null;
   maxLevel = 'high';
   restartAttempts = 0;
+  prevAudioPackets = null;
+  sendStallTicks = 0;
+  recvStallTicks = 0;
+  micRecoveries = 0;
   if (disconnectTimer) { clearTimeout(disconnectTimer); disconnectTimer = null; }
 }
 
@@ -427,7 +443,9 @@ export const useCallStore = create<CallState>((set, get) => {
           const icm = getInCallManager();
           try {
             icm?.stopRingback();
-            if (get().kind === 'audio' && !get().isSpeakerOn) icm?.setForceSpeakerphoneOn(false);
+            // Re-assert the route on connect — never trust that the value
+            // set at session start survived ringtone/ringback transitions.
+            icm?.setForceSpeakerphoneOn(get().isSpeakerOn);
           } catch {}
         }
       } else if (cs === 'disconnected') {
@@ -503,6 +521,76 @@ export const useCallStore = create<CallState>((set, get) => {
     }
   }
 
+  /** Dead-mic failsafe: acquire a fresh audio track and hot-swap it into the
+   *  sender via replaceTrack — no renegotiation, the other side just starts
+   *  hearing us again. Old track is released only AFTER the swap succeeds. */
+  async function recoverMicTrack() {
+    const rtc = getWebRTC();
+    if (!rtc || !pc) return;
+    micRecoveries += 1;
+    console.warn(`[call-store] media watchdog: outbound audio dead — recreating mic track (attempt ${micRecoveries})`);
+    const peer = pc;
+    let freshStream: any = null;
+    // Release a mic we grabbed but did not end up using — otherwise the
+    // microphone stays captured (and the OS mic indicator on) after the call.
+    const releaseFresh = () => {
+      try {
+        freshStream?.getTracks?.().forEach((t: any) => { t.stop(); t.release?.(); });
+        freshStream?.release?.();
+      } catch {}
+    };
+    try {
+      const { localStream, isMuted } = get();
+      freshStream = await getUserMediaDirect(rtc, 'audio');
+      const newTrack = freshStream.getAudioTracks()[0];
+      // The call may have ended (or restarted) while we awaited the mic.
+      if (pc !== peer || get().status !== 'active') { releaseFresh(); return; }
+      const sender = pc.getSenders?.().find((sn: any) => sn.track?.kind === 'audio');
+      if (!sender || !newTrack) { releaseFresh(); return; }
+      const oldTrack = localStream?.getAudioTracks?.()[0];
+      await sender.replaceTrack(newTrack);
+      if (pc !== peer || get().status !== 'active') { releaseFresh(); return; }
+      newTrack.enabled = !isMuted;
+      try {
+        if (oldTrack) {
+          localStream?.removeTrack?.(oldTrack);
+          oldTrack.stop();
+          oldTrack.release?.();
+        }
+        localStream?.addTrack?.(newTrack);
+      } catch {}
+    } catch (e) {
+      releaseFresh();
+      console.warn('[call-store] mic track recovery failed:', e);
+    }
+  }
+
+  /** Audio-flow watchdog, runs on every stats tick while active. */
+  function watchAudioFlow(stats: Map<string, any>) {
+    let sent = 0;
+    let recv = 0;
+    stats.forEach((s) => {
+      const isAudio = s.kind === 'audio' || s.mediaType === 'audio';
+      if (s.type === 'outbound-rtp' && isAudio) sent += s.packetsSent ?? 0;
+      if (s.type === 'inbound-rtp' && isAudio) recv += s.packetsReceived ?? 0;
+    });
+    if (prevAudioPackets) {
+      sendStallTicks = sent - prevAudioPackets.sent <= 0 ? sendStallTicks + 1 : 0;
+      recvStallTicks = recv - prevAudioPackets.recv <= 0 ? recvStallTicks + 1 : 0;
+    }
+    prevAudioPackets = { sent, recv };
+
+    if (sendStallTicks >= 2 && micRecoveries < MAX_MIC_RECOVERIES) {
+      sendStallTicks = 0;
+      void recoverMicTrack();
+    }
+    if (recvStallTicks >= 3 && get().isCaller && restartAttempts < MAX_ICE_RESTARTS) {
+      recvStallTicks = 0;
+      console.warn('[call-store] media watchdog: inbound audio dead — ICE restart');
+      void attemptIceRestart();
+    }
+  }
+
   function startStatsMonitor() {
     if (statsTimer) return;
     statsTimer = setInterval(async () => {
@@ -513,6 +601,7 @@ export const useCallStore = create<CallState>((set, get) => {
       } catch {
         return;
       }
+      watchAudioFlow(stats);
       const { lossPct, rttMs } = readStats(stats);
 
       // Classify link health for the UI indicator.
@@ -545,6 +634,14 @@ export const useCallStore = create<CallState>((set, get) => {
   function startAudioSession(kind: CallKind, ringback: boolean) {
     const icm = getInCallManager();
     if (!icm) return;
+    // ASSUME THE WORST: a previous call's stop() may not have fully landed
+    // (native `audioManagerActivated` stuck true), in which case start()
+    // silently no-ops and this call inherits stale routing — the exact
+    // "ringtone in the earpiece / one-direction-dead audio" bug. Hard-reset
+    // the session unconditionally before starting a fresh one.
+    try { icm.stopRingtone(); } catch {}
+    try { icm.stopRingback(); } catch {}
+    try { icm.stop(); } catch {}
     try {
       // '_DEFAULT_' plays the device's actual system ringtone (via
       // getDefaultUserUri on Android), the same sound used for a real
@@ -552,10 +649,11 @@ export const useCallStore = create<CallState>((set, get) => {
       // '_BUNDLE_' is a distinct, dedicated dial/ringback tone bundled with
       // the library, so the caller hears a normal dialing tone instead.
       icm.start({ media: kind, ringback: ringback ? '_BUNDLE_' : '' });
-      if (kind === 'video') {
-        icm.setForceSpeakerphoneOn(true);
-        set({ isSpeakerOn: true });
-      }
+      // Route explicitly — never trust inherited state: video → loudspeaker,
+      // voice → earpiece (user can still toggle).
+      const speaker = kind === 'video';
+      icm.setForceSpeakerphoneOn(speaker);
+      set({ isSpeakerOn: speaker });
     } catch {}
   }
 
@@ -608,6 +706,9 @@ export const useCallStore = create<CallState>((set, get) => {
           peer: { id: msg.sender_id, name: msg.sender_name || 'Bilinmeyen', avatarUrl: null },
         });
         const icm = getInCallManager();
+        // Reset any stale in-communication audio mode first — otherwise the
+        // ringtone plays through the EARPIECE instead of the loudspeaker.
+        try { icm?.stop(); } catch {}
         try { icm?.startRingtone('_DEFAULT_'); } catch {}
         Vibration.vibrate([800, 1200], true);
         // Auto-dismiss if caller gives up silently (network death etc.).

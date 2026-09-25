@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Res
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.client_ip import resolve_client_ip
 from app.core.db import get_session
 from app.core.throttle import LoginThrottle
 from app.modules.auth.dependencies import get_current_user
@@ -43,12 +44,8 @@ def _get_service(session: AsyncSession = Depends(get_session)) -> AuthService:
 
 
 def _get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "127.0.0.1"
+    peer = request.client.host if request.client else None
+    return resolve_client_ip(peer, request.headers.get("X-Forwarded-For"))
 
 
 def _get_throttle() -> LoginThrottle:

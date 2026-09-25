@@ -144,6 +144,9 @@ class AdminService:
     async def suspend_user(
         self, user_id: uuid.UUID, moderator_id: uuid.UUID, reason: str | None
     ) -> AdminUserView:
+        if user_id == moderator_id:
+            # Locking yourself out of the admin panel is never intended.
+            raise AdminError("CANNOT_MODERATE_SELF", 409)
         user = await self.repo.get_user(user_id)
         if user is None:
             raise AdminError("NOT_FOUND", 404)
@@ -170,6 +173,9 @@ class AdminService:
     async def ban_user(
         self, user_id: uuid.UUID, moderator_id: uuid.UUID, reason: str | None
     ) -> AdminUserView:
+        if user_id == moderator_id:
+            # Locking yourself out of the admin panel is never intended.
+            raise AdminError("CANNOT_MODERATE_SELF", 409)
         user = await self.repo.get_user(user_id)
         if user is None:
             raise AdminError("NOT_FOUND", 404)

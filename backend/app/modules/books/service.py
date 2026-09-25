@@ -142,15 +142,13 @@ class BookService:
 
     async def _attach_cover(self, book_id: uuid.UUID, cover_url: str) -> BookPhoto | None:
         """Download cover image from URL and attach as BookPhoto (best-effort)."""
-        import httpx
+        from app.core.safe_fetch import fetch_public_image
         try:
-            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-                resp = await client.get(cover_url)
-                resp.raise_for_status()
-                content_type = resp.headers.get("content-type", "image/jpeg")
-                file_bytes = resp.content
+            # SSRF-hardened: public IPs only (every redirect hop re-checked),
+            # image content types only, size-capped.
+            file_bytes, content_type = await fetch_public_image(cover_url)
 
-            ext = content_type.split("/")[-1] if "/" in content_type else "jpg"
+            ext = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}[content_type]
             filename = f"cover.{ext}"
             url = await _s3_upload_photo_raw(book_id, filename, file_bytes, content_type)
 

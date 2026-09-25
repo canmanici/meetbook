@@ -130,9 +130,12 @@ TRANSITIONS: dict[tuple[ExchangeStatus, ExchangeAction], tuple[ExchangeStatus, A
         ExchangeStatus.overdue,
         Actor.OWNER,
     ),
-    # Cancel an active loan (e.g. lost book dispute) — either party.
-    (ExchangeStatus.lent, ExchangeAction.cancel): (ExchangeStatus.cancelled, Actor.EITHER),
-    (ExchangeStatus.overdue, ExchangeAction.cancel): (ExchangeStatus.cancelled, Actor.EITHER),
+    # Cancel an active loan (e.g. lost book dispute) — OWNER only. If the
+    # borrower could cancel, they'd walk away with the book and a clean
+    # record; an owner-cancel is recorded against the borrower as a late
+    # (unreturned) loan in ExchangeService._transition.
+    (ExchangeStatus.lent, ExchangeAction.cancel): (ExchangeStatus.cancelled, Actor.OWNER),
+    (ExchangeStatus.overdue, ExchangeAction.cancel): (ExchangeStatus.cancelled, Actor.OWNER),
 }
 
 # Statuses the hourly expiry worker may move to `expired` once `expires_at` has passed.

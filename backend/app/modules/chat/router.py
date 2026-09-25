@@ -3,31 +3,28 @@
 import json
 import logging
 import uuid
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session, get_session_factory
 from app.modules.auth.dependencies import get_current_user
-from app.modules.auth.models import User
+from app.modules.auth.models import User, UserStatus
 from app.modules.chat.schemas import (
     ChatListResponse,
     ChatMarkReadRequest,
     ChatSettingsRequest,
     ChatSettingsResponse,
-    ChatSettingsView,
     ChatTicketResponse,
     MessageDeliveryInfo,
     MessageListResponse,
     MessageSearchResponse,
     MessageSearchResult,
-    MessageView,
     MuteRequest,
     PinnedMessagesResponse,
-    ReactionRequest,
     StarredMessagesResponse,
     TurnCredentialsResponse,
     IceServer,
@@ -402,21 +399,47 @@ async def websocket_endpoint(
         return
 
     await ConnectionManager.connect(user_id, ws)
+    session_factory = get_session_factory()
 
-    async with get_session_factory()() as session:
-        service = ChatService(session)
+    try:
+        while True:
+            text = await ws.receive_text()
+            # A bad frame must never kill the receive loop — that used to
+            # leave a zombie socket the client still believed was connected.
+            try:
+                raw = json.loads(text)
+            except json.JSONDecodeError:
+                await ChatService._ws_error(ws, "Invalid JSON")
+                continue
+            if not isinstance(raw, dict):
+                await ChatService._ws_error(ws, "Message must be a JSON object")
+                continue
 
-        try:
-            while True:
-                raw = await ws.receive_json()
-                await service.handle_ws_message(user_id, ws, raw)
-        except WebSocketDisconnect:
-            pass
-        except json.JSONDecodeError:
-            await service._ws_error(ws, "Invalid JSON")
-        except Exception:
-            logger.exception("WebSocket message handler error")
-        finally:
-            ConnectionManager.disconnect(user_id, ws)
-            await ConnectionManager.set_last_seen(user_id)
-            await ConnectionManager._broadcast_presence(user_id, False)
+            # One short-lived session PER MESSAGE: a connection-long session
+            # pinned a pooled DB connection (idle-in-transaction) per socket
+            # and served stale identity-map data for the whole connection.
+            async with session_factory() as session:
+                if raw.get("type") != "ping":
+                    # Suspended/banned users lose their live socket too.
+                    status = await session.scalar(
+                        select(User.status).where(User.id == user_id)
+                    )
+                    if status != UserStatus.active:
+                        await ChatService._ws_error(ws, "Account is not active")
+                        await ws.close(code=4003)
+                        return
+                try:
+                    await ChatService(session).handle_ws_message(user_id, ws, raw)
+                except WebSocketDisconnect:
+                    raise
+                except Exception:
+                    await session.rollback()
+                    logger.exception("WebSocket message handler error")
+                    await ChatService._ws_error(ws, "Internal error")
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        logger.exception("WebSocket connection error")
+    finally:
+        ConnectionManager.disconnect(user_id, ws)
+        await ConnectionManager.on_disconnected(user_id)

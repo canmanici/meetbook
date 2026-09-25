@@ -16,7 +16,6 @@ from app.core.security import (
     hash_token,
     verify_password,
 )
-from app.core.s3 import upload_photo as s3_upload_photo
 from app.core.throttle import LoginThrottle
 from app.modules.auth.models import RefreshToken, UserStatus, Vouch
 from app.modules.auth.repository import AuthRepository
@@ -25,8 +24,6 @@ from app.modules.auth.schemas import (
     MeResponse,
     MessageResponse,
     RESERVED_USERNAMES,
-    SessionListResponse,
-    SessionView,
     TokenResponse,
     UpdateMeRequest,
     UserPublic,

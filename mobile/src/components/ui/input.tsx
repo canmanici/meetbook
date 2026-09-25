@@ -20,6 +20,7 @@ interface InputProps {
   error?: string;
   secureTextEntry?: boolean;
   keyboardType?: 'email-address' | 'phone-pad' | 'default';
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   testID?: string;
   style?: ViewStyle;
 }
@@ -33,6 +34,7 @@ export const Input: React.FC<InputProps> = ({
   error,
   secureTextEntry = false,
   keyboardType = 'default',
+  autoCapitalize,
   testID = 'input-field',
   style,
 }) => {
@@ -57,6 +59,11 @@ export const Input: React.FC<InputProps> = ({
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry && !isPasswordVisible}
           keyboardType={keyboardType}
+          // Emails must never be auto-capitalised ("Can@..." ≠ "can@...").
+          autoCapitalize={
+            autoCapitalize ?? (keyboardType === 'email-address' || secureTextEntry ? 'none' : 'sentences')
+          }
+          autoCorrect={keyboardType === 'email-address' ? false : undefined}
           placeholderTextColor={colors.textMuted}
           testID={testID}
         />

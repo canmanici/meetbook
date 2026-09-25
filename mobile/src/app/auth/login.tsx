@@ -72,6 +72,7 @@ export default function LoginScreen() {
             placeholder="ornek@eposta.com veya kullaniciadi"
             value={email}
             onChangeText={(v) => setEmail(v.trim())}
+            autoCapitalize="none"
             error={emailInvalid ? 'Boşluk içeremez' : undefined}
           />
           <Input

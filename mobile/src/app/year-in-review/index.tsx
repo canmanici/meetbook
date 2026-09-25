@@ -12,7 +12,7 @@ import Animated, {
   withTiming,
   runOnJS,
 } from 'react-native-reanimated';
-import Svg, { Circle, G, Polyline, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, G, Line, Polyline, Rect, Text as SvgText } from 'react-native-svg';
 import {
   ActivityIndicator,
   NativeScrollEvent,
@@ -595,11 +595,11 @@ export default function YearInReviewScreen() {
           <Ionicons name="cloud-offline-outline" size={40} color="#FFFFFF" />
           <Text style={styles.loadingText}>Bir şeyler ters gitti.</Text>
           <TouchableOpacity
-            style={styles.primaryBtn}
+            style={slideStyles.primaryBtn}
             onPress={() => refetch()}
             activeOpacity={0.85}
           >
-            <Text style={styles.primaryBtnText}>Tekrar dene</Text>
+            <Text style={slideStyles.primaryBtnText}>Tekrar dene</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>

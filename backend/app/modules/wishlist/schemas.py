@@ -3,19 +3,25 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class WishlistItemCreateRequest(BaseModel):
-    isbn: str = Field(min_length=1, max_length=20)
-    title: str | None = Field(default=None, max_length=200)
+    isbn: str | None = Field(default=None, min_length=1, max_length=20)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
     author: str | None = Field(default=None, max_length=200)
     notes: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def _isbn_or_title(self) -> "WishlistItemCreateRequest":
+        if not self.isbn and not (self.title and self.title.strip()):
+            raise ValueError("isbn or title is required")
+        return self
 
 
 class WishlistItemView(BaseModel):
     id: uuid.UUID
-    isbn: str
+    isbn: str | None
     title: str | None
     author: str | None
     notes: str | None

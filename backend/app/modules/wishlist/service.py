@@ -83,13 +83,23 @@ class WishlistService:
 
     async def find_matches(self, user_id: uuid.UUID) -> WishlistMatchResponse:
         isbns = await self.wishlist_repo.get_isbns_by_user(user_id)
-        if not isbns:
+        titles = await self.wishlist_repo.get_title_only_by_user(user_id)
+        if not isbns and not titles:
             return WishlistMatchResponse(matches=[])
 
-        matches = []
+        lookups: list[tuple[str, list]] = []
         for isbn in isbns:
-            books = await self.books_repo.list_available_by_isbn(isbn)
+            lookups.append((isbn, await self.books_repo.list_available_by_isbn(isbn)))
+        for title in titles:
+            lookups.append(("", await self.books_repo.list_available_by_title(title)))
+
+        matches = []
+        seen: set[uuid.UUID] = set()
+        for isbn, books in lookups:
             for row in books:
+                if row.book.id in seen or row.book.owner_id == user_id:
+                    continue
+                seen.add(row.book.id)
                 photos = await self.books_repo.get_photos(row.book.id)
                 matches.append(
                     WishlistMatchView(

@@ -1,7 +1,6 @@
 """Database queries for the wishlist module."""
 
 import uuid
-from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +21,7 @@ class WishlistRepository:
     async def add_item(
         self,
         user_id: uuid.UUID,
-        isbn: str,
+        isbn: str | None,
         title: str | None,
         author: str | None,
         notes: str | None,
@@ -56,7 +55,19 @@ class WishlistRepository:
         await self.session.delete(item)
 
     async def get_isbns_by_user(self, user_id: uuid.UUID) -> list[str]:
-        stmt = select(WishlistItem.isbn).where(WishlistItem.user_id == user_id)
+        stmt = select(WishlistItem.isbn).where(
+            WishlistItem.user_id == user_id, WishlistItem.isbn.is_not(None)
+        )
+        result = await self.session.execute(stmt)
+        return [row[0] for row in result.all()]
+
+    async def get_title_only_by_user(self, user_id: uuid.UUID) -> list[str]:
+        """Titles of entries added without an ISBN (matched by title)."""
+        stmt = select(WishlistItem.title).where(
+            WishlistItem.user_id == user_id,
+            WishlistItem.isbn.is_(None),
+            WishlistItem.title.is_not(None),
+        )
         result = await self.session.execute(stmt)
         return [row[0] for row in result.all()]
 

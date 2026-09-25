@@ -3,7 +3,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.models import (
@@ -35,10 +35,15 @@ class AuthRepository:
     # ------------------------------------------------------------------
 
     async def get_user_by_email(self, email: str) -> User | None:
+        # Case-insensitive: "Can@x.com" and "can@x.com" are the same mailbox.
+        # .first() (not scalar_one_or_none) tolerates legacy rows that differ
+        # only by case, oldest account wins.
         result = await self.session.execute(
-            select(User).where(User.email == email)
+            select(User)
+            .where(func.lower(User.email) == email.strip().lower())
+            .order_by(User.created_at)
         )
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     async def get_user_by_id(self, user_id: uuid.UUID) -> User | None:
         result = await self.session.execute(
@@ -81,7 +86,7 @@ class AuthRepository:
     async def create_user(
         self, email: str, name: str, username: str, password_hash: str
     ) -> tuple[User, UserCredential]:
-        user = User(email=email, name=name, username=username.lower())
+        user = User(email=email.strip().lower(), name=name, username=username.lower())
         self.session.add(user)
         await self.session.flush()  # get user.id
 

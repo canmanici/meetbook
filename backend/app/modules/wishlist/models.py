@@ -18,7 +18,7 @@ class WishlistItem(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    isbn = Column(Text, nullable=False)
+    isbn = Column(Text, nullable=True)  # NULL = title-only entry
     title = Column(Text, nullable=True)
     author = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)

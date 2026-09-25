@@ -88,6 +88,8 @@ def create_app() -> FastAPI:
             "/api/v1/places": (120, 60),
             "/api/v1/reports": (60, 3600),
             "/api/v1/admin": (120, 60),
+            # Public, unauthenticated ingest — cap per client IP.
+            "/api/v1/crash-report": (30, 60),
         },
     )
     app.add_middleware(RateLimitMiddleware, redis_client=redis_client, config=rate_config)

@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_access_ttl_seconds: int = 15 * 60
     refresh_token_ttl_days: int = 30
+    # Number of reverse proxies we control in front of the app (Traefik = 1).
+    # The client IP is read this many entries from the RIGHT of
+    # X-Forwarded-For — see app/core/client_ip.py.
+    trusted_proxy_hops: int = 1
 
     # -- TURN / WebRTC calls --------------------------------------------
     # Shared HMAC secret with coturn (`static-auth-secret`). Empty -> the

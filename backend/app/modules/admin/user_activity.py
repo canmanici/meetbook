@@ -5,17 +5,15 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import Float, func, or_, select, text
+from sqlalchemy import Float, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
 
 from app.core.db import get_session
 from app.modules.auth.dependencies import get_admin_user
-from app.modules.auth.models import User, AuditLog
+from app.modules.auth.models import User
 from app.modules.books.models import Book
 from app.modules.chat.models import Message
-from app.modules.exchanges.models import Chat, ExchangeRequest, ExchangeStatus
-from app.modules.admin.service import AdminService
+from app.modules.exchanges.models import Chat, ExchangeRequest
 
 router = APIRouter(prefix="/admin", tags=["admin-ext"])
 

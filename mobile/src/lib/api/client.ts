@@ -139,7 +139,7 @@ async function parse<T>(res: Response): Promise<T> {
       emitApiError({ kind: 'server', status: res.status, message: messageForStatus(res.status) });
       // Auto-report 5xx so we can catch backend regressions quickly
       crashReporter.captureError(
-        new Error(`Server ${res.status}: ${method} ${res.url} → ${JSON.stringify(data).slice(0, 500)}`),
+        new Error(`Server ${res.status}: ${res.url} → ${JSON.stringify(data ?? null).slice(0, 500)}`),
         'ApiServerError',
       );
     }
@@ -452,7 +452,7 @@ export async function lookupISBN(isbnCode: string): Promise<{
 
 export type WishlistItem = {
   id: string;
-  isbn: string;
+  isbn: string | null;
   title?: string;
   author?: string;
   notes?: string;
@@ -464,7 +464,7 @@ export async function getWishlist(): Promise<{ items: WishlistItem[] }> {
 }
 
 export async function addToWishlist(body: {
-  isbn: string;
+  isbn?: string;
   title?: string;
   author?: string;
   notes?: string;

@@ -1,7 +1,5 @@
 """Expo Push Notification sender service."""
 
-import asyncio
-import json
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -32,7 +30,7 @@ async def send_push(
     message: PushMessage,
 ) -> dict[str, Any]:
     """Send push notifications to one or more Expo push tokens.
-    
+
     Returns:
         {"ok": n, "errors": [...]} summary of results.
     """
