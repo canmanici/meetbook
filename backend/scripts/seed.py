@@ -37,29 +37,23 @@ from app.core.db import Base, get_engine, get_session_factory
 
 # ── Seed Data ────────────────────────────────────────────────────────────────
 
+# Bootstrap admin — created only when SEED_ADMIN_PASSWORD is set (dev and
+# prod alike). No password ever lives in this public repo.
+BOOTSTRAP_ADMIN = {
+    "email": "admin@meetbook.app",
+    "name": "Admin",
+    "username": "admin",
+    "is_admin": True,
+    "status": "active",
+}
+
 DEV_USERS = [
-    {
-        "email": "admin@meetbook.app",
-        "name": "Admin",
-        "username": "admin",
-        "password": "changeme123",
-        "is_admin": True,
-        "status": "active",
-    },
     {
         "email": "demo@meetbook.app",
         "name": "Demo User",
         "username": "demo",
         "password": "changeme123",
         "is_admin": False,
-        "status": "active",
-    },
-    {
-        "email": "canmanici@gmail.com",
-        "name": "Can Manici",
-        "username": "canmanici",
-        "password": "***REMOVED***",
-        "is_admin": True,
         "status": "active",
     },
 ]
@@ -161,20 +155,16 @@ async def seed() -> int:
     try:
         # ── 1. Create admin/dev users ────────────────────────────────────
         step("Seeding users...")
-        if is_dev:
-            users_to_seed = DEV_USERS
-        else:
-            # Never ship the repo's default password to production: the
-            # bootstrap admin exists only when its password comes from env.
-            admin_email = os.environ.get("SEED_ADMIN_EMAIL", "").strip() or DEV_USERS[0]["email"]
-            admin_password = os.environ.get("SEED_ADMIN_PASSWORD", "")
-            users_to_seed = (
-                [{**DEV_USERS[0], "email": admin_email, "password": admin_password}]
-                if admin_password
-                else []
-            )
-            if not admin_password:
-                warn("SEED_ADMIN_PASSWORD not set — bootstrap admin not created/updated.")
+        admin_email = os.environ.get("SEED_ADMIN_EMAIL", "").strip() or BOOTSTRAP_ADMIN["email"]
+        admin_password = os.environ.get("SEED_ADMIN_PASSWORD", "")
+        admin_seed = (
+            [{**BOOTSTRAP_ADMIN, "email": admin_email, "password": admin_password}]
+            if admin_password
+            else []
+        )
+        if not admin_password:
+            warn("SEED_ADMIN_PASSWORD not set — bootstrap admin not created/updated.")
+        users_to_seed = (DEV_USERS if is_dev else []) + admin_seed
 
         async with factory() as session:
             from app.modules.auth.models import User, UserCredential
@@ -189,7 +179,7 @@ async def seed() -> int:
                 )
                 row = existing.first()
                 if row:
-                    if not is_dev:
+                    if user_data.get("is_admin"):
                         await _sync_admin_password(session, row[0], user_data["password"])
                     info(f"User '{user_data['email']}' already exists — skipped.")
                     continue

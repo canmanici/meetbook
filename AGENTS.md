@@ -20,7 +20,7 @@
 - Login `relation "users" does not exist` **FIXED** — root cause: WatchFiles reloader watched `/app/.venv/`, detected pytest files, triggered full reloader restart which re-ran `start_app.py`, causing recovery path to stamp base + upgrade head while tables were already present → tables lost but alembic_version stayed at head
 - **Fix applied:** `reload_excludes` added to `uvicorn.run()` in `start_app.py` (excludes `.venv`, `__pycache__`, `*.pyc`, `.git`, `.pytest_cache`)
 - Database tables recreated via `alembic stamp base && alembic upgrade head`
-- Database re-seeded (admin@example.com: `changeme123`, canmanici@gmail.com: `***REMOVED***`)
+- Database re-seeded (dev seed users — see backend/scripts/seed.py; never reuse dev passwords in prod)
 - **7 backend metrics endpoints** built (50+ real KPIs):
   - `GET /admin/metrics/overview` — 40+ KPIs across users, books, exchanges, reports, engagement, trust, system
   - `GET /admin/metrics/trends?days=30` — 8 time-series arrays (signups, DAU, WAU, exchanges created/completed, reports, books, favorites)
@@ -108,7 +108,7 @@
 - Admin panel accessed at `http://127.0.0.1:8000/admin/index.html`
 - Dev mode uses `docker-compose.yml` + `docker-compose.dev.yml` together
 - Backend source code is volume-mounted — changes picked up via WatchFiles hot reload
-- **Admin login:** `canmanici@gmail.com` / `***REMOVED***` (also `admin@example.com` / `changeme123`)
+- **Admin login (local dev only):** dev seed users from backend/scripts/seed.py — prod admins come from Dokploy env (ADMIN_EMAILS / SEED_ADMIN_PASSWORD)
 - WatchFiles now has `reload_excludes` to prevent `.venv` from triggering restarts
 - All API endpoints use `/api/v1/` prefix (e.g., `/api/v1/admin/users`, `/api/v1/auth/login`)
 - Browser MUST hard refresh (Ctrl+F5) after admin HTML changes due to aggressive caching
