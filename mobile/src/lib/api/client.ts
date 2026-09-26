@@ -1,4 +1,5 @@
 import { clearTokens, setTokens } from '@/lib/secure-store';
+import { clientHeaders } from '@/lib/client-info';
 import { useAuthStore } from '@/stores/auth-store';
 import { crashReporter } from '@/lib/crash-reporter';
 
@@ -106,6 +107,7 @@ async function rawRequest(
       method,
       headers: {
         'Content-Type': 'application/json',
+        ...clientHeaders(path),
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -395,6 +397,7 @@ export async function uploadBookPhoto(
   const res = await fetch(url, {
     method: 'POST',
     headers: {
+      ...clientHeaders(),
       Authorization: `Bearer ${accessToken}`,
     },
     body: formData,
@@ -437,6 +440,7 @@ export async function uploadBookPhotoThumbnail(
   const res = await fetch(url, {
     method: 'PATCH',
     headers: {
+      ...clientHeaders(),
       Authorization: `Bearer ${accessToken}`,
     },
     body: formData,
@@ -570,7 +574,7 @@ export async function uploadLoanPhoto(
 
   const res = await fetch(`${BASE_URL}/exchanges/${exchangeId}/photo`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { ...clientHeaders(), Authorization: `Bearer ${accessToken}` },
     body: formData,
   });
   const data = await res.json();
@@ -945,7 +949,7 @@ export async function uploadAvatar(uri: string, contentType = 'image/jpeg'): Pro
   const url = `${BASE_URL}/auth/me/avatar`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { ...clientHeaders(), Authorization: `Bearer ${accessToken}` },
     body: formData,
   });
   const data = await res.json();

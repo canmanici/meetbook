@@ -11,6 +11,7 @@ def register_routers(app: FastAPI) -> None:
     from app.modules.admin.metrics_exchanges_deep import router as metrics_exchanges_deep_router
     from app.modules.admin.metrics_messages import router as metrics_messages_router
     from app.modules.admin.router import router as admin_router
+    from app.modules.admin.client_intel import router as client_intel_router
     from app.modules.admin.user_activity import router as user_activity_router
     from app.modules.app_updates.router import admin_router as app_release_admin_router
     from app.modules.app_updates.router import public_router as app_updates_router
@@ -51,6 +52,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(metrics_exchanges_deep_router, prefix="/api/v1")
     app.include_router(metrics_content_router, prefix="/api/v1")
     app.include_router(user_activity_router, prefix="/api/v1")
+    app.include_router(client_intel_router, prefix="/api/v1")
     app.include_router(push_token_router, prefix="/api/v1")
     app.include_router(saved_searches_router, prefix="/api/v1")
     app.include_router(clubs_router, prefix="/api/v1")

@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     s3_secret_key: str = ""
     sms_provider_key: str = ""
     media_dir: str = "/app/media"
+    # Offline DB-IP databases for IP → country/city/ISP (see app/core/ipdb.py).
+    # Kept out of media_dir, which is served publicly at /media.
+    ip_db_dir: str = "/app/ipdb"
 
     # Comma-separated list of allowed origins for browser clients (admin panel, Expo web dev server).
     cors_origins: str = "http://localhost:8081,http://localhost:8000,http://localhost:3000,http://localhost:5173,http://localhost:8080,http://127.0.0.1:5500,http://localhost:5500"

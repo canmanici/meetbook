@@ -2,6 +2,7 @@
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import redis.asyncio as aioredis
 from fastapi import FastAPI
@@ -9,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
+from app.core.client_context import ClientContextMiddleware
 from app.core.rate_limit import RateLimitConfig, RateLimitMiddleware
 from app.core.redis import get_redis
 from app.lifespan import lifespan
@@ -16,6 +18,16 @@ from app.routers import register_routers
 from app.storage_proxy import router as storage_router
 
 logger = logging.getLogger("app.access")
+
+
+class _RevalidatingStaticFiles(StaticFiles):
+    """Admin panel is a single HTML file that changes with every deploy —
+    make browsers revalidate (ETag → 304) instead of serving a stale copy."""
+
+    async def get_response(self, path: str, scope: Any) -> Any:
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 def create_app() -> FastAPI:
@@ -94,6 +106,8 @@ def create_app() -> FastAPI:
         },
     )
     app.add_middleware(RateLimitMiddleware, redis_client=redis_client, config=rate_config)
+    # Outermost: record who the client is (real IP, device, ISP) for this request.
+    app.add_middleware(ClientContextMiddleware)
 
     # Admin panel (admin/index.html) — host'ta project-root/admin, container'da /app/admin
     admin_dir = None
@@ -104,7 +118,9 @@ def create_app() -> FastAPI:
             admin_dir = candidate
             break
     if admin_dir:
-        app.mount("/admin", StaticFiles(directory=str(admin_dir), html=True), name="admin")
+        app.mount(
+            "/admin", _RevalidatingStaticFiles(directory=str(admin_dir), html=True), name="admin"
+        )
         logger.info("Admin panel mounted at /admin from %s", admin_dir)
     else:
         logger.warning("Admin panel not found (tried parent paths of %s)", _me)

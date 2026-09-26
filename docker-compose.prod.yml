@@ -179,6 +179,8 @@ services:
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
     volumes:
       - mediadata:/app/media
+      # DB-IP databases (~140 MB) — persisted so a redeploy doesn't re-download.
+      - ipdb:/app/ipdb
       # Admin panel (static HTML) — lives outside the ./backend build context,
       # so it's mounted from the checkout; app.main serves /app/admin at /admin.
       - ./admin:/app/admin:ro
@@ -223,4 +225,5 @@ volumes:
   pgdata:
   redisdata:
   miniodata:
+  ipdb:
   mediadata:

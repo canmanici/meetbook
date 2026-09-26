@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.client_context import current_client
 from app.core.db import get_session
 from app.modules.admin.router import router as admin_router
 from app.modules.auth.dependencies import get_admin_user
@@ -177,6 +178,13 @@ def _parse_uuid(value: str | None) -> uuid.UUID | None:
 # ── Ingest endpoint (public) ──────────────────────────────────────────────────
 
 
+def _client_snapshot() -> dict[str, Any]:
+    ctx = current_client()
+    if ctx is None:
+        return {}
+    return {"ip": ctx.ip, "user_agent": ctx.user_agent, **ctx.snapshot()}
+
+
 @crash_router.post("", status_code=201)
 async def report_crash(
     payload: CrashReportCreate,
@@ -196,7 +204,11 @@ async def report_crash(
         error_message=payload.error_message,
         stack_trace=payload.stack_trace,
         breadcrumbs=[b.model_dump() for b in payload.breadcrumbs],
-        device_info=payload.device_info.model_dump() if payload.device_info else {},
+        device_info={
+            **(payload.device_info.model_dump() if payload.device_info else {}),
+            # Server-observed client (real IP + ISP/location) — the app can't fake it.
+            "client": _client_snapshot(),
+        },
         screen_name=payload.screen_name,
         user_id=_parse_uuid(payload.user_id),
     )

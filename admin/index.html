@@ -619,6 +619,12 @@ input[type=file].form-input { padding: 0.4rem 0.5rem; height: auto; }
 .activity-sub { font-size: 0.76rem; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-time { font-size: 0.76rem; color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
 
+.login-row { border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.25rem; }
+.login-row:last-child { border-bottom: none; }
+.client-details { margin: 0 0 0.25rem 1.6rem; }
+.client-details > summary { cursor: pointer; font-size: 0.76rem; color: var(--brand); font-weight: 500; width: fit-content; }
+.client-details[open] > summary { margin-bottom: 0.25rem; }
+
 /* ── Utilities ── */
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
@@ -709,7 +715,7 @@ code { font-family: var(--font-mono); font-size: 0.8rem; padding: 0.05rem 0.3rem
       <div class="user-info"><div class="user-name" id="sidebar-name"></div><div class="user-email" id="sidebar-email"></div></div>
       <button class="btn-logout" onclick="logout()" title="Çıkış yap">Çıkış</button>
     </div>
-    <div class="sidebar-version">MeetBook Yönetim</div>
+    <div class="sidebar-version">MeetBook Yönetim · IP konum verisi: <a href="https://db-ip.com" target="_blank" rel="noopener" style="color:inherit">DB-IP</a></div>
   </aside>
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
@@ -754,6 +760,7 @@ code { font-family: var(--font-mono); font-size: 0.8rem; padding: 0.05rem 0.3rem
 
 <div class="page active" id="page-dashboard">
   <div id="dashboard-content">
+    <div id="dash-error" class="card" style="display:none;margin-bottom:1rem"></div>
     <div class="section-title"><h2>Dikkat gerektirenler</h2><span class="hint" id="dash-updated"></span></div>
     <div class="attention" id="dash-attention"><div class="loading-spinner"></div></div>
 
@@ -787,6 +794,11 @@ code { font-family: var(--font-mono); font-size: 0.8rem; padding: 0.05rem 0.3rem
         <div class="chart-header"><div><h3 class="chart-title">En çok görüntülenen kitaplar</h3><div class="card-sub">Toplam detay sayfası görüntülenmesi</div></div></div>
         <div class="chart-body auto" id="top-books-chart"><div class="loading-spinner"></div></div>
       </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-header"><div><h3>Yeni kullanıcılar</h3><div class="card-sub" id="dash-new-users-count">Kayıt oldukları IP, konum, operatör ve cihaz</div></div><button class="card-link" onclick="navigateTo('users')">Tüm kullanıcılar</button></div>
+      <div class="card-body" style="padding-top:0.6rem;padding-bottom:0.4rem" id="dash-new-users"><div class="loading-spinner"></div></div>
     </div>
 
     <div class="dash-grid even">
@@ -1668,6 +1680,124 @@ function loadPage(page) {
 }
 
 // ─── Dashboard ──────────────────────────────────────────────────
+// ─── Client (device / network) rendering ───────────────────────
+// Data comes from app/core/client_context.py via sessions & audit events.
+// API strings are already HTML-escaped (request → escapeDeep).
+const COUNTRY_TR = { TR: 'Türkiye', US: 'ABD', DE: 'Almanya', NL: 'Hollanda', GB: 'Birleşik Krallık', FR: 'Fransa', AZ: 'Azerbaycan', CY: 'Kıbrıs', RU: 'Rusya' };
+const DEVICE_FIELDS = [
+  ['brand', 'Marka'], ['manufacturer', 'Üretici'], ['device_model', 'Model'], ['model_name', 'Model adı'],
+  ['model_code', 'Model kodu'], ['model_id', 'Model kimliği'], ['product_name', 'Ürün adı'], ['design_name', 'Tasarım adı'],
+  ['device_type', 'Cihaz türü'], ['device_name', 'Cihaz adı'], ['device_year_class', 'Cihaz yılı sınıfı'],
+  ['total_memory_mb', 'RAM (MB)'], ['cpu_archs', 'İşlemci mimarisi'], ['is_physical_device', 'Gerçek cihaz'],
+  ['os', 'İşletim sistemi'], ['os_version', 'Sürüm'], ['api_level', 'Android API'], ['os_build_id', 'Build'],
+  ['os_internal_build_id', 'İç build'], ['os_build_fingerprint', 'Build parmak izi'],
+  ['app_id', 'Uygulama kimliği'], ['app_version', 'Uygulama sürümü'], ['app_build', 'Uygulama build'],
+  ['install_source', 'Kurulum kaynağı'], ['device_id', 'Cihaz kimliği'], ['screen', 'Ekran'],
+  ['locale', 'Dil'], ['timezone', 'Saat dilimi'],
+];
+const NET_FIELDS = [['city', 'Şehir'], ['region', 'Bölge'], ['country', 'Ülke'], ['isp', 'Operatör (ISP)'], ['asn', 'ASN']];
+
+function deviceLine(d) {
+  if (!d) return 'Cihaz bilgisi yok';
+  const model = d.device_model || d.model_name || d.model_code || '';
+  const code = d.model_code && d.model_code !== model ? ` (${d.model_code})` : '';
+  const os = [d.os, d.os_version].filter(Boolean).join(' ');
+  const app = d.app_version ? `uygulama ${d.app_version}` : '';
+  return [model + code, os, app].filter(Boolean).join(' · ') || (d.platform || 'Bilinmeyen cihaz');
+}
+function netLine(n) {
+  if (!n) return 'Konum/operatör bilinmiyor';
+  const place = [n.city, n.region && n.region !== n.city ? n.region : null, COUNTRY_TR[n.country_code] || n.country].filter(Boolean).join(', ');
+  return [place, n.isp].filter(Boolean).join(' · ');
+}
+function kvGrid(obj, fields) {
+  const rows = fields.filter(([k]) => obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== '')
+    .map(([k, label]) => {
+      let v = obj[k];
+      if (Array.isArray(v)) v = v.join(', ');
+      if (typeof v === 'boolean') v = v ? 'Evet' : 'Hayır';
+      if (k === 'asn') v = 'AS' + v;
+      return `<div class="detail-row"><span>${label}</span><strong class="${k.includes('id') || k.includes('fingerprint') || k === 'asn' ? 'font-mono' : ''}" style="font-size:0.8rem">${v}</strong></div>`;
+    });
+  return rows.join('') || '<div class="text-muted text-sm">Bilgi yok</div>';
+}
+function clientDetails(entry) {
+  // Full verbose profile, collapsed by default.
+  return `<details class="client-details"><summary>Tüm ayrıntılar</summary>
+    <div class="detail-grid" style="margin-top:0.6rem">
+      <div class="detail-section"><h4>Cihaz</h4>${kvGrid(entry.device, DEVICE_FIELDS)}</div>
+      <div class="detail-section"><h4>Ağ</h4>
+        ${entry.ip ? `<div class="detail-row"><span>IP</span><strong class="font-mono">${entry.ip}</strong></div>` : ''}
+        ${kvGrid(entry.network, NET_FIELDS)}
+        ${entry.user_agent ? `<div class="detail-row"><span>User-Agent</span><strong class="font-mono" style="font-size:0.72rem">${entry.user_agent}</strong></div>` : ''}
+      </div>
+    </div></details>`;
+}
+const LOGIN_KIND = {
+  session: ['Oturum açıldı / yenilendi', 'info'], register_success: ['Kayıt oldu', 'ok'], login_success: ['Giriş yaptı', 'ok'],
+  login_failed: ['Hatalı şifre denemesi', 'bad'], token_reuse_detected: ['Çalıntı token şüphesi', 'bad'],
+};
+
+async function loadUserLogins(id) {
+  const el = document.getElementById('ud-logins');
+  if (!el || el.dataset.loaded === id) return;
+  el.innerHTML = '<div class="loading-spinner"></div>';
+  try {
+    const r = await API.adminRequest(`/users/${id}/logins?limit=100`);
+    el.dataset.loaded = id;
+    const s = r.summary || {};
+    const head = `<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem">
+      <div class="stat-chip"><span class="stat-chip-label">Farklı IP</span><span class="stat-chip-value">${s.distinct_ips || 0}</span></div>
+      <div class="stat-chip"><span class="stat-chip-label">Farklı cihaz</span><span class="stat-chip-value">${s.distinct_devices || 0}</span></div>
+      <div class="stat-chip" style="align-items:flex-start;min-width:180px"><span class="stat-chip-label">Son IP</span><span class="stat-chip-value font-mono" style="font-size:0.9rem">${s.last_ip || '—'}</span></div>
+      <div class="stat-chip" style="align-items:flex-start;flex:1;min-width:200px"><span class="stat-chip-label">Operatörler</span><span class="text-sm">${(s.isps || []).join(', ') || '—'}</span></div>
+    </div>`;
+    const items = r.items || [];
+    el.innerHTML = head + (items.length ? `<div class="activity-list">${items.map(e => {
+      const [label, lvl] = LOGIN_KIND[e.kind] || [e.kind, 'info'];
+      return `<div class="login-row">
+        <div class="activity-row" style="border:none;padding-bottom:0.2rem">
+          <span class="activity-dot ${lvl}"></span>
+          <div class="activity-main">
+            <div class="activity-title">${label}${e.active ? ' <span class="badge badge-success">aktif oturum</span>' : ''}</div>
+            <div class="activity-sub"><span class="font-mono">${e.ip || 'IP yok'}</span> · ${netLine(e.network)}</div>
+            <div class="activity-sub">${deviceLine(e.device)}</div>
+          </div>
+          <span class="activity-time" title="${formatDate(e.at)}">${formatDate(e.at)}</span>
+        </div>
+        ${clientDetails(e)}
+      </div>`;
+    }).join('')}</div>` : '<div class="chart-empty">Kayıtlı giriş yok. (Bu özellik eklenmeden önceki girişlerde IP/cihaz tutulmuyordu.)</div>');
+  } catch (e) {
+    el.innerHTML = `<div class="chart-empty">Giriş geçmişi yüklenemedi: ${htmlEscape(e.message || '')}</div>`;
+  }
+}
+
+async function loadNewUsers(days = 30) {
+  const el = document.getElementById('dash-new-users');
+  if (!el) return;
+  try {
+    const r = await API.adminRequest(`/metrics/new-users?days=${days}&limit=10`);
+    document.getElementById('dash-new-users-count').textContent = `Son ${days} günde ${formatNum(r.total || 0)} yeni kullanıcı`;
+    const items = r.items || [];
+    const plat = Object.entries(r.by_platform || {}).map(([k, v]) => `${k} ${v}`).join(' · ');
+    const isp = Object.entries(r.by_isp || {}).slice(0, 3).map(([k, v]) => `${k} (${v})`).join(', ');
+    el.innerHTML = (plat || isp ? `<div class="text-sm text-secondary" style="margin-bottom:0.6rem">${plat}${isp ? ' — ' + isp : ''}</div>` : '') +
+      (items.length ? `<div class="activity-list">${items.map(u => `
+        <div class="activity-row" style="cursor:pointer" onclick="viewUserDetail('${u.id}')">
+          <span class="activity-dot ${u.status === 'active' ? 'ok' : 'warn'}"></span>
+          <div class="activity-main">
+            <div class="activity-title">${u.name || 'İsimsiz'} <span class="text-muted">· ${u.email}</span></div>
+            <div class="activity-sub"><span class="font-mono">${u.signup_ip || 'IP yok'}</span> · ${netLine(u.network)}</div>
+            <div class="activity-sub">${deviceLine(u.device)}</div>
+          </div>
+          <span class="activity-time" title="${formatDate(u.created_at)}">${timeAgoTr(u.created_at)}</span>
+        </div>`).join('')}</div>` : '<div class="chart-empty">Bu dönemde yeni kullanıcı yok</div>');
+  } catch (e) {
+    el.innerHTML = '<div class="chart-empty">Yeni kullanıcılar yüklenemedi</div>';
+  }
+}
+
 // Audit event → readable Turkish + severity.
 const AUDIT_EVENTS = {
   login_success: ['Giriş yaptı', 'ok'], login_failed: ['Hatalı giriş denemesi', 'bad'], login_failure: ['Hatalı giriş denemesi', 'bad'],
@@ -1737,8 +1867,9 @@ async function loadDashboard() {
         <div class="kpi-value">${k.value}</div>${k.extra}
       </div>`).join('');
 
-    // ── Growth trend ──
+    // ── Growth trend + new users ──
     loadTrendChart(_trendDays);
+    loadNewUsers(30);
 
     // ── User status ──
     Charts.donut('user-status-chart', [
@@ -1780,7 +1911,7 @@ async function loadDashboard() {
         const [label, lvl] = auditLabel(a.event_type || a.action);
         const who = a.user_email || 'Sistem';
         return `<div class="activity-row"><span class="activity-dot ${lvl}"></span>
-          <div class="activity-main"><div class="activity-title">${label}</div><div class="activity-sub">${who}${a.ip_address ? ' · ' + a.ip_address : ''}</div></div>
+          <div class="activity-main"><div class="activity-title">${label} <span class="text-muted">· ${who}</span></div><div class="activity-sub">${a.ip_address ? `<span class="font-mono">${a.ip_address}</span> · ` : ''}${netLine(a.metadata_?.client?.network)}</div></div>
           <span class="activity-time" title="${formatDate(a.timestamp || a.created_at)}">${timeAgoTr(a.timestamp || a.created_at)}</span></div>`;
       }).join('')}</div>` : '<div class="chart-empty">Henüz kayıt yok</div>';
     } catch (e) { activityEl.innerHTML = '<div class="chart-empty">Denetim kaydı yüklenemedi</div>'; }
@@ -1809,8 +1940,13 @@ async function loadDashboard() {
     state.refreshIntervals.dashboard = setInterval(() => {
       if (state.page === 'dashboard' && !document.hidden) loadDashboard();
     }, 60000);
+    document.getElementById('dash-error').style.display = 'none';
   } catch (e) {
-    content.innerHTML = `<div class="card"><div class="error-state"><div class="error-icon">&#9888;</div><h2>Genel bakış yüklenemedi</h2><p class="text-secondary">${htmlEscape(e.message || 'Bilinmeyen hata')}</p><button class="btn btn-primary btn-sm" onclick="location.reload()">Yeniden dene</button></div></div>`;
+    // Show the error above the layout — never wipe the skeleton, or later
+    // reloads have nothing to render into.
+    const err = document.getElementById('dash-error');
+    err.style.display = '';
+    err.innerHTML = `<div class="error-state"><div class="error-icon">&#9888;</div><h2>Genel bakış yüklenemedi</h2><p class="text-secondary">${htmlEscape(e.message || 'Bilinmeyen hata')}</p><button class="btn btn-primary btn-sm" onclick="loadDashboard()">Yeniden dene</button></div>`;
   }
 }
 
@@ -2438,6 +2574,7 @@ async function viewUserDetail(id) {
       <button class="tab active" data-utab="profile">Profil</button>
       <button class="tab" data-utab="messages">Mesajlar (${o.message_count || 0})</button>
       <button class="tab" data-utab="calls">Çağrılar (${o.call_count || 0})</button>
+      <button class="tab" data-utab="logins">Girişler ve cihazlar</button>
     </div>
     <div id="user-detail-tab-content" style="padding:1.25rem;min-height:200px;max-height:50vh;overflow-y:auto">`;
 
@@ -2464,6 +2601,7 @@ async function viewUserDetail(id) {
 
     html += `<div id="ud-messages" style="display:none"><div class="text-center text-muted" style="padding:2rem">Yükleniyor...</div></div>`;
     html += `<div id="ud-calls" style="display:none"><div class="text-center text-muted" style="padding:2rem">Yükleniyor...</div></div>`;
+    html += `<div id="ud-logins" style="display:none"></div>`;
     html += `</div>`;
 
     container.innerHTML = html;
@@ -2477,6 +2615,8 @@ async function viewUserDetail(id) {
         document.getElementById('ud-profile').style.display = tab === 'profile' ? 'grid' : 'none';
         document.getElementById('ud-messages').style.display = tab === 'messages' ? 'block' : 'none';
         document.getElementById('ud-calls').style.display = tab === 'calls' ? 'block' : 'none';
+        document.getElementById('ud-logins').style.display = tab === 'logins' ? 'block' : 'none';
+        if (tab === 'logins') await loadUserLogins(id);
         if (tab === 'messages') await loadUserMessages(id);
         if (tab === 'calls') await loadUserCalls(id);
       });
@@ -3095,33 +3235,25 @@ async function loadAuditLogData(page) {
     const totalPages = Math.ceil(total / auditState.limit);
     document.getElementById('audit-total').textContent = `${total} kayıt`;
     if (!items.length) { grid.innerHTML = '<div class="crud-loading"><div class="text-muted">Kayıt bulunamadı</div></div>'; pag.innerHTML = ''; return; }
-    const evColors = { login_success: '#10b981', login_failure: '#ef4444', login_failed: '#ef4444', user_suspended: '#f97316', user_banned: '#ef4444', user_reinstated: '#3b82f6', report_resolved: '#10b981', book_takedown: '#ef4444' };
-    const evLabels = { login_success: '✅ Giriş', login_failure: '❌ Başarısız Giriş', login_failed: '❌ Başarısız Giriş', user_suspended: '⏸ Askıya Alma', user_banned: '🚫 Banlama', user_reinstated: '↩️ Geri Getirme', report_resolved: '🟢 Rapor Çözümü', book_takedown: '📕 Kitap Kaldırma' };
     grid.innerHTML = items.map(a => {
-      const ec = evColors[a.event_type] || '#94a3b8';
-      const el = evLabels[a.event_type] || a.event_type;
-      // Parse metadata_ for detail
-      let detail = a.metadata_ ? (a.metadata_.reason || a.metadata_.detail || JSON.stringify(a.metadata_)) : '-';
-      if (detail.length > 60) detail = detail.substring(0,60) + '...';
-      return `<div class="data-card">
-        <div class="data-card-inner">
-          <div class="data-card-header" style="padding:0.6rem 0.9rem">
-            <span class="audit-event-dot" style="background:${ec};box-shadow:0 0 6px ${ec}66"></span>
-            <div class="data-card-info">
-              <div class="data-card-title" style="font-size:0.78rem">
-                <span style="color:${ec}">${el}</span>
-                <span class="text-muted" style="font-weight:400;margin-left:0.5rem">${formatDate(a.created_at)}</span>
-              </div>
-              <div class="data-card-sub" style="font-size:0.7rem">${escHtml(a.user_name || a.user_email || 'Anonim')}${a.ip_address ? ' · ' + a.ip_address : ''}</div>
-            </div>
+      const [label, lvl] = auditLabel(a.event_type);
+      const meta = a.metadata_ || {};
+      const client = meta.client || {};
+      // Event-specific details (reason, email for failed logins…) without the client blob.
+      const extra = Object.entries(meta).filter(([k]) => k !== 'client')
+        .map(([k, v]) => `${k === 'email' ? 'e-posta' : k === 'reason' ? 'sebep' : k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(' · ');
+      return `<div class="data-card"><div class="login-row" style="padding:0.75rem 1rem 0.4rem;margin:0;border:none">
+        <div class="activity-row" style="border:none;padding:0 0 0.2rem">
+          <span class="activity-dot ${lvl}"></span>
+          <div class="activity-main">
+            <div class="activity-title">${label} <span class="text-muted">· ${a.user_name || a.user_email || 'Anonim'}</span></div>
+            <div class="activity-sub">${a.ip_address ? `<span class="font-mono">${a.ip_address}</span> · ` : ''}${netLine(client.network)}</div>
+            <div class="activity-sub">${deviceLine(client.device)}${extra ? ' · ' + extra : ''}</div>
           </div>
-          <div class="data-card-body" style="padding:0.1rem 0.9rem 0.5rem">
-            <div class="data-card-meta">
-              <span class="data-chip">${escHtml(detail)}</span>
-            </div>
-          </div>
+          <span class="activity-time" title="${formatDate(a.created_at)}">${formatDate(a.created_at)}</span>
         </div>
-      </div>`;
+        ${client.device || client.network ? clientDetails({ ip: a.ip_address, user_agent: a.user_agent, device: client.device, network: client.network }) : ''}
+      </div></div>`;
     }).join('');
     // Pagination
     if (totalPages > 1) {
@@ -3296,8 +3428,20 @@ async function showCrashDetail(id) {
     if (g.notes) html += `<div class="card" style="margin-bottom:1rem"><div class="card-header"><h3>Admin Notu</h3></div><div class="card-body"><p style="color:var(--text-secondary);white-space:pre-wrap">${escHtml(g.notes)}</p></div></div>`;
     // Individual crashes in group
     if (crashes?.items?.length) {
-      html += `<div class="card"><div class="card-header"><h3>Son ${crashes.items.length} Hata Kaydı</h3></div><div class="table-container"><table><thead><tr><th>Sürüm</th><th>Platform</th><th>Ekran</th><th>Kullanıcı</th><th>Tarih</th></tr></thead><tbody>${
-        crashes.items.map(c => `<tr><td class="text-sm">${c.app_version || '-'}</td><td class="text-sm">${c.device_info?.platform || '-'}</td><td class="text-sm">${c.screen_name || '-'}</td><td class="text-sm text-muted">${c.user_id ? c.user_id.slice(0, 8)+'…' : '-'}</td><td class="text-sm text-muted">${formatDate(c.created_at)}</td></tr>`).join('')
+      html += `<div class="card"><div class="card-header"><h3>Son ${crashes.items.length} Hata Kaydı</h3></div><div class="table-container"><table><thead><tr><th>Sürüm</th><th>Cihaz</th><th>IP · konum · operatör</th><th>Ekran</th><th>Kullanıcı</th><th>Tarih</th></tr></thead><tbody>${
+        crashes.items.map(c => {
+          const di = c.device_info || {};
+          const cl = di.client || {};
+          // app-reported fields + server-observed device profile
+          const dev = { ...(cl.device || {}), ...(di.model && !cl.device?.device_model ? { device_model: di.model } : {}),
+                        ...(di.os_version && !cl.device?.os_version ? { os_version: di.os_version } : {}) };
+          return `<tr><td class="text-sm">${c.app_version || '-'}</td>
+            <td class="text-sm">${deviceLine(Object.keys(dev).length ? dev : { platform: di.platform })}</td>
+            <td class="text-sm"><span class="font-mono">${cl.ip || '-'}</span><br><span class="text-muted">${netLine(cl.network)}</span></td>
+            <td class="text-sm">${c.screen_name || '-'}</td>
+            <td class="text-sm text-muted">${c.user_id ? `<a href="#" onclick="event.preventDefault();viewUserDetail('${c.user_id}')">${c.user_id.slice(0, 8)}…</a>` : '-'}</td>
+            <td class="text-sm text-muted">${formatDate(c.created_at)}</td></tr>`;
+        }).join('')
       }</tbody></table></div></div>`;
     }
     body.innerHTML = html;

@@ -250,6 +250,11 @@ def start_uvicorn() -> None:
         host=host,
         port=port,
         reload=reload,
+        # Behind Traefik: take the client address from X-Forwarded-For, but
+        # only when the direct peer is on a private (docker) network — so
+        # access logs show real users instead of 10.0.x.x.
+        proxy_headers=True,
+        forwarded_allow_ips="10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1",
         # Only meaningful with reload — passing it in production made uvicorn
         # log "Current configuration will not reload as not all conditions
         # are met" on every boot.
@@ -570,6 +575,16 @@ def main() -> int:
 
     asyncio.run(reset_engine())
     log_elapsed("DB engine reset (ready for uvicorn event loop).")
+
+    # Offline IP → country/city/ISP databases (monthly; no-op when fresh).
+    # Failure only disables the enrichment — never blocks boot.
+    try:
+        from app.core.ipdb import refresh_ip_databases
+
+        refresh_ip_databases()
+        log_elapsed("IP databases ready.")
+    except Exception as exc:
+        log_elapsed(f"IP databases unavailable: {exc}")
 
     # Phase 6: Start uvicorn (blocking, never returns)
     try:

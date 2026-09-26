@@ -26,7 +26,9 @@ RUN find /app -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true \
 ENV PYTHON_JIT=1
 ENV PYTHONPATH=/app
 
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# ipdb/media exist in the image so fresh named volumes inherit appuser
+# ownership (a root-owned volume would make the IP-database download fail).
+RUN useradd -m -u 1000 appuser && mkdir -p /app/ipdb /app/media && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000

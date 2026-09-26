@@ -9,6 +9,7 @@
  * No import of native modules that could fail in Expo Go.
  * Self-healing: when a crash IS sent, flush any pending from storage.
  */
+import { clientHeaders } from '@/lib/client-info';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
@@ -102,7 +103,8 @@ class CrashReporter {
       const timeout = setTimeout(() => controller.abort(), this.SEND_TIMEOUT_MS);
       const res = await fetch(CRASH_ENDPOINT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // Full device profile rides along (same header the auth calls use).
+        headers: { 'Content-Type': 'application/json', ...clientHeaders('/auth/crash') },
         body: JSON.stringify(payload),
         signal: controller.signal,
       });

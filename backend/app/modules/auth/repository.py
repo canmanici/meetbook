@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.client_context import current_client
 from app.modules.auth.models import (
     AuditLog,
     PasswordResetToken,
@@ -108,11 +109,18 @@ class AuthRepository:
         expires_at: datetime,
         device_info: dict[str, str] | None = None,
     ) -> RefreshToken:
+        # Every issued/rotated token records where it was issued from — this
+        # is the per-user login history the admin panel shows.
+        ctx = current_client()
+        network = ctx.network() if ctx else None
         rt = RefreshToken(
             user_id=user_id,
             token_hash=token_hash,
             family_id=family_id,
-            device_info=device_info,
+            device_info=device_info or (ctx.device() if ctx else None) or None,
+            ip_address=ctx.ip if ctx else None,
+            user_agent=ctx.user_agent if ctx else None,
+            client={"network": network} if network else None,
             expires_at=expires_at,
         )
         self.session.add(rt)
