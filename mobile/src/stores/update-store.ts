@@ -13,7 +13,10 @@ import {
 
 const SNOOZE_KEY = 'update_snoozed'; // {version_code, until}
 const SNOOZE_MS = 24 * 60 * 60 * 1000;
-const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+// Re-check whenever the app comes back to the foreground, at most every
+// 15 min (the endpoint is a tiny GET). 6h meant a freshly published release
+// went unnoticed for most of a day unless the app was killed and relaunched.
+const AUTO_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 // While running a withdrawn build, look for the fix far more often.
 const WITHDRAWN_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
