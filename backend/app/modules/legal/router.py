@@ -4,6 +4,7 @@ import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
@@ -29,6 +30,7 @@ logger = logging.getLogger("app.legal")
 _legal_dir = Path(__file__).resolve().parent.parent.parent / "legal"
 _version_file = _legal_dir / "VERSION"
 
+
 def _get_current_policy_version() -> str:
     try:
         return _version_file.read_text(encoding="utf-8").strip()
@@ -40,6 +42,7 @@ router = APIRouter(prefix="/legal", tags=["legal"])
 
 
 # ── HTML pages ────────────────────────────────────────────────
+
 
 def _read_html(filename: str) -> str:
     """Read an HTML file from the legal directory and return its content."""
@@ -79,12 +82,17 @@ async def veri_saklama_imha_politikasi() -> str:
     return _read_html("veri-saklama-imha-politikasi.html")
 
 
-@router.get("/kotuye-kullanim-ve-dolandiricilikla-mucadele-politikasi", response_class=HTMLResponse, include_in_schema=False)
+@router.get(
+    "/kotuye-kullanim-ve-dolandiricilikla-mucadele-politikasi",
+    response_class=HTMLResponse,
+    include_in_schema=False,
+)
 async def kotuye_kullanim_ve_dolandiricilikla_mucadele_politikasi() -> str:
     return _read_html("kotuye-kullanim-ve-dolandiricilikla-mucadele-politikasi.html")
 
 
 # ── API endpoints ────────────────────────────────────────────
+
 
 @router.get("/current-policy", response_model=CurrentPolicyResponse)
 async def current_policy(user: User = Depends(get_current_user)) -> CurrentPolicyResponse:
@@ -109,7 +117,9 @@ async def accept_policy(
         # Allow accepting a specific version, but warn if it's not current
         logger.warning(
             "User %s accepted non-current version %s (current: %s)",
-            user.id, body.version, current,
+            user.id,
+            body.version,
+            current,
         )
 
     user.kvkk_policy_version = body.version
@@ -126,7 +136,7 @@ async def accept_policy(
 
 
 @router.get("/current-policy-public")
-async def current_policy_public() -> dict:
+async def current_policy_public() -> dict[str, Any]:
     """Public endpoint for policy version check (no auth needed)."""
     current = _get_current_policy_version()
     return {
@@ -184,6 +194,6 @@ async def submit_data_subject_request(
     return DataSubjectResponse(
         success=True,
         message=f"Başvurunuz başarıyla alınmıştır. Referans numaranız: {ref}. "
-                f"En geç 30 gün içinde {body.eposta} adresine yanıt verilecektir.",
+        f"En geç 30 gün içinde {body.eposta} adresine yanıt verilecektir.",
         reference_number=ref,
     )

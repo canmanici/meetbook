@@ -5,6 +5,7 @@ Revises: c8f9b2fc15d9
 Create Date: 2026-07-01 00:00:00.000000
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -113,16 +114,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(
-        "ix_shared_wishlist_items_added_by", table_name="shared_wishlist_items"
-    )
-    op.drop_index(
-        "ix_shared_wishlist_items_wishlist_id", table_name="shared_wishlist_items"
-    )
+    op.drop_index("ix_shared_wishlist_items_added_by", table_name="shared_wishlist_items")
+    op.drop_index("ix_shared_wishlist_items_wishlist_id", table_name="shared_wishlist_items")
     op.drop_table("shared_wishlist_items")
-    op.drop_index(
-        "ix_shared_wishlist_members_user_id", table_name="shared_wishlist_members"
-    )
+    op.drop_index("ix_shared_wishlist_members_user_id", table_name="shared_wishlist_members")
     op.drop_table("shared_wishlist_members")
     op.drop_index("ix_shared_wishlists_owner_id", table_name="shared_wishlists")
     op.drop_table("shared_wishlists")

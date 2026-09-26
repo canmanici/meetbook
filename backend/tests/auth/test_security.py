@@ -5,7 +5,9 @@ import pytest
 
 
 async def _register_user(
-    client: httpx.AsyncClient, email: str, password: str = "securepass123"  # noqa: S107
+    client: httpx.AsyncClient,
+    email: str,
+    password: str = "securepass123",  # noqa: S107
 ) -> dict:
     resp = await client.post(
         "/api/v1/auth/register",
@@ -81,34 +83,39 @@ async def test_password_reset_same_response_for_existing_and_missing(
 
 
 @pytest.mark.asyncio
-async def test_password_reset_token_single_use(client: httpx.AsyncClient) -> None:
-    """Password reset token should fail on second use."""
+async def test_password_reset_token_single_use(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The emailed 6-digit reset code works once, and only once."""
+    import re
+
+    import app.modules.auth.service as auth_service
+
+    sent: list[str] = []
+
+    async def fake_send_mail(to: str, subject: str, text: str, html: str | None = None) -> bool:
+        sent.append(subject)
+        return True
+
+    monkeypatch.setattr(auth_service, "send_mail", fake_send_mail)
     await _register_user(client, "reset@example.com")
 
-    # Request reset — token is logged to console
-    import io
-    import sys
-    captured = io.StringIO()
-    sys.stdout = captured
-    await client.post(
-        "/api/v1/auth/password-reset-request",
-        json={"email": "reset@example.com"},
-    )
-    sys.stdout = sys.__stdout__
-    output = captured.getvalue()
-    token = output.split(": ")[-1].strip()
+    await client.post("/api/v1/auth/password-reset-request", json={"email": "reset@example.com"})
+    assert sent, "reset email was not sent"
+    match = re.search(r"(\d{6})", sent[-1])
+    assert match
+    code = match.group(1)
 
-    # Use token — should succeed
     resp1 = await client.post(
         "/api/v1/auth/password-reset-confirm",
-        json={"token": token, "new_password": "newsecurepass123"},
+        json={"email": "reset@example.com", "code": code, "new_password": "newsecurepass123"},
     )
     assert resp1.status_code == 200
 
-    # Use same token again — should fail
+    # Same code again — must be rejected
     resp2 = await client.post(
         "/api/v1/auth/password-reset-confirm",
-        json={"token": token, "new_password": "anotherpass123"},
+        json={"email": "reset@example.com", "code": code, "new_password": "anotherpass123"},
     )
     assert resp2.status_code == 400
 

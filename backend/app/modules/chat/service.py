@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.db import get_session_factory
-from app.core.security import hash_token, generate_opaque_token
+from app.core.security import generate_opaque_token, hash_token
 from app.modules.chat.models import Message
 from app.modules.chat.repository import ChatRepository
 from app.modules.chat.schemas import (
@@ -65,7 +65,11 @@ def _validate_client_message(message_type: Any, text: str, extra: Any) -> str | 
         if len(json.dumps(extra, default=str)) > MAX_EXTRA_BYTES:
             return "extra too large"
     if message_type == "system":
-        if not isinstance(extra, dict) or set(extra) != {"action"} or extra["action"] not in CLIENT_SYSTEM_ACTIONS:
+        if (
+            not isinstance(extra, dict)
+            or set(extra) != {"action"}
+            or extra["action"] not in CLIENT_SYSTEM_ACTIONS
+        ):
             return "Clients cannot send this system message"
     if not text and not (message_type in EXTRA_ONLY_TYPES and extra):
         return "text is required"
@@ -313,7 +317,9 @@ async def _deliver_club_event(club_id: uuid.UUID, payload: dict[str, Any]) -> No
 
     async with get_session_factory()() as session:
         rows = await session.execute(
-            select(ClubMember.user_id).where(ClubMember.club_id == club_id, ClubMember.status == "active")
+            select(ClubMember.user_id).where(
+                ClubMember.club_id == club_id, ClubMember.status == "active"
+            )
         )
         member_ids = [r[0] for r in rows.all()]
     for uid in member_ids:
@@ -330,7 +336,9 @@ async def subscribe_and_listen() -> None:
         except asyncio.CancelledError:
             raise
         except Exception:
-            logger.exception("Chat pub/sub connection failed, retrying in %ss", PUBSUB_RETRY_DELAY_SECONDS)
+            logger.exception(
+                "Chat pub/sub connection failed, retrying in %ss", PUBSUB_RETRY_DELAY_SECONDS
+            )
             await asyncio.sleep(PUBSUB_RETRY_DELAY_SECONDS)
             continue
 
@@ -348,7 +356,7 @@ async def subscribe_and_listen() -> None:
                 try:
                     kind, id_str = channel.split(":", 1)
                     chat_id = uuid.UUID(id_str)
-                except (IndexError, ValueError):
+                except IndexError, ValueError:
                     continue
 
                 try:
@@ -370,7 +378,7 @@ async def subscribe_and_listen() -> None:
                 if sender_id:
                     try:
                         exclude = uuid.UUID(sender_id)
-                    except (ValueError, TypeError):
+                    except ValueError, TypeError:
                         pass
                 # Resolve the chat's two participants — NEVER fan out to every
                 # connected socket (that leaked messages to all online users).
@@ -384,7 +392,9 @@ async def subscribe_and_listen() -> None:
             await r.aclose()
             return
         except Exception:
-            logger.exception("Chat pub/sub listener error, reconnecting in %ss", PUBSUB_RETRY_DELAY_SECONDS)
+            logger.exception(
+                "Chat pub/sub listener error, reconnecting in %ss", PUBSUB_RETRY_DELAY_SECONDS
+            )
             await pubsub.close()
             await r.aclose()
             await asyncio.sleep(PUBSUB_RETRY_DELAY_SECONDS)
@@ -411,6 +421,7 @@ class ChatService:
     async def list_chats(self, user_id: uuid.UUID) -> ChatListResponse:
         rows = await self.repo.list_chats_for_user(user_id)
         from app.modules.auth.repository import AuthRepository
+
         auth_repo = AuthRepository(self.session)
 
         items: list[ChatSummary] = []
@@ -458,10 +469,12 @@ class ChatService:
         next_cursor = None
         if has_more:
             from app.modules.books.repository import encode_ts_cursor
+
             last = msgs[-1]
             next_cursor = encode_ts_cursor(last.created_at, last.id)
 
         from app.modules.auth.repository import AuthRepository
+
         auth_repo = AuthRepository(self.session)
 
         reply_ids = [m.reply_to_id for m in msgs if m.reply_to_id]
@@ -470,7 +483,11 @@ class ChatService:
             for rid in reply_ids:
                 reply_msg = await self.repo.get_message_by_id(rid)
                 if reply_msg:
-                    sender = await auth_repo.get_user_by_id(reply_msg.sender_id) if reply_msg.sender_id else None
+                    sender = (
+                        await auth_repo.get_user_by_id(reply_msg.sender_id)
+                        if reply_msg.sender_id
+                        else None
+                    )
                     sender_name = sender.name if sender else "Sistem"
                     reply_map[rid] = (reply_msg.text, sender_name)
 
@@ -544,7 +561,8 @@ class ChatService:
             exchange = await self.repo.get_exchange_for_chat(chat.id)
             if exchange:
                 other_id = (
-                    exchange.requested_to if user_id == exchange.requested_by
+                    exchange.requested_to
+                    if user_id == exchange.requested_by
                     else exchange.requested_by
                 )
                 await ConnectionManager.send_to_user(
@@ -687,7 +705,7 @@ class ChatService:
         text: str,
         reply_to_id: uuid.UUID | None = None,
         message_type: str = "text",
-        extra: dict | None = None,
+        extra: dict[str, Any] | None = None,
     ) -> None:
         if not await self.repo.is_participant(chat_id, ws_user_id):
             await self._ws_error(ws, "Not a participant of this chat")
@@ -699,8 +717,7 @@ class ChatService:
             return
 
         other_id = (
-            exchange.requested_to if ws_user_id == exchange.requested_by
-            else exchange.requested_by
+            exchange.requested_to if ws_user_id == exchange.requested_by else exchange.requested_by
         )
         if await self.repo.is_blocked(ws_user_id, other_id):
             await self._ws_error(ws, "Cannot send message — user is blocked")
@@ -722,12 +739,15 @@ class ChatService:
 
         # Extract URLs for link preview
         from app.modules.auth.repository import AuthRepository
+
         auth_repo = AuthRepository(self.session)
 
         reply_text = None
         reply_sender_name = None
         if reply_to_id and reply_msg:
-            sender = await auth_repo.get_user_by_id(reply_msg.sender_id)
+            sender = (
+                await auth_repo.get_user_by_id(reply_msg.sender_id) if reply_msg.sender_id else None
+            )
             reply_text = reply_msg.text
             reply_sender_name = sender.name if sender else "Bilinmeyen"
 
@@ -791,8 +811,7 @@ class ChatService:
             return
 
         other_id = (
-            exchange.requested_to if ws_user_id == exchange.requested_by
-            else exchange.requested_by
+            exchange.requested_to if ws_user_id == exchange.requested_by else exchange.requested_by
         )
         await ConnectionManager.send_to_user(
             other_id,
@@ -883,13 +902,9 @@ class ChatService:
     # participant. Terminating events may carry a `log` object which is
     # persisted as a system message (call history in the thread).
 
-    CALL_EVENTS = frozenset(
-        {"offer", "answer", "ice", "end", "reject", "cancel", "busy"}
-    )
+    CALL_EVENTS = frozenset({"offer", "answer", "ice", "end", "reject", "cancel", "busy"})
 
-    async def handle_call(
-        self, ws_user_id: uuid.UUID, ws: WebSocket, raw: dict[str, Any]
-    ) -> None:
+    async def handle_call(self, ws_user_id: uuid.UUID, ws: WebSocket, raw: dict[str, Any]) -> None:
         event = raw.get("event")
         chat_id_raw = raw.get("chat_id")
         call_id = str(raw.get("call_id") or "")
@@ -898,7 +913,7 @@ class ChatService:
             return
         try:
             chat_id = uuid.UUID(str(chat_id_raw))
-        except (ValueError, AttributeError):
+        except ValueError, AttributeError:
             await self._ws_error(ws, "Invalid chat_id")
             return
 
@@ -910,8 +925,7 @@ class ChatService:
             await self._ws_error(ws, "Chat not found")
             return
         other_id = (
-            exchange.requested_to if ws_user_id == exchange.requested_by
-            else exchange.requested_by
+            exchange.requested_to if ws_user_id == exchange.requested_by else exchange.requested_by
         )
         if await self.repo.is_blocked(ws_user_id, other_id):
             await self._ws_error(ws, "Cannot call — user is blocked")
@@ -920,6 +934,7 @@ class ChatService:
         kind = raw.get("kind") if raw.get("kind") in ("audio", "video") else "audio"
 
         from app.modules.auth.repository import AuthRepository
+
         auth_repo = AuthRepository(self.session)
         caller = await auth_repo.get_user_by_id(ws_user_id)
         caller_name = caller.name if caller else ""
@@ -971,13 +986,17 @@ class ChatService:
                             await ConnectionManager.send_to_user(other_id, relay)
                             return
                     try:
-                        await ws.send_text(json.dumps({
-                            "type": "call",
-                            "event": "unavailable",
-                            "chat_id": str(chat_id),
-                            "call_id": call_id,
-                            "kind": kind,
-                        }))
+                        await ws.send_text(
+                            json.dumps(
+                                {
+                                    "type": "call",
+                                    "event": "unavailable",
+                                    "chat_id": str(chat_id),
+                                    "call_id": call_id,
+                                    "kind": kind,
+                                }
+                            )
+                        )
                     except Exception:
                         pass  # caller's WS closed meanwhile — their own timer handles it
 
@@ -995,7 +1014,7 @@ class ChatService:
                 status = "ended"
             try:
                 duration = max(0, int(log.get("duration_seconds") or 0))
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 duration = 0
             text = "Görüntülü arama" if kind == "video" else "Sesli arama"
             msg = await self.repo.create_message(
@@ -1056,7 +1075,7 @@ class ChatService:
                 return
             try:
                 chat_id = uuid.UUID(str(chat_id_raw))
-            except (ValueError, AttributeError):
+            except ValueError, AttributeError:
                 await self._ws_error(ws, "Invalid chat_id")
                 return
             reply_to_raw = raw.get("reply_to_id")
@@ -1064,7 +1083,7 @@ class ChatService:
             if reply_to_raw:
                 try:
                     reply_to_id = uuid.UUID(str(reply_to_raw))
-                except (ValueError, AttributeError):
+                except ValueError, AttributeError:
                     pass
             await self.handle_send(ws_user_id, ws, chat_id, text, reply_to_id, message_type, extra)
 
@@ -1075,7 +1094,7 @@ class ChatService:
                 return
             try:
                 chat_id = uuid.UUID(str(chat_id_raw))
-            except (ValueError, AttributeError):
+            except ValueError, AttributeError:
                 return
             await self.handle_typing(ws_user_id, chat_id, is_typing)
 
@@ -1088,7 +1107,7 @@ class ChatService:
             try:
                 chat_id = uuid.UUID(str(chat_id_raw))
                 message_id = uuid.UUID(str(message_id_raw))
-            except (ValueError, AttributeError):
+            except ValueError, AttributeError:
                 await self._ws_error(ws, "Invalid IDs")
                 return
             await self.handle_delete(ws_user_id, ws, chat_id, message_id)
@@ -1104,7 +1123,7 @@ class ChatService:
             try:
                 chat_id = uuid.UUID(str(chat_id_raw))
                 message_id = uuid.UUID(str(message_id_raw))
-            except (ValueError, AttributeError):
+            except ValueError, AttributeError:
                 await self._ws_error(ws, "Invalid IDs")
                 return
             await self.handle_reaction(ws_user_id, ws, chat_id, message_id, emoji, action)

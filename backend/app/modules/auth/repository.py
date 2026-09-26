@@ -46,15 +46,11 @@ class AuthRepository:
         return result.scalars().first()
 
     async def get_user_by_id(self, user_id: uuid.UUID) -> User | None:
-        result = await self.session.execute(
-            select(User).where(User.id == user_id)
-        )
+        result = await self.session.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
     async def get_user_by_username(self, username: str) -> User | None:
-        result = await self.session.execute(
-            select(User).where(User.username == username.lower())
-        )
+        result = await self.session.execute(select(User).where(User.username == username.lower()))
         return result.scalar_one_or_none()
 
     async def search_users(
@@ -97,9 +93,7 @@ class AuthRepository:
 
     async def update_last_active(self, user_id: uuid.UUID) -> None:
         await self.session.execute(
-            update(User)
-            .where(User.id == user_id)
-            .values(last_active_at=datetime.now(UTC))
+            update(User).where(User.id == user_id).values(last_active_at=datetime.now(UTC))
         )
 
     # ------------------------------------------------------------------
@@ -171,19 +165,13 @@ class AuthRepository:
         self.session.add(prt)
         return prt
 
-    async def get_password_reset_token(
-        self, token_hash: str
-    ) -> PasswordResetToken | None:
+    async def get_password_reset_token(self, token_hash: str) -> PasswordResetToken | None:
         result = await self.session.execute(
-            select(PasswordResetToken).where(
-                PasswordResetToken.token_hash == token_hash
-            )
+            select(PasswordResetToken).where(PasswordResetToken.token_hash == token_hash)
         )
         return result.scalar_one_or_none()
 
-    async def mark_password_reset_used(
-        self, token_id: uuid.UUID
-    ) -> None:
+    async def mark_password_reset_used(self, token_id: uuid.UUID) -> None:
         await self.session.execute(
             update(PasswordResetToken)
             .where(PasswordResetToken.id == token_id)

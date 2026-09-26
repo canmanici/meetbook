@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { Input, EmptyState, Skeleton, Badge, Sheet, palette, spacing, radius, fontSize, shadows } from '@/components/ui';
+import { Input, EmptyState, Skeleton, Sheet, palette, spacing, radius, fontSize, shadows } from '@/components/ui';
 import {
   getWishlist,
   addToWishlist,
@@ -26,9 +26,6 @@ import {
   WishlistItem,
 } from '@/lib/api/client';
 import { useAuthStore } from '@/stores/auth-store';
-
-// ISBN-10 or ISBN-13 (digits, optionally with hyphens, with optional 978/979 prefix)
-const ISBN_RE = /^(?:97[89][- ]?)?(?:\d[- ]?){9}[\dX]$/;
 
 function buildAddPayload(input: string): { isbn: string } | { title: string } {
   const trimmed = input.trim();
@@ -174,7 +171,7 @@ export default function WishlistScreen() {
     retry: false,
   });
 
-  const { data: selectedShared, isLoading: selectedSharedLoading, refetch: refetchSelectedShared } = useQuery({
+  const { data: selectedShared, refetch: refetchSelectedShared } = useQuery({
     queryKey: ['shared-wishlist', selectedSharedId],
     queryFn: () => authedRequest<SharedWishlistView>(`/wishlist/shared/${selectedSharedId}`, 'GET', undefined),
     enabled: !!selectedSharedId,
@@ -267,7 +264,7 @@ export default function WishlistScreen() {
     },
   });
 
-  const items = wishlistData?.items ?? [];
+  const items = useMemo(() => wishlistData?.items ?? [], [wishlistData]);
   const matches = matchesData?.matches ?? [];
   const sharedWishlists = sharedListData?.items ?? [];
 
@@ -473,12 +470,7 @@ export default function WishlistScreen() {
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             Kitaplar ({selectedShared.items.length})
           </Text>
-          {selectedSharedLoading && selectedShared.items.length === 0 ? (
-            <>
-              <Skeleton variant="card" />
-              <Skeleton variant="card" />
-            </>
-          ) : selectedShared.items.length === 0 ? (
+          {selectedShared.items.length === 0 ? (
             <EmptyState
               message="Bu listede henüz kitap yok"
               description="Bir kitap eklemek için yukarıdaki alanı kullanın"

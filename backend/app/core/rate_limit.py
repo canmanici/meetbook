@@ -6,6 +6,7 @@ incompatible with asyncpg's event-loop-bound connections.
 
 import json
 import time
+from typing import Any
 
 import redis.asyncio as aioredis
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -67,7 +68,7 @@ class RateLimitMiddleware:
         path = scope.get("path", "")
 
         # Check route-specific limits
-        blocked_response: dict | None = None
+        blocked_response: dict[str, Any] | None = None
         route_key: str | None = None
         for pattern, (limit, window) in self._config.route_limits.items():
             if path == pattern or path.startswith(pattern + "/"):
@@ -98,15 +99,19 @@ class RateLimitMiddleware:
                 [b"content-type", b"application/json"],
                 [b"retry-after", str(blocked_response["retry_after"]).encode()],
             ]
-            await send({
-                "type": "http.response.start",
-                "status": 429,
-                "headers": response_headers,
-            })
-            await send({
-                "type": "http.response.body",
-                "body": body,
-            })
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 429,
+                    "headers": response_headers,
+                }
+            )
+            await send(
+                {
+                    "type": "http.response.body",
+                    "body": body,
+                }
+            )
             return
 
         # Forward to downstream app, intercepting response headers
@@ -158,9 +163,7 @@ class RateLimitMiddleware:
         peer = client[0] if client else None
         return resolve_client_ip(peer, headers.get("x-forwarded-for"))
 
-    async def _check_limit(
-        self, key: str, limit: int, window_seconds: int
-    ) -> tuple[bool, int]:
+    async def _check_limit(self, key: str, limit: int, window_seconds: int) -> tuple[bool, int]:
         now = time.time()
         window_start = now - window_seconds
 
@@ -177,7 +180,9 @@ class RateLimitMiddleware:
             await self._redis.zrem(key, str(now))
             oldest = await self._redis.zrangebyscore(key, window_start, now, start=0, num=1)
             if oldest:
-                retry_after = int(float(oldest[0]) + window_seconds - now)
+                first = oldest[0]
+                first_ts = float(first.decode() if isinstance(first, bytes) else str(first))
+                retry_after = int(first_ts + window_seconds - now)
                 return False, max(retry_after, 1)
             return False, window_seconds
 

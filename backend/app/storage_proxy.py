@@ -13,7 +13,7 @@ SAFE_MEDIA_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 @router.get("/storage/{bucket}/{path:path}")
 @router.head("/storage/{bucket}/{path:path}")
-async def proxy_storage(bucket: str, path: str):
+async def proxy_storage(bucket: str, path: str) -> Response:
     """Fetch a file from MinIO and return it directly."""
     settings = get_settings()
     if not settings.s3_endpoint or not settings.s3_access_key:

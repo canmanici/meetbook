@@ -17,6 +17,7 @@ import logging
 import random
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -97,7 +98,9 @@ class ClubService:
 
     async def _is_blocked(self, a: uuid.UUID, b: uuid.UUID) -> bool:
         n = await self.session.scalar(
-            select(func.count()).select_from(Block).where(
+            select(func.count())
+            .select_from(Block)
+            .where(
                 or_(
                     and_(Block.blocker_id == a, Block.blocked_id == b),
                     and_(Block.blocker_id == b, Block.blocked_id == a),
@@ -129,19 +132,24 @@ class ClubService:
 
     def _msg_view(self, m: ClubMessage, sender: User | None) -> ClubMessageView:
         return ClubMessageView(
-            id=m.id, club_id=m.club_id, sender_id=m.sender_id,
+            id=m.id,
+            club_id=m.club_id,
+            sender_id=m.sender_id,
             sender_name=sender.name if sender else None,
             sender_avatar_url=sender.avatar_url if sender else None,
-            text=m.text, created_at=m.created_at,
+            text=m.text,
+            created_at=m.created_at,
         )
 
     async def _active_user_ids(self, club_id: uuid.UUID) -> list[uuid.UUID]:
         rows = await self.session.execute(
-            select(ClubMember.user_id).where(ClubMember.club_id == club_id, ClubMember.status == ACTIVE)
+            select(ClubMember.user_id).where(
+                ClubMember.club_id == club_id, ClubMember.status == ACTIVE
+            )
         )
         return [r[0] for r in rows.all()]
 
-    async def _broadcast(self, club_id: uuid.UUID, payload: dict) -> None:
+    async def _broadcast(self, club_id: uuid.UUID, payload: dict[str, Any]) -> None:
         """Deliver to active members connected to this instance + publish for
         other instances (the pub/sub listener resolves members itself)."""
         from app.modules.chat.service import ConnectionManager, publish_club_event
@@ -163,10 +171,16 @@ class ClubService:
         view = self._msg_view(msg, sender)
         await self._broadcast(
             msg.club_id,
-            {"type": "club_message", "club_id": str(msg.club_id), "message": json.loads(view.model_dump_json())},
+            {
+                "type": "club_message",
+                "club_id": str(msg.club_id),
+                "message": json.loads(view.model_dump_json()),
+            },
         )
 
-    async def _notify(self, user_ids: list[uuid.UUID], type_: str, payload: dict, title: str, body: str) -> None:
+    async def _notify(
+        self, user_ids: list[uuid.UUID], type_: str, payload: dict[str, Any], title: str, body: str
+    ) -> None:
         from app.modules.chat.service import ConnectionManager
         from app.modules.notifications.service import NotificationService
         from app.modules.push_tokens.service import PushMessage, send_push_to_user
@@ -180,7 +194,8 @@ class ClubService:
                 continue
             try:
                 await send_push_to_user(
-                    str(uid), PushMessage(title=title, body=body, data={"type": type_, **payload}),
+                    str(uid),
+                    PushMessage(title=title, body=body, data={"type": type_, **payload}),
                     session=self.session,
                 )
             except Exception as exc:
@@ -219,20 +234,35 @@ class ClubService:
         for m in members:
             u = users.get(m.user_id)
             b = books.get(m.book_id) if m.book_id else None
-            views.append(ClubMemberView(
-                user_id=m.user_id, name=u.name if u else "Bilinmeyen",
-                username=u.username if u else None, avatar_url=u.avatar_url if u else None,
-                status=m.status, is_owner=m.user_id == club.owner_id,
-                book=ClubBookView(id=b.id, title=b.title, author=b.author, thumbnail_url=thumbs.get(b.id))
-                if b and b.deleted_at is None else None,
-                # Assignments are only meaningful to active members.
-                receives_from_user_id=m.receives_from_user_id if me.status == ACTIVE else None,
-            ))
+            views.append(
+                ClubMemberView(
+                    user_id=m.user_id,
+                    name=u.name if u else "Bilinmeyen",
+                    username=u.username if u else None,
+                    avatar_url=u.avatar_url if u else None,
+                    status=m.status,
+                    is_owner=m.user_id == club.owner_id,
+                    book=ClubBookView(
+                        id=b.id, title=b.title, author=b.author, thumbnail_url=thumbs.get(b.id)
+                    )
+                    if b and b.deleted_at is None
+                    else None,
+                    # Assignments are only meaningful to active members.
+                    receives_from_user_id=m.receives_from_user_id if me.status == ACTIVE else None,
+                )
+            )
         blockers = self._shuffle_blockers(members, books)
         return ClubDetail(
-            id=club.id, name=club.name, owner_id=club.owner_id, my_status=me.status,
-            is_owner=club.owner_id == user_id, shuffled_at=club.shuffled_at, created_at=club.created_at,
-            members=views, can_shuffle=club.owner_id == user_id and not blockers, shuffle_blockers=blockers,
+            id=club.id,
+            name=club.name,
+            owner_id=club.owner_id,
+            my_status=me.status,
+            is_owner=club.owner_id == user_id,
+            shuffled_at=club.shuffled_at,
+            created_at=club.created_at,
+            members=views,
+            can_shuffle=club.owner_id == user_id and not blockers,
+            shuffle_blockers=blockers,
         )
 
     @staticmethod
@@ -241,7 +271,10 @@ class ClubService:
         blockers = []
         if len(active) < 2:
             blockers.append("NEED_TWO_ACTIVE_MEMBERS")
-        if any(m.book_id is None or m.book_id not in books or books[m.book_id].deleted_at for m in active):
+        if any(
+            m.book_id is None or m.book_id not in books or books[m.book_id].deleted_at
+            for m in active
+        ):
             blockers.append("MISSING_BOOKS")
         return blockers
 
@@ -272,23 +305,38 @@ class ClubService:
         lrows = await self.session.execute(
             select(ClubMessage).join(
                 latest_sq,
-                and_(ClubMessage.club_id == latest_sq.c.club_id, ClubMessage.created_at == latest_sq.c.mx),
+                and_(
+                    ClubMessage.club_id == latest_sq.c.club_id,
+                    ClubMessage.created_at == latest_sq.c.mx,
+                ),
             )
         )
         latest = {m.club_id: m for m in lrows.scalars().all()}
-        users = await self._users({c.owner_id for c, _ in pairs} | {m.sender_id for m in latest.values() if m.sender_id})
+        users = await self._users(
+            {c.owner_id for c, _ in pairs} | {m.sender_id for m in latest.values() if m.sender_id}
+        )
         items = []
         for club, status in pairs:
             lm = latest.get(club.id)
-            items.append(ClubSummary(
-                id=club.id, name=club.name, owner_id=club.owner_id,
-                owner_name=users[club.owner_id].name if club.owner_id in users else "",
-                my_status=status, active_count=cnt.get((club.id, ACTIVE), 0),
-                invited_count=cnt.get((club.id, INVITED), 0), shuffled_at=club.shuffled_at,
-                created_at=club.created_at,
-                # Invitees don't see the conversation until they accept.
-                last_message=self._msg_view(lm, users.get(lm.sender_id)) if lm and status == ACTIVE else None,
-            ))
+            items.append(
+                ClubSummary(
+                    id=club.id,
+                    name=club.name,
+                    owner_id=club.owner_id,
+                    owner_name=users[club.owner_id].name if club.owner_id in users else "",
+                    my_status=status,
+                    active_count=cnt.get((club.id, ACTIVE), 0),
+                    invited_count=cnt.get((club.id, INVITED), 0),
+                    shuffled_at=club.shuffled_at,
+                    created_at=club.created_at,
+                    # Invitees don't see the conversation until they accept.
+                    last_message=self._msg_view(
+                        lm, users.get(lm.sender_id) if lm.sender_id else None
+                    )
+                    if lm and status == ACTIVE
+                    else None,
+                )
+            )
         return ClubListResponse(items=items)
 
     async def messages(
@@ -298,13 +346,18 @@ class ClubService:
         stmt = select(ClubMessage).where(ClubMessage.club_id == club_id)
         if before:
             stmt = stmt.where(ClubMessage.created_at < before)
-        rows = await self.session.execute(stmt.order_by(ClubMessage.created_at.desc()).limit(limit + 1))
+        rows = await self.session.execute(
+            stmt.order_by(ClubMessage.created_at.desc()).limit(limit + 1)
+        )
         msgs = list(rows.scalars().all())
         has_more = len(msgs) > limit
         msgs = list(reversed(msgs[:limit]))
         users = await self._users({m.sender_id for m in msgs if m.sender_id})
         return ClubMessageListResponse(
-            items=[self._msg_view(m, users.get(m.sender_id)) for m in msgs], has_more=has_more
+            items=[
+                self._msg_view(m, users.get(m.sender_id) if m.sender_id else None) for m in msgs
+            ],
+            has_more=has_more,
         )
 
     # ── commands ────────────────────────────────────────────────────────
@@ -320,21 +373,37 @@ class ClubService:
         if body.book_id:
             owner_book = await self._own_book(owner_id, body.book_id)
         now = datetime.now(UTC)
-        self.session.add(ClubMember(club_id=club.id, user_id=owner_id, status=ACTIVE, joined_at=now,
-                                    book_id=owner_book.id if owner_book else None))
+        self.session.add(
+            ClubMember(
+                club_id=club.id,
+                user_id=owner_id,
+                status=ACTIVE,
+                joined_at=now,
+                book_id=owner_book.id if owner_book else None,
+            )
+        )
         for uid in invitee_ids:
-            self.session.add(ClubMember(club_id=club.id, user_id=uid, status=INVITED, invited_by=owner_id))
+            self.session.add(
+                ClubMember(club_id=club.id, user_id=uid, status=INVITED, invited_by=owner_id)
+            )
         owner = await self.session.get(User, owner_id)
-        await self._post_system(club.id, f"{owner.name if owner else 'Biri'} “{club.name}” kulübünü kurdu.")
+        await self._post_system(
+            club.id, f"{owner.name if owner else 'Biri'} “{club.name}” kulübünü kurdu."
+        )
         await self.session.commit()
         if invitee_ids:
             await self._notify(
-                invitee_ids, "club_invite", {"club_id": str(club.id), "club_name": club.name},
-                "📚 Kitap kulübü daveti", f"{owner.name if owner else 'Biri'} seni “{club.name}” kulübüne davet etti",
+                invitee_ids,
+                "club_invite",
+                {"club_id": str(club.id), "club_name": club.name},
+                "📚 Kitap kulübü daveti",
+                f"{owner.name if owner else 'Biri'} seni “{club.name}” kulübüne davet etti",
             )
         return await self.detail(club.id, owner_id)
 
-    async def invite(self, club_id: uuid.UUID, owner_id: uuid.UUID, user_id: uuid.UUID) -> ClubDetail:
+    async def invite(
+        self, club_id: uuid.UUID, owner_id: uuid.UUID, user_id: uuid.UUID
+    ) -> ClubDetail:
         club = await self._get_club(club_id)
         if club.owner_id != owner_id:
             raise ClubError("NOT_OWNER", 403)
@@ -349,17 +418,24 @@ class ClubService:
             existing.status, existing.invited_by, existing.book_id = INVITED, owner_id, None
             existing.receives_from_user_id, existing.joined_at = None, None
         else:
-            self.session.add(ClubMember(club_id=club_id, user_id=user_id, status=INVITED, invited_by=owner_id))
+            self.session.add(
+                ClubMember(club_id=club_id, user_id=user_id, status=INVITED, invited_by=owner_id)
+            )
         await self.session.commit()
         await self._changed(club_id)
         owner = await self.session.get(User, owner_id)
         await self._notify(
-            [user_id], "club_invite", {"club_id": str(club.id), "club_name": club.name},
-            "📚 Kitap kulübü daveti", f"{owner.name if owner else 'Biri'} seni “{club.name}” kulübüne davet etti",
+            [user_id],
+            "club_invite",
+            {"club_id": str(club.id), "club_name": club.name},
+            "📚 Kitap kulübü daveti",
+            f"{owner.name if owner else 'Biri'} seni “{club.name}” kulübüne davet etti",
         )
         return await self.detail(club_id, owner_id)
 
-    async def respond(self, club_id: uuid.UUID, user_id: uuid.UUID, accept: bool) -> ClubDetail | None:
+    async def respond(
+        self, club_id: uuid.UUID, user_id: uuid.UUID, accept: bool
+    ) -> ClubDetail | None:
         club = await self._get_club(club_id)
         m = await self._require_member(club_id, user_id, (INVITED,))
         user = await self.session.get(User, user_id)
@@ -378,7 +454,9 @@ class ClubService:
         await self._changed(club_id)
         return None
 
-    async def remove_member(self, club_id: uuid.UUID, actor_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    async def remove_member(
+        self, club_id: uuid.UUID, actor_id: uuid.UUID, user_id: uuid.UUID
+    ) -> None:
         """Owner removes someone, or a member leaves (actor == user)."""
         club = await self._get_club(club_id)
         if actor_id != user_id and club.owner_id != actor_id:
@@ -413,8 +491,11 @@ class ClubService:
         await self.session.delete(club)
         await self.session.commit()
         from app.modules.chat.service import ConnectionManager
+
         for uid in recipients:
-            await ConnectionManager.send_to_user(uid, {"type": "club_deleted", "club_id": str(club_id)})
+            await ConnectionManager.send_to_user(
+                uid, {"type": "club_deleted", "club_id": str(club_id)}
+            )
 
     async def _own_book(self, user_id: uuid.UUID, book_id: uuid.UUID) -> Book:
         book = await self.session.get(Book, book_id)
@@ -422,7 +503,9 @@ class ClubService:
             raise ClubError("BOOK_NOT_FOUND", 404)
         return book
 
-    async def set_my_book(self, club_id: uuid.UUID, user_id: uuid.UUID, book_id: uuid.UUID | None) -> ClubDetail:
+    async def set_my_book(
+        self, club_id: uuid.UUID, user_id: uuid.UUID, book_id: uuid.UUID | None
+    ) -> ClubDetail:
         m = await self._require_member(club_id, user_id)
         if book_id is not None:
             await self._own_book(user_id, book_id)
@@ -449,16 +532,25 @@ class ClubService:
         for m in active:
             m.receives_from_user_id = mapping[m.user_id]
         club.shuffled_at = datetime.now(UTC)
-        msg = await self._post_system(club_id, "🎲 Kitaplar karıştırıldı! Herkes kime hangi kitabın düştüğünü görebilir.")
+        msg = await self._post_system(
+            club_id, "🎲 Kitaplar karıştırıldı! Herkes kime hangi kitabın düştüğünü görebilir."
+        )
         await self.session.commit()
         await self._announce(msg)
         others = [m.user_id for m in active if m.user_id != owner_id]
         if others:
-            await self._notify(others, "club_shuffled", {"club_id": str(club.id), "club_name": club.name},
-                               "🎲 Kitaplar karıştırıldı", f"“{club.name}” kulübünde sana hangi kitap düştü? Hemen bak!")
+            await self._notify(
+                others,
+                "club_shuffled",
+                {"club_id": str(club.id), "club_name": club.name},
+                "🎲 Kitaplar karıştırıldı",
+                f"“{club.name}” kulübünde sana hangi kitap düştü? Hemen bak!",
+            )
         return await self.detail(club_id, owner_id)
 
-    async def post_message(self, club_id: uuid.UUID, user_id: uuid.UUID, text: str) -> ClubMessageView:
+    async def post_message(
+        self, club_id: uuid.UUID, user_id: uuid.UUID, text: str
+    ) -> ClubMessageView:
         await self._require_member(club_id, user_id)
         text = text.strip()
         if not text:
@@ -470,13 +562,18 @@ class ClubService:
         view = self._msg_view(msg, sender)
         await self._broadcast(
             club_id,
-            {"type": "club_message", "club_id": str(club_id), "message": json.loads(view.model_dump_json()),
-             "sender_id": str(user_id)},
+            {
+                "type": "club_message",
+                "club_id": str(club_id),
+                "message": json.loads(view.model_dump_json()),
+                "sender_id": str(user_id),
+            },
         )
         # Push to members who are offline (in-app notification list stays quiet
         # for chat-like traffic, matching 1:1 chat behaviour).
         from app.modules.chat.service import ConnectionManager
         from app.modules.push_tokens.service import PushMessage, send_push_to_user
+
         club = await self.session.get(Club, club_id)
         for uid in await self._active_user_ids(club_id):
             if uid == user_id or await ConnectionManager.check_online(uid):
@@ -484,8 +581,11 @@ class ClubService:
             try:
                 await send_push_to_user(
                     str(uid),
-                    PushMessage(title=f"{club.name if club else 'Kulüp'} · {sender.name if sender else ''}",
-                                body=text[:120], data={"type": "club_message", "club_id": str(club_id)}),
+                    PushMessage(
+                        title=f"{club.name if club else 'Kulüp'} · {sender.name if sender else ''}",
+                        body=text[:120],
+                        data={"type": "club_message", "club_id": str(club_id)},
+                    ),
                     session=self.session,
                 )
             except Exception as exc:

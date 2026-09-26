@@ -2,7 +2,7 @@ import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View, useColorScheme } from 'react-native';
-import { MapView, Marker, type LatLng, type MapPressEvent, type MapViewRef } from '@/lib/map-adapter';
+import { MapView, Marker, type LatLng, type MapPressEvent } from '@/lib/map-adapter';
 
 import { Button, InlineError, palette, spacing } from '@/components/ui';
 import { useBookDraftStore } from '@/stores/book-draft-store';

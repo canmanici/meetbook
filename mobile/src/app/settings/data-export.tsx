@@ -79,7 +79,7 @@ export default function DataExportScreen() {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast.show('İstek alındı, 48 saat içinde hazırlanacak', { variant: 'success' });
-    } catch (err) {
+    } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       toast.show('Veriler dışa aktarılamadı', { variant: 'error' });
     } finally {

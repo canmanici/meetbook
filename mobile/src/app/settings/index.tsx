@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -79,8 +79,10 @@ export default function SettingsScreen() {
 
   // B11: fetch the current user (incl. notification_settings) and sessions.
   const { data: meData } = useQuery({ queryKey: ['me'], queryFn: () => getMe() });
-  const notificationSettings: Record<string, boolean> =
-    (meData as any)?.notification_settings ?? {};
+  const notificationSettings: Record<string, boolean> = useMemo(
+    () => (meData as any)?.notification_settings ?? {},
+    [meData],
+  );
 
   const { data: sessionsData, isLoading: sessionsLoading } = useQuery({
     queryKey: ['me', 'sessions'],

@@ -1,12 +1,15 @@
 """Saved searches business logic."""
+
 import uuid
+
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.modules.saved_searches.repository import SavedSearchRepository
 from app.modules.saved_searches.schemas import (
     SavedSearchCreate,
+    SavedSearchListResponse,
     SavedSearchUpdate,
     SavedSearchView,
-    SavedSearchListResponse,
 )
 
 
@@ -62,7 +65,9 @@ class SavedSearchService:
             updated_at=entry.updated_at,
         )
 
-    async def update(self, search_id: uuid.UUID, user_id: uuid.UUID, body: SavedSearchUpdate) -> SavedSearchView:
+    async def update(
+        self, search_id: uuid.UUID, user_id: uuid.UUID, body: SavedSearchUpdate
+    ) -> SavedSearchView:
         entry = await self.repo.get_by_id(search_id)
         if entry is None or entry.user_id != user_id:
             raise SavedSearchError("Not found", 404)

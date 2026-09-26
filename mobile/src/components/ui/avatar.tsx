@@ -7,7 +7,7 @@ import {
   useColorScheme,
   ViewStyle,
 } from 'react-native';
-import { palette, spacing, radius, fontSize } from './tokens';
+import { palette, radius, fontSize } from './tokens';
 
 export type AvatarSize = 'small' | 'medium' | 'large';
 

@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import Animated, {
-  FadeIn,
   FadeInDown,
   SlideInRight,
   useAnimatedReaction,
@@ -22,13 +21,12 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  useColorScheme,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
+import { Avatar, spacing, fontSize, radius, shadows } from '@/components/ui';
 import { getExchange, listExchanges, type ExchangeSummary } from '@/lib/api/client';
 
 // ---------------------------------------------------------------------------
@@ -91,7 +89,7 @@ function useCountUp(target: number, active: boolean, duration = 1100): number {
       sv.value = 0;
       setDisplay(target);
     }
-  }, [target, active, duration]);
+  }, [target, active, duration, sv]);
 
   useAnimatedReaction(
     () => Math.round(sv.value),
@@ -519,8 +517,6 @@ const SLIDE_GRADIENTS: [string, string][] = [
 ];
 
 export default function YearInReviewScreen() {
-  const scheme = useColorScheme();
-  const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
 
@@ -904,11 +900,6 @@ const slideStyles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-
-// Avatar grid width helper — keeps the grid centered on wide screens.
-function width_max(): number {
-  return 300;
-}
 
 // ---------------------------------------------------------------------------
 // Screen-level styles

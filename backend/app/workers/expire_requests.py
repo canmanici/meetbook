@@ -1,5 +1,6 @@
 """Hourly worker: move overdue pending/accepted exchange requests to `expired`."""
 
+from typing import Any, cast
 from datetime import UTC, datetime
 
 from sqlalchemy import update
@@ -7,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.exchanges.models import ExchangeRequest, ExchangeStatus
 from app.modules.exchanges.state_machine import EXPIRABLE_STATUSES
+from sqlalchemy.engine import CursorResult
 
 
 async def expire_requests(session: AsyncSession) -> int:
@@ -22,6 +24,6 @@ async def expire_requests(session: AsyncSession) -> int:
         )
         .values(status=ExchangeStatus.expired, updated_at=datetime.now(UTC))
     )
-    result = await session.execute(stmt)
+    result = cast(CursorResult[Any], await session.execute(stmt))
     await session.commit()
     return result.rowcount or 0

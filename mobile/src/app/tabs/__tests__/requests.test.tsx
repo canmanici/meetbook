@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { listExchanges } from '@/lib/api/client';
 
 import RequestsScreen from '../requests';
+import { ToastProvider } from '@/components/ui/toast-provider';
 
 jest.mock('expo-router', () => ({
   router: { replace: jest.fn(), push: jest.fn() },
@@ -23,7 +24,9 @@ function renderWithQueryClient(ui: React.ReactElement) {
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>{ui}</ToastProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -60,10 +63,10 @@ describe('RequestsScreen', () => {
     const { router } = jest.requireMock('expo-router');
     const { findByText } = renderWithQueryClient(<RequestsScreen />);
 
-    expect(await findByText('Henüz talep yok')).toBeTruthy();
+    expect(await findByText('Henüz gelen talep yok')).toBeTruthy();
 
     fireEvent.press(await findByText('Kitaplara Göz At'));
-    expect(router.push).toHaveBeenCalledWith('/tabs/search');
+    expect(router.push).toHaveBeenCalledWith('/tabs/home');
   });
 
   it('renders request rows with status badge and navigates on press', async () => {
@@ -76,21 +79,23 @@ describe('RequestsScreen', () => {
     expect(await findByTestId('request-status-exchange-1')).toBeTruthy();
     expect(await findByText('Beklemede')).toBeTruthy();
 
+    // The row itself expands the card; the "Tüm detaylar" link navigates.
     fireEvent.press(await findByTestId('request-row-exchange-1'));
+    fireEvent.press(await findByTestId('detail-link-exchange-1'));
     expect(router.push).toHaveBeenCalledWith('/exchange/exchange-1');
   });
 
-  it('switches between sent and received tabs', async () => {
+  it('switches between received and sent tabs', async () => {
     const { findByTestId } = renderWithQueryClient(<RequestsScreen />);
 
     await waitFor(() => {
-      expect(listExchanges).toHaveBeenCalledWith({ role: 'sent' });
+      expect(listExchanges).toHaveBeenCalledWith({ role: 'received' });
     });
 
-    fireEvent.press(await findByTestId('tab-received'));
+    fireEvent.press(await findByTestId('tab-sent'));
 
     await waitFor(() => {
-      expect(listExchanges).toHaveBeenCalledWith({ role: 'received' });
+      expect(listExchanges).toHaveBeenCalledWith({ role: 'sent' });
     });
   });
 

@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -9,7 +10,7 @@ from pydantic import BaseModel, Field
 class NotificationView(BaseModel):
     id: uuid.UUID
     type: str
-    payload: dict
+    payload: dict[str, Any]
     read_at: datetime | None
     created_at: datetime
 

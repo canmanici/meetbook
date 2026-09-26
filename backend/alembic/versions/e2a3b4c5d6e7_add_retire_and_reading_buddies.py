@@ -11,6 +11,7 @@ Revises: b3c4d5e6f7a8, d9e0f1a2b3c4, f4a5b6c7d8e9
 Create Date: 2026-07-01 18:00:00.000000
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -40,9 +41,7 @@ def upgrade() -> None:
     )
 
     # --- B24: Reading Buddy Matching ---
-    op.execute(
-        "CREATE TYPE reading_buddy_status AS ENUM ('pending', 'accepted', 'declined')"
-    )
+    op.execute("CREATE TYPE reading_buddy_status AS ENUM ('pending', 'accepted', 'declined')")
     reading_buddy_status = postgresql.ENUM(
         "pending", "accepted", "declined", name="reading_buddy_status", create_type=False
     )
@@ -84,9 +83,7 @@ def upgrade() -> None:
             sa.ForeignKey("books.id"),
             nullable=False,
         ),
-        sa.Column(
-            "status", reading_buddy_status, nullable=False, server_default="pending"
-        ),
+        sa.Column("status", reading_buddy_status, nullable=False, server_default="pending"),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),

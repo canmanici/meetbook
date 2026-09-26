@@ -8,9 +8,9 @@
  * SAFETY: If MapLibre's native module isn't available (e.g. Expo Go),
  * fallback components are exported so the app doesn't crash.
  */
-import React, { forwardRef, useCallback, useRef, useImperativeHandle, useEffect, useState } from 'react';
+import React, { forwardRef, useCallback, useRef, useImperativeHandle, useEffect } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import type { Feature, GeoJsonProperties } from 'geojson';
+import type { Feature } from 'geojson';
 
 // ── Map style ──────────────────────────────────────────────────────────────
 // MapTiler Streets v2 — beautiful worldwide OSM map with labels and fonts.
@@ -27,6 +27,7 @@ let ML: any = null;
 let MAPLIBRE_AVAILABLE = false;
 
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy require: native module must not crash when missing (Expo Go fallback)
   ML = require('@maplibre/maplibre-react-native');
   MAPLIBRE_AVAILABLE = true;
 } catch {
@@ -92,7 +93,7 @@ const FallbackMapView = forwardRef<any, any>((props, ref) => {
   return (
     <View style={[styles.map, props.style, styles.fallbackContainer]}>
       <Text style={styles.fallbackText}>
-        Harita Development Build{'\n'}gerekli. Expo Go'da calismaz.
+        Harita Development Build{'\n'}gerekli. Expo Go&apos;da calismaz.
       </Text>
     </View>
   );
@@ -145,6 +146,9 @@ const RealMapView = forwardRef<any, any>(
         zoom: deltaToZoom(region.latitudeDelta),
         duration: 800,
       });
+    // Field-level deps are intentional: the parent hands us a new region object
+    // identity on most renders, and re-flying on identical values would jitter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- react to region field changes only
     }, [region?.latitude, region?.longitude, region?.latitudeDelta, region?.longitudeDelta]);
 
     // Adapt MapLibre onPress → react-native-maps style { nativeEvent: { coordinate: { lat, lng } } }

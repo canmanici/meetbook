@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 
-import { palette, fontSize } from '@/components/ui/tokens';
+import { palette } from '@/components/ui/tokens';
 import { listExchanges } from '@/lib/api/client';
 import { listChats } from '@/lib/api/chat';
 

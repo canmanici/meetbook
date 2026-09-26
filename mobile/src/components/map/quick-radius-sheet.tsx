@@ -7,7 +7,7 @@ import {
   useColorScheme,
 } from "react-native";
 import Slider from "@react-native-community/slider";
-import { palette, spacing, fontSize, radius, shadows } from "../ui/tokens";
+import { palette, spacing, fontSize, radius } from "../ui/tokens";
 
 const RADIUS_MIN = 1;
 const RADIUS_MAX = 200;

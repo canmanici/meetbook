@@ -71,6 +71,9 @@ jest.mock('expo-location', () => ({
 jest.mock('expo-router', () => ({
   __esModule: true,
   router: { push: jest.fn(), back: jest.fn() },
+  // The screen refreshes its shadow-blocked list on focus; run the callback
+  // like chats.test.tsx does.
+  useFocusEffect: (callback: () => void) => callback(),
 }));
 
 jest.mock('react-native-reanimated', () => {

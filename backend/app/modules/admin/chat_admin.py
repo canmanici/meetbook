@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -35,7 +36,7 @@ class MessageView(BaseModel):
     sender_email: str | None
     message_type: str
     text: str
-    extra: dict | None
+    extra: dict[str, Any] | None
     created_at: datetime
     read_at: datetime | None
     deleted_at: datetime | None
@@ -108,7 +109,7 @@ class ChatAdminService:
         chat_id: uuid.UUID,
         limit: int = 50,
         offset: int = 0,
-    ) -> dict:
+    ) -> dict[str, Any]:
         chat = await self.session.get(Chat, chat_id)
         if not chat:
             raise HTTPException(status_code=404, detail="CHAT_NOT_FOUND")
@@ -159,7 +160,7 @@ class ChatAdminService:
         user_id: uuid.UUID,
         limit: int = 50,
         offset: int = 0,
-    ) -> dict:
+    ) -> dict[str, Any]:
         count_stmt = (
             select(func.count(Chat.id))
             .join(ExchangeRequest, Chat.exchange_request_id == ExchangeRequest.id)
@@ -190,9 +191,7 @@ class ChatAdminService:
 
         items: list[UserChatView] = []
         for chat, exch in rows:
-            other_user_id = (
-                exch.requested_to if exch.requested_by == user_id else exch.requested_by
-            )
+            other_user_id = exch.requested_to if exch.requested_by == user_id else exch.requested_by
 
             other_user = await self.session.get(User, other_user_id)
 
@@ -205,15 +204,12 @@ class ChatAdminService:
             last_msg_result = await self.session.execute(last_msg_stmt)
             last_msg = last_msg_result.scalar_one_or_none()
 
-            unread_stmt = (
-                select(func.count(Message.id))
-                .where(
-                    Message.chat_id == chat.id,
-                    Message.sender_id.isnot(None),
-                    Message.sender_id != user_id,
-                    Message.read_at.is_(None),
-                    Message.deleted_at.is_(None),
-                )
+            unread_stmt = select(func.count(Message.id)).where(
+                Message.chat_id == chat.id,
+                Message.sender_id.isnot(None),
+                Message.sender_id != user_id,
+                Message.read_at.is_(None),
+                Message.deleted_at.is_(None),
             )
             unread_count = await self.session.scalar(unread_stmt) or 0
 
@@ -239,7 +235,7 @@ class ChatAdminService:
 
         return {"items": items, "total": total}
 
-    async def get_chat_context(self, report_id: uuid.UUID) -> dict:
+    async def get_chat_context(self, report_id: uuid.UUID) -> dict[str, Any]:
         report = await self.session.get(Report, report_id)
         if not report:
             raise HTTPException(status_code=404, detail="REPORT_NOT_FOUND")
@@ -276,6 +272,8 @@ class ChatAdminService:
             return {"report": report_info, "chat": None, "messages": None}
 
         chat = await self.session.get(Chat, chat_id)
+        if chat is None:  # chat deleted since the report was filed
+            return {"report": report_info, "chat": None, "messages": None}
         chat_view = ChatView(
             id=chat.id,
             exchange_id=chat.exchange_request_id,
@@ -317,7 +315,7 @@ async def get_chat_messages(
     offset: int = Query(default=0, ge=0),
     user: User = Depends(get_admin_user),
     service: ChatAdminService = Depends(_get_chat_admin_service),
-) -> ChatMessagesResponse:
+) -> dict[str, Any]:
     """Paginated messages for a chat (newest first)."""
     return await service.get_chat_messages(chat_id, limit, offset)
 
@@ -329,7 +327,7 @@ async def get_user_chats(
     offset: int = Query(default=0, ge=0),
     user: User = Depends(get_admin_user),
     service: ChatAdminService = Depends(_get_chat_admin_service),
-) -> UserChatListResponse:
+) -> dict[str, Any]:
     """List all chats a user participates in."""
     return await service.get_user_chats(user_id, limit, offset)
 
@@ -339,6 +337,6 @@ async def get_chat_context(
     report_id: uuid.UUID,
     user: User = Depends(get_admin_user),
     service: ChatAdminService = Depends(_get_chat_admin_service),
-) -> ChatContextResponse:
+) -> dict[str, Any]:
     """Chat messages context for a report (message or exchange target)."""
     return await service.get_chat_context(report_id)

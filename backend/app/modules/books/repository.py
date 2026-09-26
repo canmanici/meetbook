@@ -12,7 +12,7 @@ from typing import Any
 
 from geoalchemy2 import Geometry
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import Select, and_, cast, exists, func, or_, select, update
+from sqlalchemy import Select, and_, cast, exists, func, or_, select, update, ColumnElement
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.models import User
@@ -104,9 +104,7 @@ class BookRepository:
         return book
 
     async def get_active_by_id(self, book_id: uuid.UUID) -> BookRow | None:
-        stmt = self._select_with_coords().where(
-            Book.id == book_id, Book.deleted_at.is_(None)
-        )
+        stmt = self._select_with_coords().where(Book.id == book_id, Book.deleted_at.is_(None))
         result = await self.session.execute(stmt)
         row = result.one_or_none()
         return self._to_row(row) if row is not None else None
@@ -140,11 +138,15 @@ class BookRepository:
                     ),
                 )
             )
-        stmt = stmt.order_by(Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc()).limit(limit)
+        stmt = stmt.order_by(Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc()).limit(
+            limit
+        )
         result = await self.session.execute(stmt)
         items = [self._to_row(row) for row in result.all()]
         if len(items) == limit:
-            next_cursor = encode_cursor(items[-1].book.sort_order, items[-1].book.created_at, items[-1].book.id)
+            next_cursor = encode_cursor(
+                items[-1].book.sort_order, items[-1].book.created_at, items[-1].book.id
+            )
         else:
             next_cursor = None
         return items, next_cursor
@@ -192,7 +194,9 @@ class BookRepository:
                     ),
                 )
             )
-        stmt = stmt.order_by(Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc()).limit(limit)
+        stmt = stmt.order_by(Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc()).limit(
+            limit
+        )
         result = await self.session.execute(stmt)
         return [self._to_row(row) for row in result.all()]
 
@@ -236,7 +240,7 @@ class BookRepository:
             .label("owner_rating_count")
         )
 
-        select_cols = [
+        select_cols: list[Any] = [
             Book,
             func.ST_Y(pub).label("public_lat"),
             func.ST_X(pub).label("public_lng"),
@@ -247,7 +251,7 @@ class BookRepository:
             owner_rating_count,
         ]
 
-        conditions = [
+        conditions: list[ColumnElement[bool]] = [
             Book.deleted_at.is_(None),
             Book.is_available.is_(True),
         ]
@@ -279,9 +283,7 @@ class BookRepository:
             conditions.append(Book.condition == condition)
         if q:
             pattern = f"%{q}%"
-            conditions.append(
-                or_(Book.title.ilike(pattern), Book.author.ilike(pattern))
-            )
+            conditions.append(or_(Book.title.ilike(pattern), Book.author.ilike(pattern)))
 
         if current_user_id is not None:
             conditions.append(
@@ -321,7 +323,9 @@ class BookRepository:
         stmt = select(*select_cols).join(User, User.id == Book.owner_id).where(*conditions)
 
         if distance_col is not None:
-            stmt = stmt.order_by(distance_col, Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc())
+            stmt = stmt.order_by(
+                distance_col, Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc()
+            )
         else:
             stmt = stmt.order_by(Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc())
 
@@ -421,9 +425,7 @@ class BookRepository:
             stmt = stmt.where(Book.condition == condition)
         if q:
             pattern = f"%{q}%"
-            stmt = stmt.where(
-                or_(Book.title.ilike(pattern), Book.author.ilike(pattern))
-            )
+            stmt = stmt.where(or_(Book.title.ilike(pattern), Book.author.ilike(pattern)))
 
         if current_user_id is not None:
             stmt = stmt.where(
@@ -460,7 +462,9 @@ class BookRepository:
                 )
             )
 
-        stmt = stmt.order_by(distance_col, Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc()).limit(limit)
+        stmt = stmt.order_by(
+            distance_col, Book.sort_order.asc(), Book.created_at.desc(), Book.id.desc()
+        ).limit(limit)
         result = await self.session.execute(stmt)
 
         rows = []
@@ -493,7 +497,7 @@ class BookRepository:
         q: str | None,
         limit: int,
         current_user_id: uuid.UUID | None = None,
-    ) -> tuple[list[dict], list[BookSearchRow]]:
+    ) -> tuple[list[dict[str, Any]], list[BookSearchRow]]:
         """Return (clusters, singletons)."""
         pub = cast(Book.public_location, Geometry)
         envelope = func.ST_MakeEnvelope(min_lng, min_lat, max_lng, max_lat, 4326)
@@ -585,7 +589,7 @@ class BookRepository:
             stmt = stmt.where(block_filter)
         result = await self.session.execute(stmt)
 
-        groups: dict[int, list] = {}
+        groups: dict[int, list[Any]] = {}
         for row in result.all():
             cid = row.cluster_id
             owner = OwnerSummary(
@@ -595,9 +599,7 @@ class BookRepository:
                 rating_avg=float(row.owner_rating_avg) if row.owner_rating_avg else None,
                 rating_count=row.owner_rating_count or 0,
             )
-            groups.setdefault(cid, []).append(
-                (row[0], (row.lat, row.lng), row.distance_m, owner)
-            )
+            groups.setdefault(cid, []).append((row[0], (row.lat, row.lng), row.distance_m, owner))
 
         clusters = []
         singletons = []
@@ -722,11 +724,7 @@ class BookRepository:
     # -----------------------------------------------------------------------
 
     async def get_photos(self, book_id: uuid.UUID) -> list[BookPhoto]:
-        stmt = (
-            select(BookPhoto)
-            .where(BookPhoto.book_id == book_id)
-            .order_by(BookPhoto.position)
-        )
+        stmt = select(BookPhoto).where(BookPhoto.book_id == book_id).order_by(BookPhoto.position)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -734,14 +732,13 @@ class BookRepository:
         """Return the first photo (position 0) for each book in a single query."""
         if not book_ids:
             return {}
-        stmt = (
-            select(BookPhoto)
-            .where(BookPhoto.book_id.in_(book_ids), BookPhoto.position == 0)
-        )
+        stmt = select(BookPhoto).where(BookPhoto.book_id.in_(book_ids), BookPhoto.position == 0)
         result = await self.session.execute(stmt)
         return {p.book_id: p for p in result.scalars().all()}
 
-    async def add_photo(self, book_id: uuid.UUID, url: str, position: int, thumbnail_url: str | None = None) -> BookPhoto:
+    async def add_photo(
+        self, book_id: uuid.UUID, url: str, position: int, thumbnail_url: str | None = None
+    ) -> BookPhoto:
         photo = BookPhoto(book_id=book_id, url=url, thumbnail_url=thumbnail_url, position=position)
         self.session.add(photo)
         await self.session.flush()
@@ -757,9 +754,7 @@ class BookRepository:
 
     async def reorder_photos(self, book_id: uuid.UUID, photo_ids: list[uuid.UUID]) -> None:
         for idx, photo_id in enumerate(photo_ids):
-            stmt = select(BookPhoto).where(
-                BookPhoto.id == photo_id, BookPhoto.book_id == book_id
-            )
+            stmt = select(BookPhoto).where(BookPhoto.id == photo_id, BookPhoto.book_id == book_id)
             result = await self.session.execute(stmt)
             photo = result.scalar_one_or_none()
             if photo:
@@ -767,19 +762,27 @@ class BookRepository:
 
     async def list_available_by_title(self, title: str) -> list[BookRow]:
         """Case-insensitive exact title match (wishlist entries without ISBN)."""
-        stmt = self._select_with_coords().where(
-            Book.deleted_at.is_(None),
-            Book.is_available.is_(True),
-            func.lower(func.trim(Book.title)) == title.strip().lower(),
-        ).limit(10)
+        stmt = (
+            self._select_with_coords()
+            .where(
+                Book.deleted_at.is_(None),
+                Book.is_available.is_(True),
+                func.lower(func.trim(Book.title)) == title.strip().lower(),
+            )
+            .limit(10)
+        )
         result = await self.session.execute(stmt)
         return [self._to_row(row) for row in result.all()]
 
     async def list_available_by_isbn(self, isbn: str) -> list[BookRow]:
-        stmt = self._select_with_coords().where(
-            Book.deleted_at.is_(None),
-            Book.is_available.is_(True),
-            Book.isbn == isbn,
-        ).limit(10)
+        stmt = (
+            self._select_with_coords()
+            .where(
+                Book.deleted_at.is_(None),
+                Book.is_available.is_(True),
+                Book.isbn == isbn,
+            )
+            .limit(10)
+        )
         result = await self.session.execute(stmt)
         return [self._to_row(row) for row in result.all()]

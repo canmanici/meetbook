@@ -8,7 +8,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { palette, spacing, fontSize, radius, shadows } from './tokens';
+import { palette, spacing, fontSize, shadows } from './tokens';
 
 interface VoiceRecorderProps {
   onSend: (durationMs: number) => void;
@@ -20,7 +20,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSend, onCancel }
   const isDark = scheme === 'dark';
   const colors = palette[isDark ? 'dark' : 'light'];
 
-  const [isRecording, setIsRecording] = useState(true);
+  const [, setIsRecording] = useState(true);
   const [duration, setDuration] = useState(0);
   const [waveform] = useState(() => Array.from({ length: 30 }, () => 0.2 + Math.random() * 0.8));
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -43,7 +43,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSend, onCancel }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
+  }, [pulseAnim]);
 
   const handleSend = () => {
     if (timerRef.current) clearInterval(timerRef.current);

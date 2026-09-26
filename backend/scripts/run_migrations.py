@@ -112,11 +112,13 @@ def _load_revisions() -> list[dict]:
     script = ScriptDirectory.from_config(config)
     revisions = []
     for rev in script.walk_revisions(base="base", head="heads"):
-        revisions.append({
-            "revision": rev.revision,
-            "down_revision": rev.down_revision,
-            "doc": (rev.doc or "").strip().split("\n")[0],
-        })
+        revisions.append(
+            {
+                "revision": rev.revision,
+                "down_revision": rev.down_revision,
+                "doc": (rev.doc or "").strip().split("\n")[0],
+            }
+        )
     return revisions
 
 
@@ -141,8 +143,7 @@ def validate_chain() -> list[str]:
             for d in down:
                 if d not in rev_set:
                     issues.append(
-                        f"Merge revision '{rev['revision']}' references "
-                        f"missing parent '{d}'"
+                        f"Merge revision '{rev['revision']}' references missing parent '{d}'"
                     )
 
     heads = [r["revision"] for r in revisions if r["revision"] in rev_set]
@@ -172,9 +173,7 @@ def get_db_alembic_version(database_url: str) -> str | None:
     try:
         engine = sa.create_engine(database_url.replace("+asyncpg", "").replace("+psycopg", ""))
         with engine.connect() as conn:
-            result = conn.execute(text(
-                "SELECT version_num FROM alembic_version"
-            )).scalar()
+            result = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
             return result
     except Exception:
         return None
@@ -185,12 +184,14 @@ def verify_core_tables_exist(database_url: str) -> bool:
     try:
         engine = sa.create_engine(database_url.replace("+asyncpg", "").replace("+psycopg", ""))
         with engine.connect() as conn:
-            result = conn.execute(text(
-                "SELECT EXISTS ("
-                "  SELECT FROM information_schema.tables "
-                "  WHERE table_schema = 'public' AND table_name = 'users'"
-                ")"
-            )).scalar()
+            result = conn.execute(
+                text(
+                    "SELECT EXISTS ("
+                    "  SELECT FROM information_schema.tables "
+                    "  WHERE table_schema = 'public' AND table_name = 'users'"
+                    ")"
+                )
+            ).scalar()
             return bool(result)
     except Exception:
         return False
@@ -210,18 +211,14 @@ async def lock_and_migrate(database_url: str) -> int:
         async with engine.connect() as conn:
             # Acquire advisory lock (non-blocking — fails fast if locked)
             step("Acquiring migration lock...")
-            result = await conn.execute(
-                text(f"SELECT pg_try_advisory_lock({PG_LOCK_ID})")
-            )
+            result = await conn.execute(text(f"SELECT pg_try_advisory_lock({PG_LOCK_ID})"))
             locked = result.scalar()
             if not locked:
                 fail("Another migration is in progress — waiting...")
                 # Wait and retry
                 for attempt in range(MAX_RETRIES):
                     await asyncio.sleep(RETRY_DELAY_SECONDS * (attempt + 1))
-                    result = await conn.execute(
-                        text(f"SELECT pg_try_advisory_lock({PG_LOCK_ID})")
-                    )
+                    result = await conn.execute(text(f"SELECT pg_try_advisory_lock({PG_LOCK_ID})"))
                     locked = result.scalar()
                     if locked:
                         info(f"Lock acquired on retry #{attempt + 1}")
@@ -236,9 +233,7 @@ async def lock_and_migrate(database_url: str) -> int:
                 await conn.commit()
             finally:
                 # Release lock
-                await conn.execute(
-                    text(f"SELECT pg_advisory_unlock({PG_LOCK_ID})")
-                )
+                await conn.execute(text(f"SELECT pg_advisory_unlock({PG_LOCK_ID})"))
                 await conn.commit()
     finally:
         await engine.dispose()
@@ -258,7 +253,8 @@ def _run_migrations() -> int:
         for issue in issues:
             fail(issue)
         fail("Revision chain has issues — fix before proceeding.")
-        print(textwrap.dedent("""\
+        print(
+            textwrap.dedent("""\
             To fix:
               1. git checkout alembic/versions/  # restore original files
               2. rm -rf alembic/versions/__pycache__
@@ -266,7 +262,8 @@ def _run_migrations() -> int:
 
             If files were intentionally deleted, stamp the DB:
               PYTHONPATH=/app uv run alembic stamp <existing_head_revision>
-        """))
+        """)
+        )
         return 1
 
     info("Chain valid — single head, no missing parents.")
@@ -282,14 +279,16 @@ def _run_migrations() -> int:
             exit_code = _run_alembic(["upgrade", "head"])
 
         if exit_code != 0:
-            fail(textwrap.dedent(f"""\
+            fail(
+                textwrap.dedent(f"""\
                 Migration failed permanently. Manual recovery needed:
                   1. Check the error above
                   2. If 'Can't locate revision': clear pycache & verify files
                   3. If duplicate table: alembic stamp head
                   4. If connection error: check DATABASE_URL
                 Exit code: {exit_code}
-            """))
+            """)
+            )
             return exit_code
 
     info("Migrations applied successfully.")
@@ -382,6 +381,7 @@ def main() -> int:
     except Exception as e:
         fail(f"Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

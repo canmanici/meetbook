@@ -1,24 +1,27 @@
 """Pydantic schemas for saved searches."""
+
 import uuid
 from datetime import datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
 class SavedSearchCreate(BaseModel):
     name: str | None = Field(default=None, max_length=100)
-    params: dict = Field(default_factory=dict)
+    params: dict[str, Any] = Field(default_factory=dict[str, Any])
 
 
 class SavedSearchUpdate(BaseModel):
     name: str | None = Field(default=None, max_length=100)
-    params: dict | None = None
+    params: dict[str, Any] | None = None
 
 
 class SavedSearchView(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
     name: str | None
-    params: dict
+    params: dict[str, Any]
     created_at: datetime
     updated_at: datetime
 

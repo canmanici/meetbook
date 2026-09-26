@@ -1,7 +1,6 @@
 /**
  * Chat API functions + WebSocket connection manager — full-featured.
  */
-import { useAuthStore } from '@/stores/auth-store';
 import { authedRequest } from './client';
 
 // ---------------------------------------------------------------------------
@@ -238,7 +237,7 @@ export interface WSMessage {
   user_id?: string;
   is_typing?: boolean;
   is_online?: boolean;
-  reactions?: Array<{ emoji: string; users: string[]; count: number }>;
+  reactions?: { emoji: string; users: string[]; count: number }[];
   sender_id?: string;
   // location_update / location_stopped
   exchange_id?: string;

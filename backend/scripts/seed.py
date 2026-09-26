@@ -136,9 +136,7 @@ async def seed() -> int:
                 # when model has columns the DB doesn't have yet, e.g. during
                 # partial migrations — the ORM selects ALL mapped columns.)
                 existing = await session.execute(
-                    select(User.__table__.c.id).where(
-                        User.__table__.c.email == user_data["email"]
-                    )
+                    select(User.__table__.c.id).where(User.__table__.c.email == user_data["email"])
                 )
                 if existing.first():
                     info(f"User '{user_data['email']}' already exists — skipped.")
@@ -234,6 +232,7 @@ async def seed() -> int:
     except Exception as e:
         fail(f"Seeding failed: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

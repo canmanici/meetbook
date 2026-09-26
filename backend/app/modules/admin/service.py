@@ -1,7 +1,9 @@
 """Admin business logic — moderation queue, user/book actions, blocked places, metrics."""
 
 import uuid
+from decimal import Decimal
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.admin.repository import AdminRepository
 from app.modules.admin.schemas import (
     AdminBookDetailView,
+    AdminBookListItem,
+    AdminExchangeListItem,
+    AdminUserListItem,
     AdminBookListResponse,
     AdminExchangeDetailView,
     AdminExchangeListResponse,
@@ -73,7 +78,9 @@ class AdminService:
         self.repo = AdminRepository(session)
         self.notification_service = NotificationService(session)
 
-    async def _audit(self, moderator_id: uuid.UUID, event_type: str, metadata: dict) -> None:
+    async def _audit(
+        self, moderator_id: uuid.UUID, event_type: str, metadata: dict[str, Any]
+    ) -> None:
         self.session.add(AuditLog(user_id=moderator_id, event_type=event_type, metadata_=metadata))
 
     # -- Reports ---------------------------------------------------------------
@@ -201,7 +208,7 @@ class AdminService:
         user = await self.repo.get_user(user_id)
         if user is None:
             raise AdminError("NOT_FOUND", 404)
-        user.trust_score_override = score
+        user.trust_score_override = Decimal(str(score)) if score is not None else None
         user.updated_at = datetime.now(UTC)
         await self._audit(
             moderator_id,
@@ -210,6 +217,8 @@ class AdminService:
         )
         await self.session.commit()
         detail = await self.repo.get_user_detail(user_id)
+        if detail is None:
+            raise AdminError("NOT_FOUND", 404)
         return _user_to_detail_view(detail)
 
     async def broadcast_notification(
@@ -362,9 +371,11 @@ class AdminService:
             total=total,
         )
 
-    async def global_search(self, q: str) -> dict:
+    async def global_search(self, q: str) -> dict[str, Any]:
         """Quick global search across users, books, and exchanges."""
-        users, books, exchanges = [], [], []
+        users: list[dict[str, Any]] = []
+        books: list[dict[str, Any]] = []
+        exchanges: list[dict[str, Any]] = []
         if len(q) < 2:
             return {"users": users, "books": books, "exchanges": exchanges}
         # Users: by email or name
@@ -394,22 +405,22 @@ class AdminService:
             )
             .limit(10)
         )
-        for row in await self.session.execute(stmt_books):
-            b = row[0]
+        for book_row in await self.session.execute(stmt_books):
+            b = book_row[0]
             books.append({"id": str(b.id), "title": b.title, "author": b.author})
         # Exchanges: by ID
         try:
             uid = uuid.UUID(q) if len(q) >= 32 else None
             if uid:
                 stmt_exc = select(ExchangeRequest).where(ExchangeRequest.id == uid).limit(5)
-                for row in await self.session.execute(stmt_exc):
-                    e = row[0]
+                for exc_row in await self.session.execute(stmt_exc):
+                    e = exc_row[0]
                     exchanges.append({"id": str(e.id), "status": e.status.value})
-        except (ValueError, AttributeError):
+        except ValueError, AttributeError:
             pass
         return {"users": users, "books": books, "exchanges": exchanges}
 
-    async def get_badges(self) -> dict:
+    async def get_badges(self) -> dict[str, Any]:
         """Badge counts for the admin navbar polling endpoint."""
         # New crash report groups (status='new')
         result = await self.session.execute(
@@ -442,7 +453,7 @@ class AdminService:
         }
 
 
-def _user_to_view(user) -> AdminUserView:
+def _user_to_view(user: User) -> AdminUserView:
     return AdminUserView(
         id=user.id,
         email=user.email,
@@ -455,9 +466,9 @@ def _user_to_view(user) -> AdminUserView:
     )
 
 
-def _user_to_list_item(user, book_count: int = 0, message_count: int = 0, exchange_count: int = 0) -> "AdminUserListItem":  # noqa: F821 -- imported locally below to avoid a schemas<->service circular import
-    from app.modules.admin.schemas import AdminUserListItem
-
+def _user_to_list_item(
+    user: User, book_count: int = 0, message_count: int = 0, exchange_count: int = 0
+) -> AdminUserListItem:
     return AdminUserListItem(
         id=user.id,
         email=user.email,
@@ -475,7 +486,7 @@ def _user_to_list_item(user, book_count: int = 0, message_count: int = 0, exchan
     )
 
 
-def _user_to_detail_view(user) -> AdminUserDetailView:
+def _user_to_detail_view(user: User) -> AdminUserDetailView:
     from app.modules.admin.schemas import AdminUserDetailView
     from app.modules.auth.trust import compute_trust
 
@@ -515,9 +526,7 @@ def _user_to_detail_view(user) -> AdminUserDetailView:
     )
 
 
-def _book_to_list_item(book) -> "AdminBookListItem":  # noqa: F821 -- imported locally below to avoid a schemas<->service circular import
-    from app.modules.admin.schemas import AdminBookListItem
-
+def _book_to_list_item(book: Book) -> AdminBookListItem:
     return AdminBookListItem(
         id=book.id,
         owner_id=book.owner_id,
@@ -532,7 +541,7 @@ def _book_to_list_item(book) -> "AdminBookListItem":  # noqa: F821 -- imported l
     )
 
 
-def _book_to_detail_view(book) -> AdminBookDetailView:
+def _book_to_detail_view(book: Book) -> AdminBookDetailView:
     from app.modules.admin.schemas import AdminBookDetailView
 
     return AdminBookDetailView(
@@ -554,9 +563,7 @@ def _book_to_detail_view(book) -> AdminBookDetailView:
     )
 
 
-def _exchange_to_list_item(exchange) -> "AdminExchangeListItem":  # noqa: F821 -- imported locally below to avoid a schemas<->service circular import
-    from app.modules.admin.schemas import AdminExchangeListItem
-
+def _exchange_to_list_item(exchange: ExchangeRequest) -> AdminExchangeListItem:
     return AdminExchangeListItem(
         id=exchange.id,
         book_id=exchange.book_id,
@@ -569,7 +576,7 @@ def _exchange_to_list_item(exchange) -> "AdminExchangeListItem":  # noqa: F821 -
     )
 
 
-def _exchange_to_detail_view(exchange) -> AdminExchangeDetailView:
+def _exchange_to_detail_view(exchange: ExchangeRequest) -> AdminExchangeDetailView:
     from app.modules.admin.schemas import AdminExchangeDetailView
 
     return AdminExchangeDetailView(

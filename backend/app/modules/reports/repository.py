@@ -1,6 +1,7 @@
 """Database queries for the reports module."""
 
 import uuid
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +19,7 @@ class ReportRepository:
         target_type: str,
         target_id: uuid.UUID,
         reason: str,
-        content_snapshot: dict,
+        content_snapshot: dict[str, Any],
     ) -> Report:
         report = Report(
             reporter_id=reporter_id,

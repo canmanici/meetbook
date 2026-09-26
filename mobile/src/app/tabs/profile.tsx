@@ -14,7 +14,6 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Modal,
   Share,
   useColorScheme,
@@ -156,7 +155,7 @@ export default function ProfileScreen() {
     queryKey: ['books', 'me', 'flat'],
     queryFn: () => listMyBooks(),
   });
-  const books = booksData?.items ?? [];
+  const books = useMemo(() => booksData?.items ?? [], [booksData]);
 
   const { data: profile } = useQuery({
     queryKey: ['user', user?.id],

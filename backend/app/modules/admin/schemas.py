@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -14,7 +15,7 @@ class AdminReportView(BaseModel):
     target_type: ReportTarget
     target_id: uuid.UUID
     reason: str
-    content_snapshot: dict
+    content_snapshot: dict[str, Any]
     status: ReportStatus
     moderator_id: uuid.UUID | None
     moderator_notes: str | None
@@ -220,7 +221,7 @@ class AuditLogEntry(BaseModel):
     event_type: str
     ip_address: str | None
     user_agent: str | None
-    metadata_: dict | None
+    metadata_: dict[str, Any] | None
     created_at: datetime
 
 

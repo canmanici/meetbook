@@ -72,7 +72,7 @@ describe('LoginScreen', () => {
     fireEvent.press(getByTestId('button'));
 
     await waitFor(() => {
-      expect(getByText('E-posta veya şifre hatalı.')).toBeTruthy();
+      expect(getByText('E-posta/kullanıcı adı veya şifre hatalı.')).toBeTruthy();
     });
   });
 

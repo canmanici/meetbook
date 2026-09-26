@@ -10,6 +10,7 @@ Idempotency: each milestone uses a distinct notification type keyed on the
 exchange id, so re-running the worker every hour never double-notifies.
 """
 
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +23,7 @@ _ACTIVE_LOAN = (ExchangeStatus.lent, ExchangeStatus.return_pending, ExchangeStat
 
 
 async def _notify_once(
-    repo: NotificationRepository, user_id, type_: str, request: ExchangeRequest
+    repo: NotificationRepository, user_id: uuid.UUID, type_: str, request: ExchangeRequest
 ) -> bool:
     if await repo.exists_for_exchange(user_id, type_, request.id):
         return False

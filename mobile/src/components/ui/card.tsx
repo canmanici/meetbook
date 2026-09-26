@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { palette, spacing, radius, fontSize, shadows } from './tokens';
+import { palette, spacing, radius, fontSize } from './tokens';
 
 interface CardProps {
   children: React.ReactNode;

@@ -30,7 +30,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 
-import { palette, spacing, fontSize, radius, shadows, type ThemeColors } from '@/components/ui/tokens';
+import { palette, spacing, fontSize, radius, shadows } from '@/components/ui/tokens';
 import { EmptyState } from '@/components/ui';
 import {
   listNotifications,

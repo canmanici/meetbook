@@ -8,9 +8,7 @@ from tests.books.conftest import OUTSIDE_TURKEY, VALID_BOOK_PAYLOAD
 async def test_create_success(client: httpx.AsyncClient, register_user) -> None:
     owner = await register_user("create_owner@example.com", "Owner")
 
-    resp = await client.post(
-        "/api/v1/books", json=VALID_BOOK_PAYLOAD, headers=owner["headers"]
-    )
+    resp = await client.post("/api/v1/books", json=VALID_BOOK_PAYLOAD, headers=owner["headers"])
     assert resp.status_code == 201
     body = resp.json()
     assert body["title"] == "Suç ve Ceza"
@@ -40,9 +38,7 @@ async def test_create_requires_auth(client: httpx.AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_blur_is_static_for_nearby_points(
-    client: httpx.AsyncClient, register_user
-) -> None:
+async def test_blur_is_static_for_nearby_points(client: httpx.AsyncClient, register_user) -> None:
     owner = await register_user("create_blur@example.com", "Owner")
 
     payload_a = {**VALID_BOOK_PAYLOAD, "location": {"lat": 41.001, "lng": 28.991}}

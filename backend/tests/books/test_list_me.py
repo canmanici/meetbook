@@ -25,9 +25,7 @@ async def test_list_me_returns_own_books(client: httpx.AsyncClient, register_use
 
 
 @pytest.mark.asyncio
-async def test_list_me_excludes_other_users_books(
-    client: httpx.AsyncClient, register_user
-) -> None:
+async def test_list_me_excludes_other_users_books(client: httpx.AsyncClient, register_user) -> None:
     owner_a = await register_user("list_a@example.com", "Owner A")
     owner_b = await register_user("list_b@example.com", "Owner B")
 
@@ -83,9 +81,7 @@ async def test_list_me_pagination(client: httpx.AsyncClient, register_user) -> N
             headers=owner["headers"],
         )
 
-    first_page = await client.get(
-        "/api/v1/books/me", params={"limit": 2}, headers=owner["headers"]
-    )
+    first_page = await client.get("/api/v1/books/me", params={"limit": 2}, headers=owner["headers"])
     first_body = first_page.json()
     assert len(first_body["items"]) == 2
     assert first_body["next_cursor"] is not None

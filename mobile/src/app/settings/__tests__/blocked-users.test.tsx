@@ -14,10 +14,17 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 import BlockedUsersScreen from '../blocked-users';
+import { ToastProvider } from '@/components/ui/toast-provider';
 
 function renderBlockedUsers() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={qc}><BlockedUsersScreen /></QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={qc}>
+      <ToastProvider>
+        <BlockedUsersScreen />
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
 }
 
 describe('BlockedUsersScreen pull-to-refresh', () => {

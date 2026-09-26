@@ -1,5 +1,6 @@
 """Pydantic schemas for the wishlist module."""
 
+from typing import Any
 import uuid
 from datetime import datetime
 
@@ -43,7 +44,7 @@ class WishlistMatchView(BaseModel):
     isbn: str
     condition: str
     distance_km: float
-    photos: list[dict] = []
+    photos: list[dict[str, Any]] = []
     created_at: datetime
 
 

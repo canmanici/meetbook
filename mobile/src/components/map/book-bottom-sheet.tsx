@@ -25,7 +25,6 @@ import {
 } from 'react-native';
 import BottomSheet, {
   BottomSheetFlatList,
-  type BottomSheetProps,
 } from '@gorhom/bottom-sheet';
 import { palette, spacing, fontSize, radius } from '../ui/tokens';
 
@@ -154,7 +153,8 @@ function BookBottomSheet<T>({
       backgroundStyle={{ backgroundColor: bgColor, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet }}
       handleIndicatorStyle={{ backgroundColor: indicatorColor, width: 36, height: 4, borderRadius: 2, marginTop: spacing.xs }}
       style={[styles.sheet, style]}
-      testID={testID ?? 'book-bottom-sheet'}
+      // gorhom's BottomSheet has no testID prop; tests mock it with a View.
+      {...({ testID: testID ?? 'book-bottom-sheet' } as Record<string, unknown>)}
     >
       {renderHeader()}
       {snapIndex <= 1 ? renderPeekContent() : renderListContent()}

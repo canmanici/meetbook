@@ -18,8 +18,8 @@ from app.modules.books.schemas import (
     BookListResponse,
     BookOwnerView,
     BookPublicView,
-    BookSearchResponse,
     BookSearchParams,
+    BookSearchResponse,
     BookUpdateRequest,
     ClusterResponse,
     ISBNLookupResponse,
@@ -65,7 +65,10 @@ async def search_books(
     )
     logger.info(
         "Nearby search: lat=%s, lng=%s, radius=%s km, user=%s",
-        lat, lng, radius_km, user.id,
+        lat,
+        lng,
+        radius_km,
+        user.id,
     )
     return await service.search_nearby(params, limit, current_user_id=user.id)
 
@@ -86,8 +89,15 @@ async def search_books_bbox(
     service: BookService = Depends(_get_service),
 ) -> BookSearchResponse:
     cache_key = bbox_cache_key(
-        min_lat, max_lat, min_lng, max_lng,
-        category, language, condition, q, limit,
+        min_lat,
+        max_lat,
+        min_lng,
+        max_lng,
+        category,
+        language,
+        condition,
+        q,
+        limit,
     )
     cache_key = f"{cache_key}:u{user.id}"
 
@@ -98,8 +108,16 @@ async def search_books_bbox(
 
     try:
         result = await service.search_bbox(
-            min_lat, max_lat, min_lng, max_lng,
-            category, language, condition, q, limit, current_user_id=user.id,
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+            category,
+            language,
+            condition,
+            q,
+            limit,
+            current_user_id=user.id,
             cursor=cursor,
         )
     except BookError as e:
@@ -127,8 +145,16 @@ async def search_clusters(
 ) -> ClusterResponse:
     try:
         return await service.search_clusters(
-            min_lat, max_lat, min_lng, max_lng,
-            category, language, condition, q, limit, current_user_id=user.id,
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+            category,
+            language,
+            condition,
+            q,
+            limit,
+            current_user_id=user.id,
         )
     except BookError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
@@ -174,7 +200,7 @@ async def list_my_books(
     limit: int = Query(default=20, ge=1, le=50),
     user: User = Depends(get_current_user),
     service: BookService = Depends(_get_service),
-    ) -> BookListResponse:
+) -> BookListResponse:
     return await service.list_my_books(user.id, cursor, limit)
 
 
@@ -249,8 +275,14 @@ async def upload_photo(
     user: User = Depends(get_verified_user),
     service: BookService = Depends(_get_service),
 ) -> PhotoView:
-    logger.info("Uploading photo for book %s by user %s (type=%s, size=%s, thumb=%s)",
-                book_id, user.id, file.content_type, file.size, bool(thumbnail))
+    logger.info(
+        "Uploading photo for book %s by user %s (type=%s, size=%s, thumb=%s)",
+        book_id,
+        user.id,
+        file.content_type,
+        file.size,
+        bool(thumbnail),
+    )
     contents = await file.read()
     thumb_contents = await thumbnail.read() if thumbnail else None
     try:
@@ -260,7 +292,9 @@ async def upload_photo(
         logger.info("Photo uploaded successfully: %s -> %s", book_id, result.url)
         return result
     except BookError as e:
-        logger.warning("Photo upload failed for book %s: %s (status=%s)", book_id, e.message, e.status_code)
+        logger.warning(
+            "Photo upload failed for book %s: %s (status=%s)", book_id, e.message, e.status_code
+        )
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 

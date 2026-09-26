@@ -2,14 +2,14 @@
 TECHNICAL_ARCHITECTURE.md.
 """
 
-import uuid
 import json
 import logging
+import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import redis.asyncio as aioredis
-from sqlalchemy import select
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.geo import in_turkey_bbox, make_point
@@ -20,8 +20,8 @@ from app.modules.auth.trust import compute_trust
 from app.modules.books.repository import BookRepository, BookRow, encode_ts_cursor
 from app.modules.books.schemas import LocationOutput, PhotoView
 from app.modules.exchanges.models import (
-    Chat,
     ACTIVE_LOAN_STATUSES,
+    Chat,
     ExchangeMode,
     ExchangeRequest,
     ExchangeStatus,
@@ -71,9 +71,7 @@ def _trust_view(user: User) -> TrustView:
         loans_returned_on_time=user.loans_returned_on_time,
         loans_returned_late=user.loans_returned_late,
         trust_score_override=(
-            float(user.trust_score_override)
-            if user.trust_score_override is not None
-            else None
+            float(user.trust_score_override) if user.trust_score_override is not None else None
         ),
     )
     return TrustView(
@@ -101,7 +99,7 @@ class ExchangeError(Exception):
         self.status_code = status_code
 
 
-def _book_summary(book_row: BookRow | None, photos: list | None = None) -> BookSummary:
+def _book_summary(book_row: BookRow | None, photos: list[Any] | None = None) -> BookSummary:
     if book_row is None:
         raise ExchangeError("BOOK_NOT_FOUND", 404)
     book = book_row.book
@@ -115,7 +113,10 @@ def _book_summary(book_row: BookRow | None, photos: list | None = None) -> BookS
         public_location=LocationOutput(
             lat=book_row.public_location[0], lng=book_row.public_location[1]
         ),
-        photos=[PhotoView(id=p.id, url=p.url, thumbnail_url=p.thumbnail_url, position=p.position) for p in (photos or [])],
+        photos=[
+            PhotoView(id=p.id, url=p.url, thumbnail_url=p.thumbnail_url, position=p.position)
+            for p in (photos or [])
+        ],
     )
 
 
@@ -197,9 +198,7 @@ class ExchangeService:
         exchange = await self.repo.get(exchange_id)
         if exchange is None:
             return
-        other_members = [
-            m for m in (exchange.requested_by, exchange.requested_to) if m != actor_id
-        ]
+        other_members = [m for m in (exchange.requested_by, exchange.requested_to) if m != actor_id]
 
         notif_svc = NotificationService(self.session)
         for member_id in other_members:
@@ -248,7 +247,10 @@ class ExchangeService:
             id=request.id,
             book=_book_summary(book_row, photos),
             counterpart=CounterpartView(
-                id=counterpart.id, name=counterpart.name, avatar_url=counterpart.avatar_url, trust=_trust_view(counterpart)
+                id=counterpart.id,
+                name=counterpart.name,
+                avatar_url=counterpart.avatar_url,
+                trust=_trust_view(counterpart),
             ),
             requested_by=request.requested_by,
             requested_to=request.requested_to,
@@ -299,7 +301,10 @@ class ExchangeService:
             id=request.id,
             book=_book_summary(book_row, photos),
             counterpart=CounterpartView(
-                id=counterpart.id, name=counterpart.name, avatar_url=counterpart.avatar_url, trust=_trust_view(counterpart)
+                id=counterpart.id,
+                name=counterpart.name,
+                avatar_url=counterpart.avatar_url,
+                trust=_trust_view(counterpart),
             ),
             status=request.status,
             mode=request.mode,
@@ -614,7 +619,11 @@ class ExchangeService:
         return await self._to_detail(request, current_user_id)
 
     async def upload_loan_photo(
-        self, exchange_id: uuid.UUID, current_user_id: uuid.UUID, file_bytes: bytes, content_type: str
+        self,
+        exchange_id: uuid.UUID,
+        current_user_id: uuid.UUID,
+        file_bytes: bytes,
+        content_type: str,
     ) -> str:
         """Upload a hand-over/return photo for a loan; any participant may upload."""
         from app.core.s3 import upload_photo
@@ -632,7 +641,7 @@ class ExchangeService:
         if len(file_bytes) > 10 * 1024 * 1024:
             raise ExchangeError("FILE_TOO_LARGE", 400)
         result = await upload_photo(request.book_id, file_bytes, content_type)
-        return result["url"]
+        return str(result["url"])
 
     async def request_extension(
         self, exchange_id: uuid.UUID, current_user_id: uuid.UUID, body: ExtensionRequestBody
@@ -658,12 +667,8 @@ class ExchangeService:
     async def respond_extension(
         self, exchange_id: uuid.UUID, current_user_id: uuid.UUID, approve: bool
     ) -> ExchangeDetail:
-        action = (
-            ExchangeAction.approve_extension if approve else ExchangeAction.reject_extension
-        )
-        request, next_status = await self._load_for_transition(
-            exchange_id, current_user_id, action
-        )
+        action = ExchangeAction.approve_extension if approve else ExchangeAction.reject_extension
+        request, next_status = await self._load_for_transition(exchange_id, current_user_id, action)
         if request.extension_status is not ExtensionStatus.pending:
             raise ExchangeError("NO_EXTENSION_PENDING", 409)
         now = datetime.now(UTC)
@@ -844,9 +849,7 @@ class ExchangeService:
     async def list_blocked_users(self, blocker_id: uuid.UUID) -> BlockListResponse:
         blocks = await self.repo.list_blocked_by(blocker_id)
         return BlockListResponse(
-            items=[
-                BlockedUserView(user_id=b.blocked_id, created_at=b.created_at) for b in blocks
-            ]
+            items=[BlockedUserView(user_id=b.blocked_id, created_at=b.created_at) for b in blocks]
         )
 
     async def suggest_meetup_places(
@@ -1015,7 +1018,10 @@ class ExchangeService:
         await self.session.refresh(buddy)
         await self.session.commit()
         await self._send_system_message(
-            exchange_id, "reading_buddy_requested", "Okuma arkadaşı olmayı teklif etti", current_user_id
+            exchange_id,
+            "reading_buddy_requested",
+            "Okuma arkadaşı olmayı teklif etti",
+            current_user_id,
         )
         return self._reading_buddy_view(buddy)
 
@@ -1077,10 +1083,7 @@ class ExchangeService:
 
     @staticmethod
     def _partner_id(exchange: ExchangeRequest, user_id: uuid.UUID) -> uuid.UUID:
-        return (
-            exchange.requested_to if user_id == exchange.requested_by
-            else exchange.requested_by
-        )
+        return exchange.requested_to if user_id == exchange.requested_by else exchange.requested_by
 
     async def update_location(
         self,
@@ -1177,7 +1180,7 @@ class ExchangeService:
 
     async def get_partner_location(
         self, exchange_id: uuid.UUID, user_id: uuid.UUID
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """Get the other participant's last known location from Redis."""
         exchange = await self._get_validated_exchange(exchange_id, user_id)
         partner_id = self._partner_id(exchange, user_id)
@@ -1195,7 +1198,7 @@ class ExchangeService:
 
     async def get_location_status(
         self, exchange_id: uuid.UUID, user_id: uuid.UUID
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Full sharing state for both participants in one call.
 
         The Redis keys ARE the sharing state (written by update_location with

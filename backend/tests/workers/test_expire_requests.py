@@ -15,7 +15,9 @@ ISTANBUL = (41.0082, 28.9784)
 
 
 async def _make_user(session: AsyncSession, name: str) -> User:
-    user = User(email=f"{name}@example.com", name=name, username=f"{name.lower()}_{uuid.uuid4().hex[:6]}")
+    user = User(
+        email=f"{name}@example.com", name=name, username=f"{name.lower()}_{uuid.uuid4().hex[:6]}"
+    )
     session.add(user)
     await session.flush()
     return user

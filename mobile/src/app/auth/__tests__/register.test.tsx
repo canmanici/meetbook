@@ -20,7 +20,12 @@ jest.mock('@/lib/api/client', () => {
       this.status = status;
     }
   }
-  return { register: jest.fn(), ApiError };
+  return {
+    register: jest.fn(),
+    checkUsernameAvailable: jest.fn().mockResolvedValue({ available: true }),
+    getMe: jest.fn().mockResolvedValue(null),
+    ApiError,
+  };
 });
 
 jest.mock('@/lib/secure-store', () => ({
@@ -36,9 +41,10 @@ describe('RegisterScreen', () => {
   });
 
   it('disables submit until the KVKK consent toggle is checked', () => {
-    const { getAllByTestId, getByTestId, getByText } = render(<RegisterScreen />);
+    const { getAllByTestId, getByTestId } = render(<RegisterScreen />);
     const inputs = getAllByTestId('input-field');
     fireEvent.changeText(inputs[0], 'Test User');
+    fireEvent.changeText(getByTestId('register-username-input'), 'testuser');
     fireEvent.changeText(inputs[1], 'a@example.com');
     fireEvent.changeText(inputs[2], 'password123');
 
@@ -46,7 +52,7 @@ describe('RegisterScreen', () => {
     expect(register).not.toHaveBeenCalled();
 
     fireEvent.press(getByTestId('kvkk-consent-toggle'));
-    fireEvent.press(getByText('Kayıt ol'));
+    fireEvent.press(getByTestId('button'));
     expect(register).toHaveBeenCalled();
   });
 
@@ -58,13 +64,14 @@ describe('RegisterScreen', () => {
       user: { id: 'u1', email: 'a@example.com', name: 'Test User' },
     });
 
-    const { getAllByTestId, getByTestId, getByText } = render(<RegisterScreen />);
+    const { getAllByTestId, getByTestId } = render(<RegisterScreen />);
     const inputs = getAllByTestId('input-field');
     fireEvent.changeText(inputs[0], 'Test User');
+    fireEvent.changeText(getByTestId('register-username-input'), 'testuser');
     fireEvent.changeText(inputs[1], 'a@example.com');
     fireEvent.changeText(inputs[2], 'password123');
     fireEvent.press(getByTestId('kvkk-consent-toggle'));
-    fireEvent.press(getByText('Kayıt ol'));
+    fireEvent.press(getByTestId('button'));
 
     await waitFor(() => {
       expect(setTokens).toHaveBeenCalledWith('a1', 'r1');
@@ -74,6 +81,7 @@ describe('RegisterScreen', () => {
       email: 'a@example.com',
       password: 'password123',
       name: 'Test User',
+      username: 'testuser',
       kvkk_consent: true,
     });
   });
@@ -85,13 +93,14 @@ describe('RegisterScreen', () => {
     const { getAllByTestId, getByTestId, getByText } = render(<RegisterScreen />);
     const inputs = getAllByTestId('input-field');
     fireEvent.changeText(inputs[0], 'Test User');
+    fireEvent.changeText(getByTestId('register-username-input'), 'testuser');
     fireEvent.changeText(inputs[1], 'dup@example.com');
     fireEvent.changeText(inputs[2], 'password123');
     fireEvent.press(getByTestId('kvkk-consent-toggle'));
-    fireEvent.press(getByText('Kayıt ol'));
+    fireEvent.press(getByTestId('button'));
 
     await waitFor(() => {
-      expect(getByText('Bu e-posta zaten kayıtlı.')).toBeTruthy();
+      expect(getByText('Bu e-posta veya kullanıcı adı zaten kayıtlı.')).toBeTruthy();
     });
   });
 

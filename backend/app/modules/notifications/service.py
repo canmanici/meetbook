@@ -1,6 +1,7 @@
 """Notifications business logic."""
 
 import uuid
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,11 +25,15 @@ class NotificationService:
         self.session = session
         self.repo = NotificationRepository(session)
 
-    async def create_notification(self, user_id: uuid.UUID, type_: str, payload: dict) -> Notification:
+    async def create_notification(
+        self, user_id: uuid.UUID, type_: str, payload: dict[str, Any]
+    ) -> Notification:
         notification = await self.repo.create(user_id, type_, payload)
         return notification
 
-    async def broadcast(self, user_ids: list[uuid.UUID], type_: str, payload: dict) -> int:
+    async def broadcast(
+        self, user_ids: list[uuid.UUID], type_: str, payload: dict[str, Any]
+    ) -> int:
         """Create one notification per user (admin broadcast). Returns count created."""
         return await self.repo.create_many(user_ids, type_, payload)
 

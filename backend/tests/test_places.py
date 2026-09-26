@@ -102,7 +102,9 @@ async def test_nearby_caches_response_and_maps_category(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_places_endpoints_require_auth(client: httpx.AsyncClient) -> None:
-    resp = await client.get("/api/v1/places/autocomplete", params={"query": "x", "lat": 41, "lng": 29})
+    resp = await client.get(
+        "/api/v1/places/autocomplete", params={"query": "x", "lat": 41, "lng": 29}
+    )
     assert resp.status_code == 401
 
     resp = await client.get("/api/v1/places/nearby", params={"lat": 41, "lng": 29})

@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { palette, spacing, fontSize, radius } from './tokens';
+import { spacing, fontSize, radius } from './tokens';
 import type { MessageView } from '@/lib/api/chat';
 
 const SYSTEM_ICONS: Record<string, { icon: string; color: string }> = {
@@ -54,10 +54,6 @@ interface SystemMessageProps {
 }
 
 export const SystemMessage: React.FC<SystemMessageProps> = ({ message }) => {
-  const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
-  const colors = palette[isDark ? 'dark' : 'light'];
-
   const action = message.extra?.action || 'default';
   const config = SYSTEM_ICONS[action] || SYSTEM_ICONS.default;
   const label = message.text || SYSTEM_LABELS[action] || action;

@@ -14,7 +14,7 @@
  * Selection: scale 1.3× + 6px primary glow ring (spec §3.4).
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Image, StyleSheet, Text, Platform, ViewStyle } from 'react-native';
+import { View, Image, StyleSheet, Text, Platform, ViewStyle, ImageStyle } from 'react-native';
 import { Marker } from '@/lib/map-adapter';
 import { moderateScale } from 'react-native-size-matters';
 import Animated, {
@@ -26,7 +26,7 @@ import Animated, {
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
-import { pastels, palette, spacing, fontSize, type PastelName } from '@/components/ui/tokens';
+import { pastels, palette, type PastelName } from '@/components/ui/tokens';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -116,9 +116,6 @@ const GLOW_W = 6;
 // DO NOT resolve reliably during that rasterization pass — the Image renders at
 // its intrinsic bitmap size (often ~10×10 dp) or 0, frozen by tracksViewChanges.
 // Explicit pixel dims are the only reliable fix. See spec bug §3.4 sizing.
-const COVER_W = MARKER_W - 2 * RING_W;
-const COVER_H = MARKER_H - 2 * RING_W;
-
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function BookMarker({
@@ -223,7 +220,7 @@ export function BookMarker({
       return (
         <Image
           source={{ uri: markerUri }}
-          style={[styles.cover, extraStyle, variant === 'unavailable' && styles.grayscale]}
+          style={[styles.cover, extraStyle as ImageStyle | undefined, variant === 'unavailable' && styles.grayscale]}
           resizeMode="cover"
           onLoad={onLoadEnd}
           onError={onLoadEnd}

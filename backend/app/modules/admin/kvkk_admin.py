@@ -54,10 +54,21 @@ class KvkkUpdate(BaseModel):
 def _view(r: DataSubjectRequestRecord) -> KvkkRequestView:
     now = datetime.now(UTC)
     return KvkkRequestView(
-        id=r.id, reference=r.reference, full_name=r.full_name, email=r.email, phone=r.phone,
-        username=r.username, request_type=r.request_type, description=r.description,
-        extra_info=r.extra_info, identity_method=r.identity_method, status=r.status,
-        admin_notes=r.admin_notes, created_at=r.created_at, due_at=r.due_at, closed_at=r.closed_at,
+        id=r.id,
+        reference=r.reference,
+        full_name=r.full_name,
+        email=r.email,
+        phone=r.phone,
+        username=r.username,
+        request_type=r.request_type,
+        description=r.description,
+        extra_info=r.extra_info,
+        identity_method=r.identity_method,
+        status=r.status,
+        admin_notes=r.admin_notes,
+        created_at=r.created_at,
+        due_at=r.due_at,
+        closed_at=r.closed_at,
         overdue=r.closed_at is None and r.due_at < now,
     )
 
@@ -79,12 +90,17 @@ async def list_kvkk_requests(
     )
     open_q = DataSubjectRequestRecord.closed_at.is_(None)
     open_count = await session.scalar(select(func.count()).where(open_q)) or 0
-    overdue = await session.scalar(
-        select(func.count()).where(open_q, DataSubjectRequestRecord.due_at < datetime.now(UTC))
-    ) or 0
+    overdue = (
+        await session.scalar(
+            select(func.count()).where(open_q, DataSubjectRequestRecord.due_at < datetime.now(UTC))
+        )
+        or 0
+    )
     return KvkkRequestList(
-        items=[_view(r) for r in rows.scalars().all()], total=total,
-        open_count=open_count, overdue_count=overdue,
+        items=[_view(r) for r in rows.scalars().all()],
+        total=total,
+        open_count=open_count,
+        overdue_count=overdue,
     )
 
 
@@ -103,7 +119,11 @@ async def update_kvkk_request(
         r.admin_notes = body.admin_notes
     r.handled_by = admin.id
     r.closed_at = datetime.now(UTC) if body.status in ("answered", "rejected") else None
-    await log_event(session, "kvkk_request_updated", user_id=admin.id,
-                    metadata={"reference": r.reference, "status": body.status})
+    await log_event(
+        session,
+        "kvkk_request_updated",
+        user_id=admin.id,
+        metadata={"reference": r.reference, "status": body.status},
+    )
     await session.commit()
     return _view(r)

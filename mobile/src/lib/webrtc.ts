@@ -12,8 +12,10 @@
  *      ErrorUtils reporting during module evaluation
  *   3. try/catch fallback — safety net for any edge case
  */
-import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
+import { NativeModules, PermissionsAndroid, Platform, type Permission } from 'react-native';
 import Constants from 'expo-constants';
+
+import type { CallKind } from '@/stores/call-store';
 
 export type CallPermissionResult = 'granted' | 'denied' | 'blocked';
 
@@ -134,7 +136,7 @@ export async function requestCallPermissions(kind: 'audio' | 'video'): Promise<C
     console.warn(`[webrtc] NativeModules.PermissionsAndroid not found, trying TurboModule path`);
     // Path 2: Fall back to the standard PermissionsAndroid TurboModule path.
     try {
-      const result = await PermissionsAndroid.request(perm);
+      const result = await PermissionsAndroid.request(perm as Permission);
       console.warn(`[webrtc] PermissionsAndroid.request path → ${result}`);
       if (result === PermissionsAndroid.RESULTS.GRANTED) return 'granted';
       if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) return 'blocked';

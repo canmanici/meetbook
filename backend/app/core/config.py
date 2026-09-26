@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     @property
     def google_client_ids_list(self) -> list[str]:
         return [c.strip() for c in self.google_client_ids.split(",") if c.strip()]
+
     s3_endpoint: str = ""
     s3_external_endpoint: str = ""
     s3_bucket: str = ""
@@ -89,4 +90,4 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()  # type: ignore[call-arg]  # values come from the environment
+    return Settings()  # values come from the environment

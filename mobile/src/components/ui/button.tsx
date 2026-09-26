@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   useColorScheme,
   ViewStyle,
-  TextStyle,
 } from 'react-native';
 import { palette, spacing, radius, fontSize, shadows } from './tokens';
 

@@ -6,10 +6,9 @@ import {
   StyleSheet,
   Modal,
   FlatList,
-  TextInput,
   useColorScheme,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { palette, spacing, fontSize, radius, shadows } from './tokens';
 

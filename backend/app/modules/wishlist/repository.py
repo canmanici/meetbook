@@ -124,17 +124,13 @@ class SharedWishlistRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def add_member(
-        self, wishlist_id: uuid.UUID, user_id: uuid.UUID
-    ) -> SharedWishlistMember:
+    async def add_member(self, wishlist_id: uuid.UUID, user_id: uuid.UUID) -> SharedWishlistMember:
         member = SharedWishlistMember(wishlist_id=wishlist_id, user_id=user_id)
         self.session.add(member)
         await self.session.flush()
         return member
 
-    async def remove_member(
-        self, wishlist_id: uuid.UUID, user_id: uuid.UUID
-    ) -> bool:
+    async def remove_member(self, wishlist_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         member = await self.get_member(wishlist_id, user_id)
         if member is None:
             return False
@@ -176,9 +172,7 @@ class SharedWishlistRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_user_names(
-        self, user_ids: list[uuid.UUID]
-    ) -> dict[uuid.UUID, str]:
+    async def get_user_names(self, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
         if not user_ids:
             return {}
         stmt = select(User.id, User.name).where(User.id.in_(user_ids))

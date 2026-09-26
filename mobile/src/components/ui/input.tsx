@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   useColorScheme,
   ViewStyle,
-  TextStyle,
 } from 'react-native';
 import { palette, spacing, radius, fontSize } from './tokens';
 

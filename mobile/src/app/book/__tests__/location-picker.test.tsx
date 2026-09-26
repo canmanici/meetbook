@@ -12,6 +12,7 @@ jest.mock('expo-router', () => ({
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: jest.fn(),
   getCurrentPositionAsync: jest.fn(),
+  Accuracy: { Balanced: 'balanced' },
 }));
 
 jest.mock('@/lib/map-adapter', () => {

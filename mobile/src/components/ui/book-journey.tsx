@@ -67,11 +67,7 @@ export function BookJourney({ bookId }: BookJourneyProps) {
             const isLast = index === stops.length - 1;
             const name = stop.counterpart?.name ?? 'Bilinmeyen';
             const date = formatDate(stop.created_at);
-            const review = stop.initial_message?.trim()
-              ? `"${stop.initial_message.trim()}"`
-              : stop.mode === 'borrow'
-                ? 'Ödünç alındı'
-                : 'Takas yapıldı';
+            const review = stop.mode === 'borrow' ? 'Ödünç alındı' : 'Takas yapıldı';
             return (
               <View key={stop.id} style={styles.stop}>
                 <View style={styles.stopLeft}>

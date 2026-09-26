@@ -2,7 +2,7 @@
 
 import logging
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.models import User
@@ -33,13 +33,13 @@ async def run_geofence_matcher(session: AsyncSession) -> int:
         if not wishlist_item.isbn:
             continue
 
-        latest_book = await session.execute(
+        latest_result = await session.execute(
             select(Book)
             .where(Book.owner_id == user.id, Book.deleted_at.is_(None))
             .order_by(Book.created_at.desc())
             .limit(1)
         )
-        latest_book = latest_book.scalar_one_or_none()
+        latest_book = latest_result.scalar_one_or_none()
         if not latest_book:
             continue
 

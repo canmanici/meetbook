@@ -138,7 +138,7 @@ describe('BookBottomSheet', () => {
       <BookBottomSheet
         snapIndex={1}
         onSnapChange={jest.fn()}
-        data={[]}
+        data={[] as { id: string; title: string }[]}
         renderMiniCard={({ item }) => <React.Fragment key={item.id}>{item.title}</React.Fragment>}
         renderListCard={({ item }) => <React.Fragment key={item.id}>{item.title}</React.Fragment>}
         keyExtractor={(item) => item.id}

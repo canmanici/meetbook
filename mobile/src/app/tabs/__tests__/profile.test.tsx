@@ -11,6 +11,7 @@ import ProfileScreen from '../profile';
 
 jest.mock('expo-router', () => ({
   router: { replace: jest.fn(), push: jest.fn() },
+  useLocalSearchParams: () => ({}),
 }));
 
 jest.mock('expo-haptics', () => ({
@@ -160,7 +161,7 @@ describe('ProfileScreen', () => {
     const { router } = jest.requireMock('expo-router');
     const { findByTestId } = renderWithQueryClient(<ProfileScreen />);
 
-    const row = await findByTestId('book-row-book-1');
+    const row = await findByTestId('book-cell-book-1');
     fireEvent.press(row);
 
     expect(router.push).toHaveBeenCalledWith('/book/book-1');
@@ -175,8 +176,12 @@ describe('ProfileScreen', () => {
     expect(router.push).toHaveBeenCalledWith('/book/new');
   });
 
-  it('does not show a dead "Güvendiğim Kişi" menu item', async () => {
-    const { queryByText } = renderProfile();
-    await waitFor(() => expect(queryByText('Güvendiğim Kişi')).toBeNull());
+  it('navigates to the trusted-contact screen from the "Güvendiğim Kişi" menu item', async () => {
+    const { router } = jest.requireMock('expo-router');
+    const { findByText } = renderProfile();
+
+    fireEvent.press(await findByText('Güvendiğim Kişi'));
+
+    expect(router.push).toHaveBeenCalledWith('/settings/trusted-contact');
   });
 });

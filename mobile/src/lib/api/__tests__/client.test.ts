@@ -84,7 +84,7 @@ describe('api client', () => {
 
     const fetchMock = jest
       .fn()
-      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({ detail: 'expired' }) })
+      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({ detail: 'expired' }), text: async () => 'expired' })
       .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({ detail: 'invalid' }) });
     global.fetch = fetchMock;
 

@@ -2,9 +2,12 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +19,10 @@ REQUEST_TIMEOUT = 10  # seconds
 @dataclass
 class PushMessage:
     """A push notification to send to one or more recipients."""
+
     title: str
     body: str
-    data: dict | None = None  # deep link payload e.g. {"chat_id": "..."}
+    data: dict[str, Any] | None = None  # deep link payload e.g. {"chat_id": "..."}
     badge: int | None = None
     sound: str = "default"
     priority: str = "high"
@@ -38,7 +42,7 @@ async def send_push(
         return {"ok": 0, "errors": []}
 
     all_ok = 0
-    all_errors: list[dict] = []
+    all_errors: list[dict[str, Any]] = []
 
     # Expo API accepts up to 100 messages per request
     for i in range(0, len(tokens), MAX_CHUNK_SIZE):
@@ -64,10 +68,12 @@ async def send_push(
                     if item.get("status") == "ok":
                         all_ok += 1
                     else:
-                        all_errors.append({
-                            "token": _mask_token(item.get("expoPushToken", "?")),
-                            "error": item.get("details", {}).get("error", "unknown"),
-                        })
+                        all_errors.append(
+                            {
+                                "token": _mask_token(item.get("expoPushToken", "?")),
+                                "error": item.get("details", {}).get("error", "unknown"),
+                            }
+                        )
             elif isinstance(data, list):
                 for ticket in data:
                     if ticket.get("status") == "ok":
@@ -89,19 +95,18 @@ async def send_push(
 async def send_push_to_user(
     user_id: str,
     message: PushMessage,
-    session=None,  # AsyncSession for DB lookup
+    session: "AsyncSession | None" = None,  # for the device-token lookup
 ) -> dict[str, Any]:
     """Send push to all devices of a single user."""
     from sqlalchemy import select
+
     from app.modules.push_tokens.models import PushToken
 
     if session is None:
         logger.warning("send_push_to_user called without DB session")
         return {"ok": 0, "errors": [{"error": "no session"}]}
 
-    result = await session.execute(
-        select(PushToken.token).where(PushToken.user_id == user_id)
-    )
+    result = await session.execute(select(PushToken.token).where(PushToken.user_id == user_id))
     tokens = [row[0] for row in result.all()]
 
     if not tokens:
@@ -110,7 +115,7 @@ async def send_push_to_user(
     return await send_push(tokens, message)
 
 
-def _build_expo_message(token: str, message: PushMessage) -> dict:
+def _build_expo_message(token: str, message: PushMessage) -> dict[str, Any]:
     msg: dict[str, Any] = {
         "to": token,
         "title": message.title,

@@ -1,23 +1,23 @@
 """Auth endpoints."""
 
 import uuid
+from typing import Any
 
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
 from app.core.client_ip import resolve_client_ip
+from app.core.config import get_settings
 from app.core.db import get_session
 from app.core.throttle import LoginThrottle
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
 from app.modules.auth.schemas import (
-    GoogleLoginRequest,
-    GoogleLoginResponse,
-    VerifyEmailRequest,
     AuthTokensResponse,
     DeleteAccountRequest,
+    GoogleLoginRequest,
+    GoogleLoginResponse,
     LoginRequest,
     LogoutRequest,
     MeResponse,
@@ -33,6 +33,7 @@ from app.modules.auth.schemas import (
     UsernameAvailabilityResponse,
     UserPublicProfile,
     UserSearchResponse,
+    VerifyEmailRequest,
     VouchListResponse,
     VouchRequest,
     VouchView,
@@ -215,7 +216,7 @@ async def upload_my_avatar(
     file: UploadFile = File(...),
     user: User = Depends(get_current_user),
     service: AuthService = Depends(_get_service),
-) -> dict:
+) -> dict[str, Any]:
     contents = await file.read()
     try:
         url = await service.upload_avatar(user.id, contents, file.content_type or "image/jpeg")
@@ -292,7 +293,7 @@ async def revoke_session(
 async def export_reading_history(
     user: User = Depends(get_current_user),
     service: AuthService = Depends(_get_service),
-) -> dict:
+) -> dict[str, Any]:
     try:
         return await service.export_reading_history(user.id)
     except AuthError as e:

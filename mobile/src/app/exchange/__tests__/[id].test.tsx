@@ -13,6 +13,7 @@ import {
 import { useAuthStore } from '@/stores/auth-store';
 
 import ExchangeDetailScreen from '../[id]';
+import { ToastProvider } from '@/components/ui/toast-provider';
 
 jest.mock('expo-router', () => ({
   router: { replace: jest.fn(), push: jest.fn(), back: jest.fn() },
@@ -46,7 +47,9 @@ function renderWithQueryClient(ui: React.ReactElement) {
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>{ui}</ToastProvider>
+    </QueryClientProvider>,
   );
 }
 

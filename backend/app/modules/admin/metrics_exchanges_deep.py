@@ -13,7 +13,6 @@ from app.modules.auth.dependencies import get_admin_user
 from app.modules.auth.models import User
 from app.modules.exchanges.models import ExchangeRequest
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # SCHEMAS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -80,13 +79,21 @@ class ExchangeDeepService:
     async def get_exchange_deep(self) -> ExchangeDeepMetricsResponse:
         session = self.session
 
-        total_trade = await session.scalar(
-            select(func.count()).select_from(ExchangeRequest).where(ExchangeRequest.mode == "trade")
+        total_trade = (
+            await session.scalar(
+                select(func.count())
+                .select_from(ExchangeRequest)
+                .where(ExchangeRequest.mode == "trade")
+            )
+            or 0
         )
-        total_borrow = await session.scalar(
-            select(func.count())
-            .select_from(ExchangeRequest)
-            .where(ExchangeRequest.mode == "borrow")
+        total_borrow = (
+            await session.scalar(
+                select(func.count())
+                .select_from(ExchangeRequest)
+                .where(ExchangeRequest.mode == "borrow")
+            )
+            or 0
         )
         trade_borrow_ratio = total_trade / max(total_borrow, 1)
 
@@ -98,45 +105,61 @@ class ExchangeDeepService:
             )
         )
 
-        overdue_count = await session.scalar(
-            select(func.count())
-            .select_from(ExchangeRequest)
-            .where(ExchangeRequest.status == "overdue")
+        overdue_count = (
+            await session.scalar(
+                select(func.count())
+                .select_from(ExchangeRequest)
+                .where(ExchangeRequest.status == "overdue")
+            )
+            or 0
         )
         overdue_rate = (overdue_count / max(total_borrow, 1)) * 100
 
-        returned_on_time = await session.scalar(
-            select(func.count())
-            .select_from(ExchangeRequest)
-            .where(ExchangeRequest.returned_on_time == True)  # noqa: E712
+        returned_on_time = (
+            await session.scalar(
+                select(func.count())
+                .select_from(ExchangeRequest)
+                .where(ExchangeRequest.returned_on_time == True)  # noqa: E712
+            )
+            or 0
         )
-        returned_with_data = await session.scalar(
-            select(func.count())
-            .select_from(ExchangeRequest)
-            .where(ExchangeRequest.returned_on_time.is_not(None))
+        returned_with_data = (
+            await session.scalar(
+                select(func.count())
+                .select_from(ExchangeRequest)
+                .where(ExchangeRequest.returned_on_time.is_not(None))
+            )
+            or 0
         )
         on_time_return_rate = (
-            (returned_on_time / max(returned_with_data, 1)) * 100
-            if returned_with_data
-            else 0.0
+            (returned_on_time / max(returned_with_data, 1)) * 100 if returned_with_data else 0.0
         )
 
-        extension_requested = await session.scalar(
-            select(func.count())
-            .select_from(ExchangeRequest)
-            .where(ExchangeRequest.extension_requested_days.is_not(None))
+        extension_requested = (
+            await session.scalar(
+                select(func.count())
+                .select_from(ExchangeRequest)
+                .where(ExchangeRequest.extension_requested_days.is_not(None))
+            )
+            or 0
         )
         extension_request_rate = (extension_requested / max(total_borrow, 1)) * 100
 
-        extension_approved = await session.scalar(
-            select(func.count())
-            .select_from(ExchangeRequest)
-            .where(ExchangeRequest.extension_status == "approved")
+        extension_approved = (
+            await session.scalar(
+                select(func.count())
+                .select_from(ExchangeRequest)
+                .where(ExchangeRequest.extension_status == "approved")
+            )
+            or 0
         )
-        extension_any = await session.scalar(
-            select(func.count())
-            .select_from(ExchangeRequest)
-            .where(ExchangeRequest.extension_status != "none")
+        extension_any = (
+            await session.scalar(
+                select(func.count())
+                .select_from(ExchangeRequest)
+                .where(ExchangeRequest.extension_status != "none")
+            )
+            or 0
         )
         extension_approval_rate = (
             (extension_approved / max(extension_any, 1)) * 100 if extension_any else 0.0
@@ -172,9 +195,7 @@ class ExchangeDeepService:
 
         now = datetime.now(UTC)
         cutoff_30d = now - timedelta(days=30)
-        date_spine = [
-            (cutoff_30d + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(31)
-        ]
+        date_spine = [(cutoff_30d + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(31)]
 
         trade_rows = await session.execute(
             text("""
@@ -238,21 +259,19 @@ class ExchangeDeepService:
             total_trade=total_trade or 0,
             total_borrow=total_borrow or 0,
             trade_borrow_ratio=round(trade_borrow_ratio, 2),
-            avg_loan_duration_days=round(float(avg_loan_duration), 1) if avg_loan_duration else None,
+            avg_loan_duration_days=round(float(avg_loan_duration), 1)
+            if avg_loan_duration
+            else None,
             overdue_count=overdue_count or 0,
             overdue_rate=round(overdue_rate, 1),
             on_time_return_rate=round(on_time_return_rate, 1),
             extension_request_rate=round(extension_request_rate, 1),
             extension_approval_rate=round(extension_approval_rate, 1),
             avg_completion_days_trade=(
-                round(float(avg_completion_days_trade), 1)
-                if avg_completion_days_trade
-                else None
+                round(float(avg_completion_days_trade), 1) if avg_completion_days_trade else None
             ),
             avg_completion_days_borrow=(
-                round(float(avg_completion_days_borrow), 1)
-                if avg_completion_days_borrow
-                else None
+                round(float(avg_completion_days_borrow), 1) if avg_completion_days_borrow else None
             ),
             exchanges_per_mode_trend=trend,
             top_borrowers=top_borrowers,

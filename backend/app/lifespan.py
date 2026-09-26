@@ -39,15 +39,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             async with get_s3_client() as client:
                 await client.put_bucket_policy(
                     Bucket=settings.s3_bucket,
-                    Policy=json.dumps({
-                        "Version": "2012-10-17",
-                        "Statement": [{
-                            "Effect": "Allow",
-                            "Principal": "*",
-                            "Action": ["s3:GetObject"],
-                            "Resource": f"arn:aws:s3:::{settings.s3_bucket}/*",
-                        }],
-                    }),
+                    Policy=json.dumps(
+                        {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Principal": "*",
+                                    "Action": ["s3:GetObject"],
+                                    "Resource": f"arn:aws:s3:::{settings.s3_bucket}/*",
+                                }
+                            ],
+                        }
+                    ),
                 )
                 logger.info("Bucket policy set to public-read: %s", settings.s3_bucket)
         except Exception as exc:
@@ -58,6 +62,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     chat_listener_task = None
     if settings.env != "test":
         from app.modules.chat.service import subscribe_and_listen
+
         chat_listener_task = asyncio.create_task(subscribe_and_listen())
 
     # Hourly worker: expire overdue exchange requests. Skipped in tests, where

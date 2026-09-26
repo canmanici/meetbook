@@ -50,9 +50,7 @@ async def test_complete_flow_side_effects(
     book = await db_session.execute(select(Book).where(Book.id == uuid.UUID(book_id)))
     assert book.scalar_one().is_available is False
 
-    owner_row = await db_session.execute(
-        select(User).where(User.id == uuid.UUID(owner["user_id"]))
-    )
+    owner_row = await db_session.execute(select(User).where(User.id == uuid.UUID(owner["user_id"])))
     requester_row = await db_session.execute(
         select(User).where(User.id == uuid.UUID(requester["user_id"]))
     )

@@ -2,20 +2,23 @@
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 
 class BreadcrumbEntry(BaseModel):
     """A single user action recorded before the crash."""
+
     action: str  # e.g. "navigate", "api_call", "tap_button"
-    label: str   # e.g. "Navigated to /book/123", "GET /auth/me"
+    label: str  # e.g. "Navigated to /book/123", "GET /auth/me"
     timestamp: str  # ISO 8601
-    data: dict | None = None  # optional extra context
+    data: dict[str, Any] | None = None  # optional extra context
 
 
 class DeviceInfo(BaseModel):
     """Device metadata sent with every crash."""
+
     platform: str  # "android" | "ios"
     os_version: str
     model: str | None = None
@@ -26,6 +29,7 @@ class DeviceInfo(BaseModel):
 
 class CrashReportCreate(BaseModel):
     """Payload sent by the mobile app or backend crash handler."""
+
     app: str = "mobile"
     app_version: str | None = None
     error_type: str | None = None
@@ -39,6 +43,7 @@ class CrashReportCreate(BaseModel):
 
 class CrashReportView(BaseModel):
     """Single crash report returned to admin dashboard."""
+
     id: uuid.UUID
     group_id: uuid.UUID | None = None
     app: str
@@ -46,8 +51,8 @@ class CrashReportView(BaseModel):
     error_type: str | None
     error_message: str
     stack_trace: str | None
-    breadcrumbs: list[dict]
-    device_info: dict
+    breadcrumbs: list[dict[str, Any]]
+    device_info: dict[str, Any]
     screen_name: str | None
     user_id: uuid.UUID | None
     created_at: datetime
@@ -57,6 +62,7 @@ class CrashReportView(BaseModel):
 
 class CrashReportListResponse(BaseModel):
     """Paginated list of crash reports."""
+
     items: list[CrashReportView]
     total: int
     page: int
@@ -68,6 +74,7 @@ class CrashReportListResponse(BaseModel):
 
 class CrashReportGroupView(BaseModel):
     """Grouped crash fingerprint for admin triage."""
+
     id: uuid.UUID
     group_hash: str
     error_type: str | None
@@ -81,12 +88,12 @@ class CrashReportGroupView(BaseModel):
     last_seen: datetime
     first_seen_version: str | None
     fixed_in_version: str | None
-    affected_versions: dict | None
+    affected_versions: dict[str, Any] | None
     assignee_id: uuid.UUID | None
     notes: str | None
     sample_crash_id: uuid.UUID | None
-    top_platforms: dict | None
-    top_screens: dict | None
+    top_platforms: dict[str, Any] | None
+    top_screens: dict[str, Any] | None
     created_at: datetime
     updated_at: datetime
 
@@ -95,6 +102,7 @@ class CrashReportGroupView(BaseModel):
 
 class CrashReportGroupListResponse(BaseModel):
     """Paginated list of grouped crash fingerprints."""
+
     items: list[CrashReportGroupView]
     total: int
     page: int
@@ -103,6 +111,7 @@ class CrashReportGroupListResponse(BaseModel):
 
 class CrashReportGroupActionRequest(BaseModel):
     """Admin action on a crash group: change status, assign, add notes."""
+
     action: str = Field(..., description="investigate | fix | close | reopen | assign | notes")
     value: str | None = Field(default=None, max_length=2000)
     """For assign: user_id as string. For notes/fix/close: text. For investigate: ignored."""
@@ -110,6 +119,7 @@ class CrashReportGroupActionRequest(BaseModel):
 
 class CrashReportTrendPoint(BaseModel):
     """Crash frequency at a point in time."""
+
     date: str  # YYYY-MM-DD
     total: int
     fatal: int
@@ -119,11 +129,13 @@ class CrashReportTrendPoint(BaseModel):
 
 class CrashReportTrendResponse(BaseModel):
     """Crash frequency over time."""
+
     items: list[CrashReportTrendPoint]
 
 
 class CrashReportVersionStats(BaseModel):
     """Crash counts per app version."""
+
     version: str
     count: int
     distinct_errors: int

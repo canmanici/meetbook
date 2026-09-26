@@ -1,7 +1,6 @@
 """Pydantic schemas for legal endpoints."""
 
-
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class CurrentPolicyResponse(BaseModel):
@@ -10,8 +9,12 @@ class CurrentPolicyResponse(BaseModel):
     current_version: str = Field(..., description="Current active policy version")
     user_accepted_version: str | None = Field(None, description="Version the user accepted")
     accepted: bool = Field(..., description="Whether user has accepted the current version")
-    privacy_policy_url: str = Field("/legal/gizlilik-politikasi", description="URL to full privacy policy")
-    disclosure_url: str = Field("/legal/kvkk-aydinlatma-metni", description="URL to KVKK disclosure text")
+    privacy_policy_url: str = Field(
+        "/legal/gizlilik-politikasi", description="URL to full privacy policy"
+    )
+    disclosure_url: str = Field(
+        "/legal/kvkk-aydinlatma-metni", description="URL to KVKK disclosure text"
+    )
 
 
 class AcceptPolicyRequest(BaseModel):

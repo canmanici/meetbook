@@ -1,6 +1,7 @@
 """Wishlist business logic."""
 
 import uuid
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -87,7 +88,7 @@ class WishlistService:
         if not isbns and not titles:
             return WishlistMatchResponse(matches=[])
 
-        lookups: list[tuple[str, list]] = []
+        lookups: list[tuple[str, list[Any]]] = []
         for isbn in isbns:
             lookups.append((isbn, await self.books_repo.list_available_by_isbn(isbn)))
         for title in titles:
@@ -161,9 +162,7 @@ class WishlistService:
         await self.session.commit()
         return view
 
-    async def list_shared_wishlists(
-        self, user_id: uuid.UUID
-    ) -> SharedWishlistListResponse:
+    async def list_shared_wishlists(self, user_id: uuid.UUID) -> SharedWishlistListResponse:
         wishlists = await self.shared_repo.list_for_user(user_id)
         items = [await self._build_shared_view(w) for w in wishlists]
         return SharedWishlistListResponse(items=items)

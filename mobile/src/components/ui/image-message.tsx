@@ -9,7 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { palette, spacing, radius, shadows } from './tokens';
+import { palette, radius } from './tokens';
 import type { MessageView } from '@/lib/api/chat';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

@@ -54,10 +54,14 @@ class ExchangeRepository:
 
     async def has_active_loan_as_borrower(self, requester_id: uuid.UUID) -> bool:
         """True if the user currently holds a borrowed book (single active loan rule)."""
-        stmt = select(func.count()).select_from(ExchangeRequest).where(
-            ExchangeRequest.requested_by == requester_id,
-            ExchangeRequest.mode == ExchangeMode.borrow,
-            ExchangeRequest.status.in_(ACTIVE_LOAN_STATUSES),
+        stmt = (
+            select(func.count())
+            .select_from(ExchangeRequest)
+            .where(
+                ExchangeRequest.requested_by == requester_id,
+                ExchangeRequest.mode == ExchangeMode.borrow,
+                ExchangeRequest.status.in_(ACTIVE_LOAN_STATUSES),
+            )
         )
         result = await self.session.execute(stmt)
         return (result.scalar() or 0) > 0
@@ -110,27 +114,35 @@ class ExchangeRepository:
                     ),
                 )
             )
-        stmt = stmt.order_by(
-            ExchangeRequest.created_at.desc(), ExchangeRequest.id.desc()
-        ).limit(limit)
+        stmt = stmt.order_by(ExchangeRequest.created_at.desc(), ExchangeRequest.id.desc()).limit(
+            limit
+        )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
     async def has_active_for_book_and_requester(
         self, book_id: uuid.UUID, requester_id: uuid.UUID
     ) -> bool:
-        stmt = select(func.count()).select_from(ExchangeRequest).where(
-            ExchangeRequest.book_id == book_id,
-            ExchangeRequest.requested_by == requester_id,
-            ExchangeRequest.status.in_(ACTIVE_STATUSES),
+        stmt = (
+            select(func.count())
+            .select_from(ExchangeRequest)
+            .where(
+                ExchangeRequest.book_id == book_id,
+                ExchangeRequest.requested_by == requester_id,
+                ExchangeRequest.status.in_(ACTIVE_STATUSES),
+            )
         )
         result = await self.session.execute(stmt)
         return (result.scalar() or 0) > 0
 
     async def has_active_request_for_book(self, book_id: uuid.UUID) -> bool:
-        stmt = select(func.count()).select_from(ExchangeRequest).where(
-            ExchangeRequest.book_id == book_id,
-            ExchangeRequest.status.in_(ACTIVE_STATUSES),
+        stmt = (
+            select(func.count())
+            .select_from(ExchangeRequest)
+            .where(
+                ExchangeRequest.book_id == book_id,
+                ExchangeRequest.status.in_(ACTIVE_STATUSES),
+            )
         )
         result = await self.session.execute(stmt)
         return (result.scalar() or 0) > 0
@@ -151,9 +163,13 @@ class ExchangeRepository:
         await self.session.execute(stmt)
 
     async def count_active_for_requester(self, user_id: uuid.UUID) -> int:
-        stmt = select(func.count()).select_from(ExchangeRequest).where(
-            ExchangeRequest.requested_by == user_id,
-            ExchangeRequest.status.in_(ACTIVE_STATUSES),
+        stmt = (
+            select(func.count())
+            .select_from(ExchangeRequest)
+            .where(
+                ExchangeRequest.requested_by == user_id,
+                ExchangeRequest.status.in_(ACTIVE_STATUSES),
+            )
         )
         result = await self.session.execute(stmt)
         return result.scalar() or 0
@@ -176,10 +192,14 @@ class ExchangeRepository:
         return len(requests)
 
     async def is_blocked_pair(self, user_a: uuid.UUID, user_b: uuid.UUID) -> bool:
-        stmt = select(func.count()).select_from(Block).where(
-            or_(
-                and_(Block.blocker_id == user_a, Block.blocked_id == user_b),
-                and_(Block.blocker_id == user_b, Block.blocked_id == user_a),
+        stmt = (
+            select(func.count())
+            .select_from(Block)
+            .where(
+                or_(
+                    and_(Block.blocker_id == user_a, Block.blocked_id == user_b),
+                    and_(Block.blocker_id == user_b, Block.blocked_id == user_a),
+                )
             )
         )
         result = await self.session.execute(stmt)
@@ -194,9 +214,7 @@ class ExchangeRepository:
         await self.session.execute(stmt)
 
     async def delete_block(self, blocker_id: uuid.UUID, blocked_id: uuid.UUID) -> None:
-        stmt = select(Block).where(
-            Block.blocker_id == blocker_id, Block.blocked_id == blocked_id
-        )
+        stmt = select(Block).where(Block.blocker_id == blocker_id, Block.blocked_id == blocked_id)
         result = await self.session.execute(stmt)
         block = result.scalar_one_or_none()
         if block is not None:
@@ -230,9 +248,7 @@ class ExchangeRepository:
             ":buffer) "
             "FROM country_boundaries WHERE name = 'turkey'"
         )
-        result = await self.session.execute(
-            stmt, {"lat": lat, "lng": lng, "buffer": 2000}
-        )
+        result = await self.session.execute(stmt, {"lat": lat, "lng": lng, "buffer": 2000})
         return bool(result.scalar())
 
     async def is_near_blocked_place(self, lat: float, lng: float, radius_m: float = 100) -> bool:

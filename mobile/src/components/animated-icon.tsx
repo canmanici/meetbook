@@ -90,7 +90,7 @@ function Particle() {
       cancelAnimation(translateX);
       cancelAnimation(opacity);
     };
-  }, []);
+  }, [opacity, seed.delay, seed.driftX, seed.peakOpacity, seed.riseDuration, translateX, translateY]);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [

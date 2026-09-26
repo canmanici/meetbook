@@ -13,6 +13,7 @@ async function getNotifications(): Promise<any | null> {
   if (_loadAttempted) return _Notifications;
   _loadAttempted = true;
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy require avoids expo-notifications Expo Go error overlay
     _Notifications = require('expo-notifications');
   } catch {
     console.log('[Push] expo-notifications not available (Expo Go?)');

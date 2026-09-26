@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +14,7 @@ class NotificationRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def create(self, user_id: uuid.UUID, type_: str, payload: dict) -> Notification:
+    async def create(self, user_id: uuid.UUID, type_: str, payload: dict[str, Any]) -> Notification:
         notification = Notification(user_id=user_id, type=type_, payload=payload)
         self.session.add(notification)
         await self.session.flush()
@@ -28,15 +29,21 @@ class NotificationRepository:
         """
         from sqlalchemy import func
 
-        stmt = select(func.count()).select_from(Notification).where(
-            Notification.user_id == user_id,
-            Notification.type == type_,
-            Notification.payload["exchange_id"].astext == str(exchange_id),
+        stmt = (
+            select(func.count())
+            .select_from(Notification)
+            .where(
+                Notification.user_id == user_id,
+                Notification.type == type_,
+                Notification.payload["exchange_id"].astext == str(exchange_id),
+            )
         )
         result = await self.session.execute(stmt)
         return (result.scalar() or 0) > 0
 
-    async def create_many(self, user_ids: list[uuid.UUID], type_: str, payload: dict) -> int:
+    async def create_many(
+        self, user_ids: list[uuid.UUID], type_: str, payload: dict[str, Any]
+    ) -> int:
         """Bulk-create one notification per user (admin broadcast). Returns count."""
         for uid in user_ids:
             self.session.add(Notification(user_id=uid, type=type_, payload=payload))

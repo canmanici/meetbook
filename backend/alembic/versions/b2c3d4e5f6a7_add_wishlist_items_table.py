@@ -24,7 +24,9 @@ def upgrade() -> None:
         sa.Column("title", sa.Text, nullable=True),
         sa.Column("author", sa.Text, nullable=True),
         sa.Column("notes", sa.Text, nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
     )
     op.create_index("ix_wishlist_items_user_id", "wishlist_items", ["user_id"])
     op.create_index("ix_wishlist_items_isbn", "wishlist_items", ["isbn"])

@@ -1,5 +1,6 @@
 """Crash report models — raw crashes + grouped crash fingerprints."""
 
+from typing import Any
 import uuid
 from datetime import UTC, datetime
 
@@ -19,11 +20,12 @@ class CrashReportGroup(Base):
 
     __tablename__ = "crash_report_groups"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid7
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     group_hash: Mapped[str] = mapped_column(
-        String(64), unique=True, nullable=False, index=True,
+        String(64),
+        unique=True,
+        nullable=False,
+        index=True,
         comment="SHA256(error_type + :: + normalized stack prefix)",
     )
     error_type: Mapped[str | None] = mapped_column(
@@ -38,11 +40,15 @@ class CrashReportGroup(Base):
 
     # Status workflow
     status: Mapped[str] = mapped_column(
-        String(20), default="new", index=True,
+        String(20),
+        default="new",
+        index=True,
         comment="new | investigating | fixed | closed",
     )
     severity: Mapped[str] = mapped_column(
-        String(10), default="error", index=True,
+        String(10),
+        default="error",
+        index=True,
         comment="fatal | error | warning",
     )
 
@@ -65,7 +71,7 @@ class CrashReportGroup(Base):
     fixed_in_version: Mapped[str | None] = mapped_column(
         String(30), nullable=True, comment="App version that fixed this"
     )
-    affected_versions: Mapped[dict | None] = mapped_column(
+    affected_versions: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB, nullable=True, default=dict, comment="{ version: count, ... }"
     )
 
@@ -95,10 +101,10 @@ class CrashReportGroup(Base):
     )
 
     # Device stats (JSONB for flexibility)
-    top_platforms: Mapped[dict | None] = mapped_column(
+    top_platforms: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB, nullable=True, default=dict, comment="{ platform: count, ... }"
     )
-    top_screens: Mapped[dict | None] = mapped_column(
+    top_screens: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB, nullable=True, default=dict, comment="{ screen: count, ... }"
     )
 
@@ -106,7 +112,9 @@ class CrashReportGroup(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
 
@@ -135,10 +143,10 @@ class CrashReport(Base):
     stack_trace: Mapped[str | None] = mapped_column(
         Text, nullable=True, comment="Full JS/Python stack trace"
     )
-    breadcrumbs: Mapped[list[dict]] = mapped_column(
+    breadcrumbs: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, default=list, comment="Last N user actions before crash"
     )
-    device_info: Mapped[dict] = mapped_column(
+    device_info: Mapped[dict[str, Any]] = mapped_column(
         JSONB, default=dict, comment="{ platform, os_version, model, memory_mb, ... }"
     )
     screen_name: Mapped[str | None] = mapped_column(
@@ -156,6 +164,4 @@ class CrashReport(Base):
         comment="When the crash was reported",
     )
 
-    __table_args__ = (
-        Index("ix_crash_reports_group_id", "group_id"),
-    )
+    __table_args__ = (Index("ix_crash_reports_group_id", "group_id"),)

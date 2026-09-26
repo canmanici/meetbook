@@ -2,21 +2,20 @@
 
 import logging
 import uuid
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sqlalchemy import select
-
 from app.core.geo import blur, in_turkey_bbox, make_point
+from app.core.s3 import _is_s3_configured, _upload_local, _upload_s3
 from app.core.s3 import delete_photo as s3_delete_photo
 from app.core.s3 import upload_photo as s3_upload_photo
-from app.core.s3 import _upload_s3, _upload_local, _is_s3_configured
-
-from app.modules.books.models import Book, BookPhoto
 from app.modules.auth.models import User
 from app.modules.books.isbn_lookup import lookup_isbn as isbn_lookup
+from app.modules.books.models import Book, BookPhoto
 from app.modules.books.repository import BookRepository, BookRow, encode_cursor
 from app.modules.books.schemas import (
     BookBulkCreateRequest,
@@ -42,7 +41,9 @@ from app.modules.books.schemas import (
 from app.modules.exchanges.repository import ExchangeRepository
 
 
-async def _s3_upload_photo_raw(book_id: uuid.UUID, filename: str, file_bytes: bytes, content_type: str) -> str:
+async def _s3_upload_photo_raw(
+    book_id: uuid.UUID, filename: str, file_bytes: bytes, content_type: str
+) -> str:
     """Raw upload to S3/local — used for thumbnail backfill."""
     if _is_s3_configured():
         return await _upload_s3(book_id, filename, file_bytes, content_type)
@@ -55,14 +56,17 @@ class BookError(Exception):
         self.status_code = status_code
 
 
-def _to_photo_views(photos: list) -> list[PhotoView]:
-    return [PhotoView(id=p.id, url=p.url, thumbnail_url=p.thumbnail_url, position=p.position) for p in photos]
+def _to_photo_views(photos: list[Any]) -> list[PhotoView]:
+    return [
+        PhotoView(id=p.id, url=p.url, thumbnail_url=p.thumbnail_url, position=p.position)
+        for p in photos
+    ]
 
 
 def _to_owner_view(
     row: BookRow,
     owner_name: str,
-    photos: list | None = None,
+    photos: list[Any] | None = None,
     is_favorited: bool = False,
     is_owner: bool = True,
 ) -> BookOwnerView:
@@ -93,7 +97,7 @@ def _to_owner_view(
 def _to_public_view(
     row: BookRow,
     owner_name: str,
-    photos: list | None = None,
+    photos: list[Any] | None = None,
     is_favorited: bool = False,
 ) -> BookPublicView:
     book = row.book
@@ -143,6 +147,7 @@ class BookService:
     async def _attach_cover(self, book_id: uuid.UUID, cover_url: str) -> BookPhoto | None:
         """Download cover image from URL and attach as BookPhoto (best-effort)."""
         from app.core.safe_fetch import fetch_public_image
+
         try:
             # SSRF-hardened: public IPs only (every redirect hop re-checked),
             # image content types only, size-capped.
@@ -161,7 +166,9 @@ class BookService:
             await self.session.flush()
             return photo
         except Exception:
-            logger.warning("Cover download/attach failed for book %s url=%s", book_id, cover_url, exc_info=True)
+            logger.warning(
+                "Cover download/attach failed for book %s url=%s", book_id, cover_url, exc_info=True
+            )
             return None
 
     async def create_book(self, owner_id: uuid.UUID, body: BookCreateRequest) -> BookOwnerView:
@@ -184,7 +191,14 @@ class BookService:
             try:
                 cover_photo = await self._attach_cover(book.id, body.cover_url)
                 if cover_photo:
-                    photos = [PhotoView(id=cover_photo.id, url=cover_photo.url, thumbnail_url=cover_photo.thumbnail_url, position=0)]
+                    photos = [
+                        PhotoView(
+                            id=cover_photo.id,
+                            url=cover_photo.url,
+                            thumbnail_url=cover_photo.thumbnail_url,
+                            position=0,
+                        )
+                    ]
             except Exception:
                 logger.warning("Cover download/attach failed for book %s", book.id, exc_info=True)
 
@@ -233,9 +247,18 @@ class BookService:
                     try:
                         cover_photo = await self._attach_cover(book.id, book_body.cover_url)
                         if cover_photo:
-                            bulk_photos = [PhotoView(id=cover_photo.id, url=cover_photo.url, thumbnail_url=cover_photo.thumbnail_url, position=0)]
+                            bulk_photos = [
+                                PhotoView(
+                                    id=cover_photo.id,
+                                    url=cover_photo.url,
+                                    thumbnail_url=cover_photo.thumbnail_url,
+                                    position=0,
+                                )
+                            ]
                     except Exception:
-                        logger.warning("Cover download/attach failed for book %s", book.id, exc_info=True)
+                        logger.warning(
+                            "Cover download/attach failed for book %s", book.id, exc_info=True
+                        )
 
                 row = BookRow(
                     book=book,
@@ -282,7 +305,11 @@ class BookService:
         next_cursor = None
         if rows:
             last = rows[-1]
-            next_cursor = encode_cursor(last.book.sort_order, last.book.created_at, last.book.id) if len(rows) == limit else None
+            next_cursor = (
+                encode_cursor(last.book.sort_order, last.book.created_at, last.book.id)
+                if len(rows) == limit
+                else None
+            )
         items = []
         owner_ids = [row.book.owner_id for row in rows]
         owner_names = await self._get_owner_names(owner_ids)
@@ -316,27 +343,42 @@ class BookService:
             raise BookError("Alan çok geniş — yakınlaştırın.", 422)
 
         rows = await self.repo.search_bbox(
-            min_lat, max_lat, min_lng, max_lng,
-            category, language, condition, q, limit, current_user_id,
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+            category,
+            language,
+            condition,
+            q,
+            limit,
+            current_user_id,
             cursor=cursor,
         )
 
         # Batch fetch first photos so markers and cards can show cover images.
-        first_photos = await self.repo.get_first_photos_batch(
-            [r.book.id for r in rows]
-        )
+        first_photos = await self.repo.get_first_photos_batch([r.book.id for r in rows])
 
         items = [
             BookSearchResult(
-                id=r.book.id, owner_id=r.book.owner_id, owner_name=r.owner.name,
-                title=r.book.title, author=r.book.author, isbn=r.book.isbn,
-                description=r.book.description, category=r.book.category,
-                language=r.book.language, condition=r.book.condition,
+                id=r.book.id,
+                owner_id=r.book.owner_id,
+                owner_name=r.owner.name,
+                title=r.book.title,
+                author=r.book.author,
+                isbn=r.book.isbn,
+                description=r.book.description,
+                category=r.book.category,
+                language=r.book.language,
+                condition=r.book.condition,
                 is_available=r.book.is_available,
                 public_location=LocationOutput(lat=r.public_location[0], lng=r.public_location[1]),
                 distance_km=round(r.distance_m / 1000.0, 1),
-                photos=_to_photo_views([first_photos[r.book.id]]) if r.book.id in first_photos else [],
-                created_at=r.book.created_at, updated_at=r.book.updated_at,
+                photos=_to_photo_views([first_photos[r.book.id]])
+                if r.book.id in first_photos
+                else [],
+                created_at=r.book.created_at,
+                updated_at=r.book.updated_at,
                 owner=r.owner,
             )
             for r in rows
@@ -364,8 +406,16 @@ class BookService:
             raise BookError("Alan çok geniş — yakınlaştırın.", 422)
 
         cluster_dicts, singleton_rows = await self.repo.search_clusters(
-            min_lat, max_lat, min_lng, max_lng,
-            category, language, condition, q, limit, current_user_id,
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+            category,
+            language,
+            condition,
+            q,
+            limit,
+            current_user_id,
         )
 
         # Batch fetch first photos for singletons so their markers/cards show covers.
@@ -402,11 +452,11 @@ class BookService:
                 language=r.book.language,
                 condition=r.book.condition,
                 is_available=r.book.is_available,
-                public_location=LocationOutput(
-                    lat=r.public_location[0], lng=r.public_location[1]
-                ),
+                public_location=LocationOutput(lat=r.public_location[0], lng=r.public_location[1]),
                 distance_km=r.distance_m / 1000.0,
-                photos=_to_photo_views([singleton_first_photos[r.book.id]]) if r.book.id in singleton_first_photos else [],
+                photos=_to_photo_views([singleton_first_photos[r.book.id]])
+                if r.book.id in singleton_first_photos
+                else [],
                 created_at=r.book.created_at,
                 updated_at=r.book.updated_at,
                 owner=r.owner,
@@ -458,7 +508,12 @@ class BookService:
                     ),
                     distance_km=round(row.distance_m / 1000, 1),
                     owner=row.owner,
-                    photos=[PhotoView(id=p.id, url=p.url, thumbnail_url=p.thumbnail_url, position=p.position) for p in photos],
+                    photos=[
+                        PhotoView(
+                            id=p.id, url=p.url, thumbnail_url=p.thumbnail_url, position=p.position
+                        )
+                        for p in photos
+                    ],
                     created_at=row.book.created_at,
                     updated_at=row.book.updated_at,
                 )
@@ -508,7 +563,9 @@ class BookService:
         row = BookRow(book=row.book, location=new_location, public_location=new_public_location)
         return _to_owner_view(row, owner_name)
 
-    async def delete_book(self, book_id: uuid.UUID, owner_id: uuid.UUID, force: bool = False) -> None:
+    async def delete_book(
+        self, book_id: uuid.UUID, owner_id: uuid.UUID, force: bool = False
+    ) -> None:
         row = await self.repo.get_active_by_id(book_id)
         if row is None or row.book.owner_id != owner_id:
             raise BookError("Book not found", 404)
@@ -518,7 +575,9 @@ class BookService:
             # implicitly cancels all pending/accepted exchanges on it).
             cancelled = await self.exchanges_repo.cancel_all_active_for_book(book_id)
             if cancelled:
-                logger.info("Force-delete book %s: cancelled %d active exchange(s)", book_id, cancelled)
+                logger.info(
+                    "Force-delete book %s: cancelled %d active exchange(s)", book_id, cancelled
+                )
         elif await self.exchanges_repo.has_active_request_for_book(book_id):
             raise BookError("EXCHANGE_ACTIVE", 409)
 
@@ -534,7 +593,11 @@ class BookService:
         await self.session.commit()
 
     async def upload_photo(
-        self, book_id: uuid.UUID, owner_id: uuid.UUID, file_bytes: bytes, content_type: str,
+        self,
+        book_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        file_bytes: bytes,
+        content_type: str,
         thumb_bytes: bytes | None = None,
     ) -> PhotoView:
         row = await self.repo.get_active_by_id(book_id)
@@ -570,7 +633,9 @@ class BookService:
         photo = await self.repo.add_photo(book_id, urls["url"], position, urls["thumbnail_url"])
         await self.session.commit()
 
-        return PhotoView(id=photo.id, url=photo.url, thumbnail_url=photo.thumbnail_url, position=photo.position)
+        return PhotoView(
+            id=photo.id, url=photo.url, thumbnail_url=photo.thumbnail_url, position=photo.position
+        )
 
     async def delete_book_photo(
         self, book_id: uuid.UUID, photo_id: uuid.UUID, owner_id: uuid.UUID
@@ -615,7 +680,10 @@ class BookService:
 
         # Return updated photos
         photos = await self.repo.get_photos(book_id)
-        return [PhotoView(id=p.id, url=p.url, thumbnail_url=p.thumbnail_url, position=p.position) for p in photos]
+        return [
+            PhotoView(id=p.id, url=p.url, thumbnail_url=p.thumbnail_url, position=p.position)
+            for p in photos
+        ]
 
     async def upload_photo_thumbnail(
         self, book_id: uuid.UUID, photo_id: uuid.UUID, owner_id: uuid.UUID, thumb_bytes: bytes
@@ -641,12 +709,15 @@ class BookService:
 
         # Update DB
         from sqlalchemy import update as sa_update
+
         await self.session.execute(
             sa_update(BookPhoto).where(BookPhoto.id == photo_id).values(thumbnail_url=thumb_url)
         )
         await self.session.commit()
 
-        return PhotoView(id=target.id, url=target.url, thumbnail_url=thumb_url, position=target.position)
+        return PhotoView(
+            id=target.id, url=target.url, thumbnail_url=thumb_url, position=target.position
+        )
 
     async def increment_view(self, book_id: uuid.UUID, current_user_id: uuid.UUID) -> None:
         """Increment view count. Owners viewing their own book don't count."""
@@ -679,7 +750,7 @@ class BookService:
             raise BookError("Not favorited", 404)
         await self.session.commit()
 
-    async def get_favorite_status(self, book_id: uuid.UUID, user_id: uuid.UUID) -> dict:
+    async def get_favorite_status(self, book_id: uuid.UUID, user_id: uuid.UUID) -> dict[str, Any]:
         row = await self.repo.get_active_by_id(book_id)
         if row is None:
             raise BookError("Book not found", 404)
@@ -728,11 +799,10 @@ class BookService:
         await self.session.commit()
 
         result = await self.list_my_books(owner_id, None, 1000)
-        return result.items
+        # Owner listing → every item is the owner view.
+        return [i for i in result.items if isinstance(i, BookOwnerView)]
 
-    async def list_stale_books(
-        self, owner_id: uuid.UUID, days: int = 30
-    ) -> list[StaleBookView]:
+    async def list_stale_books(self, owner_id: uuid.UUID, days: int = 30) -> list[StaleBookView]:
         """B19 — Find the owner's available books dormant for `days` days.
 
         A book is stale when its `updated_at` is older than the cutoff. Because
@@ -741,6 +811,7 @@ class BookService:
         genuinely dormant.
         """
         from datetime import UTC, datetime, timedelta
+
         from geoalchemy2 import Geometry
         from sqlalchemy import cast, func
 
@@ -787,9 +858,7 @@ class BookService:
             )
         return items
 
-    async def relist_book(
-        self, book_id: uuid.UUID, owner_id: uuid.UUID
-    ) -> BookOwnerView:
+    async def relist_book(self, book_id: uuid.UUID, owner_id: uuid.UUID) -> BookOwnerView:
         """B19 — Refresh a dormant book's listing by bumping `updated_at` to now.
 
         This removes the book from the stale list and signals freshness to
@@ -800,11 +869,11 @@ class BookService:
             raise BookError("Book not found", 404)
 
         from datetime import UTC, datetime
+
         from sqlalchemy import update as sa_update
+
         await self.session.execute(
-            sa_update(Book)
-            .where(Book.id == book_id)
-            .values(updated_at=datetime.now(UTC))
+            sa_update(Book).where(Book.id == book_id).values(updated_at=datetime.now(UTC))
         )
         await self.session.commit()
 
@@ -819,22 +888,25 @@ class BookService:
 
 
 async def _notify_wishlist_matches(
-    session,
+    session: AsyncSession,
     book_isbn: str | None,
     book_title: str,
-    book_id,
-    owner_id,
+    book_id: uuid.UUID,
+    owner_id: uuid.UUID,
 ) -> None:
     """Notify users whose wishlist matches this newly listed book."""
     if not book_isbn:
         return
 
     try:
-        from sqlalchemy import select
-        from app.modules.wishlist.models import WishlistItem
-        from app.modules.notifications.service import NotificationService
-        from app.modules.push_tokens.service import send_push_to_user, PushMessage
         import logging
+
+        from sqlalchemy import select
+
+        from app.modules.notifications.service import NotificationService
+        from app.modules.push_tokens.service import PushMessage, send_push_to_user
+        from app.modules.wishlist.models import WishlistItem
+
         logger = logging.getLogger(__name__)
 
         result = await session.execute(
@@ -879,10 +951,13 @@ async def _notify_wishlist_matches(
 
         logger.info(
             "Wishlist match: book=%s isbn=%s notified %d users",
-            book_id, book_isbn, len(matched_user_ids),
+            book_id,
+            book_isbn,
+            len(matched_user_ids),
         )
 
     except Exception as exc:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.exception("Wishlist match notification failed: %s", exc)

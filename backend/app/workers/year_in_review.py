@@ -8,6 +8,7 @@ Idempotency: the notification payload stores the reviewed ``year``, so
 re-running the worker within the same year never double-notifies a user.
 """
 
+import uuid
 import logging
 from datetime import UTC, datetime
 
@@ -22,32 +23,37 @@ from app.modules.notifications.service import NotificationService
 logger = logging.getLogger(__name__)
 
 
-async def _review_exists(session: AsyncSession, user_id, year: int) -> bool:
+async def _review_exists(session: AsyncSession, user_id: uuid.UUID, year: int) -> bool:
     """True if a ``year_in_review`` notification already exists for user+year."""
-    stmt = select(func.count()).select_from(Notification).where(
-        Notification.user_id == user_id,
-        Notification.type == "year_in_review",
-        Notification.payload["year"].astext == str(year),
+    stmt = (
+        select(func.count())
+        .select_from(Notification)
+        .where(
+            Notification.user_id == user_id,
+            Notification.type == "year_in_review",
+            Notification.payload["year"].astext == str(year),
+        )
     )
     result = await session.execute(stmt)
     return (result.scalar() or 0) > 0
 
 
 async def _count_completed_this_year(
-    session: AsyncSession, user_id, year_start: datetime
+    session: AsyncSession, user_id: uuid.UUID, year_start: datetime
 ) -> int:
     """Count exchanges the user took part in that completed since ``year_start``.
 
     Uses ``updated_at`` as the completion timestamp: ``completed`` is a terminal
     status, so its ``updated_at`` reflects when the exchange was finalized.
     """
-    stmt = select(func.count()).select_from(ExchangeRequest).where(
-        ExchangeRequest.status == ExchangeStatus.completed,
-        ExchangeRequest.updated_at >= year_start,
-        (
-            (ExchangeRequest.requested_by == user_id)
-            | (ExchangeRequest.requested_to == user_id)
-        ),
+    stmt = (
+        select(func.count())
+        .select_from(ExchangeRequest)
+        .where(
+            ExchangeRequest.status == ExchangeStatus.completed,
+            ExchangeRequest.updated_at >= year_start,
+            ((ExchangeRequest.requested_by == user_id) | (ExchangeRequest.requested_to == user_id)),
+        )
     )
     result = await session.execute(stmt)
     return result.scalar() or 0
@@ -64,9 +70,7 @@ async def generate_year_in_review(session: AsyncSession) -> int:
     year = now.year
     year_start = datetime(year, 1, 1, tzinfo=UTC)
 
-    users = await session.execute(
-        select(User).where(User.status == UserStatus.active)
-    )
+    users = await session.execute(select(User).where(User.status == UserStatus.active))
     active_users = users.scalars().all()
 
     notif_service = NotificationService(session)
@@ -90,10 +94,7 @@ async def generate_year_in_review(session: AsyncSession) -> int:
             )
 
             if completed > 0:
-                body = (
-                    f"{completed} kitap takası tamamladın. "
-                    "Yılın özetini görmek için dokun."
-                )
+                body = f"{completed} kitap takası tamamladın. Yılın özetini görmek için dokun."
             else:
                 body = "Bu yıl seninle olan kitap yolculuğunu keşfetmek için dokun."
 

@@ -5,7 +5,8 @@ import time
 import uuid
 
 from fastapi import Request
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import Response
 from starlette.types import ASGIApp
 
 
@@ -65,7 +66,7 @@ class StructuredLoggingMiddleware(BaseHTTPMiddleware):
         root.addHandler(handler)
         root.setLevel(logging.INFO)
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request_id = str(uuid.uuid7())[:8]
         start = time.monotonic()
 

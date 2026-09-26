@@ -176,7 +176,7 @@ function MarkerPreviewCardImpl({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         toast.show('Favorilere eklendi', { variant: 'success' });
       }
-    } catch (err: any) {
+    } catch {
       setIsFavorited(wasFavorited); // revert
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       toast.show('Favori işlemi başarısız', { variant: 'error' });

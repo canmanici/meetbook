@@ -1,33 +1,33 @@
-"""ISBN lookup via Open Library API with Redis caching."""
+"""ISBN lookup via Open Library API (in-process cache)."""
+
+import re
+from typing import Any
 
 import httpx
 
-
-_cache: dict[str, dict] = {}
+_cache: dict[str, dict[str, Any]] = {}
 CACHE_TTL = 30 * 24 * 3600  # 30 days in seconds
+OL = "https://openlibrary.org"
 
 
-async def lookup_isbn(isbn: str) -> dict:
+async def lookup_isbn(isbn: str) -> dict[str, Any]:
     """Look up book info by ISBN from Open Library API."""
-    # Check cache
     if isbn in _cache:
         return _cache[isbn]
 
-    # Fetch from Open Library
-    url = f"https://openlibrary.org/isbn/{isbn}.json"
     try:
         async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            response = await client.get(url)
+            response = await client.get(f"{OL}/isbn/{isbn}.json")
             if response.status_code == 200:
-                data = response.json()
+                data: dict[str, Any] = response.json()
                 result = {
                     "isbn": isbn,
                     "title": data.get("title"),
-                    "author": _extract_author(data),
+                    "author": await _author_name(client, data),
                     "description": _extract_description(data),
-                    "cover_url": _extract_cover(isbn),
+                    "cover_url": await _cover_url(client, isbn),
                     "page_count": data.get("number_of_pages"),
-                    "published_year": data.get("first_publish_year"),
+                    "published_year": _publish_year(data),
                 }
                 _cache[isbn] = result
                 return result
@@ -38,28 +38,61 @@ async def lookup_isbn(isbn: str) -> dict:
     return {"isbn": isbn}
 
 
-def _extract_author(data: dict) -> str | None:
-    """Extract author name from Open Library response."""
-    authors = data.get("authors", [])
-    if authors:
-        author_key = authors[0].get("key")
-        if author_key:
-            # Author name would need a separate API call, return key for now
-            return author_key.split("/")[-1]
-    return None
+async def _author_name(client: httpx.AsyncClient, edition: dict[str, Any]) -> str | None:
+    """Resolve the author's display NAME (the edition only carries an
+    /authors/OL…A key; older code returned that key as if it were the name)."""
+    keys: list[str] = [
+        a["key"] for a in edition.get("authors", []) if isinstance(a, dict) and a.get("key")
+    ]
+    if not keys:
+        # Many editions only link authors through their work record.
+        works = edition.get("works") or []
+        if works and isinstance(works[0], dict) and works[0].get("key"):
+            try:
+                w = await client.get(f"{OL}{works[0]['key']}.json")
+                if w.status_code == 200:
+                    for a in w.json().get("authors", []):
+                        key = (a.get("author") or {}).get("key") if isinstance(a, dict) else None
+                        if key:
+                            keys.append(key)
+            except httpx.RequestError:
+                return None
+    names: list[str] = []
+    for key in keys[:3]:
+        try:
+            r = await client.get(f"{OL}{key}.json")
+        except httpx.RequestError:
+            continue
+        if r.status_code == 200:
+            name = r.json().get("name")
+            if isinstance(name, str) and name.strip():
+                names.append(name.strip())
+    return ", ".join(names) or None
 
 
-def _extract_description(data: dict) -> str | None:
+def _extract_description(data: dict[str, Any]) -> str | None:
     """Extract description from Open Library response."""
     desc = data.get("description")
     if isinstance(desc, str):
-        return desc[:2000] if len(desc) > 2000 else desc
-    if isinstance(desc, dict):
-        return desc.get("value", "")[:2000]
+        return desc[:2000]
+    if isinstance(desc, dict) and isinstance(desc.get("value"), str):
+        return str(desc["value"])[:2000]
     return None
 
 
-def _extract_cover(isbn: str) -> str | None:
-    """Build cover URL from ISBN."""
-    # Open Library cover API
-    return f"https://covers.openlibrary.org/b/isbn/{isbn}-L.jpg"
+def _publish_year(data: dict[str, Any]) -> int | None:
+    """Editions carry `publish_date` ("1998", "March 5, 2001", …), not a year field."""
+    raw = data.get("publish_date") or data.get("first_publish_year")
+    m = re.search(r"\b(1[5-9]\d\d|20\d\d)\b", str(raw or ""))
+    return int(m.group(1)) if m else None
+
+
+async def _cover_url(client: httpx.AsyncClient, isbn: str) -> str | None:
+    """Cover URL only if Open Library really has one (default=false → 404
+    instead of a blank 1×1 placeholder image)."""
+    url = f"https://covers.openlibrary.org/b/isbn/{isbn}-L.jpg?default=false"
+    try:
+        r = await client.head(url)
+    except httpx.RequestError:
+        return None
+    return url if r.status_code == 200 else None

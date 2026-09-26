@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -62,12 +63,17 @@ class CallMetricsService:
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         days_30_ago = now - timedelta(days=30)
 
-        total_calls = await self._scalar(
-            select(func.count()).select_from(Message).where(
-                Message.message_type == "system",
-                Message.extra["action"].astext == "call_log",
+        total_calls = (
+            await self._scalar(
+                select(func.count())
+                .select_from(Message)
+                .where(
+                    Message.message_type == "system",
+                    Message.extra["action"].astext == "call_log",
+                )
             )
-        ) or 0
+            or 0
+        )
 
         kind_rows = await self.session.execute(
             text("""
@@ -101,15 +107,18 @@ class CallMetricsService:
         )
         avg_sec = round(float(avg_duration), 1) if avg_duration else None
 
-        total_duration = await self._scalar(
-            text("""
+        total_duration = (
+            await self._scalar(
+                text("""
                 SELECT coalesce(sum((extra->>'duration_seconds')::int), 0)
                 FROM messages
                 WHERE message_type = 'system'
                   AND extra->>'action' = 'call_log'
                   AND extra->>'status' = 'ended'
             """)
-        ) or 0
+            )
+            or 0
+        )
 
         longest_call = await self._scalar(
             text("""
@@ -122,30 +131,33 @@ class CallMetricsService:
             """)
         )
 
-        calls_today = await self._scalar(
-            text("""
+        calls_today = (
+            await self._scalar(
+                text("""
                 SELECT count(*)
                 FROM messages
                 WHERE message_type = 'system'
                   AND extra->>'action' = 'call_log'
                   AND created_at >= :today
             """).bindparams(today=today_start)
-        ) or 0
+            )
+            or 0
+        )
 
-        calls_30d = await self._scalar(
-            text("""
+        calls_30d = (
+            await self._scalar(
+                text("""
                 SELECT count(*)
                 FROM messages
                 WHERE message_type = 'system'
                   AND extra->>'action' = 'call_log'
                   AND created_at >= :cutoff
             """).bindparams(cutoff=days_30_ago)
-        ) or 0
+            )
+            or 0
+        )
 
-        date_spine = [
-            (days_30_ago + timedelta(days=i)).strftime("%Y-%m-%d")
-            for i in range(31)
-        ]
+        date_spine = [(days_30_ago + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(31)]
         trend_rows = await self.session.execute(
             text("""
                 SELECT date_trunc('day', created_at)::date AS day, count(*) AS cnt
@@ -157,9 +169,7 @@ class CallMetricsService:
             """).bindparams(cutoff=days_30_ago)
         )
         trend_lookup = {str(r[0]): r[1] for r in trend_rows.all()}
-        calls_per_day_trend = [
-            TrendPoint(date=d, value=trend_lookup.get(d, 0)) for d in date_spine
-        ]
+        calls_per_day_trend = [TrendPoint(date=d, value=trend_lookup.get(d, 0)) for d in date_spine]
 
         caller_rows = await self.session.execute(
             text("""
@@ -202,9 +212,7 @@ class CallMetricsService:
     async def get_call_trends(self, days: int = 30) -> CallTrendsResponse:
         now = datetime.now(UTC)
         cutoff = now - timedelta(days=days)
-        date_spine = [
-            (cutoff + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days + 1)
-        ]
+        date_spine = [(cutoff + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days + 1)]
 
         rows = await self.session.execute(
             text("""
@@ -216,10 +224,7 @@ class CallMetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        dates, vals = (
-            zip(*[(str(r[0]), r[1]) for r in rows.all()]) if rows.rowcount else ([], [])
-        )
-        lookup = dict(zip(dates, vals))
+        lookup = {str(r[0]): r[1] for r in rows.all()}
         trend = [TrendPoint(date=d, value=lookup.get(d, 0)) for d in date_spine]
 
         return CallTrendsResponse(
@@ -227,7 +232,7 @@ class CallMetricsService:
             by_status=trend,
         )
 
-    async def _scalar(self, stmt) -> int | float | None:
+    async def _scalar(self, stmt: Any) -> int | float | None:
         result = await self.session.execute(stmt)
         return result.scalar()
 

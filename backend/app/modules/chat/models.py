@@ -2,17 +2,18 @@
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
-    Column,
     DateTime,
     ForeignKey,
     Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
 
@@ -25,41 +26,41 @@ class Message(Base):
 
     __tablename__ = "messages"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
-    chat_id = Column(
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
+    chat_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("chats.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    sender_id = Column(
+    sender_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id"),
         nullable=True,  # NULL for system messages
     )
-    message_type = Column(
+    message_type: Mapped[str] = mapped_column(
         Text,
         nullable=False,
         default="text",
     )  # text | image | voice | location | book_card | system
-    text = Column(Text, nullable=False, default="")
-    reply_to_id = Column(
+    text: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    reply_to_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("messages.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    created_at = Column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(UTC),
         index=True,
     )
-    read_at = Column(DateTime(timezone=True), nullable=True)
-    deleted_at = Column(DateTime(timezone=True), nullable=True)
-    deleted_by = Column(UUID(as_uuid=True), nullable=True)
-    starred_at = Column(DateTime(timezone=True), nullable=True)
-    pinned_at = Column(DateTime(timezone=True), nullable=True)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    starred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    pinned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Extra payload for non-text messages (JSON)
     # image: {"url": "...", "thumbnail_url": "...", "width": N, "height": N}
@@ -67,7 +68,7 @@ class Message(Base):
     # location: {"lat": N, "lng": N, "name": "..."}
     # book_card: {"book_id": "...", "title": "...", "author": "...", "cover_url": "...", "category": "..."}
     # system: {"action": "exchange_accepted"|"exchange_completed"|"meetup_proposed"|..., "data": {...}}
-    extra = Column(JSONB, nullable=True)
+    extra: Mapped[Any] = mapped_column(JSONB, nullable=True)
 
     __table_args__ = (CheckConstraint("char_length(text) <= 2000", name="ck_message_text_length"),)
 
@@ -77,20 +78,20 @@ class MessageReaction(Base):
 
     __tablename__ = "message_reactions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
-    message_id = Column(
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
+    message_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("messages.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    user_id = Column(
+    user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id"),
         nullable=False,
     )
-    emoji = Column(Text, nullable=False)
-    created_at = Column(
+    emoji: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(UTC),
@@ -106,30 +107,32 @@ class ChatSettings(Base):
 
     __tablename__ = "chat_settings"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
-    chat_id = Column(
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
+    chat_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("chats.id", ondelete="CASCADE"),
         nullable=False,
     )
-    user_id = Column(
+    user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id"),
         nullable=False,
     )
-    is_muted = Column(Boolean, nullable=False, default=False)
-    muted_until = Column(DateTime(timezone=True), nullable=True)
-    is_pinned = Column(Boolean, nullable=False, default=False)
-    pinned_at = Column(DateTime(timezone=True), nullable=True)
-    wallpaper_url = Column(Text, nullable=True)
-    font_size = Column(Text, nullable=True, default="normal")  # small | normal | large
-    notification_sound = Column(Text, nullable=True, default="default")
-    created_at = Column(
+    is_muted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    muted_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    pinned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    wallpaper_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    font_size: Mapped[str | None] = mapped_column(
+        Text, nullable=True, default="normal"
+    )  # small | normal | large
+    notification_sound: Mapped[str | None] = mapped_column(Text, nullable=True, default="default")
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(UTC),
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(UTC),
@@ -144,13 +147,13 @@ class LinkPreview(Base):
 
     __tablename__ = "link_previews"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
-    url = Column(Text, nullable=False, unique=True)
-    title = Column(Text, nullable=True)
-    description = Column(Text, nullable=True)
-    image_url = Column(Text, nullable=True)
-    site_name = Column(Text, nullable=True)
-    fetched_at = Column(
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
+    url: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    site_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(UTC),

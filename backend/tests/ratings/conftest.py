@@ -46,9 +46,7 @@ async def create_book(
     client: httpx.AsyncClient,
 ) -> Callable[[dict[str, str]], Awaitable[str]]:
     async def _create(owner_headers: dict[str, str]) -> str:
-        resp = await client.post(
-            "/api/v1/books", json=VALID_BOOK_PAYLOAD, headers=owner_headers
-        )
+        resp = await client.post("/api/v1/books", json=VALID_BOOK_PAYLOAD, headers=owner_headers)
         return resp.json()["id"]
 
     return _create
@@ -74,12 +72,8 @@ async def completed_exchange(
         )
         exchange_id = resp.json()["id"]
 
-        await client.post(
-            f"/api/v1/exchanges/{exchange_id}/accept", headers=owner["headers"]
-        )
-        await client.post(
-            f"/api/v1/exchanges/{exchange_id}/complete", headers=requester["headers"]
-        )
+        await client.post(f"/api/v1/exchanges/{exchange_id}/accept", headers=owner["headers"])
+        await client.post(f"/api/v1/exchanges/{exchange_id}/complete", headers=requester["headers"])
         await client.post(
             f"/api/v1/exchanges/{exchange_id}/confirm-completion", headers=owner["headers"]
         )
@@ -109,9 +103,7 @@ async def accepted_exchange(
         )
         exchange_id = resp.json()["id"]
 
-        await client.post(
-            f"/api/v1/exchanges/{exchange_id}/accept", headers=owner["headers"]
-        )
+        await client.post(f"/api/v1/exchanges/{exchange_id}/accept", headers=owner["headers"])
 
         return {"exchange_id": exchange_id, "owner": owner, "requester": requester}
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { palette, spacing, fontSize } from './tokens';
+import { palette, fontSize } from './tokens';
 
 interface BlurredAreaPinProps {
   count?: number;

@@ -11,6 +11,7 @@ notification links the same two users (checked in both directions), so
 re-running the worker never re-notifies an already-matched pair.
 """
 
+from typing import Any
 import logging
 import uuid
 
@@ -28,14 +29,14 @@ SIMILARITY_THRESHOLD = 0.5
 MIN_BOOKS = 3
 
 
-def _cat_value(category) -> str:
+def _cat_value(category: Any) -> str:
     """Normalize a loaded category value to its string code."""
     if category is None:
         return ""
     return category.value if hasattr(category, "value") else str(category)
 
 
-async def _category_profile(session: AsyncSession, user_id) -> set[str]:
+async def _category_profile(session: AsyncSession, user_id: uuid.UUID) -> set[str]:
     """Return the set of distinct book category codes a user owns."""
     stmt = select(Book.category).where(
         Book.owner_id == user_id,
@@ -51,12 +52,16 @@ def _jaccard(a: set[str], b: set[str]) -> float:
     return len(a & b) / len(a | b)
 
 
-async def _twin_pair_exists(session: AsyncSession, user_id, twin_id) -> bool:
+async def _twin_pair_exists(session: AsyncSession, user_id: uuid.UUID, twin_id: uuid.UUID) -> bool:
     """True if a ``book_twin`` notification already links ``user_id`` to ``twin_id``."""
-    stmt = select(func.count()).select_from(Notification).where(
-        Notification.type == "book_twin",
-        Notification.user_id == user_id,
-        Notification.payload["twin_user_id"].astext == str(twin_id),
+    stmt = (
+        select(func.count())
+        .select_from(Notification)
+        .where(
+            Notification.type == "book_twin",
+            Notification.user_id == user_id,
+            Notification.payload["twin_user_id"].astext == str(twin_id),
+        )
     )
     result = await session.execute(stmt)
     return (result.scalar() or 0) > 0
@@ -152,9 +157,7 @@ async def find_and_notify_book_twins(session: AsyncSession) -> int:
                             session=session,
                         )
                     except Exception as exc:
-                        logger.warning(
-                            "book_twin push failed for %s: %s", user.id, exc
-                        )
+                        logger.warning("book_twin push failed for %s: %s", user.id, exc)
                     created += 1
                 except Exception:
                     logger.exception(

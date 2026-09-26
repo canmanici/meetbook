@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Alert,
   Image,
@@ -27,7 +27,6 @@ interface PhotoPickerProps {
 export function PhotoPicker({ photos, onPhotosChange, maxPhotos = 3 }: PhotoPickerProps) {
   const scheme = useColorScheme();
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const pickImage = async (useCamera: boolean) => {
     const permissionResult = useCamera

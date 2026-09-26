@@ -44,15 +44,13 @@ def create_app() -> FastAPI:
     # and viewed via admin panel at /api/v1/admin/crash-reports
 
     # Health check
-    from typing import Any
-
     from fastapi.responses import JSONResponse
     from sqlalchemy import text
 
     from app.core.db import get_engine
 
     @app.get("/api/v1/health")
-    async def health() -> dict[str, Any]:
+    async def health() -> JSONResponse:
         errors: list[str] = []
         postgis_version = None
         try:
@@ -67,7 +65,7 @@ def create_app() -> FastAPI:
             errors.append(f"Redis: {exc}")
         if errors:
             return JSONResponse(status_code=503, content={"status": "unhealthy", "errors": errors})
-        return {"status": "ok", "postgis": postgis_version}
+        return JSONResponse(content={"status": "ok", "postgis": postgis_version})
 
     # Module routers
     register_routers(app)

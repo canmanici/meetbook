@@ -1,6 +1,7 @@
 """Reports business logic — content snapshotting for moderation."""
 
 import uuid
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,7 +37,9 @@ class ReportService:
         self.auth_repo = AuthRepository(session)
         self.books_repo = BookRepository(session)
 
-    async def _build_snapshot(self, target_type: ReportTarget, target_id: uuid.UUID) -> dict:
+    async def _build_snapshot(
+        self, target_type: ReportTarget, target_id: uuid.UUID
+    ) -> dict[str, Any]:
         if target_type == ReportTarget.user:
             user = await self.auth_repo.get_user_by_id(target_id)
             if user is None:

@@ -21,9 +21,7 @@ async def test_accept_by_owner_succeeds(
     book_id = await create_book(owner["headers"])
     exchange_id = await _create_exchange(client, requester, book_id)
 
-    resp = await client.post(
-        f"/api/v1/exchanges/{exchange_id}/accept", headers=owner["headers"]
-    )
+    resp = await client.post(f"/api/v1/exchanges/{exchange_id}/accept", headers=owner["headers"])
     assert resp.status_code == 200
     assert resp.json()["status"] == "accepted"
 
@@ -54,9 +52,7 @@ async def test_accept_by_non_participant_returns_404(
     book_id = await create_book(owner["headers"])
     exchange_id = await _create_exchange(client, requester, book_id)
 
-    resp = await client.post(
-        f"/api/v1/exchanges/{exchange_id}/accept", headers=stranger["headers"]
-    )
+    resp = await client.post(f"/api/v1/exchanges/{exchange_id}/accept", headers=stranger["headers"])
     assert resp.status_code == 404
 
 
@@ -69,9 +65,7 @@ async def test_reject_by_owner_succeeds(
     book_id = await create_book(owner["headers"])
     exchange_id = await _create_exchange(client, requester, book_id)
 
-    resp = await client.post(
-        f"/api/v1/exchanges/{exchange_id}/reject", headers=owner["headers"]
-    )
+    resp = await client.post(f"/api/v1/exchanges/{exchange_id}/reject", headers=owner["headers"])
     assert resp.status_code == 200
     assert resp.json()["status"] == "rejected"
 
@@ -117,9 +111,7 @@ async def test_cancel_by_owner_is_wrong_actor_when_pending(
     book_id = await create_book(owner["headers"])
     exchange_id = await _create_exchange(client, requester, book_id)
 
-    resp = await client.post(
-        f"/api/v1/exchanges/{exchange_id}/cancel", headers=owner["headers"]
-    )
+    resp = await client.post(f"/api/v1/exchanges/{exchange_id}/cancel", headers=owner["headers"])
     assert resp.status_code == 409
     assert resp.json()["detail"] == "WRONG_ACTOR"
 
@@ -139,9 +131,7 @@ async def test_cancel_by_either_party_when_accepted(
     assert accept_resp.status_code == 200
 
     # Now the owner (not just the requester) is allowed to cancel.
-    resp = await client.post(
-        f"/api/v1/exchanges/{exchange_id}/cancel", headers=owner["headers"]
-    )
+    resp = await client.post(f"/api/v1/exchanges/{exchange_id}/cancel", headers=owner["headers"])
     assert resp.status_code == 200
     assert resp.json()["status"] == "cancelled"
 
@@ -161,9 +151,7 @@ async def test_illegal_transition_on_terminal_status(
     assert reject_resp.status_code == 200
 
     # A rejected request can no longer be accepted.
-    resp = await client.post(
-        f"/api/v1/exchanges/{exchange_id}/accept", headers=owner["headers"]
-    )
+    resp = await client.post(f"/api/v1/exchanges/{exchange_id}/accept", headers=owner["headers"])
     assert resp.status_code == 409
     assert resp.json()["detail"] == "INVALID_TRANSITION"
 

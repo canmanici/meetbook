@@ -1,4 +1,5 @@
 """Verify core tables exist after alembic upgrade. Runs inside Docker on startup."""
+
 import asyncio
 import sys
 

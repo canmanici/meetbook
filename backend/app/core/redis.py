@@ -20,7 +20,8 @@ def get_redis() -> aioredis.Redis:
 
 async def get_cached(key: str) -> bytes | None:
     try:
-        return await get_redis().get(key)
+        value = await get_redis().get(key)
+        return value.encode() if isinstance(value, str) else value
     except Exception:
         return None
 
@@ -33,9 +34,15 @@ async def set_cached(key: str, value: Any, ttl_seconds: int = 60) -> None:
 
 
 def bbox_cache_key(
-    min_lat: float, max_lat: float, min_lng: float, max_lng: float,
-    category: str | None, language: str | None, condition: str | None,
-    q: str | None, limit: int,
+    min_lat: float,
+    max_lat: float,
+    min_lng: float,
+    max_lng: float,
+    category: str | None,
+    language: str | None,
+    condition: str | None,
+    q: str | None,
+    limit: int,
 ) -> str:
     raw = f"{min_lat:.4f}|{max_lat:.4f}|{min_lng:.4f}|{max_lng:.4f}|{category}|{language}|{condition}|{q}|{limit}"
     digest = hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()

@@ -1,6 +1,7 @@
 """Admin moderation endpoints — role-gated via `get_admin_user`."""
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -367,7 +368,7 @@ async def admin_search(
     q: str = Query(default=""),
     user: User = Depends(get_admin_user),
     service: AdminService = Depends(_get_service),
-) -> dict:
+) -> dict[str, Any]:
     """Global admin search across users, books, and exchanges."""
     return await service.global_search(q)
 
@@ -376,7 +377,7 @@ async def admin_search(
 async def get_badges(
     user: User = Depends(get_admin_user),
     service: AdminService = Depends(_get_service),
-) -> BadgeResponse:
+) -> dict[str, Any]:
     """Badge counts for navbar polling — new crashes, open reports, recent audit."""
     return await service.get_badges()
 

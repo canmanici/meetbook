@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Dimensions,
   Image,
   Pressable,
   ScrollView,
@@ -12,7 +11,6 @@ import {
 
 import { palette, radius, spacing, fontSize } from '@/components/ui';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAIN_WIDTH = 200;
 const MAIN_HEIGHT = 280;
 const THUMB_WIDTH = 60;

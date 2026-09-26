@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render , fireEvent, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
@@ -37,7 +37,6 @@ describe('WishlistScreen', () => {
   });
 });
 
-import { fireEvent, waitFor } from '@testing-library/react-native';
 
 describe('WishlistScreen add behavior', () => {
   beforeEach(() => {

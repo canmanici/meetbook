@@ -4,12 +4,16 @@ import hashlib
 import re
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select, text, desc, and_
+from sqlalchemy import and_, desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
+from app.modules.admin.router import router as admin_router
+from app.modules.auth.dependencies import get_admin_user
+from app.modules.auth.models import User
 from app.modules.crash_reports.models import CrashReport, CrashReportGroup
 from app.modules.crash_reports.schemas import (
     CrashReportCreate,
@@ -23,9 +27,6 @@ from app.modules.crash_reports.schemas import (
     CrashReportVersionStatsResponse,
     CrashReportView,
 )
-from app.modules.admin.router import router as admin_router
-from app.modules.auth.dependencies import get_admin_user
-from app.modules.auth.models import User
 
 # ── Public router (no auth — crash can happen logged out) ──────────
 crash_router = APIRouter(prefix="/crash-report", tags=["crash"])
@@ -44,9 +45,9 @@ def _normalize_stack_frame(frame: str) -> str:
     """
     frame = frame.strip()
     # JS/TS style: "at FunctionName (/path/to/file.ts:line:col)"
-    js_match = re.match(r'(at\s+\S+)', frame)
+    js_match = re.match(r"(at\s+\S+)", frame)
     if js_match:
-        return js_match.group(1).rstrip(',')
+        return js_match.group(1).rstrip(",")
     # Python style: 'File "/path/to/file.py", line N, in func_name'
     py_match = re.match(r'File\s+".*?",\s*line\s+\d+,\s*in\s+(\S+)', frame)
     if py_match:
@@ -169,7 +170,7 @@ def _parse_uuid(value: str | None) -> uuid.UUID | None:
     """Unauthenticated input — a malformed id must not turn into a 500."""
     try:
         return uuid.UUID(value) if value else None
-    except (ValueError, TypeError, AttributeError):
+    except ValueError, TypeError, AttributeError:
         return None
 
 
@@ -180,7 +181,7 @@ def _parse_uuid(value: str | None) -> uuid.UUID | None:
 async def report_crash(
     payload: CrashReportCreate,
     session: AsyncSession = Depends(get_session),
-) -> dict:
+) -> dict[str, Any]:
     """Ingest a crash report from mobile app or backend.
 
     No authentication required — the app may crash during login or
@@ -236,12 +237,16 @@ async def list_crash_reports(
     total = (await session.execute(count_query)).scalar() or 0
 
     items = (
-        await session.execute(
-            query.order_by(desc(CrashReport.created_at))
-            .offset((page - 1) * page_size)
-            .limit(page_size)
+        (
+            await session.execute(
+                query.order_by(desc(CrashReport.created_at))
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     return CrashReportListResponse(
         items=[CrashReportView.model_validate(r) for r in items],
@@ -298,12 +303,16 @@ async def list_crash_groups(
     total = (await session.execute(count_query)).scalar() or 0
 
     items = (
-        await session.execute(
-            query.order_by(desc(CrashReportGroup.last_seen))
-            .offset((page - 1) * page_size)
-            .limit(page_size)
+        (
+            await session.execute(
+                query.order_by(desc(CrashReportGroup.last_seen))
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     return CrashReportGroupListResponse(
         items=[CrashReportGroupView.model_validate(g) for g in items],
@@ -320,9 +329,7 @@ async def get_crash_group(
     admin_user: User = Depends(get_admin_user),
 ) -> CrashReportGroupView:
     """Get a single crash group with detail info. Admin only."""
-    result = await session.execute(
-        select(CrashReportGroup).where(CrashReportGroup.id == group_id)
-    )
+    result = await session.execute(select(CrashReportGroup).where(CrashReportGroup.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(status_code=404, detail="Crash group not found")
@@ -335,7 +342,7 @@ async def action_crash_group(
     action_req: CrashReportGroupActionRequest,
     session: AsyncSession = Depends(get_session),
     admin_user: User = Depends(get_admin_user),
-) -> dict:
+) -> dict[str, Any]:
     """Perform an action on a crash group. Admin only.
 
     Actions:
@@ -346,9 +353,7 @@ async def action_crash_group(
       - assign      : set assignee_id
       - notes       : update notes text
     """
-    result = await session.execute(
-        select(CrashReportGroup).where(CrashReportGroup.id == group_id)
-    )
+    result = await session.execute(select(CrashReportGroup).where(CrashReportGroup.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(status_code=404, detail="Crash group not found")
@@ -473,9 +478,7 @@ async def get_crash_report(
     admin_user: User = Depends(get_admin_user),
 ) -> CrashReportView:
     """Get a single crash report with full stack trace. Admin only."""
-    result = await session.execute(
-        select(CrashReport).where(CrashReport.id == crash_id)
-    )
+    result = await session.execute(select(CrashReport).where(CrashReport.id == crash_id))
     crash = result.scalar_one_or_none()
     if not crash:
         raise HTTPException(status_code=404, detail="Crash report not found")

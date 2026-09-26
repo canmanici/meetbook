@@ -155,38 +155,50 @@ class AdminRepository:
         user_ids = [u.id for u in users]
 
         # Batch book counts
-        book_counts = {r[0]: r[1] for r in (
-            await self.session.execute(
-                select(Book.owner_id, func.count(Book.id))
-                .where(Book.owner_id.in_(user_ids))
-                .group_by(Book.owner_id)
-            )
-        ).all()}
+        book_counts = {
+            r[0]: r[1]
+            for r in (
+                await self.session.execute(
+                    select(Book.owner_id, func.count(Book.id))
+                    .where(Book.owner_id.in_(user_ids))
+                    .group_by(Book.owner_id)
+                )
+            ).all()
+        }
 
         # Batch message counts
-        msg_counts = {r[0]: r[1] for r in (
-            await self.session.execute(
-                select(Message.sender_id, func.count(Message.id))
-                .where(Message.sender_id.in_(user_ids))
-                .group_by(Message.sender_id)
-            )
-        ).all()}
+        msg_counts = {
+            r[0]: r[1]
+            for r in (
+                await self.session.execute(
+                    select(Message.sender_id, func.count(Message.id))
+                    .where(Message.sender_id.in_(user_ids))
+                    .group_by(Message.sender_id)
+                )
+            ).all()
+        }
 
         # Batch exchange counts (user is either requester or owner)
-        exch_as_requester = {r[0]: r[1] for r in (
-            await self.session.execute(
-                select(ExchangeRequest.requested_by, func.count(ExchangeRequest.id))
-                .where(ExchangeRequest.requested_by.in_(user_ids))
-                .group_by(ExchangeRequest.requested_by)
-            )
-        ).all()}
-        exch_as_owner = {r[0]: r[1] for r in (
-            await self.session.execute(
-                select(ExchangeRequest.requested_to, func.count(ExchangeRequest.id))
-                .where(ExchangeRequest.requested_to.in_(user_ids))
-                .group_by(ExchangeRequest.requested_to)
-            )
-        ).all()}
+        exch_as_requester = {
+            r[0]: r[1]
+            for r in (
+                await self.session.execute(
+                    select(ExchangeRequest.requested_by, func.count(ExchangeRequest.id))
+                    .where(ExchangeRequest.requested_by.in_(user_ids))
+                    .group_by(ExchangeRequest.requested_by)
+                )
+            ).all()
+        }
+        exch_as_owner = {
+            r[0]: r[1]
+            for r in (
+                await self.session.execute(
+                    select(ExchangeRequest.requested_to, func.count(ExchangeRequest.id))
+                    .where(ExchangeRequest.requested_to.in_(user_ids))
+                    .group_by(ExchangeRequest.requested_to)
+                )
+            ).all()
+        }
 
         result_users = []
         for u in users:
@@ -294,6 +306,6 @@ class AdminRepository:
 
         stmt = stmt.order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
         result = await self.session.execute(stmt)
-        rows = result.all()  # list of (AuditLog, name_or_None, email_or_None)
+        rows = [(r[0], r[1], r[2]) for r in result.all()]  # (AuditLog, name, email)
 
         return rows, total

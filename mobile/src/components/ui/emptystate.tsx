@@ -2,10 +2,8 @@ import React from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   useColorScheme,
   ViewStyle,
-  TextStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { palette, spacing, fontSize, radius } from './tokens';
@@ -110,37 +108,3 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-    paddingHorizontal: spacing.xl,
-  },
-  defaultIllustration: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: palette.light.textMuted,
-    opacity: 0.2,
-    marginBottom: spacing.xl,
-  },
-  message: {
-    fontSize: fontSize.title,
-    fontWeight: '600',
-    color: palette.light.text,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  description: {
-    fontSize: fontSize.body,
-    color: palette.light.textMuted,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  actionButton: {
-    minWidth: 150,
-  },
-});

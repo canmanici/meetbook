@@ -5,6 +5,7 @@ Revises: a2f66e640f46
 Create Date: 2026-07-03 00:00:00.000000
 
 """
+
 import re
 from collections.abc import Sequence
 

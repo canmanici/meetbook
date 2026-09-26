@@ -3,6 +3,7 @@
 import json
 import logging
 import uuid
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ from app.modules.chat.schemas import (
     ChatSettingsRequest,
     ChatSettingsResponse,
     ChatTicketResponse,
+    IceServer,
     MessageDeliveryInfo,
     MessageListResponse,
     MessageSearchResponse,
@@ -27,7 +29,6 @@ from app.modules.chat.schemas import (
     PinnedMessagesResponse,
     StarredMessagesResponse,
     TurnCredentialsResponse,
-    IceServer,
 )
 from app.modules.chat.service import (
     ChatError,
@@ -104,7 +105,7 @@ async def toggle_star(
     message_id: uuid.UUID,
     user: User = Depends(get_current_user),
     service: ChatService = Depends(_get_service),
-) -> dict:
+) -> dict[str, Any]:
     """Toggle star on a message (own exchange only)."""
     msg = await service.repo.get_message_by_id(message_id)
     if msg is None:
@@ -122,7 +123,7 @@ async def toggle_pin(
     message_id: uuid.UUID,
     user: User = Depends(get_current_user),
     service: ChatService = Depends(_get_service),
-) -> dict:
+) -> dict[str, Any]:
     """Toggle pin on a message (own exchange only)."""
     msg = await service.repo.get_message_by_id(message_id)
     if msg is None:
@@ -209,7 +210,7 @@ async def pin_chat(
     exchange_id: uuid.UUID,
     user: User = Depends(get_current_user),
     service: ChatService = Depends(_get_service),
-) -> dict:
+) -> dict[str, Any]:
     """Pin a chat to the top of the chat list."""
     try:
         await service.pin_chat(exchange_id, user.id)
@@ -223,7 +224,7 @@ async def unpin_chat(
     exchange_id: uuid.UUID,
     user: User = Depends(get_current_user),
     service: ChatService = Depends(_get_service),
-) -> dict:
+) -> dict[str, Any]:
     """Unpin a chat from the top of the chat list."""
     try:
         await service.unpin_chat(exchange_id, user.id)
@@ -238,7 +239,7 @@ async def mute_chat(
     body: MuteRequest,
     user: User = Depends(get_current_user),
     service: ChatService = Depends(_get_service),
-) -> dict:
+) -> dict[str, Any]:
     """Mute a chat for a given duration (1h, 8h, 1w, forever)."""
     try:
         muted_until = await service.mute_chat(exchange_id, user.id, body.duration)
@@ -255,7 +256,7 @@ async def unmute_chat(
     exchange_id: uuid.UUID,
     user: User = Depends(get_current_user),
     service: ChatService = Depends(_get_service),
-) -> dict:
+) -> dict[str, Any]:
     """Unmute a chat."""
     try:
         await service.unmute_chat(exchange_id, user.id)
@@ -321,18 +322,18 @@ async def get_turn_credentials(
     from app.core.config import get_settings
 
     settings = get_settings()
-    stun = IceServer(urls=[
-        "stun:stun.l.google.com:19302",
-        "stun:stun1.l.google.com:19302",
-    ])
+    stun = IceServer(
+        urls=[
+            "stun:stun.l.google.com:19302",
+            "stun:stun1.l.google.com:19302",
+        ]
+    )
     if not settings.turn_secret or not settings.turn_host:
         return TurnCredentialsResponse(ice_servers=[stun], ttl_seconds=0)
 
     ttl = settings.turn_credential_ttl_seconds
     username = f"{int(time.time()) + ttl}:{user.id}"
-    digest = hmac_mod.new(
-        settings.turn_secret.encode(), username.encode(), hashlib.sha1
-    ).digest()
+    digest = hmac_mod.new(settings.turn_secret.encode(), username.encode(), hashlib.sha1).digest()
     credential = base64.b64encode(digest).decode()
     port = settings.turn_port
     servers = [stun]
@@ -421,9 +422,7 @@ async def websocket_endpoint(
             async with session_factory() as session:
                 if raw.get("type") != "ping":
                     # Suspended/banned users lose their live socket too.
-                    status = await session.scalar(
-                        select(User.status).where(User.id == user_id)
-                    )
+                    status = await session.scalar(select(User.status).where(User.id == user_id))
                     if status != UserStatus.active:
                         await ChatService._ws_error(ws, "Account is not active")
                         await ws.close(code=4003)

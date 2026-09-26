@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.modules.auth.dependencies import get_admin_user
-from app.modules.auth.models import User, RefreshToken
+from app.modules.auth.models import RefreshToken, User
 from app.modules.chat.models import Message
 
 router = APIRouter(prefix="/admin", tags=["admin-ext"])
@@ -45,7 +46,7 @@ class MessageMetricsResponse(BaseModel):
     top_senders: list[SenderItem]
     most_active_chats: list[ChatActivityItem]
     daily_trend: list[TrendPoint]
-    peak_hour_distribution: list[dict]
+    peak_hour_distribution: list[dict[str, Any]]
 
 
 class DeviceItem(BaseModel):
@@ -71,7 +72,7 @@ class MessagesMetricsService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def _scalar(self, stmt):
+    async def _scalar(self, stmt: Any) -> Any:
         result = await self.session.execute(stmt)
         return result.scalar()
 
@@ -80,21 +81,29 @@ class MessagesMetricsService:
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         days_30_ago = now - timedelta(days=30)
 
-        total_messages = await self._scalar(
-            select(func.count()).select_from(Message)
-        ) or 0
+        total_messages = await self._scalar(select(func.count()).select_from(Message)) or 0
 
-        messages_30d = await self._scalar(
-            select(func.count()).select_from(Message).where(
-                Message.created_at >= days_30_ago,
+        messages_30d = (
+            await self._scalar(
+                select(func.count())
+                .select_from(Message)
+                .where(
+                    Message.created_at >= days_30_ago,
+                )
             )
-        ) or 0
+            or 0
+        )
 
-        messages_today = await self._scalar(
-            select(func.count()).select_from(Message).where(
-                Message.created_at >= today_start,
+        messages_today = (
+            await self._scalar(
+                select(func.count())
+                .select_from(Message)
+                .where(
+                    Message.created_at >= today_start,
+                )
             )
-        ) or 0
+            or 0
+        )
 
         by_type_rows = await self.session.execute(
             select(Message.message_type, func.count().label("cnt"))
@@ -115,7 +124,9 @@ class MessagesMetricsService:
             """)
         )
         top_senders = [
-            SenderItem(user_id=r[0], name=r[1] or "Sistem", email=r[2] or "system", message_count=r[3])
+            SenderItem(
+                user_id=r[0], name=r[1] or "Sistem", email=r[2] or "system", message_count=r[3]
+            )
             for r in top_senders_rows.all()
         ]
 
@@ -177,18 +188,28 @@ class MessagesMetricsService:
         now = datetime.now(UTC)
         days_30_ago = now - timedelta(days=30)
 
-        total_sessions = await self._scalar(
-            select(func.count()).select_from(RefreshToken).where(
-                RefreshToken.revoked_at.is_(None),
+        total_sessions = (
+            await self._scalar(
+                select(func.count())
+                .select_from(RefreshToken)
+                .where(
+                    RefreshToken.revoked_at.is_(None),
+                )
             )
-        ) or 0
+            or 0
+        )
 
-        active_sessions_30d = await self._scalar(
-            select(func.count()).select_from(RefreshToken).where(
-                RefreshToken.created_at >= days_30_ago,
-                RefreshToken.revoked_at.is_(None),
+        active_sessions_30d = (
+            await self._scalar(
+                select(func.count())
+                .select_from(RefreshToken)
+                .where(
+                    RefreshToken.created_at >= days_30_ago,
+                    RefreshToken.revoked_at.is_(None),
+                )
             )
-        ) or 0
+            or 0
+        )
 
         device_os_rows = await self.session.execute(
             text("""
@@ -215,9 +236,12 @@ class MessagesMetricsService:
         )
         os_version_breakdown = {r[0]: r[1] for r in os_version_rows.all()}
 
-        unique_users = await self._scalar(
-            select(func.count(func.distinct(RefreshToken.user_id))).select_from(RefreshToken)
-        ) or 0
+        unique_users = (
+            await self._scalar(
+                select(func.count(func.distinct(RefreshToken.user_id))).select_from(RefreshToken)
+            )
+            or 0
+        )
 
         sessions_per_user_avg = round(total_sessions / max(unique_users, 1), 2)
 
@@ -247,9 +271,7 @@ class MessagesMetricsService:
                 LIMIT 10
             """)
         )
-        most_used_devices = [
-            DeviceItem(model=r[0], count=r[1]) for r in device_model_rows.all()
-        ]
+        most_used_devices = [DeviceItem(model=r[0], count=r[1]) for r in device_model_rows.all()]
 
         return SessionMetricsResponse(
             total_sessions=total_sessions,

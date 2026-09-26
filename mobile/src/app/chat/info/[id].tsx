@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery , useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -20,7 +20,6 @@ import { palette, spacing, fontSize, radius, shadows } from '@/components/ui/tok
 import { Avatar } from '@/components/ui/avatar';
 import { getExchange, authedRequest } from '@/lib/api/client';
 import { getChatSettings, updateChatSettings, type ChatSettingsView } from '@/lib/api/chat';
-import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { useShadowBlocked } from '@/hooks/use-shadow-blocked';
 import { addShadowBlock, removeShadowBlock } from '@/lib/shadow-block';
@@ -103,7 +102,7 @@ export default function ChatInfoScreen() {
 
   const handleMutePicker = () => {
     if (!exchangeId) return;
-    const options: Array<{ text: string; onPress?: () => void; style?: 'destructive' | 'cancel' }> = [
+    const options: { text: string; onPress?: () => void; style?: 'destructive' | 'cancel' }[] = [
       { text: '1 saat', onPress: () => handleMute('1h') },
       { text: '8 saat', onPress: () => handleMute('8h') },
       { text: '1 hafta', onPress: () => handleMute('1w') },

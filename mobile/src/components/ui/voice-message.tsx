@@ -5,10 +5,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   useColorScheme,
-  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { palette, spacing, fontSize, radius } from './tokens';
+import { palette, spacing } from './tokens';
 import type { MessageView } from '@/lib/api/chat';
 
 interface VoiceMessageProps {

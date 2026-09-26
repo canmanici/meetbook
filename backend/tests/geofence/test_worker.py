@@ -20,7 +20,9 @@ NEARBY = (41.0100, 28.9800)  # ~200 m from Istanbul, well within 10 km
 
 
 async def _make_user(session: AsyncSession, name: str, radius: int = 10) -> User:
-    user = User(email=f"{name}@example.com", name=name, username=f"{name.lower()}_{uuid.uuid4().hex[:6]}")
+    user = User(
+        email=f"{name}@example.com", name=name, username=f"{name.lower()}_{uuid.uuid4().hex[:6]}"
+    )
     user.geofence_radius_km = radius
     session.add(user)
     await session.flush()

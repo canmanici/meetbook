@@ -5,6 +5,7 @@ Revises: a1b2c3d4e5f6
 Create Date: 2026-06-20 12:00:00.000000
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -20,7 +21,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # ── messages table additions ──────────────────────────────────────────
-    op.add_column("messages", sa.Column("message_type", sa.Text(), nullable=False, server_default="text"))
+    op.add_column(
+        "messages", sa.Column("message_type", sa.Text(), nullable=False, server_default="text")
+    )
     op.add_column("messages", sa.Column("extra", JSONB(), nullable=True))
     op.add_column("messages", sa.Column("starred_at", sa.DateTime(timezone=True), nullable=True))
     op.add_column("messages", sa.Column("pinned_at", sa.DateTime(timezone=True), nullable=True))
@@ -32,14 +35,23 @@ def upgrade() -> None:
     op.create_table(
         "chat_settings",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
-        sa.Column("chat_id", UUID(as_uuid=True), sa.ForeignKey("chats.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "chat_id",
+            UUID(as_uuid=True),
+            sa.ForeignKey("chats.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=False),
         sa.Column("is_muted", sa.Boolean(), nullable=False, server_default="false"),
         sa.Column("wallpaper_url", sa.Text(), nullable=True),
         sa.Column("font_size", sa.Text(), nullable=True, server_default="normal"),
         sa.Column("notification_sound", sa.Text(), nullable=True, server_default="default"),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.UniqueConstraint("chat_id", "user_id", name="uq_chat_settings_per_user"),
     )
 
@@ -52,7 +64,9 @@ def upgrade() -> None:
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("image_url", sa.Text(), nullable=True),
         sa.Column("site_name", sa.Text(), nullable=True),
-        sa.Column("fetched_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "fetched_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
     )
 
 

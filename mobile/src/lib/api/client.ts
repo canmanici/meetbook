@@ -191,7 +191,6 @@ export async function authedRequest<T>(
         clearSession();
         throw new ApiError(res.status, await res.text());
       }
-      const currentToken = useAuthStore.getState().accessToken;
       return authedRequest<T>(path, method, body, { allowRetry: false, query });
     } else {
       await clearTokens();
@@ -278,7 +277,7 @@ export async function searchNearbyBooks(params: {
   limit?: number;
   cursor?: string;
 }): Promise<{
-  items: Array<{
+  items: {
     id: string;
     owner_id: string;
     owner_name: string;
@@ -292,10 +291,10 @@ export async function searchNearbyBooks(params: {
     is_available: boolean;
     public_location: { lat: number; lng: number };
     distance_km: number;
-    photos: Array<{ id: string; url: string; thumbnail_url?: string; position: number }>;
+    photos: { id: string; url: string; thumbnail_url?: string; position: number }[];
     created_at: string;
     updated_at: string;
-  }>;
+  }[];
   next_cursor?: string;
 }> {
   return authedRequest('/books/search', 'GET', undefined, { query: params });
@@ -448,7 +447,7 @@ export async function uploadBookPhotoThumbnail(
 export async function reorderBookPhotos(
   bookId: string,
   photoIds: string[],
-): Promise<Array<{ id: string; url: string; thumbnail_url?: string; position: number }>> {
+): Promise<{ id: string; url: string; thumbnail_url?: string; position: number }[]> {
   return authedRequest(`/books/${bookId}/photos/reorder`, 'PATCH', { photo_ids: photoIds });
 }
 
@@ -620,16 +619,16 @@ export async function rejectExchangeExtension(exchangeId: string): Promise<Excha
 }
 
 export async function getWishlistMatches(): Promise<{
-  matches: Array<{
+  matches: {
     id: string;
     title: string;
     author?: string;
     isbn: string;
     condition: string;
     distance_km: number;
-    photos: Array<{ url: string; thumbnail_url?: string; position: number }>;
+    photos: { url: string; thumbnail_url?: string; position: number }[];
     created_at: string;
-  }>;
+  }[];
 }> {
   return authedRequest('/wishlist/matches', 'GET', undefined);
 }

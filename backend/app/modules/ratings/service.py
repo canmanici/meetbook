@@ -1,6 +1,7 @@
 """Ratings business logic — double-blind submission + reveal + aggregates."""
 
 import uuid
+from decimal import Decimal
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,7 +39,9 @@ class RatingService:
         self.exchange_repo = ExchangeRepository(session)
         self.auth_repo = AuthRepository(session)
 
-    async def create_rating(self, current_user_id: uuid.UUID, body: RatingCreateRequest) -> RatingView:
+    async def create_rating(
+        self, current_user_id: uuid.UUID, body: RatingCreateRequest
+    ) -> RatingView:
         exchange = await self.exchange_repo.get(body.exchange_id)
         participants = (exchange.requested_by, exchange.requested_to) if exchange else ()
         if exchange is None or current_user_id not in participants:
@@ -87,7 +90,7 @@ class RatingService:
         average, count = await self.repo.recompute_aggregate(user_id)
         user = await self.auth_repo.get_user_by_id(user_id)
         if user is not None:
-            user.rating_average = round(average, 2)
+            user.rating_average = Decimal(str(round(average, 2)))
             user.rating_count = count
 
     async def get_user_ratings(self, user_id: uuid.UUID) -> RatingListResponse:

@@ -1,6 +1,5 @@
 import { Redirect } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
-import { useColorScheme } from 'react-native';
+import { ActivityIndicator, View , useColorScheme } from 'react-native';
 
 import { palette } from '@/components/ui/tokens';
 import { useAuthStore } from '@/stores/auth-store';

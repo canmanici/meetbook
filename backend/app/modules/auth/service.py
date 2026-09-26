@@ -1,13 +1,19 @@
 """Auth business logic — register, login, refresh, logout, password reset."""
 
+import hmac
+import logging
+import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import log_event
 from app.core.config import get_settings
+from app.core.google_auth import GoogleAuthError, verify_google_id_token
+from app.core.mailer import code_email, send_mail
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -16,12 +22,6 @@ from app.core.security import (
     verify_password,
 )
 from app.core.throttle import LoginThrottle
-import hmac
-import logging
-import secrets
-
-from app.core.google_auth import GoogleAuthError, verify_google_id_token
-from app.core.mailer import code_email, send_mail
 from app.modules.auth.models import (
     EmailCode,
     EmailCodePurpose,
@@ -33,11 +33,11 @@ from app.modules.auth.models import (
 )
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.schemas import (
+    RESERVED_USERNAMES,
     AuthTokensResponse,
     GoogleLoginResponse,
     MeResponse,
     MessageResponse,
-    RESERVED_USERNAMES,
     TokenResponse,
     UpdateMeRequest,
     UserPublic,
@@ -107,7 +107,9 @@ class AuthService:
         settings = get_settings()
         if not settings.mail_enabled:
             # No SMTP → a code could never reach the user; don't lock them out.
-            logger.warning("SMTP not configured — auto-verifying %s (set SMTP_HOST to enforce)", user.email)
+            logger.warning(
+                "SMTP not configured — auto-verifying %s (set SMTP_HOST to enforce)", user.email
+            )
             user.email_verified_at = now
         user.kvkk_consent_at = now
         user.kvkk_policy_version = CURRENT_KVKK_POLICY_VERSION
@@ -116,9 +118,7 @@ class AuthService:
         raw_token, token_hashed, family_id = create_refresh_token()
         settings = get_settings()
         expires_at = datetime.now(UTC) + timedelta(days=settings.refresh_token_ttl_days)
-        await self.repo.create_refresh_token(
-            user.id, token_hashed, family_id, expires_at
-        )
+        await self.repo.create_refresh_token(user.id, token_hashed, family_id, expires_at)
 
         access_token = create_access_token(str(user.id))
         await log_event(self.session, "register_success", user_id=user.id)
@@ -139,7 +139,10 @@ class AuthService:
         base = re.sub(r"[^a-z0-9_]", "", seed.lower().replace(" ", "_"))[:26] or "user"
         candidate = base
         suffix = 1
-        while candidate in RESERVED_USERNAMES or await self.repo.get_user_by_username(candidate) is not None:
+        while (
+            candidate in RESERVED_USERNAMES
+            or await self.repo.get_user_by_username(candidate) is not None
+        ):
             suffix += 1
             candidate = f"{base}{suffix}"[:30]
         return candidate
@@ -171,6 +174,9 @@ class AuthService:
             user = await self.repo.get_user_by_username(identifier)
         if not user:
             await log_event(self.session, "login_failed", metadata={"email": identifier})
+            # Commit before raising: the request's session is rolled back on
+            # error, which silently discarded every failed-login audit entry.
+            await self.session.commit()
             raise AuthError("Email or password is incorrect", 401)
 
         # Check status
@@ -187,15 +193,16 @@ class AuthService:
             if throttle:
                 await throttle.record_failure(identifier, ip)
             await log_event(self.session, "login_failed", metadata={"email": identifier})
+            # Commit before raising: the request's session is rolled back on
+            # error, which silently discarded every failed-login audit entry.
+            await self.session.commit()
             raise AuthError("Email or password is incorrect", 401)
 
         # Generate tokens
         raw_token, token_hashed, family_id = create_refresh_token()
         settings = get_settings()
         expires_at = datetime.now(UTC) + timedelta(days=settings.refresh_token_ttl_days)
-        await self.repo.create_refresh_token(
-            user.id, token_hashed, family_id, expires_at
-        )
+        await self.repo.create_refresh_token(user.id, token_hashed, family_id, expires_at)
 
         # Update last active
         await self.repo.update_last_active(user.id)
@@ -236,9 +243,7 @@ class AuthService:
         new_raw, new_hashed, _ = create_refresh_token()
         settings = get_settings()
         new_expires = datetime.now(UTC) + timedelta(days=settings.refresh_token_ttl_days)
-        await self.repo.create_refresh_token(
-            rt.user_id, new_hashed, rt.family_id, new_expires
-        )
+        await self.repo.create_refresh_token(rt.user_id, new_hashed, rt.family_id, new_expires)
 
         access_token = create_access_token(str(rt.user_id))
         await log_event(self.session, "token_refreshed", user_id=rt.user_id)
@@ -254,9 +259,7 @@ class AuthService:
             user=UserPublic(id=user.id, email=user.email, name=user.name, username=user.username),
         )
 
-    async def logout(
-        self, user_id: uuid.UUID, refresh_token: str | None = None
-    ) -> None:
+    async def logout(self, user_id: uuid.UUID, refresh_token: str | None = None) -> None:
         if refresh_token:
             token_hashed = hash_token(refresh_token)
             rt = await self.repo.get_refresh_token(token_hashed)
@@ -272,7 +275,9 @@ class AuthService:
             identity = await verify_google_id_token(id_token)
         except GoogleAuthError as e:
             code = str(e)
-            raise AuthError(code, 503 if code in ("GOOGLE_NOT_CONFIGURED", "GOOGLE_UNAVAILABLE") else 401) from e
+            raise AuthError(
+                code, 503 if code in ("GOOGLE_NOT_CONFIGURED", "GOOGLE_UNAVAILABLE") else 401
+            ) from e
 
         is_new = False
         user = (
@@ -294,7 +299,9 @@ class AuthService:
                     raise AuthError("KVKK_CONSENT_REQUIRED", 422)
                 name = (identity.name or identity.email.split("@")[0])[:100]
                 username = await self._generate_username(name)
-                user = User(email=identity.email, name=name, username=username, google_sub=identity.sub)
+                user = User(
+                    email=identity.email, name=name, username=username, google_sub=identity.sub
+                )
                 now = datetime.now(UTC)
                 if identity.email_verified:
                     user.email_verified_at = now
@@ -312,11 +319,18 @@ class AuthService:
         raw_token, token_hashed, family_id = create_refresh_token()
         settings = get_settings()
         await self.repo.create_refresh_token(
-            user.id, token_hashed, family_id, datetime.now(UTC) + timedelta(days=settings.refresh_token_ttl_days)
+            user.id,
+            token_hashed,
+            family_id,
+            datetime.now(UTC) + timedelta(days=settings.refresh_token_ttl_days),
         )
         await self.repo.update_last_active(user.id)
-        await log_event(self.session, "register_success" if is_new else "login_success",
-                        user_id=user.id, metadata={"method": "google"})
+        await log_event(
+            self.session,
+            "register_success" if is_new else "login_success",
+            user_id=user.id,
+            metadata={"method": "google"},
+        )
         await self.session.commit()
         return GoogleLoginResponse(
             access_token=create_access_token(str(user.id)),
@@ -379,7 +393,10 @@ class AuthService:
 
     async def _cooldown_active(self, user_id: uuid.UUID, purpose: EmailCodePurpose) -> bool:
         last = await self._latest_code(user_id, purpose)
-        return last is not None and (datetime.now(UTC) - last.created_at).total_seconds() < CODE_RESEND_COOLDOWN_SECONDS
+        return (
+            last is not None
+            and (datetime.now(UTC) - last.created_at).total_seconds() < CODE_RESEND_COOLDOWN_SECONDS
+        )
 
     async def _send_verification_code(self, user_id: uuid.UUID, email: str) -> None:
         code = await self._issue_code(user_id, EmailCodePurpose.verify_email)
@@ -422,8 +439,10 @@ class AuthService:
 
     async def request_password_reset(self, email: str) -> MessageResponse:
         user = await self.repo.get_user_by_email(email)
-        if user and user.status == UserStatus.active and not await self._cooldown_active(
-            user.id, EmailCodePurpose.password_reset
+        if (
+            user
+            and user.status == UserStatus.active
+            and not await self._cooldown_active(user.id, EmailCodePurpose.password_reset)
         ):
             code = await self._issue_code(user.id, EmailCodePurpose.password_reset)
             await log_event(self.session, "password_reset_requested", user_id=user.id)
@@ -471,7 +490,9 @@ class AuthService:
             credential.password_hash = hash_password(new_password)
         else:
             # Google-only account setting its first password.
-            self.session.add(UserCredential(user_id=user.id, password_hash=hash_password(new_password)))
+            self.session.add(
+                UserCredential(user_id=user.id, password_hash=hash_password(new_password))
+            )
         # A working reset code proves mailbox ownership.
         if user.email_verified_at is None:
             user.email_verified_at = datetime.now(UTC)
@@ -528,9 +549,7 @@ class AuthService:
             loans_returned_on_time=user.loans_returned_on_time,
             loans_returned_late=user.loans_returned_late,
             trust_score_override=(
-                float(user.trust_score_override)
-                if user.trust_score_override is not None
-                else None
+                float(user.trust_score_override) if user.trust_score_override is not None else None
             ),
         )
         return UserPublicProfile(
@@ -604,9 +623,7 @@ class AuthService:
         await log_event(self.session, "account_deleted", user_id=user.id)
         await self.session.commit()
 
-    async def upload_avatar(
-        self, user_id: uuid.UUID, file_bytes: bytes, content_type: str
-    ) -> str:
+    async def upload_avatar(self, user_id: uuid.UUID, file_bytes: bytes, content_type: str) -> str:
         user = await self.repo.get_user_by_id(user_id)
         if user is None:
             raise AuthError("Not found", 404)
@@ -619,7 +636,7 @@ class AuthService:
             raise AuthError("FILE_TOO_LARGE", 400)
 
         # Upload to S3 with user_id as "folder"
-        from app.core.s3 import _upload_s3, _is_s3_configured, _upload_local
+        from app.core.s3 import _is_s3_configured, _upload_local, _upload_s3
 
         if _is_s3_configured():
             url = await _upload_s3(user_id, f"avatar_{user_id}", file_bytes, content_type)
@@ -662,9 +679,7 @@ class AuthService:
             raise AuthError("Kendiniz için kefil olamazsınız", 422)
 
         existing = await self.session.execute(
-            select(Vouch).where(
-                Vouch.voucher_id == voucher_id, Vouch.vouchee_id == vouchee_id
-            )
+            select(Vouch).where(Vouch.voucher_id == voucher_id, Vouch.vouchee_id == vouchee_id)
         )
         if existing.scalar_one_or_none() is not None:
             raise AuthError("Bu kullanıcı için zaten kefil oldunuz", 409)
@@ -687,9 +702,7 @@ class AuthService:
 
     async def list_vouches(self, user_id: uuid.UUID) -> VouchListResponse:
         result = await self.session.execute(
-            select(Vouch)
-            .where(Vouch.vouchee_id == user_id)
-            .order_by(Vouch.created_at.desc())
+            select(Vouch).where(Vouch.vouchee_id == user_id).order_by(Vouch.created_at.desc())
         )
         vouches = result.scalars().all()
         return VouchListResponse(
@@ -708,7 +721,7 @@ class AuthService:
     # B27: Reading history export
     # ------------------------------------------------------------------
 
-    async def export_reading_history(self, user_id: uuid.UUID) -> dict:
+    async def export_reading_history(self, user_id: uuid.UUID) -> dict[str, Any]:
         from app.modules.books.models import Book
         from app.modules.exchanges.models import ExchangeRequest
         from app.modules.ratings.models import Rating
@@ -736,9 +749,7 @@ class AuthService:
 
         ratings_result = await self.session.execute(
             select(Rating)
-            .where(
-                (Rating.rated_by == user_id) | (Rating.rated_user == user_id)
-            )
+            .where((Rating.rated_by == user_id) | (Rating.rated_user == user_id))
             .order_by(Rating.created_at.desc())
         )
         ratings = ratings_result.scalars().all()

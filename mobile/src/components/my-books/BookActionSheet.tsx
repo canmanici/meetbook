@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Sheet } from '@/components/ui';
-import { palette, spacing, fontSize, radius } from '@/components/ui/tokens';
+import { palette, spacing, fontSize } from '@/components/ui/tokens';
 
 interface ActionSheetItem {
   key: string;

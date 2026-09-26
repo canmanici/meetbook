@@ -2,9 +2,9 @@
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
-
 
 # ---------------------------------------------------------------------------
 # Request schemas
@@ -39,7 +39,7 @@ class MessageSendRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
     reply_to_id: uuid.UUID | None = None
     message_type: str = "text"  # text | image | voice | location | book_card
-    extra: dict | None = None
+    extra: dict[str, Any] | None = None
 
 
 class ChatMarkReadRequest(BaseModel):
@@ -93,7 +93,7 @@ class MessageView(BaseModel):
     reactions: list[ReactionView] = []
     starred_at: datetime | None = None
     pinned_at: datetime | None = None
-    extra: dict | None = None  # image/voice/location/book_card/system payload
+    extra: dict[str, Any] | None = None  # image/voice/location/book_card/system payload
 
 
 class MessageListResponse(BaseModel):
@@ -172,7 +172,7 @@ class WSIncoming(BaseModel):
     text: str | None = None
     reply_to_id: uuid.UUID | None = None
     message_type: str = "text"
-    extra: dict | None = None
+    extra: dict[str, Any] | None = None
 
 
 class WSOutgoing(BaseModel):

@@ -3,7 +3,7 @@
 import re
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import cast, Any
 
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,11 +15,12 @@ from app.modules.chat.models import (
     MessageReaction,
 )
 from app.modules.exchanges.models import Block, Chat, ExchangeRequest
+from sqlalchemy.engine import CursorResult
 
 # ---------------------------------------------------------------------------
 # URL detection for link previews
 # ---------------------------------------------------------------------------
-URL_PATTERN = re.compile(r'https?://[^\s]+')
+URL_PATTERN = re.compile(r"https?://[^\s]+")
 
 # ---------------------------------------------------------------------------
 # Repository
@@ -41,9 +42,7 @@ class ChatRepository:
         return result.scalar_one_or_none()
 
     async def get_chat(self, chat_id: uuid.UUID) -> Chat | None:
-        result = await self.session.execute(
-            select(Chat).where(Chat.id == chat_id)
-        )
+        result = await self.session.execute(select(Chat).where(Chat.id == chat_id))
         return result.scalar_one_or_none()
 
     async def get_exchange_for_chat(self, chat_id: uuid.UUID) -> ExchangeRequest | None:
@@ -62,7 +61,9 @@ class ChatRepository:
 
     async def is_blocked(self, sender_id: uuid.UUID, receiver_id: uuid.UUID) -> bool:
         result = await self.session.execute(
-            select(func.count()).select_from(Block).where(
+            select(func.count())
+            .select_from(Block)
+            .where(
                 or_(
                     and_(Block.blocker_id == sender_id, Block.blocked_id == receiver_id),
                     and_(Block.blocker_id == receiver_id, Block.blocked_id == sender_id),
@@ -157,27 +158,29 @@ class ChatRepository:
 
         chats = []
         for row in rows:
-            counterpart_id = (
-                row.requested_to if row.requested_by == user_id else row.requested_by
+            counterpart_id = row.requested_to if row.requested_by == user_id else row.requested_by
+            chats.append(
+                {
+                    "chat_id": row.chat_id,
+                    "exchange_id": row.exchange_id,
+                    "counterpart_id": counterpart_id,
+                    "last_message": row.last_message_text,
+                    "last_message_type": row.last_message_type or "text",
+                    "last_message_at": row.last_msg_at,
+                    "unread_count": row.unread_count or 0,
+                    "is_pinned": row.is_pinned or False,
+                    "pinned_at": row.pinned_at,
+                    "muted_until": row.muted_until,
+                }
             )
-            chats.append({
-                "chat_id": row.chat_id,
-                "exchange_id": row.exchange_id,
-                "counterpart_id": counterpart_id,
-                "last_message": row.last_message_text,
-                "last_message_type": row.last_message_type or "text",
-                "last_message_at": row.last_msg_at,
-                "unread_count": row.unread_count or 0,
-                "is_pinned": row.is_pinned or False,
-                "pinned_at": row.pinned_at,
-                "muted_until": row.muted_until,
-            })
 
         return chats
 
     async def _count_unread(self, chat_id: uuid.UUID, user_id: uuid.UUID) -> int:
         result = await self.session.execute(
-            select(func.count()).select_from(Message).where(
+            select(func.count())
+            .select_from(Message)
+            .where(
                 Message.chat_id == chat_id,
                 Message.sender_id != user_id,
                 Message.read_at.is_(None),
@@ -195,7 +198,7 @@ class ChatRepository:
         text: str,
         message_type: str = "text",
         reply_to_id: uuid.UUID | None = None,
-        extra: dict | None = None,
+        extra: dict[str, Any] | None = None,
     ) -> Message:
         msg = Message(
             chat_id=chat_id,
@@ -210,9 +213,7 @@ class ChatRepository:
         return msg
 
     async def get_message_by_id(self, message_id: uuid.UUID) -> Message | None:
-        result = await self.session.execute(
-            select(Message).where(Message.id == message_id)
-        )
+        result = await self.session.execute(select(Message).where(Message.id == message_id))
         return result.scalar_one_or_none()
 
     async def get_messages(
@@ -233,6 +234,7 @@ class ChatRepository:
 
         if cursor:
             from app.modules.books.repository import decode_ts_cursor
+
             cursor_created_at, cursor_id = decode_ts_cursor(cursor)
             stmt = stmt.where(
                 or_(
@@ -302,9 +304,7 @@ class ChatRepository:
         await self.session.flush()
         return msg.pinned_at is not None
 
-    async def delete_message(
-        self, message_id: uuid.UUID, user_id: uuid.UUID
-    ) -> Message | None:
+    async def delete_message(self, message_id: uuid.UUID, user_id: uuid.UUID) -> Message | None:
         """Soft-delete a message (for everyone). Only sender can delete."""
         msg = await self.get_message_by_id(message_id)
         if msg is None or msg.sender_id != user_id:
@@ -365,9 +365,7 @@ class ChatRepository:
             ids.append(m.id)
         return ids
 
-    async def get_message_delivery_info(
-        self, message_id: uuid.UUID
-    ) -> dict[str, Any] | None:
+    async def get_message_delivery_info(self, message_id: uuid.UUID) -> dict[str, Any] | None:
         """Get detailed delivery info for a message: sent_at, delivered_to, read_by."""
         msg = await self.get_message_by_id(message_id)
         if msg is None:
@@ -378,7 +376,8 @@ class ChatRepository:
             return None
 
         other_id = (
-            exchange.requested_to if msg.sender_id == exchange.requested_by
+            exchange.requested_to
+            if msg.sender_id == exchange.requested_by
             else exchange.requested_by
         )
 
@@ -403,9 +402,7 @@ class ChatRepository:
         await self.session.flush()
         return reaction
 
-    async def remove_reaction(
-        self, message_id: uuid.UUID, user_id: uuid.UUID, emoji: str
-    ) -> bool:
+    async def remove_reaction(self, message_id: uuid.UUID, user_id: uuid.UUID, emoji: str) -> bool:
         result = await self.session.execute(
             select(MessageReaction).where(
                 MessageReaction.message_id == message_id,
@@ -519,8 +516,9 @@ class ChatRepository:
 
     async def clear_chat_history(self, chat_id: uuid.UUID) -> int:
         """Hard-delete all messages in a chat."""
-        result = await self.session.execute(
-            delete(Message).where(Message.chat_id == chat_id)
+        result = cast(
+            CursorResult[Any],
+            await self.session.execute(delete(Message).where(Message.chat_id == chat_id)),
         )
         await self.session.flush()
         return result.rowcount or 0
@@ -528,9 +526,7 @@ class ChatRepository:
     # ── Link previews ────────────────────────────────────────────────────
 
     async def get_link_preview(self, url: str) -> LinkPreview | None:
-        result = await self.session.execute(
-            select(LinkPreview).where(LinkPreview.url == url)
-        )
+        result = await self.session.execute(select(LinkPreview).where(LinkPreview.url == url))
         return result.scalar_one_or_none()
 
     async def create_link_preview(

@@ -7,11 +7,9 @@ import React, {
   useState,
 } from 'react';
 import {
-  Dimensions,
   Platform,
   StyleSheet,
   Text,
-  useColorScheme,
 } from 'react-native';
 import {
   Gesture,
@@ -28,10 +26,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { palette, radius, fontSize, spacing } from './tokens';
+import { radius, fontSize, spacing } from './tokens';
 import type { ToastVariant } from './toast-provider';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const TOAST_HEIGHT = 72;
 const STATUS_BAR_TOP = Platform.OS === 'ios' ? 54 : 44;
 
@@ -74,10 +71,6 @@ const VARIANT_CONFIG: Record<
 
 export const AnimatedToast = forwardRef<AnimatedToastHandle, AnimatedToastProps>(
   function AnimatedToast({ message, variant, duration, iconName, onDismiss }, ref) {
-    const scheme = useColorScheme();
-    const isDark = scheme === 'dark';
-    const colors = palette[isDark ? 'dark' : 'light'];
-
     const config = VARIANT_CONFIG[variant];
     const icon = (iconName as keyof typeof Ionicons.glyphMap) ?? config.icon;
 
@@ -121,7 +114,7 @@ export const AnimatedToast = forwardRef<AnimatedToastHandle, AnimatedToastProps>
           true,
         );
       }
-    }, []);
+    }, [glow, opacity, scale, translateY, variant]);
 
     const dismiss = useCallback(() => {
       'worklet';

@@ -1,15 +1,18 @@
 """Saved searches endpoints."""
+
 import uuid
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.db import get_session
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
 from app.modules.saved_searches.schemas import (
     SavedSearchCreate,
+    SavedSearchListResponse,
     SavedSearchUpdate,
     SavedSearchView,
-    SavedSearchListResponse,
 )
 from app.modules.saved_searches.service import SavedSearchError, SavedSearchService
 

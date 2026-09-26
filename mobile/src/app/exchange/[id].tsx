@@ -26,10 +26,10 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { Avatar, Badge, Button, Card, BookCover, SafetySheet, Sheet, Skeleton, TimelineStep, TrustBadge, palette, spacing, fontSize, radius } from '@/components/ui';
+import { Avatar, Badge, Button, Card, BookCover, SafetySheet, Sheet, Skeleton, TimelineStep, palette, spacing, fontSize, radius } from '@/components/ui';
 import { ChipSelect } from '@/components/chip-select';
 import { BOOK_CATEGORY_LABELS, BOOK_CONDITION_LABELS } from '@/constants/books';
-import { EXCHANGE_STATUS_LABELS, EXCHANGE_STATUS_VARIANTS } from '@/constants/exchanges';
+import { EXCHANGE_STATUS_LABELS } from '@/constants/exchanges';
 import { MEETUP_VALIDATION_LABELS } from '@/constants/meetup';
 import {
   ApiError,
@@ -54,9 +54,8 @@ import {
   rejectExchangeExtension,
   uploadLoanPhoto,
   type ExchangeDetail,
-} from '@/lib/api/client';
+ type LocationPrecision } from '@/lib/api/client';
 import { buildMapLinks } from '@/lib/maps';
-import { type LocationPrecision } from '@/lib/api/client';
 import { SafetyPermissionError, setSafetyPrecision } from '@/lib/safety';
 import { listChats } from '@/lib/api/chat';
 import { useChatStore } from '@/stores/chat-store';
@@ -453,7 +452,7 @@ export default function ExchangeDetailScreen() {
         }
       })
       .catch(() => undefined);
-  }, [checklistKey, meetupScheduledAt, exchange?.status]);
+  }, [checklistKey, meetupScheduledAt, exchange?.status, checklistItems.length]);
 
   const toggleChecklistItem = useCallback(
     (index: number) => {

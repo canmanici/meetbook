@@ -395,10 +395,10 @@ export default function ChatsScreen() {
     useCallback(() => {
       connect();
       return () => disconnect();
-    }, []),
+    }, [connect, disconnect]),
   );
 
-  const allChats: ChatRow[] = (data?.items ?? []) as ChatRow[];
+  const allChats: ChatRow[] = useMemo(() => (data?.items ?? []) as ChatRow[], [data]);
   const totalUnread = useMemo(
     () => allChats.reduce((sum, c) => sum + (c.unread_count > 0 ? 1 : 0), 0),
     [allChats],

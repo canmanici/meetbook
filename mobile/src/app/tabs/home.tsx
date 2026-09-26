@@ -25,7 +25,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Alert,
   Modal,
   Dimensions,
   useColorScheme,
@@ -35,21 +34,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
-// Lazy getter for expo-notifications — module-level require() triggers an
-// ERROR overlay in Expo Go (SDK 53+) even inside try-catch.  Loading on first
-// use avoids the problem entirely.
-let _Notifications: typeof import('expo-notifications') | null = null;
-let _notifLoadAttempted = false;
-function getNotifications(): typeof import('expo-notifications') | null {
-  if (_notifLoadAttempted) return _Notifications;
-  _notifLoadAttempted = true;
-  try {
-    _Notifications = require('expo-notifications');
-  } catch {
-    // Expected in Expo Go — no native module.
-  }
-  return _Notifications;
-}
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -64,9 +48,9 @@ import {
   MAP_STYLE,
 } from '@/lib/map-adapter';
 
-import { palette, spacing, fontSize, radius, shadows, type ThemeColors } from '@/components/ui/tokens';
+import { palette, spacing, fontSize, radius, shadows } from '@/components/ui/tokens';
 import { BookCard, BookCover, EmptyState, FilterSheet, type FilterState } from '@/components/ui';
-import { BookMarker, categoryColor, dominantCategoryColor, type BookCategory, type MarkerVariant } from '@/components/ui/book-marker';
+import { BookMarker, categoryColor, type BookCategory, type MarkerVariant } from '@/components/ui/book-marker';
 import {
   searchBboxBooks,
   searchNearbyBooks,
@@ -88,6 +72,22 @@ import { SearchAreaPill } from '@/components/map/search-area-pill';
 import { RadiusCircle } from '@/components/map/radius-circle';
 import { UserLocationDot } from '@/components/map/user-location-dot';
 import QuickRadiusSheet from '@/components/map/quick-radius-sheet';
+// Lazy getter for expo-notifications — module-level require() triggers an
+// ERROR overlay in Expo Go (SDK 53+) even inside try-catch.  Loading on first
+// use avoids the problem entirely.
+let _Notifications: typeof import('expo-notifications') | null = null;
+let _notifLoadAttempted = false;
+function getNotifications(): typeof import('expo-notifications') | null {
+  if (_notifLoadAttempted) return _Notifications;
+  _notifLoadAttempted = true;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy require avoids expo-notifications Expo Go error overlay
+    _Notifications = require('expo-notifications');
+  } catch {
+    // Expected in Expo Go — no native module.
+  }
+  return _Notifications;
+}
 // Lazy import — push-tokens uses expo-notifications which crashes
 // Expo Go. Dynamic import avoids module-level failure.
 const lazyRegisterPushToken = (): Promise<boolean> =>
@@ -110,10 +110,9 @@ function safeMap<T, U>(arr: T[] | undefined | null, fn: (item: T, index: number)
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const WINDOW_H = Dimensions.get('window').height;
-const WINDOW_W = Dimensions.get('window').width;
 const SHEET_PEEK_PX = Math.round(WINDOW_H * 0.18);
 
-const CATEGORIES: Array<{ value: BookCategory | null; label: string }> = [
+const CATEGORIES: { value: BookCategory | null; label: string }[] = [
   { value: null, label: 'Tümü' },
   { value: 'fiction', label: 'Roman' },
   { value: 'non_fiction', label: 'Bilim' },
@@ -124,25 +123,12 @@ const CATEGORIES: Array<{ value: BookCategory | null; label: string }> = [
   { value: 'other', label: 'Diğer' },
 ];
 
-const MAP_TYPES: Array<'standard' | 'satellite' | 'hybrid'> = ['standard', 'satellite', 'hybrid'];
+const MAP_TYPES: ('standard' | 'satellite' | 'hybrid')[] = ['standard', 'satellite', 'hybrid'];
 
-// Haversine great-circle distance in km. Used to filter map results to the
-// active radius circle (the "km" filter).
-function distanceKmBetween(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
 const FRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
 // F12: recency indicator — 1-7 day window ("Bu hafta" blue dot).
 const RECENCY_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const REGION_DEBOUNCE_MS = 300;
-const PILL_DEBOUNCE_MS = 500;
-const DRIFT_THRESHOLD = 0.2; // 20% of viewport
 // Hard cap on the bbox search (backend /books/search-bbox enforces le=50).
 // When the response hits this cap the count is "50+" — there may be more books
 // in the viewport than we fetched. Zooming in re-queries a smaller bbox and
@@ -183,19 +169,6 @@ function regionToBbox(region: Region): BBoxParams {
   };
 }
 
-// Convert a center point + radius (km) to a bounding box that fully contains
-// the circle. Used so the bbox query fetches everything within the radius.
-function radiusToBbox(lat: number, lng: number, radiusKm: number): BBoxParams {
-  const latDelta = radiusKm / 111;
-  const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
-  return {
-    min_lat: lat - latDelta,
-    max_lat: lat + latDelta,
-    min_lng: lng - lngDelta,
-    max_lng: lng + lngDelta,
-  };
-}
-
 function deltaToZoom(delta: number): number {
   return Math.max(0, Math.min(20, Math.log2(360 / delta)));
 }
@@ -205,14 +178,14 @@ function formatDistance(km: number): string {
   return `${km.toFixed(1)} km`;
 }
 
-function getSingletonVariant(book: BookSearchResult): MarkerVariant {
+function getSingletonVariant(book: MapBook): MarkerVariant {
   if (!book.is_available) return 'unavailable';
   if (Date.now() - new Date(book.created_at).getTime() < FRESH_WINDOW_MS) return 'fresh';
   if (book.category === 'textbook') return 'textbook';
   return 'standard';
 }
 
-function getFreshAgeHours(book: BookSearchResult): number | undefined {
+function getFreshAgeHours(book: MapBook): number | undefined {
   const ageMs = Date.now() - new Date(book.created_at).getTime();
   if (ageMs < FRESH_WINDOW_MS) {
     return Math.max(1, Math.floor(ageMs / (60 * 60 * 1000)));
@@ -254,7 +227,13 @@ async function saveMapRegion(region: Region) {
   } catch {}
 }
 
-function buildPreviewBook(book: BookSearchResult, isFavorited: boolean): PreviewBook {
+// Radius search and map-area (bbox) search return slightly different shapes —
+// only the radius results carry the optional `owner` summary.
+type MapBook =
+  | BookSearchResult
+  | Awaited<ReturnType<typeof searchNearbyBooks>>['items'][number];
+
+function buildPreviewBook(book: MapBook, isFavorited: boolean): PreviewBook {
   const owner = (book as any).owner; // spec §4.3: might not exist yet
   return {
     id: book.id,
@@ -331,7 +310,7 @@ export default function HomeScreen() {
   const [showRadiusSheet, setShowRadiusSheet] = useState(false);
   const [geofenceRadiusKm, setGeofenceRadiusKm] = useState(10);
   const [showPushBanner, setShowPushBanner] = useState(false);
-  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showHeatmap] = useState(false);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const mapRef = useRef<any>(null);
@@ -342,8 +321,6 @@ export default function HomeScreen() {
   // pill never shows → the user can't re-query the tighter viewport →
   // "can't get closer" bug.
   const lastQueriedZoomRef = useRef<number | null>(null);
-  const regionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pillDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // F11: whether a saved map viewport was restored this launch (skip fly-to-user).
   const hasSavedRegionRef = useRef(false);
   // F11: debounce ref for persisting the map viewport to AsyncStorage.
@@ -579,11 +556,11 @@ export default function HomeScreen() {
   // backend cluster centroids. Cluster points carry a `weight` equal to the
   // cluster count so dense shelves contribute more to the heatmap.
   const heatmapGeoJSON = useMemo(() => {
-    const features: Array<{
+    const features: {
       type: 'Feature';
       geometry: { type: 'Point'; coordinates: [number, number] };
       properties: { weight: number };
-    }> = [];
+    }[] = [];
     for (const book of markerBooks) {
       const loc = book.public_location;
       if (loc && loc.lat != null && loc.lng != null) {
@@ -625,7 +602,7 @@ export default function HomeScreen() {
 
   // ── Marker tap → preview card (spec §3.5) ──────────────────────────────────
   const handleMarkerPress = useCallback(
-    (book: BookSearchResult) => {
+    (book: MapBook) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setSelectedBook(buildPreviewBook(book, favoritesStore.isFavorited(book.id)));
       // Snap sheet to peek
@@ -661,31 +638,6 @@ export default function HomeScreen() {
     if (selectedBook) setSelectedBook(null);
   }, [selectedBook]);
 
-  // ── Long-press → map style picker (user preference) ───────────────────────
-  const handleLongPress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const labels = MAP_TYPES.map((t) => {
-      if (t === 'standard') return 'Standart';
-      if (t === 'satellite') return 'Uydu';
-      if (t === 'hybrid') return 'Hibrit';
-      return t;
-    });
-    Alert.alert(
-      'Harita Stili',
-      'Bir harita stili seçin',
-      [
-        ...labels.map((label, i) => ({
-          text: mapTypeIndex === i ? `✓ ${label}` : label,
-          onPress: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setMapTypeIndex(i);
-          },
-        })),
-        { text: 'İptal', style: 'cancel' },
-      ],
-    );
-  }, [mapTypeIndex]);
-
   // ── Recenter on user + search around new location ──────────────────────────
   const recenterOnUser = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -706,7 +658,7 @@ export default function HomeScreen() {
         lat = loc.coords.latitude;
         lng = loc.coords.longitude;
         setUserLocation({ lat, lng });
-      } catch (e) {
+      } catch {
         toast.show('Konum alınamadı. GPS\'i kontrol edin.', { variant: 'error' });
         return;
       }
@@ -749,18 +701,12 @@ export default function HomeScreen() {
       // Individual query errors already have their own toasts (422 handling, etc.)
     }
     toast.show('Konum bulundu!', { variant: 'success' });
-  }, [userLocation, bboxQuery, toast]);
+  }, [userLocation, bboxQuery, radiusQuery, useRadiusMode, toast]);
 
   // ── Cycle map type ─────────────────────────────────────────────────────────
   const cycleMapType = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setMapTypeIndex((prev) => (prev + 1) % MAP_TYPES.length);
-  }, []);
-
-  // ── Toggle book density heatmap ─────────────────────────────────────────────
-  const toggleHeatmap = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setShowHeatmap((prev) => !prev);
   }, []);
 
   // ── F11: debounce-save the map viewport to AsyncStorage ──────────────────────
@@ -772,41 +718,6 @@ export default function HomeScreen() {
       saveMapRegion(region);
     }, REGION_DEBOUNCE_MS);
   }, []);
-
-  // ── Region change: debounced state + drift pill (bugs #5, §3.7) ────────────
-  const handleRegionChangeComplete = useCallback(
-    (region: Region) => {
-      // Bug #5: 300ms debounce on mapRegion state
-      if (regionDebounceRef.current) clearTimeout(regionDebounceRef.current);
-      regionDebounceRef.current = setTimeout(() => {
-        setMapRegion(region);
-        // F11: persist the settled viewport so it can be restored next launch.
-        scheduleSaveRegion(region);
-      }, REGION_DEBOUNCE_MS);
-
-      // §3.7: 500ms debounce on pill visibility + 20% drift threshold.
-      // Pill shows on EITHER center drift (pan) OR zoom change. Zoom-only
-      // changes keep the same center, so without the zoom check the pill
-      // never appears when the user zooms in → "can't get closer" bug.
-      if (pillDebounceRef.current) clearTimeout(pillDebounceRef.current);
-      pillDebounceRef.current = setTimeout(() => {
-        if (lastQueriedCenterRef.current) {
-          const dLat = Math.abs(region.latitude - lastQueriedCenterRef.current.lat);
-          const dLng = Math.abs(region.longitude - lastQueriedCenterRef.current.lng);
-          const centerDrifted =
-            dLat > DRIFT_THRESHOLD * region.latitudeDelta ||
-            dLng > DRIFT_THRESHOLD * region.longitudeDelta;
-          const zoomDrifted =
-            lastQueriedZoomRef.current != null &&
-            Math.abs(region.latitudeDelta - lastQueriedZoomRef.current) /
-              lastQueriedZoomRef.current >
-              DRIFT_THRESHOLD;
-          setShowSearchPill(centerDrifted || zoomDrifted);
-        }
-      }, PILL_DEBOUNCE_MS);
-    },
-    [scheduleSaveRegion],
-  );
 
   // ── "Search this area" → re-query bbox (§3.7, §4.1) ────────────────────────
   const handleSearchArea = useCallback(() => {
@@ -845,7 +756,7 @@ export default function HomeScreen() {
     } catch {
       toast.show('Kaydetme başarısız', { variant: 'error' });
     }
-  }, [selectedCategory, activeFilters, mapRegion, toast]);
+  }, [selectedCategory, activeFilters, mapRegion, geofenceRadiusKm, toast]);
 
   // ── Chip select (with haptic) ──────────────────────────────────────────────
   const handleChipPress = useCallback((cat: BookCategory | null) => {
@@ -884,7 +795,7 @@ export default function HomeScreen() {
 
   // ── Render singleton marker ────────────────────────────────────────────────
   const renderSingleton = useCallback(
-    (book: BookSearchResult, coordinateOverride?: { latitude: number; longitude: number }) => {
+    (book: MapBook, coordinateOverride?: { latitude: number; longitude: number }) => {
       const coordinate = coordinateOverride ?? (book.public_location
         ? { latitude: book.public_location.lat, longitude: book.public_location.lng }
         : null);

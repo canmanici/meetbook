@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -15,21 +16,56 @@ USERNAME_PATTERN = r"^[a-z0-9_]{3,30}$"
 # Handles that would collide with app routes, system messages, or be
 # impersonation-prone (e.g. "@admin", "@meetbook") — blocked at registration
 # and profile-edit time, checked before the DB uniqueness check.
-RESERVED_USERNAMES = frozenset({
-    "admin", "administrator", "root", "system", "support", "help",
-    "meetbook", "official", "moderator", "mod", "staff", "team",
-    "api", "auth", "login", "logout", "register", "settings", "search",
-    "chat", "chats", "user", "users", "book", "books", "exchange",
-    "exchanges", "wishlist", "notifications", "notification", "me",
-    "null", "undefined", "anonymous", "deleted", "unknown", "test",
-})
+RESERVED_USERNAMES = frozenset(
+    {
+        "admin",
+        "administrator",
+        "root",
+        "system",
+        "support",
+        "help",
+        "meetbook",
+        "official",
+        "moderator",
+        "mod",
+        "staff",
+        "team",
+        "api",
+        "auth",
+        "login",
+        "logout",
+        "register",
+        "settings",
+        "search",
+        "chat",
+        "chats",
+        "user",
+        "users",
+        "book",
+        "books",
+        "exchange",
+        "exchanges",
+        "wishlist",
+        "notifications",
+        "notification",
+        "me",
+        "null",
+        "undefined",
+        "anonymous",
+        "deleted",
+        "unknown",
+        "test",
+    }
+)
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     name: str = Field(min_length=1, max_length=100)
-    username: str | None = Field(default=None, min_length=3, max_length=30, pattern=USERNAME_PATTERN)
+    username: str | None = Field(
+        default=None, min_length=3, max_length=30, pattern=USERNAME_PATTERN
+    )
     kvkk_consent: bool
 
 
@@ -67,14 +103,16 @@ class VerifyEmailRequest(BaseModel):
 
 class UpdateMeRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
-    username: str | None = Field(default=None, min_length=3, max_length=30, pattern=USERNAME_PATTERN)
+    username: str | None = Field(
+        default=None, min_length=3, max_length=30, pattern=USERNAME_PATTERN
+    )
     trusted_contact_name: str | None = Field(default=None, max_length=100)
     trusted_contact_phone: str | None = Field(default=None, max_length=20)
     geofence_radius_km: int | None = Field(default=None, ge=1, le=100)
     # B11: per-event push notification preferences (event_name -> bool)
-    notification_settings: dict = Field(default_factory=dict)
+    notification_settings: dict[str, Any] = Field(default_factory=dict[str, Any])
     # B17: smart rules to auto-accept matching exchange requests
-    auto_accept_rules: list = Field(default_factory=list)
+    auto_accept_rules: list[Any] = Field(default_factory=list[Any])
 
 
 class DeleteAccountRequest(BaseModel):
@@ -111,6 +149,7 @@ class UsernameAvailabilityResponse(BaseModel):
 
 class UserPublicProfile(BaseModel):
     """Public profile of a user, visible to other users — no PII email."""
+
     id: uuid.UUID
     name: str
     username: str
@@ -162,8 +201,8 @@ class MeResponse(BaseModel):
     trusted_contact_name: str | None
     trusted_contact_phone: str | None
     geofence_radius_km: int = 10
-    notification_settings: dict = {}
-    auto_accept_rules: list = []
+    notification_settings: dict[str, Any] = {}
+    auto_accept_rules: list[Any] = []
 
 
 # ---------------------------------------------------------------------------
@@ -173,7 +212,7 @@ class MeResponse(BaseModel):
 
 class SessionView(BaseModel):
     id: uuid.UUID
-    device_info: dict | None
+    device_info: dict[str, Any] | None
     created_at: datetime
     is_current: bool = False
 

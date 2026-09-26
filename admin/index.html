@@ -3260,8 +3260,8 @@ async function loadAuditLogData(page) {
     const totalPages = Math.ceil(total / auditState.limit);
     document.getElementById('audit-total').textContent = `${total} kayıt`;
     if (!items.length) { grid.innerHTML = '<div class="crud-loading"><div class="text-muted">Kayıt bulunamadı</div></div>'; pag.innerHTML = ''; return; }
-    const evColors = { login_success: '#10b981', login_failure: '#ef4444', user_suspended: '#f97316', user_banned: '#ef4444', user_reinstated: '#3b82f6', report_resolved: '#10b981', book_takedown: '#ef4444' };
-    const evLabels = { login_success: '✅ Giriş', login_failure: '❌ Başarısız Giriş', user_suspended: '⏸ Askıya Alma', user_banned: '🚫 Banlama', user_reinstated: '↩️ Geri Getirme', report_resolved: '🟢 Rapor Çözümü', book_takedown: '📕 Kitap Kaldırma' };
+    const evColors = { login_success: '#10b981', login_failure: '#ef4444', login_failed: '#ef4444', user_suspended: '#f97316', user_banned: '#ef4444', user_reinstated: '#3b82f6', report_resolved: '#10b981', book_takedown: '#ef4444' };
+    const evLabels = { login_success: '✅ Giriş', login_failure: '❌ Başarısız Giriş', login_failed: '❌ Başarısız Giriş', user_suspended: '⏸ Askıya Alma', user_banned: '🚫 Banlama', user_reinstated: '↩️ Geri Getirme', report_resolved: '🟢 Rapor Çözümü', book_takedown: '📕 Kitap Kaldırma' };
     grid.innerHTML = items.map(a => {
       const ec = evColors[a.event_type] || '#94a3b8';
       const el = evLabels[a.event_type] || a.event_type;

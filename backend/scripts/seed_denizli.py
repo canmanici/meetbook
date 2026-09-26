@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Seed ~100 books near Denizli with proper ORM. Run inside backend container:
-   cd /app && PYTHONPATH=/app uv run --no-dev python scripts/seed_denizli.py
+cd /app && PYTHONPATH=/app uv run --no-dev python scripts/seed_denizli.py
 """
+
 import asyncio
 import os
 import random

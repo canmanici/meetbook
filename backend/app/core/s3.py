@@ -47,7 +47,7 @@ async def upload_photo(
     file_bytes: bytes,
     content_type: str,
     thumb_bytes: bytes | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Upload a photo and return {"url": ..., "thumbnail_url": ...}.
 
     Thumbnail is provided by the client (resized on-device).

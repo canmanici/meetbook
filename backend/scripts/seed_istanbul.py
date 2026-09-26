@@ -3,6 +3,7 @@
 Run inside backend container:
    cd /app && PYTHONPATH=/app uv run --no-dev python scripts/seed_istanbul.py
 """
+
 import asyncio
 import json
 import os
@@ -30,16 +31,16 @@ CONDITIONS = ["new", "like_new", "good", "worn"]
 
 # ── 10 books — covers looked up by title via Open Library API ──────────────
 BOOKS = [
-    ("Fareler ve İnsanlar",        "John Steinbeck",       "fiction", "tr"),
-    ("Çavdar Tarlasında Çocuklar", "J.D. Salinger",        "fiction", "tr"),
-    ("Bülbülü Öldürmek",           "Harper Lee",           "fiction", "tr"),
-    ("Romeo ve Juliet",            "William Shakespeare",  "fiction", "tr"),
-    ("Don Quijote",                "Miguel de Cervantes",  "fiction", "tr"),
-    ("Vadideki Zambak",            "Honoré de Balzac",     "fiction", "tr"),
-    ("Sefiller",                   "Victor Hugo",          "fiction", "tr"),
-    ("Monte Kristo Kontu",         "Alexandre Dumas",      "fiction", "tr"),
-    ("Gazap Üzümleri",             "John Steinbeck",       "fiction", "tr"),
-    ("Denizler Altında 20.000 Fersah", "Jules Verne",      "fiction", "tr"),
+    ("Fareler ve İnsanlar", "John Steinbeck", "fiction", "tr"),
+    ("Çavdar Tarlasında Çocuklar", "J.D. Salinger", "fiction", "tr"),
+    ("Bülbülü Öldürmek", "Harper Lee", "fiction", "tr"),
+    ("Romeo ve Juliet", "William Shakespeare", "fiction", "tr"),
+    ("Don Quijote", "Miguel de Cervantes", "fiction", "tr"),
+    ("Vadideki Zambak", "Honoré de Balzac", "fiction", "tr"),
+    ("Sefiller", "Victor Hugo", "fiction", "tr"),
+    ("Monte Kristo Kontu", "Alexandre Dumas", "fiction", "tr"),
+    ("Gazap Üzümleri", "John Steinbeck", "fiction", "tr"),
+    ("Denizler Altında 20.000 Fersah", "Jules Verne", "fiction", "tr"),
 ]
 
 COVERS_DIR = Path("/app/media/covers")
@@ -108,9 +109,7 @@ async def seed():
     factory = get_session_factory()
     async with factory() as session:
         # Find canmanici@gmail.com
-        result = await session.execute(
-            select(User.id).where(User.email == "canmanici@gmail.com")
-        )
+        result = await session.execute(select(User.id).where(User.email == "canmanici@gmail.com"))
         row = result.one_or_none()
         if not row:
             print("  ✗ canmanici@gmail.com not found! Run seed.py first.")
@@ -120,17 +119,21 @@ async def seed():
 
         # Clean up any books from a previous run of THIS script (by looking up isbn pattern)
         await session.execute(
-            text("DELETE FROM book_photos WHERE book_id IN (SELECT id FROM books WHERE isbn LIKE 'seed_istanbul_%')")
+            text(
+                "DELETE FROM book_photos WHERE book_id IN (SELECT id FROM books WHERE isbn LIKE 'seed_istanbul_%')"
+            )
         )
         await session.execute(
-            text("DELETE FROM book_favorites WHERE book_id IN (SELECT id FROM books WHERE isbn LIKE 'seed_istanbul_%')")
+            text(
+                "DELETE FROM book_favorites WHERE book_id IN (SELECT id FROM books WHERE isbn LIKE 'seed_istanbul_%')"
+            )
         )
         await session.execute(
-            text("DELETE FROM exchange_requests WHERE book_id IN (SELECT id FROM books WHERE isbn LIKE 'seed_istanbul_%')")
+            text(
+                "DELETE FROM exchange_requests WHERE book_id IN (SELECT id FROM books WHERE isbn LIKE 'seed_istanbul_%')"
+            )
         )
-        await session.execute(
-            text("DELETE FROM books WHERE isbn LIKE 'seed_istanbul_%'")
-        )
+        await session.execute(text("DELETE FROM books WHERE isbn LIKE 'seed_istanbul_%'"))
         await session.commit()
         print("  ✓ Cleaned previous seed_istanbul runs")
 
@@ -141,7 +144,16 @@ async def seed():
             pub_lat, pub_lng = blur_location(lat, lng)
 
             # Use a unique ISBN prefix so we can cleanly re-run
-            safe_title = title.lower().replace(" ", "_").replace("ı","i").replace("ü","u").replace("ö","o").replace("ç","c").replace("ş","s").replace("ğ","g")[:30]
+            safe_title = (
+                title.lower()
+                .replace(" ", "_")
+                .replace("ı", "i")
+                .replace("ü", "u")
+                .replace("ö", "o")
+                .replace("ç", "c")
+                .replace("ş", "s")
+                .replace("ğ", "g")[:30]
+            )
             custom_isbn = f"seed_istanbul_{idx:02d}_{safe_title}"
 
             book = Book(
@@ -170,12 +182,14 @@ async def seed():
                 fname = f"ol_{cover_id}.{ext}"
                 cover_url = download_cover_by_id(cover_id, fname, title)
                 if cover_url:
-                    session.add(BookPhoto(
-                        book_id=book.id,
-                        url=cover_url,
-                        thumbnail_url=cover_url,
-                        position=0,
-                    ))
+                    session.add(
+                        BookPhoto(
+                            book_id=book.id,
+                            url=cover_url,
+                            thumbnail_url=cover_url,
+                            position=0,
+                        )
+                    )
                     print("✅ cover")
                 else:
                     print("⚠ placeholder")

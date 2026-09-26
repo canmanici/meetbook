@@ -16,8 +16,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar, Badge, BookCover, Sheet, Skeleton, palette, pastels, spacing, fontSize, radius, shadows } from '@/components/ui';
-import { authedRequest, getUser, listMyBooks, searchNearbyBooks, type UserPublicProfile } from '@/lib/api/client';
+import { Avatar, Badge, BookCover, Sheet, Skeleton, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
+import { authedRequest, getUser, listMyBooks, searchNearbyBooks } from '@/lib/api/client';
 import { BOOK_CATEGORY_LABELS, type BookCategory } from '@/constants/books';
 import { computeCompatibility, extractCategories } from '@/lib/compatibility';
 import { useToast } from '@/hooks/use-toast';
@@ -168,8 +168,8 @@ export default function UserProfileScreen() {
     }
   }, [queryClient, id]);
 
-  const userBooks = booksData?.items ?? [];
-  const myBooks = myBooksData?.items ?? [];
+  const userBooks = useMemo(() => booksData?.items ?? [], [booksData]);
+  const myBooks = useMemo(() => myBooksData?.items ?? [], [myBooksData]);
 
   const compatibility = useMemo(() => {
     if (!userBooks.length || !myBooks.length) return null;

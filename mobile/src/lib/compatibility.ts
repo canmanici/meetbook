@@ -22,7 +22,7 @@ export interface CategorizedBook {
  * Reduces a list of books to the set of distinct categories they span.
  * Unknown/null categories are ignored so they never inflate the union.
  */
-export function extractCategories(books: ReadonlyArray<CategorizedBook>): Set<BookCategory> {
+export function extractCategories(books: readonly CategorizedBook[]): Set<BookCategory> {
   const set = new Set<BookCategory>();
   for (const book of books) {
     if (book.category) set.add(book.category as BookCategory);

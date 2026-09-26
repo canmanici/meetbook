@@ -60,9 +60,19 @@ async def test_update_me_clears_trusted_contact(client: httpx.AsyncClient) -> No
         headers=user["headers"],
     )
 
+    # An update that doesn't mention the contact (e.g. radius-only) keeps it.
     resp = await client.patch(
         "/api/v1/auth/me",
         json={},
+        headers=user["headers"],
+    )
+    assert resp.status_code == 200
+    assert resp.json()["trusted_contact_name"] == "Ayse"
+
+    # Explicit nulls — what the app's "remove contact" button sends — clear it.
+    resp = await client.patch(
+        "/api/v1/auth/me",
+        json={"trusted_contact_name": None, "trusted_contact_phone": None},
         headers=user["headers"],
     )
     assert resp.status_code == 200

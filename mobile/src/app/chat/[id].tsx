@@ -10,8 +10,6 @@ import {
   Platform,
   useColorScheme,
   ActivityIndicator,
-  Animated,
-  Dimensions,
   ScrollView,
   Modal,
   Alert,
@@ -30,7 +28,6 @@ import { TypingIndicator } from '@/components/ui/typing-indicator';
 import { EmojiPicker } from '@/components/ui/emoji-picker';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  chatWS,
   getMessages,
   listChats,
   markMessagesRead,
@@ -127,7 +124,7 @@ export default function ChatDetailScreen() {
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<MessageView[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [, setIsSearching] = useState(false);
   const [liveMapExpanded, setLiveMapExpanded] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const lastReadRef = useRef<string | null>(null);
@@ -220,8 +217,7 @@ export default function ChatDetailScreen() {
     };
   }, [
     partnerLocation,
-    myLiveLocation?.latitude,
-    myLiveLocation?.longitude,
+    myLiveLocation,
     exchange?.meetup?.lat,
     exchange?.meetup?.lng,
   ]);
@@ -266,7 +262,7 @@ export default function ChatDetailScreen() {
         Alert.alert('Konum Paylaşılamadı', 'Konum paylaşımı başlatılamadı. Lütfen tekrar deneyin.');
       }
     }
-  }, [exchangeId, exchange?.meetup?.scheduled_at, chatId, warnIfNoLocationFix, startNerdeyim]);
+  }, [exchangeId, exchange?.meetup?.scheduled_at, chatId, warnIfNoLocationFix, startNerdeyim, sendMessage]);
 
   // ---- Voice / video calls ----
   const counterpartOnline = counterpartId ? presence[counterpartId]?.is_online ?? false : false;
@@ -413,7 +409,7 @@ export default function ChatDetailScreen() {
       lastReadRef.current = latest.id;
       markMessagesRead(exchangeId, latest.id).catch(() => {});
     }
-  }, [rawMessages.length, exchangeId, currentUserId]);
+  }, [rawMessages, exchangeId, currentUserId]);
 
   // ---- Scroll helpers ----
   const scrollToBottom = useCallback((animated = true) => {
@@ -424,6 +420,9 @@ export default function ChatDetailScreen() {
 
   useEffect(() => {
     if (rawMessages.length > 0) scrollToBottom();
+    // Intentionally keyed on realtimeMessages.length: rawMessages.length also grows
+    // when older history pages load, and auto-scrolling then would yank the reader away.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scroll on new realtime messages only
   }, [realtimeMessages.length, isOtherTyping]);
 
   // ---- Typing indicator ----

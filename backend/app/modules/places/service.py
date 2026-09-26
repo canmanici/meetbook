@@ -6,6 +6,7 @@ same pattern as `app.modules.books.isbn_lookup`.
 
 import hashlib
 import json
+from typing import Any
 
 import httpx
 import redis.asyncio as aioredis
@@ -32,7 +33,7 @@ SAFE_CATEGORIES = {
 }
 
 
-def _cache_key(kind: str, params: dict) -> str:
+def _cache_key(kind: str, params: dict[str, Any]) -> str:
     raw = json.dumps(params, sort_keys=True)
     digest = hashlib.sha256(raw.encode()).hexdigest()
     return f"places:{kind}:{digest}"
@@ -45,7 +46,9 @@ def _category_for_types(types: list[str]) -> str | None:
     return None
 
 
-async def autocomplete(redis: aioredis.Redis, query: str, lat: float, lng: float) -> list[dict]:
+async def autocomplete(
+    redis: aioredis.Redis, query: str, lat: float, lng: float
+) -> list[dict[str, Any]]:
     settings = get_settings()
     if not settings.google_places_key:
         return []
@@ -54,9 +57,10 @@ async def autocomplete(redis: aioredis.Redis, query: str, lat: float, lng: float
     key = _cache_key("autocomplete", params)
     cached = await redis.get(key)
     if cached is not None:
-        return json.loads(cached)
+        cached_items: list[dict[str, Any]] = json.loads(cached)
+        return cached_items
 
-    req_params = {
+    req_params: dict[str, str | int | float] = {
         "input": query,
         "key": settings.google_places_key,
         "language": "tr",
@@ -131,7 +135,7 @@ async def nearby(
     seen: dict[str, PlaceSummary] = {}
     async with httpx.AsyncClient(timeout=10.0) as client:
         for place_type in search_types:
-            req_params = {
+            req_params: dict[str, str | int | float] = {
                 "location": f"{lat},{lng}",
                 "radius": 2000,
                 "type": place_type,

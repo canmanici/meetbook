@@ -17,7 +17,8 @@ import uuid
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from collections.abc import AsyncIterator
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
@@ -101,10 +102,19 @@ class ReleaseUpdate(BaseModel):
 
 def _view(r: AppRelease) -> ReleaseView:
     return ReleaseView(
-        id=r.id, platform=r.platform, version_code=r.version_code, version_name=r.version_name,
-        size_bytes=r.size_bytes, sha256=r.sha256, md5=r.md5, changelog=r.changelog,
-        mandatory=r.mandatory, is_active=r.is_active, withdrawn_at=r.withdrawn_at,
-        withdrawn_reason=r.withdrawn_reason, created_at=r.created_at,
+        id=r.id,
+        platform=r.platform,
+        version_code=r.version_code,
+        version_name=r.version_name,
+        size_bytes=r.size_bytes,
+        sha256=r.sha256,
+        md5=r.md5,
+        changelog=r.changelog,
+        mandatory=r.mandatory,
+        is_active=r.is_active,
+        withdrawn_at=r.withdrawn_at,
+        withdrawn_reason=r.withdrawn_reason,
+        created_at=r.created_at,
         download_path=f"/api/v1/app/{r.platform}/releases/{r.version_code}/download",
     )
 
@@ -116,7 +126,7 @@ def _filename(r: AppRelease) -> str:
 # ── Public ───────────────────────────────────────────────────────────────
 
 
-def _offerable(platform: str):
+def _offerable(platform: str) -> tuple[Any, ...]:
     """Releases we may hand out: active and not withdrawn."""
     return (
         AppRelease.platform == platform,
@@ -133,12 +143,17 @@ async def latest_release(
 ) -> LatestResponse:
     newest = (
         await session.execute(
-            select(AppRelease).where(*_offerable(platform)).order_by(AppRelease.version_code.desc()).limit(1)
+            select(AppRelease)
+            .where(*_offerable(platform))
+            .order_by(AppRelease.version_code.desc())
+            .limit(1)
         )
     ).scalar_one_or_none()
     current = (
         await session.execute(
-            select(AppRelease).where(AppRelease.platform == platform, AppRelease.version_code == version_code)
+            select(AppRelease).where(
+                AppRelease.platform == platform, AppRelease.version_code == version_code
+            )
         )
     ).scalar_one_or_none()
     policy = await session.get(AppUpdatePolicy, platform)
@@ -151,7 +166,9 @@ async def latest_release(
     if update_available:
         mandatory_newer = await session.scalar(
             select(func.count()).where(
-                *_offerable(platform), AppRelease.mandatory.is_(True), AppRelease.version_code > version_code
+                *_offerable(platform),
+                AppRelease.mandatory.is_(True),
+                AppRelease.version_code > version_code,
             )
         )
         mandatory = bool(mandatory_newer) or current_withdrawn or below_minimum
@@ -199,7 +216,7 @@ async def download_release(
             raise HTTPException(status_code=404, detail="NOT_FOUND")
         return FileResponse(path, media_type=APK_MIME, headers=headers)
 
-    async def stream():
+    async def stream() -> AsyncIterator[bytes]:
         async with get_s3_client() as client:
             obj = await client.get_object(Bucket=get_settings().s3_bucket, Key=r.storage_key)
             async for chunk in obj["Body"].iter_chunks(1024 * 256):
@@ -234,7 +251,9 @@ async def upload_release(
         select(func.max(AppRelease.version_code)).where(AppRelease.platform == platform)
     )
     if existing_max is not None and version_code <= existing_max:
-        raise HTTPException(status_code=409, detail=f"VERSION_CODE_MUST_INCREASE (current max {existing_max})")
+        raise HTTPException(
+            status_code=409, detail=f"VERSION_CODE_MUST_INCREASE (current max {existing_max})"
+        )
 
     # Spool to disk while hashing — APKs are tens of MB.
     sha256, md5, size = hashlib.sha256(), hashlib.md5(), 0  # noqa: S324 (md5 = transport checksum only)
@@ -264,7 +283,10 @@ async def upload_release(
             async with get_s3_client() as client:
                 with tmp_path.open("rb") as fh:
                     await client.put_object(
-                        Bucket=get_settings().s3_bucket, Key=storage_key, Body=fh.read(), ContentType=APK_MIME
+                        Bucket=get_settings().s3_bucket,
+                        Key=storage_key,
+                        Body=fh.read(),
+                        ContentType=APK_MIME,
                     )
         else:
             LOCAL_RELEASES_DIR.mkdir(parents=True, exist_ok=True)
@@ -274,9 +296,16 @@ async def upload_release(
         tmp_path.unlink(missing_ok=True)
 
     r = AppRelease(
-        platform=platform, version_code=version_code, version_name=version_name, storage_key=storage_key,
-        size_bytes=size, sha256=sha256.hexdigest(), md5=md5.hexdigest(), changelog=changelog,
-        mandatory=mandatory, uploaded_by=admin.id,
+        platform=platform,
+        version_code=version_code,
+        version_name=version_name,
+        storage_key=storage_key,
+        size_bytes=size,
+        sha256=sha256.hexdigest(),
+        md5=md5.hexdigest(),
+        changelog=changelog,
+        mandatory=mandatory,
+        uploaded_by=admin.id,
     )
     session.add(r)
     await session.commit()
@@ -293,8 +322,12 @@ async def get_policy(
     pol = await session.get(AppUpdatePolicy, platform)
     if pol is None:
         return PolicyView(platform=platform, min_supported_code=0, message=None, updated_at=None)
-    return PolicyView(platform=platform, min_supported_code=pol.min_supported_code,
-                      message=pol.message, updated_at=pol.updated_at)
+    return PolicyView(
+        platform=platform,
+        min_supported_code=pol.min_supported_code,
+        message=pol.message,
+        updated_at=pol.updated_at,
+    )
 
 
 @admin_router.put("/policy", response_model=PolicyView)
@@ -310,7 +343,9 @@ async def set_policy(
     )
     if body.min_supported_code > (newest or 0):
         # Otherwise every device would be locked out with nothing to update to.
-        raise HTTPException(status_code=409, detail=f"MIN_ABOVE_LATEST_RELEASE (latest offerable {newest or 0})")
+        raise HTTPException(
+            status_code=409, detail=f"MIN_ABOVE_LATEST_RELEASE (latest offerable {newest or 0})"
+        )
     pol = await session.get(AppUpdatePolicy, platform)
     if pol is None:
         pol = AppUpdatePolicy(platform=platform)
@@ -320,15 +355,26 @@ async def set_policy(
     pol.updated_by = admin.id
     pol.updated_at = datetime.now(UTC)
     await session.commit()
-    logger.warning("App update policy %s: min_supported_code=%s by %s", platform, body.min_supported_code, admin.id)
-    return PolicyView(platform=platform, min_supported_code=pol.min_supported_code,
-                      message=pol.message, updated_at=pol.updated_at)
+    logger.warning(
+        "App update policy %s: min_supported_code=%s by %s",
+        platform,
+        body.min_supported_code,
+        admin.id,
+    )
+    return PolicyView(
+        platform=platform,
+        min_supported_code=pol.min_supported_code,
+        message=pol.message,
+        updated_at=pol.updated_at,
+    )
 
 
 @admin_router.post("/{release_id}/withdraw", response_model=ReleaseView)
 async def withdraw_release(
-    release_id: uuid.UUID, body: WithdrawRequest,
-    admin: User = Depends(get_admin_user), session: AsyncSession = Depends(get_session),
+    release_id: uuid.UUID,
+    body: WithdrawRequest,
+    admin: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
 ) -> ReleaseView:
     """EMERGENCY: stop offering this build and warn every device running it."""
     r = await session.get(AppRelease, release_id)
@@ -337,13 +383,21 @@ async def withdraw_release(
     r.withdrawn_at = datetime.now(UTC)
     r.withdrawn_reason = body.reason
     await session.commit()
-    logger.warning("App release %s (%s) WITHDRAWN by %s: %s", r.version_name, r.version_code, admin.id, body.reason)
+    logger.warning(
+        "App release %s (%s) WITHDRAWN by %s: %s",
+        r.version_name,
+        r.version_code,
+        admin.id,
+        body.reason,
+    )
     return _view(r)
 
 
 @admin_router.post("/{release_id}/restore", response_model=ReleaseView)
 async def restore_release(
-    release_id: uuid.UUID, _: User = Depends(get_admin_user), session: AsyncSession = Depends(get_session),
+    release_id: uuid.UUID,
+    _: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
 ) -> ReleaseView:
     r = await session.get(AppRelease, release_id)
     if r is None:
@@ -356,8 +410,10 @@ async def restore_release(
 
 @admin_router.patch("/{release_id}", response_model=ReleaseView)
 async def update_release(
-    release_id: uuid.UUID, body: ReleaseUpdate,
-    _: User = Depends(get_admin_user), session: AsyncSession = Depends(get_session),
+    release_id: uuid.UUID,
+    body: ReleaseUpdate,
+    _: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
 ) -> ReleaseView:
     r = await session.get(AppRelease, release_id)
     if r is None:
@@ -372,7 +428,9 @@ async def update_release(
 
 @admin_router.delete("/{release_id}", status_code=204)
 async def delete_release(
-    release_id: uuid.UUID, _: User = Depends(get_admin_user), session: AsyncSession = Depends(get_session)
+    release_id: uuid.UUID,
+    _: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
 ) -> Response:
     r = await session.get(AppRelease, release_id)
     if r is None:

@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -13,7 +14,6 @@ from app.modules.auth.dependencies import get_admin_user
 from app.modules.auth.models import AuditLog, User
 from app.modules.books.models import Book
 from app.modules.reports.models import Report, ReportStatus
-
 
 router = APIRouter(prefix="/admin", tags=["admin-ext"])
 
@@ -106,7 +106,7 @@ class ContentMetricsService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def _scalar(self, stmt) -> int | float | None:
+    async def _scalar(self, stmt: Any) -> int | float | None:
         result = await self.session.execute(stmt)
         return result.scalar()
 
@@ -115,21 +115,18 @@ class ContentMetricsService:
     async def get_book_view_metrics(self) -> BookViewMetricsResponse:
         session = self.session
 
-        total_views = await session.scalar(
-            select(func.coalesce(func.sum(Book.view_count), 0))
-        ) or 0
+        total_views = await session.scalar(select(func.coalesce(func.sum(Book.view_count), 0))) or 0
 
-        avg_views = await session.scalar(
-            select(func.avg(Book.view_count))
-        ) or 0.0
+        avg_views = await session.scalar(select(func.avg(Book.view_count))) or 0.0
 
-        books_with_views = await session.scalar(
-            select(func.count()).where(Book.view_count > 0)
-        ) or 0
+        books_with_views = (
+            await session.scalar(select(func.count()).where(Book.view_count > 0)) or 0
+        )
 
-        books_zero = await session.scalar(
-            select(func.count()).where(func.coalesce(Book.view_count, 0) == 0)
-        ) or 0
+        books_zero = (
+            await session.scalar(select(func.count()).where(func.coalesce(Book.view_count, 0) == 0))
+            or 0
+        )
 
         top_rows = await session.execute(
             text("""
@@ -142,9 +139,7 @@ class ContentMetricsService:
             """)
         )
         top_viewed_books = [
-            TopBookViewItem(
-                id=r[0], title=r[1], author=r[2], owner_name=r[3], view_count=r[4] or 0
-            )
+            TopBookViewItem(id=r[0], title=r[1], author=r[2], owner_name=r[3], view_count=r[4] or 0)
             for r in top_rows.all()
         ]
 
@@ -164,9 +159,7 @@ class ContentMetricsService:
                 ORDER BY min(view_count)
             """)
         )
-        view_count_distribution = [
-            ViewDistItem(range=r[0], count=r[1]) for r in dist_rows.all()
-        ]
+        view_count_distribution = [ViewDistItem(range=r[0], count=r[1]) for r in dist_rows.all()]
 
         return BookViewMetricsResponse(
             total_views=int(total_views),
@@ -184,20 +177,26 @@ class ContentMetricsService:
         now = datetime.now(UTC)
         cutoff_30d = now - timedelta(days=30)
 
-        total_searches = await session.scalar(
-            select(func.count())
-            .select_from(AuditLog)
-            .where(AuditLog.event_type == "search_performed")
-        ) or 0
-
-        searches_30d = await session.scalar(
-            select(func.count())
-            .select_from(AuditLog)
-            .where(
-                AuditLog.event_type == "search_performed",
-                AuditLog.created_at >= cutoff_30d,
+        total_searches = (
+            await session.scalar(
+                select(func.count())
+                .select_from(AuditLog)
+                .where(AuditLog.event_type == "search_performed")
             )
-        ) or 0
+            or 0
+        )
+
+        searches_30d = (
+            await session.scalar(
+                select(func.count())
+                .select_from(AuditLog)
+                .where(
+                    AuditLog.event_type == "search_performed",
+                    AuditLog.created_at >= cutoff_30d,
+                )
+            )
+            or 0
+        )
 
         term_rows = await session.execute(
             text("""
@@ -211,9 +210,7 @@ class ContentMetricsService:
                 LIMIT 20
             """).bindparams(cutoff=cutoff_30d)
         )
-        top_search_terms = [
-            SearchTermItem(term=r[0], count=r[1]) for r in term_rows.all()
-        ]
+        top_search_terms = [SearchTermItem(term=r[0], count=r[1]) for r in term_rows.all()]
 
         searches_without = await session.scalar(
             text("""
@@ -240,9 +237,7 @@ class ContentMetricsService:
         now = datetime.now(UTC)
         cutoff_30d = now - timedelta(days=30)
 
-        total_reports = await session.scalar(
-            select(func.count()).select_from(Report)
-        ) or 0
+        total_reports = await session.scalar(select(func.count()).select_from(Report)) or 0
 
         tt_rows = await session.execute(
             select(Report.target_type, func.count()).group_by(Report.target_type)
@@ -263,9 +258,7 @@ class ContentMetricsService:
 
         avg_res = await session.scalar(
             select(
-                func.avg(
-                    func.extract("epoch", Report.resolved_at - Report.created_at) / 3600
-                )
+                func.avg(func.extract("epoch", Report.resolved_at - Report.created_at) / 3600)
             ).where(
                 Report.status == ReportStatus.resolved,
                 Report.resolved_at.is_not(None),
@@ -292,10 +285,7 @@ class ContentMetricsService:
             for r in reporter_rows.all()
         ]
 
-        date_spine = [
-            (cutoff_30d + timedelta(days=i)).strftime("%Y-%m-%d")
-            for i in range(31)
-        ]
+        date_spine = [(cutoff_30d + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(31)]
 
         report_day_rows = await session.execute(
             text("""
@@ -306,9 +296,7 @@ class ContentMetricsService:
             """).bindparams(cutoff=cutoff_30d)
         )
         report_lookup = {str(r[0]): r[1] for r in report_day_rows.all()}
-        daily_report_trend = [
-            TrendPoint(date=d, value=report_lookup.get(d, 0)) for d in date_spine
-        ]
+        daily_report_trend = [TrendPoint(date=d, value=report_lookup.get(d, 0)) for d in date_spine]
 
         filed_day_rows = await session.execute(
             text("""

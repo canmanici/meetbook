@@ -53,10 +53,12 @@ class GeofenceAlertRepository:
         self, user_id: uuid.UUID, wishlist_item_id: uuid.UUID, book_id: uuid.UUID
     ) -> bool:
         result = await self.session.execute(
-            select(GeofenceAlert.id).where(
+            select(GeofenceAlert.id)
+            .where(
                 GeofenceAlert.user_id == user_id,
                 GeofenceAlert.wishlist_item_id == wishlist_item_id,
                 GeofenceAlert.book_id == book_id,
-            ).limit(1)
+            )
+            .limit(1)
         )
         return result.scalar_one_or_none() is not None

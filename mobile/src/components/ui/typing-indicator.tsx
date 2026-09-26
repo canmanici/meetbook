@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, useColorScheme } from 'react-native';
-import { palette, spacing, fontSize, radius } from './tokens';
+import { palette, spacing, radius } from './tokens';
 
 interface TypingIndicatorProps {
   name: string;
@@ -37,7 +37,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({ name }) => {
     const anim = Animated.parallel([animate(dot1, 0), animate(dot2, 200), animate(dot3, 400)]);
     anim.start();
     return () => anim.stop();
-  }, []);
+  }, [dot1, dot2, dot3]);
 
   const dotStyle = (dot: Animated.Value) => ({
     transform: [

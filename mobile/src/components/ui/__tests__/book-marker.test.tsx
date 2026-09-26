@@ -306,7 +306,7 @@ describe('BookMarker', () => {
     });
 
     it('all marker variants pass non-zero width/height (no 100px fallback possible)', () => {
-      const variants: Array<{ variant: any; extra?: any }> = [
+      const variants: { variant: any; extra?: any }[] = [
         { variant: 'standard' },
         { variant: 'fresh', extra: { freshAgeHours: 3 } },
         { variant: 'shelf', extra: { stackCount: 2 } },

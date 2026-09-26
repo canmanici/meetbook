@@ -28,7 +28,7 @@ export async function openInMaps(
   label: string
 ): Promise<'google' | 'yandex' | 'apple' | 'clipboard'> {
   const links = buildMapLinks(lat, lng, label);
-  const order: Array<['google' | 'yandex' | 'apple', string]> =
+  const order: ['google' | 'yandex' | 'apple', string][] =
     Platform.OS === 'ios'
       ? [
           ['apple', links.apple],

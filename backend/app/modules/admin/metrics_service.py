@@ -5,6 +5,7 @@ Every number here is computed from actual DB rows. Zero mock data.
 """
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +32,16 @@ from app.modules.chat.models import Message
 from app.modules.exchanges.models import BlockedPlace, ExchangeRequest
 from app.modules.ratings.models import Rating
 from app.modules.reports.models import Report, ReportStatus
+
+
+def _split_series(rows: Any) -> tuple[list[str], list[Any]]:
+    """[(day, value), ...] → ([day_str, ...], [value, ...])."""
+    days: list[str] = []
+    values: list[Any] = []
+    for r in rows:
+        days.append(str(r[0]))
+        values.append(r[1])
+    return days, values
 
 
 class MetricsService:
@@ -268,11 +279,7 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        s_dates, s_vals = (
-            zip(*[(str(r[0]), r[1]) for r in signup_rows.all()])
-            if signup_rows.rowcount
-            else ([], [])
-        )
+        s_dates, s_vals = _split_series(signup_rows.all())
         signups = _fill(list(s_dates), list(s_vals))
 
         # DAU per day
@@ -283,9 +290,7 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        d_dates, d_vals = (
-            zip(*[(str(r[0]), r[1]) for r in dau_rows.all()]) if dau_rows.rowcount else ([], [])
-        )
+        d_dates, d_vals = _split_series(dau_rows.all())
         daily_users = _fill(list(d_dates), list(d_vals))
 
         # WAU per day (7-day rolling)
@@ -296,9 +301,7 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        w_dates, w_vals = (
-            zip(*[(str(r[0]), r[1]) for r in wau_rows.all()]) if wau_rows.rowcount else ([], [])
-        )
+        w_dates, w_vals = _split_series(wau_rows.all())
 
         # Exchanges created per day
         exc_rows = await self.session.execute(
@@ -308,9 +311,7 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        e_dates, e_vals = (
-            zip(*[(str(r[0]), r[1]) for r in exc_rows.all()]) if exc_rows.rowcount else ([], [])
-        )
+        e_dates, e_vals = _split_series(exc_rows.all())
         exc_created = _fill(list(e_dates), list(e_vals))
 
         # Exchanges completed per day
@@ -322,11 +323,7 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        ec_dates, ec_vals = (
-            zip(*[(str(r[0]), r[1]) for r in exc_comp_rows.all()])
-            if exc_comp_rows.rowcount
-            else ([], [])
-        )
+        ec_dates, ec_vals = _split_series(exc_comp_rows.all())
         exc_completed = _fill(list(ec_dates), list(ec_vals))
 
         # Reports per day
@@ -337,9 +334,7 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        r_dates, r_vals = (
-            zip(*[(str(r[0]), r[1]) for r in rep_rows.all()]) if rep_rows.rowcount else ([], [])
-        )
+        r_dates, r_vals = _split_series(rep_rows.all())
         reports = _fill(list(r_dates), list(r_vals))
 
         # Books added per day
@@ -350,9 +345,7 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        b_dates, b_vals = (
-            zip(*[(str(r[0]), r[1]) for r in book_rows.all()]) if book_rows.rowcount else ([], [])
-        )
+        b_dates, b_vals = _split_series(book_rows.all())
         books_added = _fill(list(b_dates), list(b_vals))
 
         # Favorites per day
@@ -363,9 +356,7 @@ class MetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff)
         )
-        f_dates, f_vals = (
-            zip(*[(str(r[0]), r[1]) for r in fav_rows.all()]) if fav_rows.rowcount else ([], [])
-        )
+        f_dates, f_vals = _split_series(fav_rows.all())
         favorites = _fill(list(f_dates), list(f_vals))
 
         return TrendGroup(
@@ -384,7 +375,7 @@ class MetricsService:
     # ──────────────────────────────────────────────────────────────────────────
 
     async def get_book_metrics(self) -> BookMetricsResponse:
-        def _dist(col):
+        def _dist(col: str) -> Any:
             return text(f"{col}")
 
         # By category
@@ -727,12 +718,15 @@ class MetricsService:
     # HELPERS
     # ──────────────────────────────────────────────────────────────────────────
 
-    async def _scalar(self, stmt) -> int | float | None:
-        """Execute a statement and return the scalar result."""
+    async def _scalar(self, stmt: Any) -> Any:
+        """Execute a statement and return the scalar result (NULL → 0: sums /
+        averages over empty tables must not break the arithmetic below)."""
         result = await self.session.execute(stmt)
-        return result.scalar()
+        return result.scalar() or 0
 
     async def _count_audit_events(self, event_type: str) -> int:
-        return await self._scalar(
-            select(func.count()).select_from(AuditLog).where(AuditLog.event_type == event_type)
+        return int(
+            await self._scalar(
+                select(func.count()).select_from(AuditLog).where(AuditLog.event_type == event_type)
+            )
         )

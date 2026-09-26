@@ -22,11 +22,9 @@ import {
 
 import { ChipSelect } from '@/components/chip-select';
 import {
-  Badge,
   BookCover,
   BookJourney,
   Button,
-  Card,
   InlineError,
   Input,
   palette,
@@ -151,10 +149,10 @@ export default function BookDetailScreen() {
 
   // Increment view count when non-owner views the page
   useEffect(() => {
-    if (book && !isOwner) {
+    if (book?.id && !isOwner) {
       incrementBookView(id).catch(() => {});
     }
-  }, [book?.id, isOwner]);
+  }, [book?.id, id, isOwner]);
 
   const pendingRequests = useQuery({
     queryKey: ['exchanges', 'received', id],
@@ -178,7 +176,8 @@ export default function BookDetailScreen() {
         setLanguage(book.language);
         setCondition(book.condition);
         setIsAvailable(book.is_available);
-        setLocation(book.location);
+        // Only the owner view carries the exact location (the edit form is owner-only).
+        if ('location' in book) setLocation(book.location);
       }
     }
     if (!editing) {

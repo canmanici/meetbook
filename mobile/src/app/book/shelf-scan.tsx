@@ -78,12 +78,12 @@ export default function ShelfScanScreen() {
 
   // Review mode — after all books are created, let user pick category/condition
   const [reviewMode, setReviewMode] = useState(false);
-  const [reviews, setReviews] = useState<Array<{
+  const [reviews, setReviews] = useState<{
     bookId: string;
     title: string;
     category: BookCategory;
     condition: BookCondition;
-  }>>([]);
+  }[]>([]);
 
   const setScannedISBN = useBookDraftStore((state) => state.setScannedISBN);
 

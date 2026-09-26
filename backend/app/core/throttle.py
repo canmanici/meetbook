@@ -41,7 +41,8 @@ class LoginThrottle:
         # Get oldest failure in window to calculate retry-after
         oldest = await self._redis.zrangebyscore(key, window_start, now, start=0, num=1)
         if oldest:
-            oldest_time = float(oldest[0])
+            first = oldest[0]
+            oldest_time = float(first.decode() if isinstance(first, bytes) else str(first))
             retry_after = int(oldest_time + backoff - now)
             return False, max(retry_after, 1)
 

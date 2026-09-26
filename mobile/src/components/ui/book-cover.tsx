@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { palette, radius } from './tokens';
+import { palette } from './tokens';
 
 export interface BookCoverProps {
   /** Remote cover URL. When null/undefined/empty, shows a fallback icon. */

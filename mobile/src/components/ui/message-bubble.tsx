@@ -61,12 +61,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const isDeleted = !message.text && (message as any).deleted_at;
   const isSystem = message.message_type === 'system';
 
-  // System messages render differently
-  if (isSystem) {
-    return <SystemMessage message={message} />;
-  }
-
-  // Swipe-to-reply gesture
+  // Swipe-to-reply gesture. Hook rules: must run before the isSystem early
+  // return below, so it lives here rather than next to the JSX it drives.
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) =>
@@ -91,6 +87,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       },
     }),
   ).current;
+
+  // System messages render differently
+  if (isSystem) {
+    return <SystemMessage message={message} />;
+  }
 
   const handleLongPress = () => {
     scale.setValue(0.95);

@@ -2,6 +2,7 @@
 """Fetch book cover images from Open Library for all books.
 Run: cd /app && PYTHONPATH=/app uv run --no-dev python scripts/fetch_book_covers.py
 """
+
 import asyncio
 import os
 import sys
@@ -21,7 +22,9 @@ COVER_URL_L_TPL = "https://covers.openlibrary.org/b/id/{cover_id}-L.jpg"
 OPENLIB_SEARCH = "https://openlibrary.org/search.json"
 
 
-async def search_cover(client: httpx.AsyncClient, title: str, author: str, sem: asyncio.Semaphore) -> str | None:
+async def search_cover(
+    client: httpx.AsyncClient, title: str, author: str, sem: asyncio.Semaphore
+) -> str | None:
     """Search Open Library for a cover image URL. Returns None if no cover found."""
     query = f'title:"{title}" author:"{author}"'
     async with sem:
@@ -105,7 +108,9 @@ async def fetch_all_covers():
                 print(f"  Progress: {inserted} real covers, {skipped} placeholders")
 
         await session.commit()
-        print(f"\n  ✅ Done! {inserted} real covers + {skipped} placeholders = {inserted + skipped} books with covers")
+        print(
+            f"\n  ✅ Done! {inserted} real covers + {skipped} placeholders = {inserted + skipped} books with covers"
+        )
 
     # Summary
     async with factory() as session:

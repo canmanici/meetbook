@@ -88,7 +88,7 @@ export type StaleBook = {
   language: string;
   condition: string;
   is_available: boolean;
-  photos?: Array<{ id: string; url: string; thumbnail_url?: string; position: number }>;
+  photos?: { id: string; url: string; thumbnail_url?: string; position: number }[];
   view_count: number;
   favorite_count: number;
   days_since_update: number;

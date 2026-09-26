@@ -43,7 +43,9 @@ async def send_mail(to: str, subject: str, text: str, html: str | None = None) -
     """
     s = get_settings()
     if not s.mail_enabled:
-        logger.warning("MAIL NOT SENT (SMTP not configured) to=%s subject=%s\n%s", to, subject, text)
+        logger.warning(
+            "MAIL NOT SENT (SMTP not configured) to=%s subject=%s\n%s", to, subject, text
+        )
         return False
     msg = EmailMessage()
     msg["From"] = s.smtp_from
