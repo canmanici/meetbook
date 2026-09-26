@@ -29,6 +29,8 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://meetbook:meetbook_dev@localhost:5436/meetbook
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET: ci-secret
+      # Default /app/media only exists inside the container (not writable here).
+      MEDIA_DIR: /tmp/meetbook-media
     defaults:
       run:
         working-directory: backend
