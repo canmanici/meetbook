@@ -23,6 +23,7 @@ def register_routers(app: FastAPI) -> None:
     from app.modules.crash_reports.router import crash_router
     from app.modules.exchanges.router import router as exchanges_router
     from app.modules.geofence.router import router as geofence_router
+    from app.modules.legal.router import privacy_router
     from app.modules.legal.router import router as legal_router
     from app.modules.notifications.router import router as notifications_router
     from app.modules.places.router import router as places_router
@@ -61,3 +62,5 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(kvkk_admin_router, prefix="/api/v1")
     # Legal pages + API — served at /legal/* (documents + consent endpoints)
     app.include_router(legal_router)
+    # In-app privacy actions (Settings → Verilerimin silinmesini iste)
+    app.include_router(privacy_router, prefix="/api/v1")

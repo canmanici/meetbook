@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.policy import current_policy_version
 from app.core.audit import log_event
 from app.core.config import get_settings
 from app.core.google_auth import GoogleAuthError, verify_google_id_token
@@ -47,7 +48,6 @@ from app.modules.auth.schemas import (
     VouchView,
 )
 
-CURRENT_KVKK_POLICY_VERSION = "1.0"
 
 CODE_TTL_MINUTES = 15
 MAX_CODE_ATTEMPTS = 5
@@ -112,7 +112,7 @@ class AuthService:
             )
             user.email_verified_at = now
         user.kvkk_consent_at = now
-        user.kvkk_policy_version = CURRENT_KVKK_POLICY_VERSION
+        user.kvkk_policy_version = current_policy_version()
 
         # Generate tokens
         raw_token, token_hashed, family_id = create_refresh_token()
@@ -306,7 +306,7 @@ class AuthService:
                 if identity.email_verified:
                     user.email_verified_at = now
                 user.kvkk_consent_at = now
-                user.kvkk_policy_version = CURRENT_KVKK_POLICY_VERSION
+                user.kvkk_policy_version = current_policy_version()
                 self.session.add(user)
                 await self.session.flush()
                 is_new = True

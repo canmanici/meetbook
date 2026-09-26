@@ -870,6 +870,24 @@ export async function deleteAccount(body: { password: string }): Promise<void> {
   return authedRequest<void>('/auth/me', 'DELETE', body);
 }
 
+// KVKK: in-app request to erase the user's data (handled within 30 business days).
+export interface DeletionRequestStatus {
+  reference: string;
+  status: string; // open | in_progress | answered | rejected
+  created_at: string;
+  due_at: string;
+  closed_at: string | null;
+  already_open: boolean;
+}
+
+export async function getDeletionRequest(): Promise<DeletionRequestStatus | null> {
+  return authedRequest<DeletionRequestStatus | null>('/privacy/deletion-request', 'GET', undefined);
+}
+
+export async function requestDataDeletion(note?: string): Promise<DeletionRequestStatus> {
+  return authedRequest<DeletionRequestStatus>('/privacy/deletion-request', 'POST', { note: note || null });
+}
+
 // ---------------------------------------------------------------------------
 // User public profile
 // ---------------------------------------------------------------------------

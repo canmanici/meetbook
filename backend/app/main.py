@@ -98,6 +98,7 @@ def create_app() -> FastAPI:
             "/api/v1/auth/password-reset-confirm": (20, 3600),
             "/api/v1/auth/verify-email": (30, 3600),
             "/legal/veri-sahibi-basvuru": (10, 3600),
+            "/api/v1/privacy/deletion-request": (20, 3600),
             "/api/v1/places": (120, 60),
             "/api/v1/reports": (60, 3600),
             "/api/v1/admin": (120, 60),

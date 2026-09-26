@@ -8,11 +8,14 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.db import get_session
 from app.core.mailer import send_mail
+from app.core.policy import add_business_days, current_policy_version
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
 from app.modules.legal.models import DataSubjectRequestRecord
@@ -32,10 +35,7 @@ _version_file = _legal_dir / "VERSION"
 
 
 def _get_current_policy_version() -> str:
-    try:
-        return _version_file.read_text(encoding="utf-8").strip()
-    except FileNotFoundError:
-        return "1.0"  # fallback
+    return current_policy_version()
 
 
 router = APIRouter(prefix="/legal", tags=["legal"])
@@ -197,3 +197,124 @@ async def submit_data_subject_request(
         f"En geç 30 gün içinde {body.eposta} adresine yanıt verilecektir.",
         reference_number=ref,
     )
+
+
+# ── In-app data deletion request ─────────────────────────────
+# Signed-in users ask for their data to be erased from Settings; the request
+# joins the KVKK queue (admin → KVKK Başvuruları) with a 30-business-day due
+# date, as promised in the Aydınlatma Metni.
+
+privacy_router = APIRouter(prefix="/privacy", tags=["privacy"])
+
+DELETION_REQUEST_TYPE = "Verilerimin silinmesi (uygulama içi)"
+DELETION_BUSINESS_DAYS = 30
+
+
+class DeletionRequestBody(BaseModel):
+    note: str | None = Field(None, max_length=2000)
+
+
+class DeletionRequestStatus(BaseModel):
+    reference: str
+    status: str
+    created_at: datetime
+    due_at: datetime
+    closed_at: datetime | None = None
+    already_open: bool = False
+
+
+def _deletion_view(
+    r: DataSubjectRequestRecord, already_open: bool = False
+) -> DeletionRequestStatus:
+    return DeletionRequestStatus(
+        reference=r.reference,
+        status=r.status,
+        created_at=r.created_at,
+        due_at=r.due_at,
+        closed_at=r.closed_at,
+        already_open=already_open,
+    )
+
+
+async def _latest_deletion_request(
+    session: AsyncSession, user: User
+) -> DataSubjectRequestRecord | None:
+    return (
+        await session.execute(
+            select(DataSubjectRequestRecord)
+            .where(
+                DataSubjectRequestRecord.email == user.email,
+                DataSubjectRequestRecord.request_type == DELETION_REQUEST_TYPE,
+            )
+            .order_by(DataSubjectRequestRecord.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
+@privacy_router.get("/deletion-request", response_model=DeletionRequestStatus | None)
+async def my_deletion_request(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> DeletionRequestStatus | None:
+    r = await _latest_deletion_request(session, user)
+    return _deletion_view(r) if r else None
+
+
+@privacy_router.post("/deletion-request", response_model=DeletionRequestStatus, status_code=201)
+async def request_my_data_deletion(
+    body: DeletionRequestBody,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> DeletionRequestStatus:
+    existing = await _latest_deletion_request(session, user)
+    # admin closes a request as "answered" or "rejected" (kvkk_admin.py)
+    if (
+        existing is not None
+        and existing.closed_at is None
+        and existing.status not in ("answered", "rejected")
+    ):
+        return _deletion_view(existing, already_open=True)
+
+    now = datetime.now(UTC)
+    due = add_business_days(now, DELETION_BUSINESS_DAYS)
+    ref = str(uuid.uuid7()).replace("-", "")[-8:].upper()
+    record = DataSubjectRequestRecord(
+        reference=ref,
+        full_name=user.name or user.email,
+        email=user.email,
+        phone=None,
+        username=getattr(user, "username", None) or user.email,
+        request_type=DELETION_REQUEST_TYPE,
+        description=(
+            "Kullanıcı uygulama içinden kişisel verilerinin (hesap, içerik, IP/operatör/konum, "
+            "cihaz bilgisi, giriş geçmişi, eylem günlükleri ve hata raporları dahil) tüm "
+            "sunuculardan silinmesini talep etti."
+            + (f"\n\nKullanıcı notu: {body.note}" if body.note else "")
+        ),
+        extra_info=f"user_id={user.id}",
+        identity_method="Uygulama içi (oturum açık hesap)",
+        due_at=due,
+    )
+    session.add(record)
+    await session.commit()
+    await session.refresh(record)
+    logger.info("KVKK silme talebi (uygulama içi) | ref=%s | user=%s", ref, user.id)
+
+    due_str = due.strftime("%d.%m.%Y")
+    await send_mail(
+        user.email,
+        f"Veri silme talebiniz alındı — {ref}",
+        f"Merhaba {user.name or ''},\n\nKişisel verilerinizin silinmesi talebiniz alınmıştır.\n"
+        f"Referans numaranız: {ref}\n\nVerileriniz en geç 30 iş günü içinde ({due_str}) "
+        "tüm sunucularımızdan silinecektir.\n\n— MeetBook",
+    )
+    controller = get_settings().kvkk_controller_email
+    if controller:
+        await send_mail(
+            controller,
+            f"[KVKK] Uygulama içi veri silme talebi {ref}",
+            f"Referans: {ref}\nKullanıcı: {user.name} <{user.email}>\nuser_id: {user.id}\n"
+            f"Son tarih (30 iş günü): {due_str}\n\nNot:\n{body.note or '-'}",
+        )
+    return _deletion_view(record)

@@ -124,11 +124,11 @@
 
 <div class="header">
   <div class="container">
-    <div class="badge">Operasyonel Politika · Sürüm 1.0</div>
+    <div class="badge">Operasyonel Politika · Sürüm 1.2</div>
     <h1>Veri Saklama ve İmha Politikası</h1>
     <p class="meta">
       <span>📅 Yürürlük: 2 Temmuz 2026</span>
-      <span>📄 Sürüm: 1.0</span>
+      <span>📄 Sürüm: 1.2</span>
       <span>⚖️ KVKK md.7 ve ilgili mevzuat uyarınca</span>
     </p>
   </div>
@@ -290,25 +290,25 @@
       </tr>
       <tr>
         <td rowspan="3"><strong>İşlem Güvenliği</strong></td>
-        <td>Audit log (<code>audit_log</code>)</td>
-        <td><strong>10 yıl</strong></td>
-        <td>Log kaydı oluşturma</td>
-        <td>Silme veya toplu anonimleştirme</td>
-        <td>TTK md.82, TBK md.146</td>
+        <td>Audit log (<code>audit_log</code>) — IP, operatör/konum, cihaz bilgisi dahil</td>
+        <td>Süre öngörülmemiştir</td>
+        <td>Kullanıcının silme talebi</td>
+        <td>30 iş günü içinde tüm sunuculardan silme</td>
+        <td>KVKK md.7, md.11</td>
       </tr>
       <tr>
-        <td>Refresh token'lar</td>
-        <td>Token geçerlilik süresi + 30 gün</td>
+        <td>Refresh token'lar / giriş geçmişi (IP, operatör/konum, cihaz bilgisi)</td>
+        <td>Token geçerlilik süresi + 30 gün; giriş geçmişi talep üzerine 30 iş günü içinde silinir</td>
         <td>Token süresi dolumu / iptali</td>
         <td>Silme</td>
         <td>KVKK md.7</td>
       </tr>
       <tr>
-        <td>Crash raporları (<code>crash_reports</code>)</td>
-        <td><strong>2 yıl</strong></td>
-        <td>Rapor oluşturma</td>
-        <td>Silme</td>
-        <td>KVKK md.7 (amaç sınırlaması)</td>
+        <td>Crash raporları (<code>crash_reports</code>) — IP, operatör/konum, cihaz bilgisi dahil</td>
+        <td>Süre öngörülmemiştir</td>
+        <td>Kullanıcının silme talebi</td>
+        <td>30 iş günü içinde tüm sunuculardan silme</td>
+        <td>KVKK md.7, md.11</td>
       </tr>
       <tr>
         <td><strong>Push Bildirimleri</strong></td>
@@ -416,9 +416,7 @@
     <tbody>
       <tr><td><code>cleanup_locations</code></td><td>Saatte bir</td><td>30 günden eski <code>user_locations</code> kayıtları</td></tr>
       <tr><td><code>cleanup_expired_tokens</code></td><td>Günde bir</td><td>Süresi dolmuş refresh token ve password reset token'lar</td></tr>
-      <tr><td><code>cleanup_old_logs</code></td><td>Ayda bir</td><td>10 yıldan eski audit log kayıtları</td></tr>
-      <tr><td><code>cleanup_crash_reports</code></td><td>Haftada bir</td><td>2 yıldan eski crash raporları</td></tr>
-      <tr><td><code>cleanup_expired_exchanges</code></td><td>Saatte bir</td><td>14 günden eski bekleyen/askıdaki takas talepleri</td></tr>
+                  <tr><td><code>cleanup_expired_exchanges</code></td><td>Saatte bir</td><td>14 günden eski bekleyen/askıdaki takas talepleri</td></tr>
     </tbody>
   </table>
 
@@ -477,11 +475,11 @@
     <li>Veri Sorumluları Sicili Hakkında Yönetmelik</li>
   </ul>
   <p>Politika, yılda en az bir kez gözden geçirilir ve gerektiğinde güncellenir. Değişiklikler, Politika sürüm numarasının artırılmasıyla kayıt altına alınır.</p>
-  <p>Son güncelleme: <strong>2 Temmuz 2026</strong> · Sürüm 1.0</p>
+  <p>Son güncelleme: <strong>26 Eylül 2026</strong> · Sürüm 1.2</p>
 </section>
 
 <div style="background:var(--primary); color:#fff; padding:20px; border-radius:var(--radius); margin-top:16px; text-align:center;">
-  <p style="margin:0; font-size:.85rem; opacity:.9;">Son güncelleme: 2 Temmuz 2026 · Sürüm 1.0</p>
+  <p style="margin:0; font-size:.85rem; opacity:.9;">Son güncelleme: 26 Eylül 2026 · Sürüm 1.2</p>
   <p style="margin:8px 0 0; font-size:.8rem; opacity:.7;">© 2026 MeetBook — Bu politika KVKK ve ilgili mevzuata uygun olarak hazırlanmıştır.</p>
 </div>
 

@@ -344,6 +344,16 @@ export default function SettingsScreen() {
             <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
             <TouchableOpacity
               style={styles.row}
+              onPress={() => router.push('/settings/data-deletion' as any)}
+              activeOpacity={0.6}
+              testID="settings-data-deletion"
+            >
+              <Text style={[styles.rowLabel, { color: colors.text }]}>Verilerimin silinmesini iste</Text>
+              <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+            </TouchableOpacity>
+            <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
+            <TouchableOpacity
+              style={styles.row}
               onPress={() => router.push('/settings/delete-account' as any)}
               activeOpacity={0.6}
             >

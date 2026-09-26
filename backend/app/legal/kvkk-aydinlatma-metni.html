@@ -119,9 +119,9 @@
 
 <div class="header">
   <div class="container">
-    <div class="badge">KVKK Aydınlatma Metni · Sürüm 1.0</div>
+    <div class="badge">KVKK Aydınlatma Metni · Sürüm 1.2</div>
     <h1>Kişisel Verilerin İşlenmesine İlişkin Aydınlatma Metni</h1>
-    <p class="meta">6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) uyarınca hazırlanmıştır · 2 Temmuz 2026</p>
+    <p class="meta">6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) uyarınca hazırlanmıştır · 26 Eylül 2026</p>
   </div>
 </div>
 
@@ -156,7 +156,7 @@
       <tr><td><strong>İletişim Verileri</strong></td><td>E-posta adresi, telefon numarası (isteğe bağlı)</td></tr>
       <tr><td><strong>Konum Verileri</strong></td><td>Kitap gerçek konumu (gizli), kitap genel konumu (bulanık — ~1 km²), buluşma konumları, güvenlik modu konumu (isteğe bağlı, 30 gün)</td></tr>
       <tr><td><strong>Kullanıcı İçerik Verileri</strong></td><td>Profil fotoğrafı, kitap fotoğrafları, kitap bilgileri, mesaj içerikleri, değerlendirme ve yorumlar, istek listesi</td></tr>
-      <tr><td><strong>İşlem Güvenliği Verileri</strong></td><td>IP adresi, cihaz bilgisi, eylem günlükleri (audit log), token bilgileri, crash raporları</td></tr>
+      <tr><td><strong>İşlem Güvenliği ve Cihaz Verileri</strong></td><td>IP adresi ve bu adresten sunucularımızda belirlenen yaklaşık konum (şehir, ülke) ile internet servis sağlayıcısı (operatör), cihaz bilgileri (marka, model, model kodu, işletim sistemi ve sürümü, uygulama sürümü, cihaz tanımlayıcısı, cihaz adı, dil ve saat dilimi), oturum ve giriş geçmişi, eylem günlükleri (audit log), hata (crash) raporları, oturum (token) bilgileri</td></tr>
       <tr><td><strong>İşlem ve Takas Verileri</strong></td><td>Takas talepleri, ödünç süreçleri, kitap kullanım geçmişi</td></tr>
       <tr><td><strong>Güven Puanı Verileri</strong></td><td>Puan bileşenleri, kefillik bilgileri</td></tr>
       <tr><td><strong>Hukuki İşlem Verileri</strong></td><td>Şikayet/rapor kayıtları, yasaklama/uzaklaştırma kayıtları</td></tr>
@@ -180,7 +180,7 @@
       <tr><td>Güven puanı hesaplama ve profil oluşturma</td><td>Meşru menfaat (f)</td></tr>
       <tr><td>Platform güvenliği ve dolandırıcılık tespiti</td><td>Meşru menfaat (f), Hukuki yükümlülük (ç)</td></tr>
       <tr><td>Hukuki yükümlülüklerin yerine getirilmesi (KVKK, TTK, TBK)</td><td>Hukuki yükümlülük (ç)</td></tr>
-      <tr><td>Uygulama hata ayıklama ve performans iyileştirme</td><td>Meşru menfaat (f)</td></tr>
+      <tr><td>Hesabınızın ve Platform'un güvenliğinin sağlanması ile cihazınızda oluşan hataların daha hızlı tespit edilip düzeltilmesi (IP, operatör, konum, cihaz ve oturum verileri, hata raporları)</td><td>Meşru menfaat (f)</td></tr>
       <tr><td>Push bildirim gönderimi</td><td>Sözleşmenin ifası (c), Açık rıza (1)*</td></tr>
       <tr><td>Profil fotoğrafı yükleme</td><td>Açık rıza (1)*</td></tr>
       <tr><td>Güvenlik modu konum takibi</td><td>Açık rıza (1)*</td></tr>
@@ -203,6 +203,8 @@
     <li><strong>Adli ve İdari Makamlar:</strong> Hukuki yükümlülükler gereği, talep edilmesi hâlinde</li>
   </ul>
 
+  <p><strong>IP adresiniz üçüncü kişilere aktarılmaz.</strong> IP adresinizden yaklaşık konum ve operatör bilgisi, kendi sunucularımızda bulunan çevrimdışı bir veritabanı (DB-IP) ile belirlenir.</p>
+
   <h3>Yurt Dışı Aktarımlar:</h3>
   <table>
     <thead>
@@ -221,7 +223,7 @@
   <p>Kişisel verileriniz, aşağıdaki yöntemlerle toplanmaktadır:</p>
   <ul>
     <li>Kayıt formu ve profil düzenleme ekranları aracılığıyla doğrudan sizin tarafınızdan,</li>
-    <li>Platform'u kullanımınız sırasında otomatik olarak (IP adresi, cihaz bilgisi, audit log),</li>
+    <li>Platform'u kullanımınız sırasında otomatik olarak (IP adresi, operatör ve yaklaşık konum, cihaz bilgisi, giriş geçmişi, audit log, hata raporları),</li>
     <li>Mobil cihazınızdaki GPS, kamera ve depolama izinleri aracılığıyla,</li>
     <li>Üçüncü taraf API'ler (Open Library) aracılığıyla dolaylı olarak.</li>
   </ul>
@@ -238,11 +240,11 @@
       <tr><td>Kimlik ve iletişim verileri</td><td>Hesap aktif + 1 yıl</td></tr>
       <tr><td>Konum (güvenlik modu)</td><td>30 gün (otomatik silinir)</td></tr>
       <tr><td>Takas/ödünç kayıtları</td><td>10 yıl</td></tr>
-      <tr><td>Eylem günlükleri (audit log)</td><td>10 yıl</td></tr>
-      <tr><td>Crash raporları</td><td>2 yıl</td></tr>
+      <tr><td>İşlem güvenliği ve cihaz verileri (IP, operatör, konum, cihaz bilgisi, giriş geçmişi, eylem günlükleri, hata raporları)</td><td>Belirli bir süre öngörülmemiştir; talebiniz üzerine en geç 30 iş günü içinde tüm sunuculardan silinir</td></tr>
       <tr><td>KVKK onay kayıtları</td><td>10 yıl</td></tr>
     </tbody>
   </table>
+  <p>Bu veriler için belirli bir saklama süresi öngörülmemiştir. Uygulama içinden <strong>Ayarlar → Verilerimin silinmesini iste</strong> adımıyla silme talebi gönderebilirsiniz; talebiniz üzerine bu veriler <strong>en geç 30 iş günü içinde tüm sunucularımızdan silinir</strong>.</p>
   <p>Detaylı saklama süreleri için <a href="/legal/gizlilik-politikasi#bolum-8">Gizlilik Politikası Bölüm 8</a>'e bakınız.</p>
 </section>
 
@@ -260,7 +262,8 @@
     <li>İşlenen verilerin münhasıran otomatik sistemlerle analiz edilmesi suretiyle aleyhinize sonuç doğmasına itiraz etme,</li>
     <li>Verilerinizin kanuna aykırı işlenmesi sebebiyle zarara uğramanız hâlinde zararın giderilmesini talep etme.</li>
   </ol>
-  <p>Bu haklarınızı kullanmak için <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine e-posta gönderebilir veya <a href="/legal/veri-sahibi-basvuru">Veri Sahibi Başvuru Formu</a>'nu doldurabilirsiniz. Talepleriniz 30 gün içinde ücretsiz olarak yanıtlanır.</p>
+  <p><strong>Uygulama içinden silme talebi:</strong> Ayarlar → <strong>Verilerimin silinmesini iste</strong> ekranından tek dokunuşla silme talebi gönderebilirsiniz. Talebiniz kayda alınır ve verileriniz en geç <strong>30 iş günü</strong> içinde tüm sunucularımızdan silinir.</p>
+  <p>Bu haklarınızı kullanmak için ayrıca <a href="mailto:support@meetbook.com">support@meetbook.com</a> adresine e-posta gönderebilir veya <a href="/legal/veri-sahibi-basvuru">Veri Sahibi Başvuru Formu</a>'nu doldurabilirsiniz. Talepleriniz 30 gün içinde ücretsiz olarak yanıtlanır.</p>
 
   <div class="highlight-box">
     <strong>KVKK'ya Şikayet Hakkı:</strong> Başvurunuzun reddedilmesi, eksik/ yetersiz yanıtlanması veya süresinde yanıtlanmaması hâlinde, KVKK Kurulu'na şikâyette bulunabilirsiniz. Detaylı bilgi: <a href="https://www.kvkk.gov.tr" target="_blank" rel="noopener">www.kvkk.gov.tr</a>
@@ -274,7 +277,7 @@
 </section>
 
 <div style="background:var(--primary); color:#fff; padding:20px; border-radius:var(--radius); margin-top:16px; text-align:center;">
-  <p style="margin:0; font-size:.85rem; opacity:.9;">Son güncelleme: 2 Temmuz 2026 · Sürüm 1.0</p>
+  <p style="margin:0; font-size:.85rem; opacity:.9;">Son güncelleme: 26 Eylül 2026 · Sürüm 1.2</p>
   <p style="margin:8px 0 0; font-size:.8rem; opacity:.7;">© 2026 MeetBook · 6698 sayılı KVKK uyarınca hazırlanmıştır</p>
   <p style="margin-top:8px;"><a href="/legal/gizlilik-politikasi" style="color:#e2b714; font-size:.85rem;">Tam Gizlilik Politikası</a></p>
 </div>
@@ -282,7 +285,7 @@
 </div>
 
 <div class="footer container">
-  <p><strong>MeetBook</strong> · KVKK Aydınlatma Metni Sürüm 1.0 · 2 Temmuz 2026</p>
+  <p><strong>MeetBook</strong> · KVKK Aydınlatma Metni Sürüm 1.2 · 26 Eylül 2026</p>
   <p><a href="/legal/gizlilik-politikasi">Gizlilik Politikası</a> · <a href="/legal/kullanim-kosullari">Kullanım Koşulları</a> · <a href="/legal/cerez-politikasi">Çerez Politikası</a> · <a href="/legal/kotuye-kullanim-ve-dolandiricilikla-mucadele-politikasi">Kötüye Kullanım Politikası</a></p>
 </div>
 

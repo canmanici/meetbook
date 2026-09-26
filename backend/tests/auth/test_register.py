@@ -3,6 +3,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.policy import current_policy_version
 from app.modules.auth.models import User
 
 
@@ -102,4 +103,4 @@ async def test_register_sets_kvkk_and_verifies_email(
     user = result.scalar_one()
     assert user.email_verified_at is not None
     assert user.kvkk_consent_at is not None
-    assert user.kvkk_policy_version == "1.0"
+    assert user.kvkk_policy_version == current_policy_version()

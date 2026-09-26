@@ -177,11 +177,11 @@
 <!-- ========== HEADER ========== -->
 <div class="header">
   <div class="container">
-    <div class="badge">Yasal Belge · Sürüm 1.0</div>
+    <div class="badge">Yasal Belge · Sürüm 1.2</div>
     <h1>Gizlilik Politikası</h1>
     <p class="meta">
       <span>📅 Yürürlük Tarihi: 2 Temmuz 2026</span>
-      <span>📄 Sürüm: 1.0</span>
+      <span>📄 Sürüm: 1.2</span>
       <span>⚖️ KVKK'ya uygun olarak hazırlanmıştır</span>
     </p>
   </div>
@@ -292,11 +292,11 @@
   <h3>3.4. İşlem Güvenliği Verileri</h3>
   <p>Platform'un güvenliğini sağlamak ve hukuki yükümlülükleri yerine getirmek için işlenen veriler:</p>
   <ul>
-    <li><strong>IP Adresi</strong> — Her API isteğinde otomatik olarak kaydedilir. Audit log'larında saklanır. Kişisel veri olarak kabul edilir.</li>
-    <li><strong>Cihaz Bilgisi</strong> — Platform, OS sürümü, model, bellek miktarı, emülatör durumu (yalnızca çökme raporlarında).</li>
+    <li><strong>IP Adresi, Operatör ve Yaklaşık Konum</strong> — Giriş, kayıt, oturum yenileme ve hata raporlarında gerçek IP adresiniz kaydedilir. Bu adresten şehir/ülke düzeyinde yaklaşık konum ve internet servis sağlayıcısı (operatör) bilgisi, kendi sunucularımızdaki çevrimdışı bir veritabanıyla (DB-IP) belirlenir; IP adresiniz üçüncü kişilere gönderilmez.</li>
+    <li><strong>Cihaz Bilgisi</strong> — Marka, üretici, model adı ve model kodu, işletim sistemi, sürümü ve build bilgisi, uygulama sürümü, cihaz tanımlayıcısı, cihaz adı, bellek, işlemci mimarisi, ekran çözünürlüğü, dil ve saat dilimi. Giriş ve oturum kayıtlarıyla hata raporlarında saklanır.</li>
     <li><strong>Kullanıcı Ajanı (User-Agent)</strong> — Tarayıcı/istemci tanımlama bilgisi, audit log'larında saklanır.</li>
     <li><strong>Eylem Günlükleri (Audit Log)</strong> — Kayıt, giriş, çıkış, şifre sıfırlama, hesap silme gibi kritik işlemlerin zaman damgalı kayıtları. <strong>Bir veri ihlali durumunda 72 saat içinde KVKK'ya bildirim yükümlülüğümüzü yerine getirmek için yapılandırılmıştır.</strong></li>
-    <li><strong>Yenileme Token'ları (Refresh Token)</strong> — Cihaz bilgisi, oluşturma/son geçerlilik/iptal zaman damgaları, aile kimliği ve döngü tespiti için kullanılır.</li>
+    <li><strong>Yenileme Token'ları (Refresh Token) / Giriş Geçmişi</strong> — Her oturum için IP adresi, operatör ve yaklaşık konum, cihaz bilgisi, oluşturma/son geçerlilik/iptal zaman damgaları; hesabınıza hangi cihaz ve ağlardan girildiğini görebilmek ve şüpheli girişleri tespit etmek için kullanılır.</li>
     <li><strong>Şifre Sıfırlama Token'ları</strong> — Hash'lenmiş olarak, 15 dakika geçerlilik süresiyle saklanır.</li>
     <li><strong>Push Bildirim Token'ları</strong> — Expo Push Notification servisi için kullanılan token. Platform (Android/iOS) ve cihaz ID'si ile birlikte saklanır.</li>
   </ul>
@@ -405,13 +405,13 @@
         <td>Meşru menfaat (md.5/2-f), Sözleşmenin ifası</td>
       </tr>
       <tr>
-        <td>IP Adresi</td>
-        <td>Güvenlik, dolandırıcılık tespiti, hukuki yükümlülükler, audit log</td>
+        <td>IP Adresi, Operatör, Yaklaşık Konum</td>
+        <td>Hesap ve Platform güvenliği, dolandırıcılık ve şüpheli giriş tespiti, hukuki yükümlülükler, audit log</td>
         <td>Hukuki yükümlülük (md.5/2-ç), Meşru menfaat (md.5/2-f)</td>
       </tr>
       <tr>
-        <td>Cihaz Bilgisi / Crash Raporları</td>
-        <td>Hata ayıklama, uygulama kararlılığı, performans iyileştirme</td>
+        <td>Cihaz Bilgisi / Giriş Geçmişi / Crash Raporları</td>
+        <td>Güvenlik ve cihazınızda oluşan hataların daha hızlı tespit edilip düzeltilmesi</td>
         <td>Meşru menfaat (md.5/2-f)</td>
       </tr>
       <tr>
@@ -775,7 +775,7 @@
       </tr>
       <tr>
         <td><strong>Otomatik Toplama</strong></td>
-        <td>IP adresi, cihaz bilgisi, işlem zaman damgaları, crash raporları, audit log kayıtları — kullanıcı etkileşimi sırasında otomatik olarak toplanır.</td>
+        <td>IP adresi, operatör ve yaklaşık konum, cihaz bilgisi, giriş geçmişi, işlem zaman damgaları, crash raporları, audit log kayıtları — kullanıcı etkileşimi sırasında otomatik olarak toplanır.</td>
       </tr>
       <tr>
         <td><strong>Kullanıcı İçerikleri</strong></td>
@@ -857,22 +857,10 @@
         <td>TBK md.146</td>
       </tr>
       <tr>
-        <td>Eylem Günlükleri (Audit Log)</td>
-        <td><strong>10 (on) yıl</strong></td>
-        <td>Kalıcı silme veya toplu anonimleştirme</td>
-        <td>TTK md.82, TBK md.146</td>
-      </tr>
-      <tr>
-        <td>IP Adresi / Cihaz Bilgisi</td>
-        <td>Audit log ile birlikte 10 (on) yıl</td>
-        <td>Log ile birlikte silinir</td>
-        <td>TTK md.82</td>
-      </tr>
-      <tr>
-        <td>Crash Raporları</td>
-        <td><strong>2 (iki) yıl</strong></td>
-        <td>Kalıcı silme</td>
-        <td>KVKK md.7 (amaç sınırlı saklama)</td>
+        <td>Eylem Günlükleri (Audit Log), IP Adresi, Operatör ve Konum, Cihaz Bilgisi, Giriş Geçmişi, Crash Raporları</td>
+        <td>Belirli bir süre öngörülmemiştir</td>
+        <td>Kullanıcının silme talebi üzerine (Ayarlar → Verilerimin silinmesini iste) en geç <strong>30 iş günü</strong> içinde tüm sunuculardan kalıcı silme</td>
+        <td>KVKK md.7, md.11</td>
       </tr>
       <tr>
         <td>Push Notification Token'ları</td>
@@ -1241,7 +1229,7 @@
   </table>
 
   <div style="background:var(--primary); color:#fff; padding:20px; border-radius:var(--radius); margin-top:24px; text-align:center;">
-    <p style="margin:0; font-size:.9rem; opacity:.9;">Son güncelleme: 2 Temmuz 2026 · Sürüm 1.0</p>
+    <p style="margin:0; font-size:.9rem; opacity:.9;">Son güncelleme: 26 Eylül 2026 · Sürüm 1.2</p>
     <p style="margin:8px 0 0; font-size:.85rem; opacity:.7;">© 2026 MeetBook — Bu politika KVKK'ya uygun olarak hazırlanmıştır.</p>
   </div>
   <div class="back-to-top"><a href="#">↑ Başa dön</a></div>
@@ -1250,7 +1238,7 @@
 </div>
 
 <div class="footer container">
-  <p><strong>MeetBook</strong> · Gizlilik Politikası Sürüm 1.0 · 2 Temmuz 2026</p>
+  <p><strong>MeetBook</strong> · Gizlilik Politikası Sürüm 1.2 · 26 Eylül 2026</p>
   <p>KVKK'ya uygun olarak hazırlanmıştır · 6698 sayılı Kişisel Verilerin Korunması Kanunu</p>
   <p style="margin-top:8px;"><a href="/legal/kullanim-kosullari">Kullanım Koşulları</a> · <a href="/legal/kvkk-aydinlatma-metni">KVKK Aydınlatma Metni</a> · <a href="/legal/cerez-politikasi">Çerez Politikası</a> · <a href="/legal/kotuye-kullanim-ve-dolandiricilikla-mucadele-politikasi">Kötüye Kullanım Politikası</a></p>
 </div>
