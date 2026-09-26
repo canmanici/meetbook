@@ -233,7 +233,9 @@ async def new_users(
         first = first_tokens.get(u.id)
         device = (first.device_info or None) if first else None
         net = (
-            (first.client or {}).get("network") if first and isinstance(first.client, dict) else None
+            (first.client or {}).get("network")
+            if first and isinstance(first.client, dict)
+            else None
         ) or None
         items.append(
             NewUserItem(
