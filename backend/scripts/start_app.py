@@ -250,6 +250,9 @@ def start_uvicorn() -> None:
         host=host,
         port=port,
         reload=reload,
+        # Only meaningful with reload — passing it in production made uvicorn
+        # log "Current configuration will not reload as not all conditions
+        # are met" on every boot.
         reload_excludes=[
             ".venv",
             "**/.venv/**",
@@ -261,7 +264,9 @@ def start_uvicorn() -> None:
             "**/.git/**",
             ".pytest_cache",
             "**/.pytest_cache/**",
-        ],
+        ]
+        if reload
+        else None,
         log_level="info" if settings.env != "local" else "debug",
     )
 

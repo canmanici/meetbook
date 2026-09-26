@@ -1272,7 +1272,11 @@ const state = {
 
 // ─── API Client ────────────────────────────────────────────────
 const API = (() => {
-  const base = `${window.location.protocol}//${window.location.hostname}:8000/api/v1`;
+  // Same origin as the page, under whatever prefix the panel is served from:
+  // dev  http://host:8000/admin/index.html         → http://host:8000/api/v1
+  // prod https://canmanici.com/meetbook/admin/…    → https://canmanici.com/meetbook/api/v1
+  const prefix = window.location.pathname.split('/admin')[0];
+  const base = `${window.location.origin}${prefix}/api/v1`;
   const adminBase = `${base}/admin`;
 
   async function request(path, opts = {}) {
