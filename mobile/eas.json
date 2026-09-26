@@ -9,7 +9,8 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "http://192.168.8.199:8000/api/v1",
-        "EXPO_PUBLIC_MAPTILER_KEY": "eKJft93A5dolP425TPfm"
+        "EXPO_PUBLIC_MAPTILER_KEY": "eKJft93A5dolP425TPfm",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "500347984793-74ed4mctraaf6gqg28307shngbt1krr1.apps.googleusercontent.com"
       }
     },
     "preview": {
@@ -19,7 +20,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://canmanici.com/meetbook/api/v1",
-        "EXPO_PUBLIC_MAPTILER_KEY": "eKJft93A5dolP425TPfm"
+        "EXPO_PUBLIC_MAPTILER_KEY": "eKJft93A5dolP425TPfm",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "500347984793-74ed4mctraaf6gqg28307shngbt1krr1.apps.googleusercontent.com"
       }
     },
     "production": {
@@ -28,7 +30,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://canmanici.com/meetbook/api/v1",
-        "EXPO_PUBLIC_MAPTILER_KEY": "eKJft93A5dolP425TPfm"
+        "EXPO_PUBLIC_MAPTILER_KEY": "eKJft93A5dolP425TPfm",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "500347984793-74ed4mctraaf6gqg28307shngbt1krr1.apps.googleusercontent.com"
       }
     },
     "production-apk": {
@@ -37,7 +40,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://canmanici.com/meetbook/api/v1",
-        "EXPO_PUBLIC_MAPTILER_KEY": "eKJft93A5dolP425TPfm"
+        "EXPO_PUBLIC_MAPTILER_KEY": "eKJft93A5dolP425TPfm",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "500347984793-74ed4mctraaf6gqg28307shngbt1krr1.apps.googleusercontent.com"
       }
     }
   },
