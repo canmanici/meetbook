@@ -60,6 +60,9 @@ export interface BBoxParams {
   condition?: string;
   q?: string;
   limit?: number;
+  /** User position — distances are measured from here instead of the viewport center. */
+  origin_lat?: number;
+  origin_lng?: number;
 }
 
 export interface ClusterPoint {
@@ -70,6 +73,8 @@ export interface ClusterPoint {
   front_thumbnail_url: string | null;
   front_title: string;
   categories: string[];
+  /** Member books of the shelf (full data, for preview/spiderfy). */
+  books?: BookSearchResult[];
 }
 
 export interface ClusterResponse {

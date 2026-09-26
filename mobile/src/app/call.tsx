@@ -81,6 +81,7 @@ export default function CallScreen() {
 
   const status = useCallStore((s) => s.status);
   const kind = useCallStore((s) => s.kind);
+  const remoteRinging = useCallStore((s) => s.remoteRinging);
   const peer = useCallStore((s) => s.peer);
   const endReason = useCallStore((s) => s.endReason);
   const isMuted = useCallStore((s) => s.isMuted);
@@ -152,7 +153,7 @@ export default function CallScreen() {
   const showLocalVideo = kind === 'video' && localStream && isCameraOn && RTCView;
 
   const statusText =
-    status === 'outgoing' ? 'Aranıyor…'
+    status === 'outgoing' ? (remoteRinging ? 'Çalıyor…' : 'Aranıyor…')
     : status === 'incoming' ? (kind === 'video' ? 'Gelen görüntülü arama' : 'Gelen sesli arama')
     : status === 'connecting' ? 'Bağlanıyor…'
     : status === 'active' && startedAt ? formatDuration(startedAt, now)

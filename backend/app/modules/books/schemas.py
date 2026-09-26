@@ -167,6 +167,9 @@ class ClusterPoint(BaseModel):
     front_thumbnail_url: str | None = None
     front_title: str
     categories: list[str]
+    # Member books, so a shelf can be opened/spiderfied without them having
+    # to appear in the (limited, possibly differently-scoped) list query.
+    books: list["BookSearchResult"] = []
 
 
 class ClusterResponse(BaseModel):

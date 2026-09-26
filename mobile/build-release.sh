@@ -84,7 +84,7 @@ import json
 p = 'app.json'
 d = json.load(open(p))
 d['expo']['version'] = '$VERSION'
-json.dump(d, open(p, 'w'), indent=2)
+f = open(p, 'w'); json.dump(d, f, indent=2); f.write('\\n')  # keep end-of-file-fixer happy
 "
 
 echo "🔨 MeetBook v$VERSION — Production APK Build"

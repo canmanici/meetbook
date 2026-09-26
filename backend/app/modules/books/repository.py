@@ -22,6 +22,27 @@ from app.modules.exchanges.models import Block
 from app.modules.ratings.models import Rating
 
 
+# Turkish-aware, accent-insensitive text matching. Postgres' ILIKE (en_US
+# collation) does not fold ı/İ against I/i, so "ırmak" never matched "IRMAK";
+# users also routinely type "seker" for "şeker". Fold both sides the same way.
+_TR_FROM = "ıİşŞçÇöÖüÜğĞ"
+_TR_TO = "iissccoouugg"
+_TR_TABLE = str.maketrans(_TR_FROM, _TR_TO)
+
+
+def _text_match(q: str) -> ColumnElement[bool]:
+    """title/author contains q — LIKE wildcards escaped, Turkish folded."""
+    folded = q.translate(_TR_TABLE)
+    escaped = folded.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    pattern = f"%{escaped}%"
+    return or_(
+        func.translate(Book.title, _TR_FROM, _TR_TO).ilike(pattern, escape="\\"),
+        func.translate(func.coalesce(Book.author, ""), _TR_FROM, _TR_TO).ilike(
+            pattern, escape="\\"
+        ),
+    )
+
+
 @dataclass
 class BookSearchRow:
     book: Book
@@ -65,6 +86,8 @@ def decode_ts_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
 
 
 class BookRepository:
+    MAX_CLUSTER_ROWS = 1000
+
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
@@ -282,8 +305,7 @@ class BookRepository:
         if condition:
             conditions.append(Book.condition == condition)
         if q:
-            pattern = f"%{q}%"
-            conditions.append(or_(Book.title.ilike(pattern), Book.author.ilike(pattern)))
+            conditions.append(_text_match(q))
 
         if current_user_id is not None:
             conditions.append(
@@ -363,11 +385,13 @@ class BookRepository:
         limit: int,
         current_user_id: uuid.UUID | None = None,
         cursor: str | None = None,
+        origin: tuple[float, float] | None = None,
     ) -> list[BookSearchRow]:
         pub = cast(Book.public_location, Geometry)
         envelope = func.ST_MakeEnvelope(min_lng, min_lat, max_lng, max_lat, 4326)
-        center_lat = (min_lat + max_lat) / 2
-        center_lng = (min_lng + max_lng) / 2
+        # Distances are "from the user" when the client sends its position —
+        # the viewport center is only a fallback (it's not where anyone is).
+        center_lat, center_lng = origin or ((min_lat + max_lat) / 2, (min_lng + max_lng) / 2)
         center_wkt = f"SRID=4326;POINT({center_lng} {center_lat})"
 
         distance_col = func.ST_Distance(
@@ -424,8 +448,7 @@ class BookRepository:
         if condition:
             stmt = stmt.where(Book.condition == condition)
         if q:
-            pattern = f"%{q}%"
-            stmt = stmt.where(or_(Book.title.ilike(pattern), Book.author.ilike(pattern)))
+            stmt = stmt.where(_text_match(q))
 
         if current_user_id is not None:
             stmt = stmt.where(
@@ -497,6 +520,7 @@ class BookRepository:
         q: str | None,
         limit: int,
         current_user_id: uuid.UUID | None = None,
+        origin: tuple[float, float] | None = None,
     ) -> tuple[list[dict[str, Any]], list[BookSearchRow]]:
         """Return (clusters, singletons)."""
         pub = cast(Book.public_location, Geometry)
@@ -514,8 +538,7 @@ class BookRepository:
         if condition:
             base_filters.append(Book.condition == condition)
         if q:
-            pattern = f"%{q}%"
-            base_filters.append(or_(Book.title.ilike(pattern), Book.author.ilike(pattern)))
+            base_filters.append(_text_match(q))
 
         block_filter = None
         if current_user_id is not None:
@@ -556,9 +579,9 @@ class BookRepository:
             .label("owner_rating_count")
         )
 
-        # Distance from the viewport center (consistent with search_bbox).
-        center_lat = (min_lat + max_lat) / 2
-        center_lng = (min_lng + max_lng) / 2
+        # Distance from the user when known, else the viewport center
+        # (consistent with search_bbox).
+        center_lat, center_lng = origin or ((min_lat + max_lat) / 2, (min_lng + max_lng) / 2)
         center_wkt = f"SRID=4326;POINT({center_lng} {center_lat})"
         distance_col = func.ST_Distance(
             Book.public_location, func.ST_GeogFromText(center_wkt)
@@ -585,6 +608,15 @@ class BookRepository:
             .join(User, User.id == Book.owner_id)
             .where(*base_filters)
         )
+        # Bound the DBSCAN input: the window function runs over every matching
+        # row before any LIMIT, so a dense viewport clustered everything.
+        capped_ids = select(Book.id).where(*base_filters)
+        if block_filter is not None:
+            capped_ids = capped_ids.where(block_filter)
+        capped_ids = capped_ids.order_by(
+            func.ST_Distance(Book.public_location, func.ST_GeogFromText(center_wkt))
+        ).limit(self.MAX_CLUSTER_ROWS)
+        stmt = stmt.where(Book.id.in_(capped_ids.scalar_subquery()))
         if block_filter is not None:
             stmt = stmt.where(block_filter)
         result = await self.session.execute(stmt)
@@ -605,12 +637,12 @@ class BookRepository:
         singletons = []
         for cid, items in groups.items():
             if len(items) == 1:
-                book, loc, _distance_m, owner = items[0]
+                book, loc, distance_m, owner = items[0]
                 singletons.append(
                     BookSearchRow(
                         book=book,
                         public_location=loc,
-                        distance_m=0.0,
+                        distance_m=distance_m,
                         owner=owner,
                     )
                 )
@@ -636,6 +668,12 @@ class BookRepository:
                         "front_title": front_book.title,
                         "categories": categories,
                         "front_book_id": front_book.id,
+                        # Full member rows so the client can open/spiderfy
+                        # a shelf without the books being in its list query.
+                        "rows": [
+                            BookSearchRow(book=b, public_location=loc, distance_m=d, owner=o)
+                            for b, loc, d, o in items
+                        ],
                     }
                 )
 

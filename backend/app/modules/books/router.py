@@ -85,9 +85,12 @@ async def search_books_bbox(
     q: str | None = Query(default=None, max_length=100),
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
+    origin_lat: float | None = Query(default=None, ge=-90, le=90),
+    origin_lng: float | None = Query(default=None, ge=-180, le=180),
     user: User = Depends(get_current_user),
     service: BookService = Depends(_get_service),
 ) -> BookSearchResponse:
+    origin = (origin_lat, origin_lng) if origin_lat is not None and origin_lng is not None else None
     cache_key = bbox_cache_key(
         min_lat,
         max_lat,
@@ -99,7 +102,7 @@ async def search_books_bbox(
         q,
         limit,
     )
-    cache_key = f"{cache_key}:u{user.id}"
+    cache_key = f"{cache_key}:u{user.id}:o{origin}"
 
     if not cursor and not q:
         cached = await get_cached(cache_key)
@@ -119,6 +122,7 @@ async def search_books_bbox(
             limit,
             current_user_id=user.id,
             cursor=cursor,
+            origin=origin,
         )
     except BookError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
@@ -140,9 +144,12 @@ async def search_clusters(
     condition: str | None = Query(default=None),
     q: str | None = Query(default=None, max_length=100),
     limit: int = Query(default=50, ge=1, le=500),
+    origin_lat: float | None = Query(default=None, ge=-90, le=90),
+    origin_lng: float | None = Query(default=None, ge=-180, le=180),
     user: User = Depends(get_current_user),
     service: BookService = Depends(_get_service),
 ) -> ClusterResponse:
+    origin = (origin_lat, origin_lng) if origin_lat is not None and origin_lng is not None else None
     try:
         return await service.search_clusters(
             min_lat,
@@ -155,6 +162,7 @@ async def search_clusters(
             q,
             limit,
             current_user_id=user.id,
+            origin=origin,
         )
     except BookError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

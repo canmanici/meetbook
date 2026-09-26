@@ -332,6 +332,7 @@ class BookService:
         limit: int,
         current_user_id: uuid.UUID,
         cursor: str | None = None,
+        origin: tuple[float, float] | None = None,
     ) -> BookSearchResponse:
         if min_lat >= max_lat or min_lng >= max_lng:
             raise BookError("min must be less than max", 422)
@@ -354,6 +355,7 @@ class BookService:
             limit,
             current_user_id,
             cursor=cursor,
+            origin=origin,
         )
 
         # Batch fetch first photos so markers and cards can show cover images.
@@ -397,6 +399,7 @@ class BookService:
         q: str | None,
         limit: int,
         current_user_id: uuid.UUID,
+        origin: tuple[float, float] | None = None,
     ) -> ClusterResponse:
         lat_span = max_lat - min_lat
         lng_span = max_lng - min_lng
@@ -416,17 +419,20 @@ class BookService:
             q,
             limit,
             current_user_id,
+            origin=origin,
         )
 
-        # Batch fetch first photos for singletons so their markers/cards show covers.
-        singleton_first_photos = await self.repo.get_first_photos_batch(
-            [r.book.id for r in singleton_rows]
+        # One batch for every first photo (singletons + shelf members) instead
+        # of a query per shelf.
+        member_rows = [r for cd in cluster_dicts for r in cd["rows"]]
+        first_photos = await self.repo.get_first_photos_batch(
+            [r.book.id for r in singleton_rows] + [r.book.id for r in member_rows]
         )
+        singleton_first_photos = first_photos
 
         clusters = []
         for cd in cluster_dicts:
-            photos = await self.repo.get_photos(cd["front_book_id"])
-            front_photo = photos[0] if photos else None
+            front_photo = first_photos.get(cd["front_book_id"])
             clusters.append(
                 ClusterPoint(
                     centroid=LocationOutput(lat=cd["centroid"][0], lng=cd["centroid"][1]),
@@ -436,6 +442,7 @@ class BookService:
                     front_thumbnail_url=front_photo.thumbnail_url if front_photo else None,
                     front_title=cd["front_title"],
                     categories=cd["categories"],
+                    books=[_search_result(r, first_photos.get(r.book.id)) for r in cd["rows"]],
                 )
             )
 
@@ -453,7 +460,7 @@ class BookService:
                 condition=r.book.condition,
                 is_available=r.book.is_available,
                 public_location=LocationOutput(lat=r.public_location[0], lng=r.public_location[1]),
-                distance_km=r.distance_m / 1000.0,
+                distance_km=round(r.distance_m / 1000.0, 1),
                 photos=_to_photo_views([singleton_first_photos[r.book.id]])
                 if r.book.id in singleton_first_photos
                 else [],
@@ -961,3 +968,26 @@ async def _notify_wishlist_matches(
 
         logger = logging.getLogger(__name__)
         logger.exception("Wishlist match notification failed: %s", exc)
+
+
+def _search_result(r: Any, first_photo: Any | None) -> BookSearchResult:
+    """BookSearchRow → BookSearchResult with (at most) its first photo."""
+    return BookSearchResult(
+        id=r.book.id,
+        owner_id=r.book.owner_id,
+        owner_name=r.owner.name,
+        title=r.book.title,
+        author=r.book.author,
+        isbn=r.book.isbn,
+        description=r.book.description,
+        category=r.book.category,
+        language=r.book.language,
+        condition=r.book.condition,
+        is_available=r.book.is_available,
+        public_location=LocationOutput(lat=r.public_location[0], lng=r.public_location[1]),
+        distance_km=round(r.distance_m / 1000.0, 1),
+        photos=_to_photo_views([first_photo]) if first_photo else [],
+        created_at=r.book.created_at,
+        updated_at=r.book.updated_at,
+        owner=r.owner,
+    )

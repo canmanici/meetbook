@@ -11,6 +11,7 @@ import { usePathname, useRouter } from 'expo-router';
 
 import { useCallStore } from '@/stores/call-store';
 import { useAuthStore } from '@/stores/auth-store';
+import { useChatStore } from '@/stores/chat-store';
 import { chatWS } from '@/lib/api/chat';
 
 export function CallManager() {
@@ -26,10 +27,13 @@ export function CallManager() {
   }, [bindSignaling]);
 
   // Keep the WS alive while authenticated so incoming call offers reach us
-  // even when no chat screen is mounted.
+  // even when no chat screen is mounted; tear it down on logout so the old
+  // user's socket doesn't keep receiving events.
   useEffect(() => {
     if (authStatus === 'authenticated') {
-      chatWS.connect();
+      useChatStore.getState().connect();
+    } else if (authStatus === 'unauthenticated') {
+      useChatStore.getState().disconnect();
     }
   }, [authStatus]);
 
@@ -44,6 +48,25 @@ export function CallManager() {
     });
     return () => sub.remove();
   }, []);
+
+  // Notification taps (message → chat, missed incoming call → chat).
+  useEffect(() => {
+    if (authStatus !== 'authenticated') return;
+    let unsubscribe: (() => void) | null = null;
+    let cancelled = false;
+    void import('@/lib/push-tokens').then(async (m) => {
+      const unsub = await m.listenForNotificationTaps(
+        (exchangeId) => router.push(`/chat/${exchangeId}` as never),
+        () => useCallStore.getState().status !== 'idle',
+      );
+      if (cancelled) unsub();
+      else unsubscribe = unsub;
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [authStatus, router]);
 
   useEffect(() => {
     const inCall = status !== 'idle';

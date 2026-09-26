@@ -31,7 +31,7 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -169,6 +169,38 @@ function regionToBbox(region: Region): BBoxParams {
   };
 }
 
+// Backend /books/search-bbox and /books/clusters reject spans wider than
+// 0.45° lat / 0.6° lng. Stay just inside so a clamped radius bbox never 422s.
+const MAX_BBOX_LAT_SPAN = 0.44;
+const MAX_BBOX_LNG_SPAN = 0.59;
+const SEARCH_DEBOUNCE_MS = 350;
+// Show "Bu alanı ara" once the viewport center moved this fraction of the
+// queried span, or the zoom changed by more than this factor.
+const PILL_PAN_FRACTION = 0.25;
+const PILL_ZOOM_FACTOR = 1.6;
+
+/** Bbox enclosing a radius circle, clamped to the backend's max span. */
+function radiusToBbox(center: { lat: number; lng: number }, radiusKm: number): BBoxParams {
+  const cosLat = Math.max(0.01, Math.cos((center.lat * Math.PI) / 180));
+  const halfLat = Math.min(radiusKm / 111, MAX_BBOX_LAT_SPAN / 2);
+  const halfLng = Math.min(radiusKm / (111 * cosLat), MAX_BBOX_LNG_SPAN / 2);
+  return {
+    min_lat: center.lat - halfLat,
+    max_lat: center.lat + halfLat,
+    min_lng: center.lng - halfLng,
+    max_lng: center.lng + halfLng,
+  };
+}
+
+function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
+}
+
 function deltaToZoom(delta: number): number {
   return Math.max(0, Math.min(20, Math.log2(360 / delta)));
 }
@@ -287,10 +319,16 @@ export default function HomeScreen() {
   );
 
   // ── State ──────────────────────────────────────────────────────────────────
+  // Real GPS fix only — never a made-up fallback (that drew a fake "you are
+  // here" dot in Istanbul and measured every distance from it).
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [queryBbox, setQueryBbox] = useState<BBoxParams | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  // 'radius' = books around the user (default with GPS); 'area' = the map
+  // viewport the user explicitly searched ("Bu alanı ara", or no GPS).
+  // List AND markers always come from the same mode.
+  const [searchMode, setSearchMode] = useState<'radius' | 'area'>('area');
   const [searchText, setSearchText] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedBook, setSelectedBook] = useState<PreviewBook | null>(null);
   const [showSearchPill, setShowSearchPill] = useState(false);
   const [sheetSnapIndex, setSheetSnapIndex] = useState(DEFAULT_SNAP_INDEX);
@@ -350,24 +388,27 @@ export default function HomeScreen() {
       }
       hasSavedRegionRef.current = savedRegion !== null;
 
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      let userLoc: { lat: number; lng: number };
-      if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        userLoc = { lat: loc.coords.latitude, lng: loc.coords.longitude };
-      } else {
-        // Fallback: Istanbul center
-        userLoc = { lat: 41.0082, lng: 28.9784 };
+      let gps: { lat: number; lng: number } | null = null;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          gps = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+        }
+      } catch {
+        // GPS off / timed out — browse by map area instead.
       }
-      setUserLocation(userLoc);
-      // Use the saved viewport when available; otherwise center on the user.
+      setUserLocation(gps);
+      // Use the saved viewport when available; otherwise center on the user
+      // (or Istanbul as a neutral starting view — NOT as a fake location).
       const initialRegion: Region = savedRegion ?? {
-        latitude: userLoc.lat,
-        longitude: userLoc.lng,
+        latitude: gps?.lat ?? 41.0082,
+        longitude: gps?.lng ?? 28.9784,
         latitudeDelta: 0.15,
         longitudeDelta: 0.15,
       };
       setMapRegion(initialRegion);
+      setSearchMode(gps ? 'radius' : 'area');
       setQueryBbox(regionToBbox(initialRegion));
       lastQueriedCenterRef.current = { lat: initialRegion.latitude, lng: initialRegion.longitude };
       lastQueriedZoomRef.current = initialRegion.latitudeDelta;
@@ -441,25 +482,39 @@ export default function HomeScreen() {
     [notificationsData],
   );
 
+  // Seed the radius from the profile ONCE — a later `me` refetch must not
+  // overwrite a radius the user just picked.
+  const radiusSeededRef = useRef(false);
   useEffect(() => {
     const r = (meData as any)?.geofence_radius_km;
-    if (typeof r === 'number' && r >= 1 && r <= 200) {
+    if (!radiusSeededRef.current && typeof r === 'number' && r >= 1 && r <= 200) {
+      radiusSeededRef.current = true;
       setGeofenceRadiusKm(r);
     }
   }, [meData]);
 
-  // ── Bbox search (PRIMARY: feeds both sheet list AND markers) ──────────────
-  const filterCategory = selectedCategory ?? activeFilters.category ?? undefined;
+  // Debounce + trim the search box: every keystroke used to fire two
+  // requests and blank the list; whitespace-only input matched nothing.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchText.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchText]);
 
-  // ── Search mode: radius (location-based) vs viewport (bbox) ──────────────
-  // When the user has a known location AND has explicitly set a radius (via
-  // FilterSheet or QuickRadiusSheet), use /books/search with lat/lng/radius_km.
-  // This avoids the backend's 422 "alan çok geniş" bbox limit for large radii.
-  // Otherwise fall back to the viewport bbox query (pan/zoom mode).
-  const useRadiusMode = !!userLocation;
+  // ── Search: one mode feeds BOTH the sheet list and the markers ──────────
+  const filterCategory = activeFilters.category ?? undefined;
+  const q = debouncedSearch || undefined;
+  const origin = userLocation ? { origin_lat: userLocation.lat, origin_lng: userLocation.lng } : {};
+  const useRadiusMode = searchMode === 'radius' && !!userLocation;
+
+  // Markers/clusters bbox: the radius circle's bbox in radius mode (clamped
+  // to the backend's max span), the searched viewport in area mode.
+  const markerBbox = useMemo<BBoxParams | null>(
+    () => (useRadiusMode && userLocation ? radiusToBbox(userLocation, geofenceRadiusKm) : queryBbox),
+    [useRadiusMode, userLocation, geofenceRadiusKm, queryBbox],
+  );
 
   const radiusQuery = useQuery({
-    queryKey: ['books', 'radius', userLocation, geofenceRadiusKm, filterCategory, searchText, activeFilters.condition, activeFilters.language],
+    queryKey: ['books', 'radius', userLocation, geofenceRadiusKm, filterCategory, q, activeFilters.condition, activeFilters.language],
     queryFn: () =>
       searchNearbyBooks({
         lat: userLocation!.lat,
@@ -468,16 +523,17 @@ export default function HomeScreen() {
         category: filterCategory,
         condition: activeFilters.condition ?? undefined,
         language: activeFilters.language ?? undefined,
-        q: searchText || undefined,
+        q,
         limit: BBOX_LIMIT,
       }),
     enabled: useRadiusMode,
     staleTime: 60_000,
     retry: 1,
+    placeholderData: keepPreviousData,
   });
 
   const bboxQuery = useQuery({
-    queryKey: ['books', 'bbox', queryBbox, filterCategory, searchText, activeFilters.condition, activeFilters.language],
+    queryKey: ['books', 'bbox', queryBbox, filterCategory, q, activeFilters.condition, activeFilters.language, userLocation],
     queryFn: async () => {
       try {
         return await searchBboxBooks({
@@ -485,8 +541,9 @@ export default function HomeScreen() {
           category: filterCategory,
           condition: activeFilters.condition ?? undefined,
           language: activeFilters.language ?? undefined,
-          q: searchText || undefined,
+          q,
           limit: BBOX_LIMIT,
+          ...origin,
         });
       } catch (err: any) {
         // 422 = "Alan çok geniş" — bbox too wide, don't crash
@@ -500,45 +557,69 @@ export default function HomeScreen() {
     enabled: !useRadiusMode && !!queryBbox,
     staleTime: 60_000,
     retry: 1,
+    placeholderData: keepPreviousData,
   });
 
+  const activeListQuery = useRadiusMode ? radiusQuery : bboxQuery;
   const rawBooks = useMemo(
-    () => (useRadiusMode ? radiusQuery.data?.items : bboxQuery.data?.items) ?? [],
-    [useRadiusMode, radiusQuery.data, bboxQuery.data],
+    () => (activeListQuery.data?.items ?? []) as MapBook[],
+    [activeListQuery.data],
   );
-  const isLoading = useRadiusMode ? radiusQuery.isLoading : bboxQuery.isLoading;
+  const isLoading = activeListQuery.isLoading;
 
   // F19: Shadow block — hide books owned by shadow-blocked users so their
   // content is silently filtered from the blocker's home/search results.
-  const books = useMemo(() => {
-    if (shadowBlocked.length === 0) return rawBooks;
+  const isBlockedOwner = useMemo(() => {
     const blocked = new Set(shadowBlocked);
-    return rawBooks.filter((b) => !blocked.has(b.owner_id));
-  }, [rawBooks, shadowBlocked]);
+    return (ownerId: string) => blocked.has(ownerId);
+  }, [shadowBlocked]);
+  const books = useMemo(
+    () => (shadowBlocked.length === 0 ? rawBooks : rawBooks.filter((b) => !isBlockedOwner(b.owner_id))),
+    [rawBooks, shadowBlocked.length, isBlockedOwner],
+  );
 
-  // ── Clusters (ENHANCEMENT: shelf markers, optional — fallback to bbox books) ─
+  // In radius mode the marker bbox is a square around the circle — drop the
+  // corners so markers show exactly the books the list is about.
+  const inSearchArea = useCallback(
+    (p: { lat: number; lng: number }) =>
+      !useRadiusMode || !userLocation || distanceKm(userLocation, p) <= geofenceRadiusKm,
+    [useRadiusMode, userLocation, geofenceRadiusKm],
+  );
+
+  // ── Clusters (shelf markers + singletons) over the same search area ─────
   const clustersQuery = useQuery({
-    queryKey: ['books', 'clusters', queryBbox, filterCategory, searchText, activeFilters.condition, activeFilters.language],
+    queryKey: ['books', 'clusters', markerBbox, filterCategory, q, activeFilters.condition, activeFilters.language, userLocation],
     queryFn: () =>
       getBookClusters({
-        ...(queryBbox as BBoxParams),
+        ...(markerBbox as BBoxParams),
         category: filterCategory,
         condition: activeFilters.condition ?? undefined,
         language: activeFilters.language ?? undefined,
-        q: searchText || undefined,
+        q,
+        ...origin,
       }),
-    enabled: !!queryBbox,
+    enabled: !!markerBbox,
     staleTime: 60_000,
-    retry: 0, // don't retry — if it fails, we fall back to bbox books for markers
+    retry: 0, // don't retry — if it fails, we fall back to list books for markers
+    placeholderData: keepPreviousData,
   });
-  const clusters = useMemo(() => clustersQuery.data?.clusters ?? [], [clustersQuery.data]);
+  const clusters = useMemo(
+    () =>
+      (clustersQuery.data?.clusters ?? [])
+        .filter((c) => inSearchArea(c.centroid))
+        .map((c) => (c.books ? { ...c, books: c.books.filter((b) => !isBlockedOwner(b.owner_id)) } : c))
+        // A shelf whose every book is hidden must not render as an empty +N.
+        .filter((c) => c.books === undefined || c.books.length > 0),
+    [clustersQuery.data, inSearchArea, isBlockedOwner],
+  );
   // F19: filter shadow-blocked owners from singleton markers too.
-  const clustersSingletons = useMemo(() => {
-    const singletons = clustersQuery.data?.singletons ?? [];
-    if (shadowBlocked.length === 0) return singletons;
-    const blocked = new Set(shadowBlocked);
-    return singletons.filter((b) => !blocked.has(b.owner_id));
-  }, [clustersQuery.data, shadowBlocked]);
+  const clustersSingletons = useMemo(
+    () =>
+      (clustersQuery.data?.singletons ?? []).filter(
+        (b) => !isBlockedOwner(b.owner_id) && (!b.public_location || inSearchArea(b.public_location)),
+      ),
+    [clustersQuery.data, isBlockedOwner, inSearchArea],
+  );
   const clustersSucceeded = clustersQuery.isSuccess && clustersQuery.data !== undefined;
 
   // Markers: use clusters singletons when the clusters query succeeded (even
@@ -598,7 +679,7 @@ export default function HomeScreen() {
     });
   }, [books, sortBy]);
 
-  const showSkeletons = isLoading || ((useRadiusMode ? radiusQuery.isFetching : bboxQuery.isFetching) && books.length === 0);
+  const showSkeletons = isLoading || (activeListQuery.isFetching && books.length === 0);
 
   // ── Marker tap → preview card (spec §3.5) ──────────────────────────────────
   const handleMarkerPress = useCallback(
@@ -614,8 +695,10 @@ export default function HomeScreen() {
   const handleClusterPress = useCallback(
     (cluster: ClusterPoint) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      // Find the first book in the cluster from the sheet data
-      const firstBook = books.find((b) => cluster.book_ids.includes(b.id));
+      // The shelf carries its own member books — they need not be in the
+      // (limited) list query at all.
+      const firstBook =
+        cluster.books?.[0] ?? books.find((b) => cluster.book_ids.includes(b.id));
       if (firstBook) {
         setSelectedBook(buildPreviewBook(firstBook, favoritesStore.isFavorited(firstBook.id)));
       }
@@ -642,26 +725,25 @@ export default function HomeScreen() {
   const recenterOnUser = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Get position: use cached userLocation if available, otherwise fetch fresh
+    // Always take a fresh fix — the user may have moved since the last one.
     let lat: number;
     let lng: number;
-
-    if (userLocation) {
-      lat = userLocation.lat;
-      lng = userLocation.lng;
-    } else {
-      toast.show('Konumunuz alınıyor...', { variant: 'info' });
-      try {
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        lat = loc.coords.latitude;
-        lng = loc.coords.longitude;
-        setUserLocation({ lat, lng });
-      } catch {
-        toast.show('Konum alınamadı. GPS\'i kontrol edin.', { variant: 'error' });
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') throw new Error('permission');
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      lat = loc.coords.latitude;
+      lng = loc.coords.longitude;
+      setUserLocation({ lat, lng });
+    } catch {
+      if (!userLocation) {
+        toast.show('Konum alınamadı. GPS\'i ve konum iznini kontrol edin.', { variant: 'error' });
         return;
       }
+      lat = userLocation.lat;
+      lng = userLocation.lng;
     }
 
     if (!cameraRef.current) {
@@ -685,23 +767,13 @@ export default function HomeScreen() {
     };
     setMapRegion(newRegion);
     setQueryBbox(regionToBbox(newRegion));
+    // Back to "around me": list + markers follow the (new) location; the
+    // queries refetch on their own because the location is in their keys.
+    setSearchMode('radius');
     lastQueriedCenterRef.current = { lat, lng };
     lastQueriedZoomRef.current = newRegion.latitudeDelta;
     setShowSearchPill(false);
-
-    toast.show('Konumunuz aranıyor...', { variant: 'info' });
-
-    // Force refetch (bypass React Query cache even if bbox values are same).
-    // clustersQuery NOT refetched here — it's in the queryKey so it auto-refetches
-    // on re-render after setQueryBbox. Explicit refetch causes a race condition
-    // where the queryFn reads the stale (null) bbox → 422 on /books/clusters.
-    try {
-      await (useRadiusMode ? radiusQuery.refetch() : bboxQuery.refetch());
-    } catch {
-      // Individual query errors already have their own toasts (422 handling, etc.)
-    }
-    toast.show('Konum bulundu!', { variant: 'success' });
-  }, [userLocation, bboxQuery, radiusQuery, useRadiusMode, toast]);
+  }, [userLocation, toast]);
 
   // ── Cycle map type ─────────────────────────────────────────────────────────
   const cycleMapType = useCallback(() => {
@@ -724,6 +796,7 @@ export default function HomeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const bbox = regionToBbox(mapRegion);
     setQueryBbox(bbox);
+    setSearchMode('area');
     lastQueriedCenterRef.current = { lat: mapRegion.latitude, lng: mapRegion.longitude };
     lastQueriedZoomRef.current = mapRegion.latitudeDelta;
     setShowSearchPill(false);
@@ -735,6 +808,8 @@ export default function HomeScreen() {
     setFilterVisible(true);
   }, []);
 
+  // Category chips and the filter sheet share activeFilters.category, so the
+  // badge counts a chip-picked category too.
   const filterCount = [activeFilters.category, activeFilters.condition, activeFilters.language].filter(Boolean).length;
 
   // ── Save current search to AsyncStorage (saved-searches feature) ───────────
@@ -743,12 +818,27 @@ export default function HomeScreen() {
     try {
       const raw = await AsyncStorage.getItem(SAVED_SEARCHES_KEY);
       const list = raw ? (JSON.parse(raw) as any[]) : [];
+      // Save what was actually searched: the circle around the user in
+      // radius mode, the searched viewport in area mode — plus every filter.
+      const center =
+        useRadiusMode && userLocation
+          ? userLocation
+          : queryBbox
+            ? { lat: (queryBbox.min_lat + queryBbox.max_lat) / 2, lng: (queryBbox.min_lng + queryBbox.max_lng) / 2 }
+            : { lat: mapRegion.latitude, lng: mapRegion.longitude };
+      const radiusKm =
+        useRadiusMode || !queryBbox
+          ? geofenceRadiusKm
+          : Math.max(1, Math.round(((queryBbox.max_lat - queryBbox.min_lat) * 111) / 2));
       const newSearch = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        category: selectedCategory ?? activeFilters.category ?? null,
-        radius_km: geofenceRadiusKm,
-        lat: mapRegion.latitude,
-        lng: mapRegion.longitude,
+        category: activeFilters.category ?? null,
+        condition: activeFilters.condition ?? null,
+        language: activeFilters.language ?? null,
+        q: debouncedSearch || null,
+        radius_km: radiusKm,
+        lat: center.lat,
+        lng: center.lng,
         created_at: new Date().toISOString(),
       };
       await AsyncStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify([newSearch, ...list]));
@@ -756,13 +846,13 @@ export default function HomeScreen() {
     } catch {
       toast.show('Kaydetme başarısız', { variant: 'error' });
     }
-  }, [selectedCategory, activeFilters, mapRegion, geofenceRadiusKm, toast]);
+  }, [activeFilters, mapRegion, geofenceRadiusKm, toast, useRadiusMode, userLocation, queryBbox, debouncedSearch]);
 
   // ── Chip select (with haptic) ──────────────────────────────────────────────
   const handleChipPress = useCallback((cat: BookCategory | null) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedCategory(selectedCategory === cat ? null : cat);
-  }, [selectedCategory]);
+    setActiveFilters((prev) => ({ ...prev, category: prev.category === cat ? null : cat }));
+  }, []);
 
   // ── Sort toggle (with haptic) ──────────────────────────────────────────────
   const handleSortToggle = useCallback((mode: 'distance' | 'newest') => {
@@ -828,7 +918,9 @@ export default function HomeScreen() {
   // become tappable side-by-side pins instead of one collapsed +N marker.
   const renderSpiderfiedCluster = useCallback(
     (cluster: ClusterPoint) => {
-      const members = books.filter((b) => cluster.book_ids.includes(b.id));
+      const members = cluster.books?.length
+        ? cluster.books
+        : books.filter((b) => cluster.book_ids.includes(b.id));
       if (members.length === 0) return null;
       return members.map((book, index) =>
         renderSingleton(book, spiderfyOffset(cluster.centroid, index, members.length)),
@@ -952,7 +1044,9 @@ export default function HomeScreen() {
   // "50+" indicator: when the raw API response hits BBOX_LIMIT, the count is
   // capped — there may be more books in the viewport. The "+" signals "zoom in
   // to see the real count for a smaller area."
-  const countCapped = books.length >= BBOX_LIMIT;
+  // Capped when the SERVER returned a full page — measured before the local
+  // shadow-block filter, which can drop a few below the limit.
+  const countCapped = rawBooks.length >= BBOX_LIMIT;
   const sheetHeader = useMemo(
     () => (
       <View style={styles.sheetHeader}>
@@ -1028,6 +1122,17 @@ export default function HomeScreen() {
               setMapRegion(region);
               // F11: persist the settled viewport (debounced) for next launch.
               scheduleSaveRegion(region);
+              // "Bu alanı ara": offer a re-query once the view drifted
+              // meaningfully (pan or zoom) from what was last searched.
+              const lastC = lastQueriedCenterRef.current;
+              const lastZ = lastQueriedZoomRef.current;
+              if (lastC && lastZ) {
+                const panned =
+                  Math.abs(lat - lastC.lat) > lastZ * PILL_PAN_FRACTION ||
+                  Math.abs(lng - lastC.lng) > lastZ * PILL_PAN_FRACTION;
+                const zoomed = delta / lastZ > PILL_ZOOM_FACTOR || lastZ / delta > PILL_ZOOM_FACTOR;
+                if (panned || zoomed) setShowSearchPill(true);
+              }
             }
           }}
           onPress={() => {
@@ -1115,14 +1220,14 @@ export default function HomeScreen() {
       )}
 
       {/* ── Error overlay when book query fails (network/server error) ── */}
-      {(useRadiusMode ? radiusQuery.isError : bboxQuery.isError) && (
+      {activeListQuery.isError && (
         <View style={styles.errorOverlay} pointerEvents="auto" testID="bbox-error">
           <Ionicons name="cloud-offline-outline" size={48} color="#FFFFFF" style={{ marginBottom: 12 }} />
           <Text style={styles.errorTitle}>Kitaplar yüklenemedi</Text>
           <Text style={styles.errorMessage}>İnternet bağlantınızı kontrol edin.</Text>
           <TouchableOpacity
             style={styles.errorRetryBtn}
-            onPress={() => useRadiusMode ? radiusQuery.refetch() : bboxQuery.refetch()}
+            onPress={() => activeListQuery.refetch()}
             testID="bbox-error-retry"
           >
             <Ionicons name="refresh" size={18} color="#FFFFFF" />
@@ -1190,7 +1295,7 @@ export default function HomeScreen() {
             testID="chip-row"
           >
             {CATEGORIES.map((cat) => {
-              const isActive = selectedCategory === cat.value;
+              const isActive = (activeFilters.category ?? null) === cat.value;
               const dotColor = cat.value ? categoryColor(cat.value, isDark) : colors.primary;
               return (
                 <TouchableOpacity
@@ -1276,7 +1381,7 @@ export default function HomeScreen() {
         renderListCard={renderListCard}
         header={sheetHeader}
         emptyComponent={
-          (useRadiusMode ? radiusQuery.isError : bboxQuery.isError) ? (
+          activeListQuery.isError ? (
             <EmptyState
               message="Kitaplar yüklenemedi"
               description="İnternet bağlantınızı kontrol edin."
@@ -1324,7 +1429,7 @@ export default function HomeScreen() {
           setFilterVisible(false);
         }}
         radiusKm={geofenceRadiusKm}
-        onRadiusChange={setGeofenceRadiusKm}
+        onRadiusChange={handleRadiusChange}
         resultCount={booksWithLocation.length}
         initialFilters={activeFilters}
       />

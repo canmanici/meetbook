@@ -87,6 +87,10 @@ _listener_task: Any = None
 # process has already delivered locally via broadcast_to_chat().
 _INSTANCE_ID = uuid.uuid4().hex
 _background_tasks: set[asyncio.Task[None]] = set()
+# Offers parked while the callee is offline (see handle_call grace window).
+_pending_calls: dict[str, dict[str, Any]] = {}
+# (chat_id, user_id) -> (other participant, expiry loop-time) for call relays.
+_call_peer_cache: dict[tuple[uuid.UUID, uuid.UUID], tuple[uuid.UUID, float]] = {}
 
 PRESENCE_CHANNEL = "presence"
 
@@ -259,6 +263,23 @@ class ConnectionManager:
             pool.discard(ws)
         if not pool and _connections.get(user_id) is pool:
             _connections.pop(user_id, None)
+
+    @staticmethod
+    async def send_to_user_except(
+        user_id: uuid.UUID, exclude: WebSocket, payload: dict[str, Any]
+    ) -> None:
+        """Send to all of a user's local sockets except one (their other devices)."""
+        pool = _connections.get(user_id)
+        if not pool:
+            return
+        text = json.dumps(payload, default=str)
+        for sock in list(pool):
+            if sock is exclude:
+                continue
+            try:
+                await sock.send_text(text)
+            except Exception:
+                pool.discard(sock)
 
     @staticmethod
     async def broadcast_to_chat(
@@ -565,15 +586,18 @@ class ChatService:
                     if user_id == exchange.requested_by
                     else exchange.requested_by
                 )
-                await ConnectionManager.send_to_user(
-                    other_id,
-                    {
-                        "type": "read",
-                        "chat_id": str(chat.id),
-                        "read_by": str(user_id),
-                        "up_to_message_id": str(up_to_message_id),
-                    },
-                )
+                read_payload = {
+                    "type": "read",
+                    "chat_id": str(chat.id),
+                    "sender_id": str(user_id),
+                    "read_by": str(user_id),
+                    "up_to_message_id": str(up_to_message_id),
+                    # Exact ids + time so the sender flips ticks live.
+                    "message_ids": [str(mid) for mid in marked_ids],
+                    "read_at": datetime.now(UTC).isoformat(),
+                }
+                await ConnectionManager.send_to_user(other_id, read_payload)
+                await publish_message(chat.id, read_payload)
 
     # ── Chat settings ────────────────────────────────────────────────────
 
@@ -706,25 +730,26 @@ class ChatService:
         reply_to_id: uuid.UUID | None = None,
         message_type: str = "text",
         extra: dict[str, Any] | None = None,
+        client_id: str | None = None,
     ) -> None:
         if not await self.repo.is_participant(chat_id, ws_user_id):
-            await self._ws_error(ws, "Not a participant of this chat")
+            await self._ws_error(ws, "Not a participant of this chat", client_id)
             return
 
         exchange = await self.repo.get_exchange_for_chat(chat_id)
         if exchange is None:
-            await self._ws_error(ws, "Chat not found")
+            await self._ws_error(ws, "Chat not found", client_id)
             return
 
         other_id = (
             exchange.requested_to if ws_user_id == exchange.requested_by else exchange.requested_by
         )
         if await self.repo.is_blocked(ws_user_id, other_id):
-            await self._ws_error(ws, "Cannot send message — user is blocked")
+            await self._ws_error(ws, "Cannot send message — user is blocked", client_id)
             return
 
         if len(text) > MESSAGE_LIMIT:
-            await self._ws_error(ws, f"Message too long (max {MESSAGE_LIMIT} chars)")
+            await self._ws_error(ws, f"Message too long (max {MESSAGE_LIMIT} chars)", client_id)
             return
 
         if reply_to_id:
@@ -753,11 +778,15 @@ class ChatService:
 
         view = _to_view(msg, reply_text, reply_sender_name)
         sender_id_str = str(ws_user_id)
-        payload = {
+        payload: dict[str, Any] = {
             "type": "message",
             "message": view.model_dump(mode="json"),
             "sender_id": sender_id_str,
         }
+        # Echo the sender's optimistic-message id so the client reconciles
+        # by identity instead of guessing by (trimmed) text.
+        if client_id:
+            payload["client_id"] = client_id
 
         await ConnectionManager.broadcast_to_chat(chat_id, payload, repo=self.repo)
         await publish_message(chat_id, payload)
@@ -771,8 +800,14 @@ class ChatService:
             for member_id in member_ids:
                 if member_id == ws_user_id:
                     continue
-                member_conns = _connections.get(member_id)
-                is_online = member_conns is not None and len(member_conns) > 0
+                # A muted chat must stay silent: no push, no bell entry.
+                if await self._is_chat_muted(chat_id, member_id):
+                    continue
+                # Online members already see the message live (and the
+                # unread badge) — only offline ones get a bell entry + push.
+                # check_online covers sockets on other instances (Redis).
+                if await ConnectionManager.check_online(member_id):
+                    continue
                 await notif_svc.create_notification(
                     user_id=member_id,
                     type_="new_message",
@@ -783,22 +818,23 @@ class ChatService:
                         "preview": text[:100] if text else "",
                     },
                 )
-                if not is_online:
-                    try:
-                        await send_push_to_user(
-                            str(member_id),
-                            PushMessage(
-                                title="Yeni Mesaj",
-                                body=text[:120] if text else "Yeni bir mesajınız var",
-                                data={
-                                    "type": "new_message",
-                                    "chat_id": str(chat_id),
-                                },
-                            ),
-                            session=self.session,
-                        )
-                    except Exception as exc:
-                        logger.warning("Push send failed for user %s: %s", member_id, exc)
+                try:
+                    await send_push_to_user(
+                        str(member_id),
+                        PushMessage(
+                            title="Yeni Mesaj",
+                            body=text[:120] if text else "Yeni bir mesajınız var",
+                            data={
+                                "type": "new_message",
+                                "chat_id": str(chat_id),
+                                # The app routes chats by exchange id.
+                                "exchange_id": str(exchange.id),
+                            },
+                        ),
+                        session=self.session,
+                    )
+                except Exception as exc:
+                    logger.warning("Push send failed for user %s: %s", member_id, exc)
             await self.session.commit()
         except Exception:
             logger.exception("Failed to create push notifications for new message")
@@ -813,15 +849,16 @@ class ChatService:
         other_id = (
             exchange.requested_to if ws_user_id == exchange.requested_by else exchange.requested_by
         )
-        await ConnectionManager.send_to_user(
-            other_id,
-            {
-                "type": "typing",
-                "chat_id": str(chat_id),
-                "user_id": str(ws_user_id),
-                "is_typing": is_typing,
-            },
-        )
+        payload = {
+            "type": "typing",
+            "chat_id": str(chat_id),
+            "user_id": str(ws_user_id),
+            "sender_id": str(ws_user_id),
+            "is_typing": is_typing,
+        }
+        await ConnectionManager.send_to_user(other_id, payload)
+        # sender_id lets other instances deliver to the peer only.
+        await publish_message(chat_id, payload)
 
     async def handle_delete(
         self, ws_user_id: uuid.UUID, ws: WebSocket, chat_id: uuid.UUID, message_id: uuid.UUID
@@ -902,12 +939,48 @@ class ChatService:
     # participant. Terminating events may carry a `log` object which is
     # persisted as a system message (call history in the thread).
 
-    CALL_EVENTS = frozenset({"offer", "answer", "ice", "end", "reject", "cancel", "busy"})
+    CALL_EVENTS = frozenset(
+        {"offer", "answer", "ice", "end", "reject", "cancel", "busy", "ringing"}
+    )
+    # Events that end a call attempt (and may carry a call-log).
+    TERMINAL_CALL_EVENTS = frozenset({"end", "reject", "cancel"})
+    # Server-side record of a call (Redis, shared across instances): proves
+    # a call really happened before a client-supplied log is persisted, and
+    # bounds the logged duration by what the server actually observed.
+    CALL_STATE_TTL_SECONDS = 6 * 3600
+
+    async def _call_peer(
+        self, ws_user_id: uuid.UUID, ws: WebSocket, chat_id: uuid.UUID, check_block: bool
+    ) -> uuid.UUID | None:
+        """Validate membership (+ block state) and return the other participant.
+
+        Cached per (chat, user) for a minute: a call trickles dozens of ICE
+        candidates and each used to cost 4 DB round-trips."""
+        key = (chat_id, ws_user_id)
+        now = asyncio.get_running_loop().time()
+        cached = _call_peer_cache.get(key)
+        if cached is not None and cached[1] > now and not check_block:
+            return cached[0]
+        if not await self.repo.is_participant(chat_id, ws_user_id):
+            await self._ws_error(ws, "Not a participant of this chat")
+            return None
+        exchange = await self.repo.get_exchange_for_chat(chat_id)
+        if exchange is None:
+            await self._ws_error(ws, "Chat not found")
+            return None
+        other_id = (
+            exchange.requested_to if ws_user_id == exchange.requested_by else exchange.requested_by
+        )
+        if check_block and await self.repo.is_blocked(ws_user_id, other_id):
+            await self._ws_error(ws, "Cannot call — user is blocked")
+            return None
+        _call_peer_cache[key] = (other_id, now + 60)
+        return other_id
 
     async def handle_call(self, ws_user_id: uuid.UUID, ws: WebSocket, raw: dict[str, Any]) -> None:
         event = raw.get("event")
         chat_id_raw = raw.get("chat_id")
-        call_id = str(raw.get("call_id") or "")
+        call_id = str(raw.get("call_id") or "")[:128]
         if event not in self.CALL_EVENTS or not chat_id_raw or not call_id:
             await self._ws_error(ws, "Invalid call payload")
             return
@@ -917,27 +990,25 @@ class ChatService:
             await self._ws_error(ws, "Invalid chat_id")
             return
 
-        if not await self.repo.is_participant(chat_id, ws_user_id):
-            await self._ws_error(ws, "Not a participant of this chat")
-            return
-        exchange = await self.repo.get_exchange_for_chat(chat_id)
-        if exchange is None:
-            await self._ws_error(ws, "Chat not found")
-            return
-        other_id = (
-            exchange.requested_to if ws_user_id == exchange.requested_by else exchange.requested_by
+        # Block state only matters when a call is being set up; the trickle
+        # of ICE / terminal events can use the cached membership check.
+        other_id = await self._call_peer(
+            ws_user_id, ws, chat_id, check_block=event in ("offer", "answer")
         )
-        if await self.repo.is_blocked(ws_user_id, other_id):
-            await self._ws_error(ws, "Cannot call — user is blocked")
+        if other_id is None:
             return
 
         kind = raw.get("kind") if raw.get("kind") in ("audio", "video") else "audio"
 
-        from app.modules.auth.repository import AuthRepository
+        caller_name = ""
+        exchange_id: uuid.UUID | None = None
+        if event == "offer":
+            exchange = await self.repo.get_exchange_for_chat(chat_id)
+            exchange_id = exchange.id if exchange is not None else None
+            from app.modules.auth.repository import AuthRepository
 
-        auth_repo = AuthRepository(self.session)
-        caller = await auth_repo.get_user_by_id(ws_user_id)
-        caller_name = caller.name if caller else ""
+            caller = await AuthRepository(self.session).get_user_by_id(ws_user_id)
+            caller_name = caller.name if caller else ""
 
         relay = {
             "type": "call",
@@ -950,8 +1021,58 @@ class ChatService:
             "payload": raw.get("payload"),
         }
         await ConnectionManager.send_to_user(other_id, relay)
+        # Deliver to the peer's sockets on other instances too.
+        await publish_message(chat_id, relay)
 
-        if event == "offer":
+        r = await _get_redis()
+        state_key = f"call:{call_id}"
+
+        if event == "offer" and raw.get("payload") is not None:
+            # First offer only (ICE-restart re-offers reuse the call id).
+            await r.set(
+                state_key,
+                json.dumps(
+                    {
+                        "chat_id": str(chat_id),
+                        "caller": str(ws_user_id),
+                        "offered_at": datetime.now(UTC).timestamp(),
+                        "answered_at": None,
+                    }
+                ),
+                ex=self.CALL_STATE_TTL_SECONDS,
+                nx=True,
+            )
+        elif event == "answer":
+            raw_state = await r.get(state_key)
+            if raw_state:
+                state = json.loads(raw_state)
+                if state.get("answered_at") is None:
+                    state["answered_at"] = datetime.now(UTC).timestamp()
+                    await r.set(state_key, json.dumps(state), ex=self.CALL_STATE_TTL_SECONDS)
+            # The callee's OTHER devices are still ringing — stop them.
+            await ConnectionManager.send_to_user_except(
+                ws_user_id,
+                ws,
+                {**relay, "event": "cancel", "payload": None, "sender_id": str(other_id)},
+            )
+        elif event == "reject":
+            await ConnectionManager.send_to_user_except(
+                ws_user_id,
+                ws,
+                {**relay, "event": "cancel", "payload": None, "sender_id": str(other_id)},
+            )
+
+        # Callee offline: park ICE until the grace window re-delivers the
+        # offer (they were silently dropped before → the re-delivered offer
+        # had no remote candidates), and let a cancel stop the re-delivery.
+        pending = _pending_calls.get(call_id)
+        if pending is not None and pending["caller"] == ws_user_id:
+            if event == "ice":
+                pending["ice"].append(relay)
+            elif event in self.TERMINAL_CALL_EVENTS:
+                pending["cancelled"] = True
+
+        if event == "offer" and raw.get("payload") is not None and call_id not in _pending_calls:
             # Callee's WS is down (app backgrounded / Doze) → push an
             # incoming-call notification and hold a grace window: if the
             # callee opens the app (WS reconnects) before the caller's ring
@@ -969,36 +1090,54 @@ class ChatService:
                             data={
                                 "type": "incoming_call",
                                 "chat_id": str(chat_id),
+                                "exchange_id": str(exchange_id) if exchange_id else None,
                                 "call_id": call_id,
                                 "kind": kind,
                             },
+                            channel_id="calls",
                         ),
                         session=self.session,
                     )
                 except Exception as exc:
                     logger.warning("Call push failed for user %s: %s", other_id, exc)
 
+                pending_entry: dict[str, Any] = {
+                    "caller": ws_user_id,
+                    "ice": [],
+                    "cancelled": False,
+                }
+                _pending_calls[call_id] = pending_entry
+
                 async def _ring_grace_window() -> None:
-                    # 12 × 2s ≈ 24s — inside the caller's 30s ring timeout.
-                    for _ in range(12):
-                        await asyncio.sleep(2)
-                        if await ConnectionManager.check_online(other_id):
-                            await ConnectionManager.send_to_user(other_id, relay)
-                            return
                     try:
-                        await ws.send_text(
-                            json.dumps(
-                                {
-                                    "type": "call",
-                                    "event": "unavailable",
-                                    "chat_id": str(chat_id),
-                                    "call_id": call_id,
-                                    "kind": kind,
-                                }
+                        # 12 × 2s ≈ 24s — inside the caller's 30s ring timeout.
+                        for _ in range(12):
+                            await asyncio.sleep(2)
+                            if pending_entry["cancelled"]:
+                                return  # caller hung up — never ring a dead call
+                            if await ConnectionManager.check_online(other_id):
+                                await ConnectionManager.send_to_user(other_id, relay)
+                                await publish_message(chat_id, relay)
+                                for ice in pending_entry["ice"]:
+                                    await ConnectionManager.send_to_user(other_id, ice)
+                                    await publish_message(chat_id, ice)
+                                return
+                        try:
+                            await ws.send_text(
+                                json.dumps(
+                                    {
+                                        "type": "call",
+                                        "event": "unavailable",
+                                        "chat_id": str(chat_id),
+                                        "call_id": call_id,
+                                        "kind": kind,
+                                    }
+                                )
                             )
-                        )
-                    except Exception:
-                        pass  # caller's WS closed meanwhile — their own timer handles it
+                        except Exception:
+                            pass  # caller's WS closed meanwhile — their own timer handles it
+                    finally:
+                        _pending_calls.pop(call_id, None)
 
                 task = asyncio.create_task(_ring_grace_window())
                 # Keep a strong reference or the task may be GC'd mid-ring.
@@ -1006,16 +1145,36 @@ class ChatService:
                 task.add_done_callback(_background_tasks.discard)
 
         # Persist a call-log system message when the terminating side asks
-        # for it (exactly one side sends `log`, so no duplicates).
+        # for it — but only for a call the server actually saw start in this
+        # chat, and only once per call (both sides timing out used to write
+        # two logs). Duration is bounded by the server's own clock.
         log = raw.get("log")
-        if event in ("end", "reject", "cancel") and isinstance(log, dict):
+        if event in self.TERMINAL_CALL_EVENTS and isinstance(log, dict):
+            raw_state = await r.get(state_key)
+            if not raw_state:
+                return
+            state = json.loads(raw_state)
+            if state.get("chat_id") != str(chat_id):
+                return
+            if not await r.set(
+                f"call:{call_id}:logged", "1", ex=self.CALL_STATE_TTL_SECONDS, nx=True
+            ):
+                return
             status = log.get("status")
             if status not in ("ended", "missed", "rejected", "failed"):
                 status = "ended"
+            answered_at = state.get("answered_at")
+            if status == "ended" and answered_at is None:
+                status = "missed"
             try:
                 duration = max(0, int(log.get("duration_seconds") or 0))
             except TypeError, ValueError:
                 duration = 0
+            if answered_at is None:
+                duration = 0
+            else:
+                observed = int(datetime.now(UTC).timestamp() - float(answered_at)) + 5
+                duration = min(duration, max(0, observed))
             text = "Görüntülü arama" if kind == "video" else "Sesli arama"
             msg = await self.repo.create_message(
                 chat_id,
@@ -1062,21 +1221,27 @@ class ChatService:
 
         elif msg_type == "send":
             chat_id_raw = raw.get("chat_id")
+            client_id_raw = raw.get("client_id")
+            client_id = (
+                client_id_raw
+                if isinstance(client_id_raw, str) and 0 < len(client_id_raw) <= 64
+                else None
+            )
             text_raw = raw.get("text") or ""
             if not isinstance(text_raw, str):
-                await self._ws_error(ws, "text must be a string")
+                await self._ws_error(ws, "text must be a string", client_id)
                 return
             text = text_raw.strip()
             message_type = raw.get("message_type") or "text"
             extra = raw.get("extra")
             problem = _validate_client_message(message_type, text, extra)
             if not chat_id_raw or problem:
-                await self._ws_error(ws, problem or "chat_id is required")
+                await self._ws_error(ws, problem or "chat_id is required", client_id)
                 return
             try:
                 chat_id = uuid.UUID(str(chat_id_raw))
             except ValueError, AttributeError:
-                await self._ws_error(ws, "Invalid chat_id")
+                await self._ws_error(ws, "Invalid chat_id", client_id)
                 return
             reply_to_raw = raw.get("reply_to_id")
             reply_to_id = None
@@ -1085,7 +1250,9 @@ class ChatService:
                     reply_to_id = uuid.UUID(str(reply_to_raw))
                 except ValueError, AttributeError:
                     pass
-            await self.handle_send(ws_user_id, ws, chat_id, text, reply_to_id, message_type, extra)
+            await self.handle_send(
+                ws_user_id, ws, chat_id, text, reply_to_id, message_type, extra, client_id
+            )
 
         elif msg_type == "typing":
             chat_id_raw = raw.get("chat_id")
@@ -1137,10 +1304,20 @@ class ChatService:
         else:
             await self._ws_error(ws, f"Unknown message type: {msg_type}")
 
+    async def _is_chat_muted(self, chat_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+        settings = await self.repo.get_chat_settings(chat_id, user_id)
+        if settings is None or not settings.is_muted:
+            return False
+        until = settings.muted_until
+        return until is None or until > datetime.now(UTC)
+
     @staticmethod
-    async def _ws_error(ws: WebSocket, message: str) -> None:
+    async def _ws_error(ws: WebSocket, message: str, client_id: str | None = None) -> None:
+        body: dict[str, Any] = {"type": "error", "error": message}
+        if client_id:
+            body["client_id"] = client_id
         try:
-            await ws.send_text(json.dumps({"type": "error", "error": message}))
+            await ws.send_text(json.dumps(body))
         except Exception:
             pass
 

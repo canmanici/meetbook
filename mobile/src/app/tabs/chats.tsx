@@ -375,7 +375,6 @@ export default function ChatsScreen() {
   const currentUserId = useAuthStore((s) => s.user?.id);
   const connected = useChatStore((s) => s.connected);
   const connect = useChatStore((s) => s.connect);
-  const disconnect = useChatStore((s) => s.disconnect);
   // Whole-object subscribe is fine — list is small and items are memoized.
   const typing = useChatStore(useShallow((s) => s.typing));
   const presence = useChatStore(useShallow((s) => s.presence));
@@ -394,8 +393,7 @@ export default function ChatsScreen() {
   useFocusEffect(
     useCallback(() => {
       connect();
-      return () => disconnect();
-    }, [connect, disconnect]),
+    }, [connect]),
   );
 
   const allChats: ChatRow[] = useMemo(() => (data?.items ?? []) as ChatRow[], [data]);

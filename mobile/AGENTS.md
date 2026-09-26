@@ -21,10 +21,21 @@ change values / add keys, never rename).
 - After touching native deps or app.json plugins: rebuild the APK
   (`npm run build:android-apk` or the local gradle toolchain). Metro is not enough.
 
+- Ringback: the CALLER hears `assets/sounds/incallmanager_ringback.mp3`
+  (450 Hz düt-düt), copied into `res/raw` by `plugins/with-call-sounds.js`.
+  Without that raw resource incall-manager falls back to the phone's own
+  RINGTONE. The callee keeps `_DEFAULT_` (the phone's real ringtone).
+- Callee answers `offer` with a `ringing` event → caller UI shows "Çalıyor…".
+
 ## Chat gotchas
-- `chat-store.ts::addMessage` reconciles exactly ONE optimistic `temp-` message
-  per server echo (matching sender+text+type). Don't revert to blanket temp
-  filtering — it eats rapid-fire messages.
+- The chat WebSocket is APP-GLOBAL (also the call-signaling channel):
+  CallManager opens it on login and `useChatStore.disconnect()` is for logout
+  only. Never disconnect on screen blur — that killed incoming calls.
+  `useChatStore.connect()` subscribes once for the app lifetime.
+- Optimistic sends carry `client_id` (= the `temp-` id); the backend echoes it
+  on the message broadcast or on the `error`, and `addMessage` reconciles by
+  it. The text-match fallback reconciles exactly ONE temp message — don't
+  revert to blanket temp filtering (it eats rapid-fire messages).
 - Typing events are throttled (≥2.5s apart) in `chat/[id].tsx`.
 - Tests mock expo-router per-file; any new hook used in a screen
   (`useFocusEffect`, `usePathname`, …) must be added to that screen's test mock.

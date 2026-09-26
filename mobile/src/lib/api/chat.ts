@@ -213,7 +213,7 @@ export async function uploadChatMedia(
 export type WSWatcher = (msg: WSMessage) => void;
 
 export type CallEvent =
-  | 'offer' | 'answer' | 'ice' | 'end' | 'reject' | 'cancel' | 'busy' | 'unavailable';
+  | 'offer' | 'answer' | 'ice' | 'end' | 'reject' | 'cancel' | 'busy' | 'unavailable' | 'ringing';
 
 export interface WSMessage {
   type:
@@ -230,6 +230,11 @@ export interface WSMessage {
   payload?: unknown;
   message?: MessageView & { club_id?: string; sender_name?: string | null; sender_avatar_url?: string | null };
   error?: string;
+  /** Optimistic-message id echoed on 'message' / 'error' for our own sends. */
+  client_id?: string;
+  /** 'read': ids of messages the peer just read, and when. */
+  message_ids?: string[];
+  read_at?: string;
   chat_id?: string;
   message_id?: string;
   read_by?: string;
@@ -270,52 +275,85 @@ class ChatWebSocketManager {
     }
   }
 
+  // Bumped by disconnect(): a connect() still awaiting its ticket must not
+  // open a socket after logout.
+  private generation = 0;
+
+  private scheduleReconnect(delayMs: number) {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      void this.connect();
+    }, delayMs);
+  }
+
   async connect() {
-    if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) return;
+    // CONNECTING counts as in-flight too: onerror used to clear
+    // isConnecting while the socket was still CONNECTING/CLOSING, letting a
+    // second connect() open a parallel socket whose events arrived twice.
+    const rs = this.ws?.readyState;
+    if (rs === WebSocket.OPEN || rs === WebSocket.CONNECTING || this.isConnecting) return;
     this.isConnecting = true;
+    if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+    const gen = this.generation;
 
     try {
       const { ticket } = await getChatTicket();
+      if (gen !== this.generation) { this.isConnecting = false; return; }
       const url = `${WS_BASE}/ws/chat?ticket=${ticket}`;
-      this.ws = new WebSocket(url);
+      // Detach a lingering CLOSING socket so its late onclose can't null out
+      // (and orphan) the socket we're about to create.
+      if (this.ws) { this.ws.onclose = null; this.ws.onmessage = null; this.ws.onerror = null; }
+      const ws = new WebSocket(url);
+      this.ws = ws;
 
-      this.ws.onopen = () => {
+      ws.onopen = () => {
+        if (this.ws !== ws) return;
         this.isConnecting = false;
+        if (this.pingInterval) clearInterval(this.pingInterval);
         this.pingInterval = setInterval(() => this.ping(), 30000);
         // Request presence on connect
-        this.ws?.send(JSON.stringify({ type: 'presence' }));
+        ws.send(JSON.stringify({ type: 'presence' }));
       };
 
-      this.ws.onmessage = (event) => {
+      ws.onmessage = (event) => {
+        if (this.ws !== ws) return;
         try {
           const data = JSON.parse(event.data) as WSMessage;
           this.notify(data);
         } catch {}
       };
 
-      this.ws.onclose = () => {
+      ws.onclose = () => {
+        if (this.ws !== ws) return;
         this.isConnecting = false;
         this.ws = null;
         if (this.pingInterval) { clearInterval(this.pingInterval); this.pingInterval = null; }
-        this.reconnectTimer = setTimeout(() => this.connect(), 5000);
+        this.scheduleReconnect(5000);
       };
 
-      this.ws.onerror = () => { this.isConnecting = false; };
+      // onclose always follows onerror — reconnect bookkeeping lives there.
+      ws.onerror = () => {};
     } catch {
       this.isConnecting = false;
-      this.reconnectTimer = setTimeout(() => this.connect(), 10000);
+      if (gen === this.generation) this.scheduleReconnect(10000);
     }
   }
 
   disconnect() {
+    this.generation += 1;
+    this.isConnecting = false;
     if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
     if (this.pingInterval) { clearInterval(this.pingInterval); this.pingInterval = null; }
-    if (this.ws) { this.ws.onclose = null; this.ws.close(); this.ws = null; }
+    if (this.ws) { this.ws.onclose = null; this.ws.onmessage = null; this.ws.close(); this.ws = null; }
   }
 
-  send(chatId: string, text: string, replyToId?: string | null, messageType = 'text', extra?: Record<string, unknown> | null): boolean {
+  send(chatId: string, text: string, replyToId?: string | null, messageType = 'text', extra?: Record<string, unknown> | null, clientId?: string): boolean {
     if (this.ws?.readyState === WebSocket.OPEN) {
       const payload: Record<string, unknown> = { type: 'send', chat_id: chatId, text, message_type: messageType };
+      // Echoed back on the message broadcast (or on an error) so the
+      // optimistic bubble is reconciled by identity, not by text.
+      if (clientId) payload.client_id = clientId;
       if (replyToId) payload.reply_to_id = replyToId;
       if (extra) payload.extra = extra;
       this.ws.send(JSON.stringify(payload));

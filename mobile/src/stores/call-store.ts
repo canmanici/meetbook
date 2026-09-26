@@ -56,6 +56,8 @@ interface CallState {
   isCaller: boolean;
   peer: PeerInfo;
   endReason: CallEndReason;
+  /** Caller side: the callee's phone confirmed it is ringing ('ringing'). */
+  remoteRinging: boolean;
 
   isMuted: boolean;
   isSpeakerOn: boolean;
@@ -386,12 +388,19 @@ export const useCallStore = create<CallState>((set, get) => {
       networkQuality: 'good',
     });
     endedTimer = setTimeout(() => {
-      set({
-        status: 'idle', callId: null, chatId: null, endReason: null,
-        isMuted: false, isSpeakerOn: false, isCameraOn: true,
-        isFrontCamera: true, startedAt: null,
-      });
+      resetToIdle();
     }, ENDED_SCREEN_MS);
+  }
+
+  function resetToIdle() {
+    if (endedTimer) { clearTimeout(endedTimer); endedTimer = null; }
+    set({
+      status: 'idle', callId: null, chatId: null, endReason: null,
+      isMuted: false, isSpeakerOn: false, isCameraOn: true,
+      isFrontCamera: true, startedAt: null, remoteRinging: false,
+      // A pinned quality is a per-call choice — start the next call on auto.
+      quality: 'auto',
+    });
   }
 
   async function createPeerConnection(kind: CallKind): Promise<any | null> {
@@ -665,6 +674,12 @@ export const useCallStore = create<CallState>((set, get) => {
 
     switch (msg.event) {
       case 'offer': {
+        // A fresh offer while we're only showing the "call ended" screen is
+        // NOT busy — drop the ended screen and take the new call.
+        if (s.status === 'ended' && s.callId !== msg.call_id) {
+          resetToIdle();
+          return onSignal(msg);
+        }
         // Busy: already in a call (or ringing) for a different call id.
         if (s.status !== 'idle' && s.callId !== msg.call_id) {
           if (msg.chat_id && msg.call_id) {
@@ -711,6 +726,10 @@ export const useCallStore = create<CallState>((set, get) => {
         try { icm?.stop(); } catch {}
         try { icm?.startRingtone('_DEFAULT_'); } catch {}
         Vibration.vibrate([800, 1200], true);
+        // Tell the caller our phone is actually ringing ("Çalıyor…").
+        if (msg.chat_id && msg.call_id) {
+          void chatWS.sendCallReliable(msg.chat_id, 'ringing', msg.call_id, msg.kind ?? 'audio');
+        }
         // Auto-dismiss if caller gives up silently (network death etc.).
         ringTimer = setTimeout(() => {
           if (get().status === 'incoming') teardown('missed');
@@ -773,6 +792,9 @@ export const useCallStore = create<CallState>((set, get) => {
         break;
       }
 
+      case 'ringing':
+        if (s.callId === msg.call_id && s.status === 'outgoing') set({ remoteRinging: true });
+        break;
       case 'reject':
         if (s.callId === msg.call_id) teardown('rejected');
         break;
@@ -784,7 +806,14 @@ export const useCallStore = create<CallState>((set, get) => {
         break;
       case 'cancel':
       case 'end':
-        if (s.callId === msg.call_id) teardown('ended');
+        if (s.callId !== msg.call_id) break;
+        // The callee gave up while still connecting (its connect timeout):
+        // the caller owns the single 'failed' call log.
+        if (msg.event === 'end' && s.isCaller && s.status === 'connecting') {
+          teardown('failed', 'failed');
+        } else {
+          teardown('ended');
+        }
         break;
     }
   }
@@ -797,6 +826,7 @@ export const useCallStore = create<CallState>((set, get) => {
     isCaller: false,
     peer: { name: '' },
     endReason: null,
+    remoteRinging: false,
     isMuted: false,
     isSpeakerOn: false,
     isCameraOn: true,
@@ -832,7 +862,7 @@ export const useCallStore = create<CallState>((set, get) => {
       const callId = newCallId();
       set({
         status: 'outgoing', callId, chatId, kind, isCaller: true, peer,
-        endReason: null, isCameraOn: true, isMuted: false,
+        endReason: null, isCameraOn: true, isMuted: false, remoteRinging: false,
       });
 
       // The user can hit "iptal" while any of the awaits below are pending
@@ -916,8 +946,14 @@ export const useCallStore = create<CallState>((set, get) => {
         const sent = await chatWS.sendCallReliable(chatId, 'answer', callId, kind, pc.localDescription);
         if (!sent) throw new Error('ws closed');
         startAudioSession(kind, false);
+        // Callee gives up quietly: the caller's own connect timer (started at
+        // the same moment) writes the single 'failed' log. Both logging it
+        // produced two call-log bubbles.
         connectTimer = setTimeout(() => {
-          if (get().status === 'connecting') teardown('failed', 'failed');
+          if (get().status === 'connecting') {
+            void chatWS.sendCallReliable(chatId, 'end', callId, kind);
+            teardown('failed');
+          }
         }, CONNECT_TIMEOUT_MS);
       } catch (e) {
         teardown(permissionReason(e) ?? 'failed', 'failed');

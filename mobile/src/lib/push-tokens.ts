@@ -21,9 +21,77 @@ async function getNotifications(): Promise<any | null> {
   return _Notifications;
 }
 
+/**
+ * Android notification channels. Incoming-call pushes go to a dedicated
+ * max-importance 'calls' channel (heads-up, lock screen, long vibration) so
+ * they aren't buried like an ordinary message notification.
+ */
+export async function ensureNotificationChannels(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  const Notifications = await getNotifications();
+  if (!Notifications?.setNotificationChannelAsync) return;
+  try {
+    await Notifications.setNotificationChannelAsync('calls', {
+      name: 'Aramalar',
+      importance: Notifications.AndroidImportance.MAX,
+      sound: 'default',
+      vibrationPattern: [0, 800, 1200, 800, 1200, 800],
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      enableVibrate: true,
+    });
+  } catch (err) {
+    console.warn('[Push] Channel setup failed:', err);
+  }
+}
+
+/**
+ * Routes notification taps: a message push opens its chat; an incoming-call
+ * push only needs the app foregrounded (CallManager reconnects the socket and
+ * the backend re-delivers the ringing offer) — if that window has passed,
+ * fall back to the chat so the user can call back.
+ * Returns an unsubscribe function.
+ */
+let lastHandledTapId: string | null = null;
+
+export async function listenForNotificationTaps(
+  openChat: (exchangeId: string) => void,
+  isCallInProgress: () => boolean,
+): Promise<() => void> {
+  const Notifications = await getNotifications();
+  if (!Notifications?.addNotificationResponseReceivedListener) return () => {};
+  const handle = (response: any) => {
+    // getLastNotificationResponseAsync keeps returning the same tap on every
+    // re-subscribe (re-login, remount) — route each tap only once.
+    const id = response?.notification?.request?.identifier;
+    if (id) {
+      if (id === lastHandledTapId) return;
+      lastHandledTapId = id;
+    }
+    const data = response?.notification?.request?.content?.data ?? {};
+    const exchangeId = typeof data.exchange_id === 'string' ? data.exchange_id : null;
+    if (!exchangeId) return;
+    if (data.type === 'incoming_call') {
+      // Give the re-delivered offer a moment to arrive before falling back.
+      setTimeout(() => {
+        if (!isCallInProgress()) openChat(exchangeId);
+      }, 4000);
+    } else if (data.type === 'new_message') {
+      openChat(exchangeId);
+    }
+  };
+  const sub = Notifications.addNotificationResponseReceivedListener(handle);
+  // Cold start: the tap that launched the app fired before we subscribed.
+  try {
+    const last = await Notifications.getLastNotificationResponseAsync?.();
+    if (last) handle(last);
+  } catch {}
+  return () => sub.remove();
+}
+
 export async function registerPushToken(): Promise<boolean> {
   const Notifications = await getNotifications();
   if (!Notifications) return false;
+  await ensureNotificationChannels();
 
   try {
     const { status } = await Notifications.requestPermissionsAsync();

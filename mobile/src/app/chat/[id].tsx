@@ -150,6 +150,9 @@ export default function ChatDetailScreen() {
   const realtimeMessages = useChatStore(useShallow((s) => s.messages[chatId ?? ''] ?? []));
   const typingState = useChatStore(useShallow((s) => s.typing[chatId ?? ''] ?? {}));
   const presence = useChatStore(useShallow((s) => s.presence));
+  const readReceipts = useChatStore((s) => s.readReceipts);
+  const chatError = useChatStore((s) => s.error);
+  const clearChatError = useChatStore((s) => s.clearError);
   const startCall = useCallStore((s) => s.startCall);
   const callStatus = useCallStore((s) => s.status);
 
@@ -164,11 +167,8 @@ export default function ChatDetailScreen() {
   const counterpartId = exchange?.counterpart?.id ?? chatSummary?.counterpart_id;
   const counterpartAvatarUrl = (exchange?.counterpart as any)?.avatar_url ?? chatSummary?.counterpart_avatar_url ?? undefined;
 
-  // Ensure WebSocket is connected whenever this screen is focused.
-  // Without this, navigating from the chats tab (which connects WS on focus
-  // and disconnects on blur) to this Stack screen leaves WS disconnected,
-  // making sendMessage() fail silently with "Bağlantı yok".
-  // Guard in store::connect() prevents duplicate subscriptions.
+  // Ensure the (app-global) WebSocket is open whenever this screen is
+  // focused — e.g. after a network drop. store::connect() subscribes once.
   // Shadow block reload keeps the local block list current (e.g. after
   // toggling shadow block in chat info screen).
   useFocusEffect(
@@ -281,11 +281,12 @@ export default function ChatDetailScreen() {
         // startCall başarısız — endReason'a göre spesifik hata göster.
         // Store state'i doğrudan oku (useCallback closure'ına güvenme).
         const reason = useCallStore.getState().endReason;
+        const permLabel = kind === 'video' ? 'kamera ve mikrofon' : 'mikrofon';
         switch (reason) {
           case 'permission-denied':
             Alert.alert(
-              'Mikrofon İzni Gerekli',
-              'Arama yapabilmek için mikrofon izni gerekiyor. Lütfen Ayarlar > Uygulamalar > MeetBook > İzinler bölümünden mikrofon iznini aç.',
+              kind === 'video' ? 'Kamera ve Mikrofon İzni Gerekli' : 'Mikrofon İzni Gerekli',
+              `Arama yapabilmek için ${permLabel} izni gerekiyor. Lütfen Ayarlar > Uygulamalar > MeetBook > İzinler bölümünden ${permLabel} iznini aç.`,
               [
                 { text: 'İptal', style: 'cancel' },
                 { text: 'Ayarlara Git', onPress: () => { try { Linking.openSettings(); } catch {} } },
@@ -295,7 +296,7 @@ export default function ChatDetailScreen() {
           case 'permission-blocked':
             Alert.alert(
               'İzin Kalıcı Olarak Reddedildi',
-              'Mikrofon izni kalıcı olarak reddedilmiş. Arama yapabilmek için Ayarlar > Uygulamalar > MeetBook > İzinler bölümünden mikrofon iznini açmalısın.',
+              `${permLabel[0].toUpperCase()}${permLabel.slice(1)} izni kalıcı olarak reddedilmiş. Arama yapabilmek için Ayarlar > Uygulamalar > MeetBook > İzinler bölümünden ${permLabel} iznini açmalısın.`,
               [
                 { text: 'İptal', style: 'cancel' },
                 { text: 'Ayarlara Git', onPress: () => { try { Linking.openSettings(); } catch {} } },
@@ -360,12 +361,27 @@ export default function ChatDetailScreen() {
         msgs.push(rm);
       }
     }
+    // Live read receipts ('read' WS events) overlay the fetched pages so the
+    // ticks turn green without a refetch.
+    if (readReceipts) {
+      for (let i = 0; i < msgs.length; i++) {
+        const at = readReceipts[msgs[i].id];
+        if (at && !msgs[i].read_at) msgs[i] = { ...msgs[i], read_at: at };
+      }
+    }
     if (shadowBlocked.length > 0) {
       const blocked = new Set(shadowBlocked);
       return msgs.filter((m) => !m.sender_id || !blocked.has(m.sender_id));
     }
     return msgs;
-  }, [data, realtimeMessages, shadowBlocked]);
+  }, [data, realtimeMessages, shadowBlocked, readReceipts]);
+
+  // Send failures (no connection / server rejected) used to vanish silently.
+  useEffect(() => {
+    if (!chatError) return;
+    Alert.alert('Mesaj gönderilemedi', chatError);
+    clearChatError?.();
+  }, [chatError, clearChatError]);
 
   // Build flat list with date separators + typing indicator
   const listData: MessageListItem[] = useMemo(() => {
