@@ -4,6 +4,7 @@ OCEAN METRICS SERVICE — 50+ real KPIs from the database.
 Every number here is computed from actual DB rows. Zero mock data.
 """
 
+from enum import Enum
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -34,12 +35,21 @@ from app.modules.ratings.models import Rating
 from app.modules.reports.models import Report, ReportStatus
 
 
+def _label(v: object) -> str:
+    """Enum → its value ("fiction"), anything else → str().
+
+    str() of a str-mixin Enum is "BookCategory.fiction" on Python 3.11+, which
+    leaked into admin charts and broke lookups like by_status["completed"].
+    """
+    return str(v.value) if isinstance(v, Enum) else str(v)
+
+
 def _split_series(rows: Any) -> tuple[list[str], list[Any]]:
     """[(day, value), ...] → ([day_str, ...], [value, ...])."""
     days: list[str] = []
     values: list[Any] = []
     for r in rows:
-        days.append(str(r[0]))
+        days.append(_label(r[0]))
         values.append(r[1])
     return days, values
 
@@ -128,7 +138,7 @@ class MetricsService:
         exch_status_rows = await self.session.execute(
             select(ExchangeRequest.status, func.count()).group_by(ExchangeRequest.status)
         )
-        exchanges_by_status = {str(r[0]): r[1] for r in exch_status_rows.all()}
+        exchanges_by_status = {_label(r[0]): r[1] for r in exch_status_rows.all()}
         total_exchanges = sum(exchanges_by_status.values())
 
         exchanges_30d = await self._scalar(
@@ -391,7 +401,7 @@ class MetricsService:
             .order_by(func.count().desc())
         )
         by_category = [
-            CategoryDistItem(category=str(r[0]), count=r[1], pct=round(r[1] / total * 100, 1))
+            CategoryDistItem(category=_label(r[0]), count=r[1], pct=round(r[1] / total * 100, 1))
             for r in cat_rows.all()
         ]
 
@@ -402,7 +412,7 @@ class MetricsService:
             .order_by(func.count().desc())
         )
         by_condition = [
-            CategoryDistItem(category=str(r[0]), count=r[1], pct=round(r[1] / total * 100, 1))
+            CategoryDistItem(category=_label(r[0]), count=r[1], pct=round(r[1] / total * 100, 1))
             for r in cond_rows.all()
         ]
 
@@ -414,7 +424,7 @@ class MetricsService:
         )
         by_language = [
             CategoryDistItem(
-                category=str(r[0]) or "unknown", count=r[1], pct=round(r[1] / total * 100, 1)
+                category=_label(r[0]) or "unknown", count=r[1], pct=round(r[1] / total * 100, 1)
             )
             for r in lang_rows.all()
         ]
@@ -461,7 +471,7 @@ class MetricsService:
         status_rows = await self.session.execute(
             select(ExchangeRequest.status, func.count()).group_by(ExchangeRequest.status)
         )
-        by_status = {str(r[0]): r[1] for r in status_rows.all()}
+        by_status = {_label(r[0]): r[1] for r in status_rows.all()}
         total = sum(by_status.values())
 
         completed = by_status.get("completed", 0)
@@ -539,7 +549,7 @@ class MetricsService:
             select(User.status, func.count()).group_by(User.status)
         )
         by_status = [
-            UserByStatusItem(status=str(r[0]), count=r[1], pct=round(r[1] / total * 100, 1))
+            UserByStatusItem(status=_label(r[0]), count=r[1], pct=round(r[1] / total * 100, 1))
             for r in status_rows.all()
         ]
 

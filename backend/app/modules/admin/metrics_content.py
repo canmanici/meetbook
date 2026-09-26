@@ -1,5 +1,6 @@
 """Book view metrics, search terms analytics, and deep report analytics."""
 
+from enum import Enum
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -21,6 +22,15 @@ router = APIRouter(prefix="/admin", tags=["admin-ext"])
 # ══════════════════════════════════════════════════════════════════════════════
 # SCHEMAS — Book View Metrics
 # ══════════════════════════════════════════════════════════════════════════════
+
+
+def _label(v: object) -> str:
+    """Enum → its value ("fiction"), anything else → str().
+
+    str() of a str-mixin Enum is "BookCategory.fiction" on Python 3.11+, which
+    leaked into admin charts and broke lookups like by_status["completed"].
+    """
+    return str(v.value) if isinstance(v, Enum) else str(v)
 
 
 class TopBookViewItem(BaseModel):
@@ -242,7 +252,7 @@ class ContentMetricsService:
         tt_rows = await session.execute(
             select(Report.target_type, func.count()).group_by(Report.target_type)
         )
-        by_target_type = {str(r[0]): r[1] for r in tt_rows.all()}
+        by_target_type = {_label(r[0]): r[1] for r in tt_rows.all()}
 
         reason_rows = await session.execute(
             select(Report.reason, func.count())
@@ -254,7 +264,7 @@ class ContentMetricsService:
         status_rows = await session.execute(
             select(Report.status, func.count()).group_by(Report.status)
         )
-        by_status = {str(r[0]): r[1] for r in status_rows.all()}
+        by_status = {_label(r[0]): r[1] for r in status_rows.all()}
 
         avg_res = await session.scalar(
             select(
@@ -295,7 +305,7 @@ class ContentMetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff_30d)
         )
-        report_lookup = {str(r[0]): r[1] for r in report_day_rows.all()}
+        report_lookup = {_label(r[0]): r[1] for r in report_day_rows.all()}
         daily_report_trend = [TrendPoint(date=d, value=report_lookup.get(d, 0)) for d in date_spine]
 
         filed_day_rows = await session.execute(
@@ -306,7 +316,7 @@ class ContentMetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff_30d)
         )
-        filed_lookup = {str(r[0]): r[1] for r in filed_day_rows.all()}
+        filed_lookup = {_label(r[0]): r[1] for r in filed_day_rows.all()}
 
         resolved_day_rows = await session.execute(
             text("""
@@ -317,7 +327,7 @@ class ContentMetricsService:
                 GROUP BY day ORDER BY day
             """).bindparams(cutoff=cutoff_30d)
         )
-        resolved_lookup = {str(r[0]): r[1] for r in resolved_day_rows.all()}
+        resolved_lookup = {_label(r[0]): r[1] for r in resolved_day_rows.all()}
 
         reports_vs_resolved_trend = [
             ReportResolvedTrendPoint(
