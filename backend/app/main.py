@@ -114,7 +114,9 @@ def create_app() -> FastAPI:
     _me = Path(__file__).resolve()
     for _parent in (_me.parent.parent.parent, _me.parent.parent):
         candidate = _parent / "admin"
-        if candidate.is_dir():
+        # An empty dir (image built without the admin context, or a stale
+        # bind mount) must not be mounted — that silently 404s the panel.
+        if (candidate / "index.html").is_file():
             admin_dir = candidate
             break
     if admin_dir:

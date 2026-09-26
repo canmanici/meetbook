@@ -6,6 +6,12 @@
 #   compileall             → Pre-baked .pyc bytecode at build time
 #   start_app.py           → Single-process startup (no redundant imports)
 
+# Admin panel (static HTML, lives outside this build context). Empty by
+# default; docker-compose.prod.yml overrides this stage with the repo's
+# ./admin via `additional_contexts`, so the panel ships inside the image and
+# never depends on a host bind mount surviving between deploys.
+FROM scratch AS admin
+
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim
 
 WORKDIR /app
@@ -16,6 +22,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 # Copy source (__pycache__ is excluded by .dockerignore)
 COPY . .
+COPY --from=admin / /app/admin/
 
 # Purge any __pycache__ that slipped through, then pre-compile for speed
 RUN find /app -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true \

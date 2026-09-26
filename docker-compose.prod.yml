@@ -142,7 +142,13 @@ services:
         max-file: "3"
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      # The admin panel (repo ./admin) is copied INTO the image — see the
+      # `admin` stage in backend/Dockerfile. A host bind mount went stale
+      # between Dokploy deploys and 404'd the panel.
+      additional_contexts:
+        admin: ./admin
     environment:
       PYTHON_JIT: "1"
       ENV: production
@@ -181,9 +187,6 @@ services:
       - mediadata:/app/media
       # DB-IP databases (~140 MB) — persisted so a redeploy doesn't re-download.
       - ipdb:/app/ipdb
-      # Admin panel (static HTML) — lives outside the ./backend build context,
-      # so it's mounted from the checkout; app.main serves /app/admin at /admin.
-      - ./admin:/app/admin:ro
     depends_on:
       db:
         condition: service_healthy
