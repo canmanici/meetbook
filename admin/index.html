@@ -905,6 +905,7 @@ code { font-family: var(--font-mono); font-size: 0.78rem; padding: 0.1rem 0.3rem
       </div>
       <div class="nav-section">
         <div class="nav-section-title">Güvenlik</div>
+        <div class="nav-item" data-page="releases"><span class="nav-item-icon">&#8681;</span><span class="nav-item-text">Uygulama Sürümleri</span></div>
         <div class="nav-item" data-page="kvkk"><span class="nav-item-icon">&#9878;</span><span class="nav-item-text">KVKK Başvuruları</span></div>
         <div class="nav-item" data-page="blocked-places"><span class="nav-item-icon">&#9873;</span><span class="nav-item-text">Engellenen Yerler</span></div>
         <div class="nav-item" data-page="audit-log"><span class="nav-item-icon">&#9783;</span><span class="nav-item-text">Denetim Kaydı</span></div>
@@ -1135,6 +1136,23 @@ code { font-family: var(--font-mono); font-size: 0.78rem; padding: 0.1rem 0.3rem
   <div class="pagination" id="exchanges-pagination"></div>
 </div>
 
+<div class="page" id="page-releases">
+  <div class="card" style="margin-bottom:1rem">
+    <div class="card-header"><h3>Yeni APK yayınla</h3></div>
+    <div class="card-body" style="display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+      <div class="form-group"><label class="form-label">APK dosyası</label><input type="file" accept=".apk" class="form-input" id="rel-file"></div>
+      <div class="form-group"><label class="form-label">versionCode</label><input type="number" min="1" class="form-input" id="rel-code" placeholder="örn. 56"></div>
+      <div class="form-group"><label class="form-label">Sürüm adı</label><input type="text" class="form-input" id="rel-name" placeholder="örn. 1.1.56"></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Yenilikler (kullanıcıya gösterilir)</label><textarea class="form-input" id="rel-notes" rows="3" placeholder="• Kitap kulüpleri&#10;• Hata düzeltmeleri"></textarea></div>
+      <label style="display:flex;gap:.5rem;align-items:center"><input type="checkbox" id="rel-mandatory"> Zorunlu güncelleme</label>
+      <div style="display:flex;justify-content:flex-end;gap:.5rem;align-items:center"><span class="text-sm text-muted" id="rel-progress"></span><button class="btn btn-primary" onclick="uploadRelease()">Yayınla</button></div>
+      <div class="text-sm text-muted" style="grid-column:1/-1">İpucu: <code>bash mobile/scripts/publish-apk.sh &lt;apk&gt; --notes "…"</code> sürüm numarasını APK'dan kendisi okur.</div>
+    </div>
+  </div>
+  <div class="crud-grid" id="releases-grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">
+    <div class="crud-loading"><div class="loading-spinner"></div></div>
+  </div>
+</div>
 <div class="page" id="page-kvkk">
   <div class="crud-toolbar"><div class="crud-toolbar-left"><span class="crud-total-badge" id="kvkk-total">0</span></div></div>
   <div class="crud-grid" id="kvkk-grid" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr))">
@@ -1271,6 +1289,7 @@ const API = (() => {
   }
 
   return {
+    base,
     // Auth
     login: (email, password) => request('/auth/login', { method: 'POST', body: { email, password } }),
     // Admin endpoints
@@ -1447,7 +1466,7 @@ function navigateTo(page) {
   const pg = document.getElementById(`page-${page}`);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
-  const titles = { dashboard: 'CEO Dashboard', analytics: 'Derin Analiz', reports: 'Raporlar', users: 'Kullanıcılar', books: 'Kitaplar', exchanges: 'Takaslar', 'blocked-places': 'Engellenen Yerler', kvkk: 'KVKK Başvuruları', 'audit-log': 'Denetim Kaydı', system: 'Sistem Sağlığı', 'crash-reports': 'Hata Raporları' };
+  const titles = { dashboard: 'CEO Dashboard', analytics: 'Derin Analiz', reports: 'Raporlar', users: 'Kullanıcılar', books: 'Kitaplar', exchanges: 'Takaslar', 'blocked-places': 'Engellenen Yerler', kvkk: 'KVKK Başvuruları', releases: 'Uygulama Sürümleri', 'audit-log': 'Denetim Kaydı', system: 'Sistem Sağlığı', 'crash-reports': 'Hata Raporları' };
   document.getElementById('page-title').textContent = titles[page] || page;
   loadPage(page);
 }
@@ -1806,6 +1825,7 @@ function loadPage(page) {
     case 'exchanges': loadExchangesPage(); break;
     case 'blocked-places': loadBlockedPlacesPage(); break;
     case 'kvkk': loadKvkkPage(); break;
+    case 'releases': loadReleasesPage(); break;
     case 'audit-log': loadAuditLogPage(); break;
     case 'system': loadSystemPage(); break;
     case 'crash-reports': loadCrashReportsPage(); break;
@@ -2977,6 +2997,87 @@ async function viewExchangeDetail(id) {
 }
 
 // ─── Blocked Places Page ────────────────────────────────────────
+// ─── App releases (self-hosted APK updates) ─────────────────────
+async function loadReleasesPage() {
+  const grid = document.getElementById('releases-grid');
+  try {
+    const items = await API.adminRequest('/app-releases');
+    if (!items.length) { grid.innerHTML = '<div class="crud-loading"><div class="text-muted">Henüz yayınlanmış sürüm yok</div></div>'; return; }
+    const newestActive = items.find(r => r.is_active);
+    grid.innerHTML = items.map(r => `<div class="data-card">
+      <div class="data-card-inner">
+        <div class="data-card-header">
+          <div class="data-card-avatar-sm" style="background:${r.is_active ? '#10b981' : '#64748b'}">⬇</div>
+          <div class="data-card-info">
+            <div class="data-card-title">${r.version_name} <span class="text-sm text-muted">(${r.version_code})</span>${newestActive && newestActive.id === r.id ? ' · <span style="color:#10b981">yayında</span>' : ''}</div>
+            <div class="data-card-sub">${(r.size_bytes / 1048576).toFixed(1)} MB · sha256 ${r.sha256.slice(0, 12)}…</div>
+          </div>
+        </div>
+        <div class="data-card-body">
+          <div class="data-card-meta">
+            <span class="data-chip">${r.is_active ? '✅ Aktif' : '⏸ Pasif'}</span>
+            <span class="data-chip">${r.mandatory ? '🔒 Zorunlu' : 'İsteğe bağlı'}</span>
+          </div>
+          ${r.changelog ? `<div class="text-sm" style="margin-top:.5rem;white-space:pre-wrap">${r.changelog}</div>` : ''}
+        </div>
+        <div class="data-card-footer">
+          <span class="data-card-date">📅 ${formatDate(r.created_at)}</span>
+          <div class="data-card-actions">
+            <button class="btn btn-detay" onclick="patchRelease('${r.id}', {is_active: ${!r.is_active}})">${r.is_active ? 'Pasifleştir' : 'Aktifleştir'}</button>
+            <button class="btn btn-warning" onclick="patchRelease('${r.id}', {mandatory: ${!r.mandatory}})">${r.mandatory ? 'Zorunluluğu kaldır' : 'Zorunlu yap'}</button>
+            <button class="btn btn-danger" onclick="deleteRelease('${r.id}')">Sil</button>
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
+}
+
+function uploadRelease() {
+  const file = document.getElementById('rel-file').files[0];
+  const code = document.getElementById('rel-code').value.trim();
+  const name = document.getElementById('rel-name').value.trim();
+  if (!file || !code || !name) { showToast('APK, versionCode ve sürüm adı gerekli', 'error'); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('version_code', code);
+  fd.append('version_name', name);
+  fd.append('changelog', document.getElementById('rel-notes').value);
+  fd.append('mandatory', document.getElementById('rel-mandatory').checked ? 'true' : 'false');
+  const prog = document.getElementById('rel-progress');
+  // XHR (not fetch) for upload progress on a ~35 MB file.
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', `${API.base}/admin/app-releases`);
+  xhr.setRequestHeader('Authorization', `Bearer ${state.token}`);
+  xhr.upload.onprogress = ev => { if (ev.lengthComputable) prog.textContent = `%${Math.round(ev.loaded / ev.total * 100)}`; };
+  xhr.onload = () => {
+    prog.textContent = '';
+    if (xhr.status === 201) {
+      showToast('Sürüm yayınlandı', 'success');
+      ['rel-file', 'rel-code', 'rel-name', 'rel-notes'].forEach(id => { document.getElementById(id).value = ''; });
+      document.getElementById('rel-mandatory').checked = false;
+      loadReleasesPage();
+    } else {
+      let d = xhr.statusText; try { d = JSON.parse(xhr.responseText).detail || d; } catch {}
+      showToast(`Yükleme başarısız: ${htmlEscape(String(d))}`, 'error');
+    }
+  };
+  xhr.onerror = () => { prog.textContent = ''; showToast('Yükleme başarısız (bağlantı)', 'error'); };
+  xhr.send(fd);
+}
+
+async function patchRelease(id, body) {
+  try { await API.adminRequest(`/app-releases/${id}`, { method: 'PATCH', body }); showToast('Güncellendi', 'success'); loadReleasesPage(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+
+function deleteRelease(id) {
+  confirmAction('Sürümü Sil', 'APK sunucudan silinecek ve artık kullanıcılara sunulmayacak.', async () => {
+    try { await API.adminRequest(`/app-releases/${id}`, { method: 'DELETE' }); showToast('Silindi', 'success'); loadReleasesPage(); }
+    catch (e) { showToast(e.message, 'error'); }
+  });
+}
+
 // ─── KVKK data-subject requests (30-day legal deadline) ─────────
 async function loadKvkkPage() {
   const grid = document.getElementById('kvkk-grid');

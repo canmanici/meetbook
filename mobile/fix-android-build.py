@@ -259,6 +259,26 @@ if os.path.exists(MANIFEST_PATH):
     if not any("USE_BIOMETRIC" in c for c in changes):
         changes.append("USE_BIOMETRIC/USE_FINGERPRINT removal already present")
 
+# ── 9. Permissions from app.json that must reach an EXISTING android/ ────────
+# The build scripts skip `expo prebuild` once android/ exists, so permissions
+# added to app.json later never reach the manifest. Ensure the ones we need.
+REQUIRED_PERMISSIONS = [
+    # In-app APK updates (src/lib/app-update.ts) open the package installer.
+    "android.permission.REQUEST_INSTALL_PACKAGES",
+]
+MANIFEST = "android/app/src/main/AndroidManifest.xml"
+if os.path.exists(MANIFEST):
+    with open(MANIFEST, "r") as f:
+        manifest = f.read()
+    for perm in REQUIRED_PERMISSIONS:
+        if f'android:name="{perm}"' not in manifest:
+            manifest = manifest.replace(
+                "<application", f'<uses-permission android:name="{perm}"/>\n  <application', 1
+            )
+            changes.append(f"Added {perm} to AndroidManifest.xml")
+    with open(MANIFEST, "w") as f:
+        f.write(manifest)
+
 with open(BUILD_GRADLE, "w") as f:
     f.write(content)
 

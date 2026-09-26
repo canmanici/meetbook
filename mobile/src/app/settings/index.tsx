@@ -24,6 +24,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/auth-store';
 import { clearTokens } from '@/lib/secure-store';
 import { authedRequest, getMe, logout, updateMe } from '@/lib/api/client';
+import { installedVersionName, updatesSupported } from '@/lib/app-update';
+import { useUpdateStore } from '@/stores/update-store';
 
 const THEME_KEY = 'theme_preference';
 const IMG_CACHE_PREFIX = '@meetbook_img_';
@@ -203,7 +205,18 @@ export default function SettingsScreen() {
   };
 
   const handleAbout = () => {
-    toast.show('MeetBook v1.0.1 · © 2026 MeetBook · İstanbul', { variant: 'info' });
+    toast.show(`MeetBook v${installedVersionName()} · © 2026 MeetBook · İstanbul`, { variant: 'info' });
+  };
+
+  const checkUpdates = useUpdateStore((s) => s.check);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    const result = await checkUpdates('manual');
+    setCheckingUpdate(false);
+    // 'update' → the global UpdateManager dialog opens by itself.
+    if (result === 'none') toast.show('Uygulaman güncel 🎉', { variant: 'success' });
+    if (result === 'error') toast.show('Güncelleme kontrol edilemedi', { variant: 'error' });
   };
 
   const handleClearCache = () => {
@@ -437,9 +450,28 @@ export default function SettingsScreen() {
               <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
             </TouchableOpacity>
             <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
+            {updatesSupported && (
+              <>
+                <TouchableOpacity
+                  style={styles.row}
+                  onPress={handleCheckUpdate}
+                  disabled={checkingUpdate}
+                  activeOpacity={0.6}
+                  testID="settings-check-update"
+                >
+                  <Text style={[styles.rowLabel, { color: colors.text }]}>Güncellemeleri kontrol et</Text>
+                  {checkingUpdate ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+                  )}
+                </TouchableOpacity>
+                <View style={[styles.divider, { backgroundColor: colors.textMuted, opacity: 0.1 }]} />
+              </>
+            )}
             <TouchableOpacity style={styles.row} onPress={handleAbout} activeOpacity={0.6}>
               <Text style={[styles.rowLabel, { color: colors.text }]}>Hakkında</Text>
-              <Text style={[styles.rowValue, { color: colors.textMuted }]}>1.0.1</Text>
+              <Text style={[styles.rowValue, { color: colors.textMuted }]}>{installedVersionName()}</Text>
             </TouchableOpacity>
           </View>
         </View>

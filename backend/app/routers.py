@@ -28,6 +28,8 @@ def register_routers(app: FastAPI) -> None:
     from app.modules.saved_searches.router import router as saved_searches_router
     from app.modules.legal.router import router as legal_router
     from app.modules.clubs.router import router as clubs_router
+    from app.modules.app_updates.router import admin_router as app_release_admin_router
+    from app.modules.app_updates.router import public_router as app_updates_router
     from app.modules.admin.kvkk_admin import router as kvkk_admin_router
 
     app.include_router(auth_router, prefix="/api/v1")
@@ -53,6 +55,8 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(push_token_router, prefix="/api/v1")
     app.include_router(saved_searches_router, prefix="/api/v1")
     app.include_router(clubs_router, prefix="/api/v1")
+    app.include_router(app_updates_router, prefix="/api/v1")
+    app.include_router(app_release_admin_router, prefix="/api/v1")
     app.include_router(kvkk_admin_router, prefix="/api/v1")
     # Legal pages + API — served at /legal/* (documents + consent endpoints)
     app.include_router(legal_router)

@@ -2,7 +2,7 @@
 # ── MeetBook Local APK Builder ────────────────────────────────────────────────
 # Detects your LAN IP, writes .env, builds a release APK, and (if a device is
 # reachable over wireless adb) installs it and streams logcat.
-# Usage: bash build-local.sh
+# Usage: bash build-local.sh [--publish] [--notes "…"] [--mandatory]
 # Output: builds/meetbook-<version>.apk
 # ==============================================================================
 
@@ -10,6 +10,20 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 source scripts/env-defaults.sh
+
+# ── Options ─────────────────────────────────────────────────────────────────
+#   --publish          upload the APK as an in-app update after building
+#   --notes "…"        release notes shown in the update dialog
+#   --mandatory        users on older versions must update
+PUBLISH=0; NOTES=""; MANDATORY_FLAG=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --publish) PUBLISH=1; shift ;;
+    --notes) NOTES="$2"; shift 2 ;;
+    --mandatory) MANDATORY_FLAG="--mandatory"; shift ;;
+    *) echo "Unknown option: $1"; exit 1 ;;
+  esac
+done
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -222,6 +236,12 @@ if ! grep -qaF "$API_URL" <<<"$BUNDLE"; then
 fi
 if [ -n "$GOOGLE_WEB_CLIENT_ID" ] && ! grep -qaF "$GOOGLE_WEB_CLIENT_ID" <<<"$BUNDLE"; then
   echo -e "  ${RED}⚠ Google client ID not found in the bundle — Google login will be hidden.${NC}"
+fi
+
+if [ "$PUBLISH" = "1" ]; then
+  echo -e "${YELLOW}[publish]${NC} Uploading as in-app update to ${CYAN}$API_URL${NC}"
+  bash scripts/publish-apk.sh "$OUTPUT_APK" --api "$API_URL" --notes "$NOTES" $MANDATORY_FLAG || true
+  echo ""
 fi
 
 # ── 7. Wireless install + live debug (no USB required) ───────────────────────

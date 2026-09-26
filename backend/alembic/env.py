@@ -22,6 +22,7 @@ from app.modules.crash_reports import models as crash_reports_models  # noqa: F4
 from app.modules.push_tokens import models as push_tokens_models  # noqa: F401
 from app.modules.saved_searches import models as saved_searches_models  # noqa: F401
 from app.modules.clubs import models as clubs_models  # noqa: F401
+from app.modules.app_updates import models as app_updates_models  # noqa: F401
 from app.modules.legal import models as legal_models  # noqa: F401
 
 config = context.config

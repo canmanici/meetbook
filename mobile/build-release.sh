@@ -1,7 +1,7 @@
 #!/bin/bash
 # ── MeetBook Offline Production Build Script ───────────────────────────────
 # Requires: JDK 17, Android SDK (ANDROID_HOME set), keytool, python3
-# Usage:    bash build-release.sh
+# Usage:    bash build-release.sh [--publish] [--notes "Yenilikler…"] [--mandatory]
 # Output:   android/app/build/outputs/apk/release/app-release.apk
 #
 # Builds for arm64-v8a only with R8 minification
@@ -11,6 +11,20 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 source scripts/env-defaults.sh
+
+# ── Options ─────────────────────────────────────────────────────────────────
+#   --publish          upload the APK as an in-app update after building
+#   --notes "…"        release notes shown in the update dialog
+#   --mandatory        users on older versions must update
+PUBLISH=0; NOTES=""; MANDATORY_FLAG=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --publish) PUBLISH=1; shift ;;
+    --notes) NOTES="$2"; shift 2 ;;
+    --mandatory) MANDATORY_FLAG="--mandatory"; shift ;;
+    *) echo "Unknown option: $1"; exit 1 ;;
+  esac
+done
 
 # ── Versioning ────────────────────────────────────────────────────────────
 # VERSION is derived from VERSION_CODE so they stay in sync.
@@ -159,6 +173,14 @@ if [ -f "$APK" ]; then
     echo ""
     echo "🖥️  Production backend (Dokploy env) needs:"
     echo "     GOOGLE_CLIENT_IDS=$EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID"
+    echo ""
+    if [ "$PUBLISH" = "1" ]; then
+        echo "🚀 Publishing as in-app update → $EXPO_PUBLIC_API_URL"
+        bash scripts/publish-apk.sh "$OUT" --api "$EXPO_PUBLIC_API_URL" --notes "$NOTES" $MANDATORY_FLAG
+    else
+        echo "🚀 To ship it as an in-app update:"
+        echo "   bash scripts/publish-apk.sh $OUT --api $EXPO_PUBLIC_API_URL --notes \"Yenilikler…\""
+    fi
     echo ""
     echo "📱 Install: adb install $OUT"
     echo "   (adb uninstall com.canmanici.meetbook first if switching debug→release)"

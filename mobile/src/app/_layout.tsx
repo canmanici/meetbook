@@ -10,6 +10,7 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { ServerErrorOverlay } from '@/components/server-error-overlay';
 import { OfflineBanner } from '@/components/offline-banner';
+import { UpdateManager } from '@/components/update-manager';
 import { CallManager } from '@/components/call-manager';
 import { getMe } from '@/lib/api/client';
 import { crashReporter } from '@/lib/crash-reporter';
@@ -103,6 +104,7 @@ export default function RootLayout() {
         <ToastProvider>
         <OfflineBanner />
         {status === 'authenticated' && <CallManager />}
+        <UpdateManager />
         <Stack
         screenOptions={{
           // Every screen draws its own header. Without this, any route not
