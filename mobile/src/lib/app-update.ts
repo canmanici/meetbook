@@ -32,6 +32,11 @@ export interface UpdateCheck {
   update_available: boolean;
   mandatory: boolean;
   latest: AppRelease | null;
+  /** The installed build was withdrawn by an admin (emergency). */
+  current_withdrawn?: boolean;
+  below_minimum?: boolean;
+  /** Message for the user (withdraw reason / minimum-version message). */
+  notice?: string | null;
 }
 
 export const updatesSupported = Platform.OS === 'android';

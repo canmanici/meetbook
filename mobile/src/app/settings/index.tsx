@@ -214,7 +214,7 @@ export default function SettingsScreen() {
     setCheckingUpdate(true);
     const result = await checkUpdates('manual');
     setCheckingUpdate(false);
-    // 'update' → the global UpdateManager dialog opens by itself.
+    // 'update' / 'warning' → the global UpdateManager dialog opens by itself.
     if (result === 'none') toast.show('Uygulaman güncel 🎉', { variant: 'success' });
     if (result === 'error') toast.show('Güncelleme kontrol edilemedi', { variant: 'error' });
   };

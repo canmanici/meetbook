@@ -2,6 +2,10 @@
 # ── MeetBook Offline Production Build Script ───────────────────────────────
 # Requires: JDK 17, Android SDK (ANDROID_HOME set), keytool, python3
 # Usage:    bash build-release.sh [--publish] [--notes "Yenilikler…"] [--mandatory]
+#           bash build-release.sh --rollback 1.1.56 [--notes "…"]
+#             EMERGENCY: rebuild the code of tag v1.1.56 under a NEW, higher
+#             versionCode and publish it as a MANDATORY update (Android can't
+#             downgrade, so rollback = roll forward to the old code).
 # Output:   android/app/build/outputs/apk/release/app-release.apk
 #
 # Builds for arm64-v8a only with R8 minification
@@ -16,15 +20,32 @@ source scripts/env-defaults.sh
 #   --publish          upload the APK as an in-app update after building
 #   --notes "…"        release notes shown in the update dialog
 #   --mandatory        users on older versions must update
-PUBLISH=0; NOTES=""; MANDATORY_FLAG=""
+PUBLISH=0; NOTES=""; MANDATORY_FLAG=""; ROLLBACK_TO=""; API_OVERRIDE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --publish) PUBLISH=1; shift ;;
+    --rollback) ROLLBACK_TO="${2#v}"; shift 2 ;;
+    --api) API_OVERRIDE="$2"; shift 2 ;;   # test against a staging/local backend
     --notes) NOTES="$2"; shift 2 ;;
     --mandatory) MANDATORY_FLAG="--mandatory"; shift ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
+
+MAIN_DIR=$(pwd)
+REPO_ROOT=$(git rev-parse --show-toplevel)
+# Is the committed code what we're about to build? (checked BEFORE the
+# version bump below touches app.json) — only then can we tag the release.
+TREE_CLEAN=0
+[ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no -- mobile backend admin)" ] && TREE_CLEAN=1
+
+if [ -n "$ROLLBACK_TO" ]; then
+  git -C "$REPO_ROOT" rev-parse -q --verify "refs/tags/v$ROLLBACK_TO" >/dev/null || {
+    echo "❌ No git tag v$ROLLBACK_TO — only tagged releases can be rolled back to."
+    echo "   Tags: $(git -C "$REPO_ROOT" tag -l 'v*' | sort -V | tail -8 | tr '\n' ' ')"
+    exit 1
+  }
+fi
 
 # ── Versioning ────────────────────────────────────────────────────────────
 # VERSION is derived from VERSION_CODE so they stay in sync.
@@ -39,6 +60,23 @@ echo "$VERSION_CODE" > "$VERSION_CODE_FILE"
 MAJOR=1
 MINOR=1
 VERSION="${MAJOR}.${MINOR}.${VERSION_CODE}"
+OUT="$REPO_ROOT/meetbook-v${VERSION}-release.apk"
+
+# ── Emergency rollback: build the OLD code in a throwaway worktree ─────────
+if [ -n "$ROLLBACK_TO" ]; then
+  WT="$(mktemp -d)/meetbook-rollback"
+  echo "⏪ ROLLBACK: code of v$ROLLBACK_TO → new release v$VERSION (mandatory)"
+  git -C "$REPO_ROOT" worktree add --detach "$WT" "v$ROLLBACK_TO" >/dev/null
+  trap 'cd "$MAIN_DIR"; git -C "$REPO_ROOT" worktree remove --force "$WT" 2>/dev/null || true' EXIT
+  # Reuse the installed deps and the native project (both gitignored).
+  ln -s "$MAIN_DIR/node_modules" "$WT/mobile/node_modules"
+  rsync -a --exclude 'build/' --exclude '.gradle/' --exclude '.cxx/' "$MAIN_DIR/android/" "$WT/mobile/android/"
+  cp "$MAIN_DIR/.env.production" "$WT/mobile/.env.production"
+  cd "$WT/mobile"
+  PUBLISH=1
+  MANDATORY_FLAG="--mandatory"
+  NOTES="${NOTES:-Acil düzeltme: son sürümdeki bir sorun nedeniyle önceki kararlı sürüme ($ROLLBACK_TO) dönüldü.}"
+fi
 
 # Sync app.json so the app's About screen and Play Store listing match
 python3 -c "
@@ -50,7 +88,7 @@ json.dump(d, open(p, 'w'), indent=2)
 "
 
 echo "🔨 MeetBook v$VERSION — Production APK Build"
-echo "   API: https://canmanici.com/meetbook/api/v1"
+echo "   API: ${API_OVERRIDE:-https://canmanici.com/meetbook/api/v1}"
 echo "   ABIs: arm64-v8a"
 echo ""
 
@@ -62,6 +100,7 @@ echo ""
 # Source from .env.production to keep the URL defined in one place.
 export EXPO_PUBLIC_API_URL EXPO_PUBLIC_MAPTILER_KEY EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
 EXPO_PUBLIC_API_URL=$(grep '^EXPO_PUBLIC_API_URL=' .env.production | cut -d= -f2-)
+EXPO_PUBLIC_API_URL=${API_OVERRIDE:-$EXPO_PUBLIC_API_URL}
 EXPO_PUBLIC_MAPTILER_KEY=$(grep '^EXPO_PUBLIC_MAPTILER_KEY=' .env.production | cut -d= -f2- || true)
 EXPO_PUBLIC_MAPTILER_KEY=${EXPO_PUBLIC_MAPTILER_KEY:-$MAPTILER_KEY}
 EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=$(grep '^EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=' .env.production | cut -d= -f2- || true)
@@ -96,7 +135,7 @@ fi
 # ── Fix build.gradle (expo prebuild generates a broken signingConfigs block) ─
 # Also syncs versionName/versionCode every run, since prebuild only writes them
 # once and android/ is normally reused across builds.
-python3 fix-android-build.py "$VERSION" "$VERSION_CODE"
+python3 "$MAIN_DIR/fix-android-build.py" "$VERSION" "$VERSION_CODE"
 
 # ── Keystore ──────────────────────────────────────────────────────────────
 KEYSTORE="android/app/release.keystore"
@@ -152,7 +191,7 @@ if [ -f "$APK" ]; then
     if ! grep -qaF "$EXPO_PUBLIC_API_URL" <<<"$BUNDLE"; then
         echo "❌ Production API URL missing from the JS bundle — refusing to ship"; exit 1
     fi
-    if grep -qaE 'http://(192\.168|10\.|172\.(1[6-9]|2[0-9]|3[01])\.|localhost)[^"]*/api/v1' <<<"$BUNDLE"; then
+    if [ -z "$API_OVERRIDE" ] && grep -qaE 'http://(192\.168|10\.|172\.(1[6-9]|2[0-9]|3[01])\.|localhost)[^"]*/api/v1' <<<"$BUNDLE"; then
         echo "❌ A local/LAN API URL is baked into the bundle — refusing to ship"; exit 1
     fi
     if [ -n "$EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID" ] && ! grep -qaF "$EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID" <<<"$BUNDLE"; then
@@ -160,8 +199,17 @@ if [ -f "$APK" ]; then
     fi
     SHA1=$(apk_sha1 "$APK")
     SIZE=$(du -sh "$APK" | cut -f1)
-    OUT="../meetbook-v${VERSION}-release.apk"
     cp "$APK" "$OUT"
+    # Tag the exact code of this release so it can be rolled back to later.
+    if [ -n "$ROLLBACK_TO" ]; then
+        git -C "$REPO_ROOT" tag -a "v$VERSION" "v$ROLLBACK_TO^{commit}" -m "v$VERSION = rollback to v$ROLLBACK_TO" 2>/dev/null \
+          && echo "🏷️  Tagged v$VERSION (same code as v$ROLLBACK_TO)"
+    elif [ "$TREE_CLEAN" = "1" ]; then
+        git -C "$REPO_ROOT" tag -a "v$VERSION" -m "MeetBook v$VERSION" 2>/dev/null && echo "🏷️  Tagged v$VERSION"
+    else
+        echo "⚠️  Uncommitted changes — v$VERSION NOT tagged, so it can't be a rollback target later."
+        echo "   Commit first next time: git commit -am … && bash build-release.sh"
+    fi
     echo ""
     echo "✅ BUILD SUCCESSFUL — $SIZE"
     echo "   $APK"
@@ -176,10 +224,15 @@ if [ -f "$APK" ]; then
     echo ""
     if [ "$PUBLISH" = "1" ]; then
         echo "🚀 Publishing as in-app update → $EXPO_PUBLIC_API_URL"
-        bash scripts/publish-apk.sh "$OUT" --api "$EXPO_PUBLIC_API_URL" --notes "$NOTES" $MANDATORY_FLAG
+        bash "$MAIN_DIR/scripts/publish-apk.sh" "$OUT" --api "$EXPO_PUBLIC_API_URL" --notes "$NOTES" $MANDATORY_FLAG
     else
         echo "🚀 To ship it as an in-app update:"
         echo "   bash scripts/publish-apk.sh $OUT --api $EXPO_PUBLIC_API_URL --notes \"Yenilikler…\""
+    fi
+    if [ -n "$ROLLBACK_TO" ]; then
+        echo ""
+        echo "⏪ Rollback published. Next: withdraw the broken release in the admin panel"
+        echo "   (Uygulama Sürümleri → 🚨 Acil geri çek) if you haven't already."
     fi
     echo ""
     echo "📱 Install: adb install $OUT"

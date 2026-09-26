@@ -1149,6 +1149,15 @@ code { font-family: var(--font-mono); font-size: 0.78rem; padding: 0.1rem 0.3rem
       <div class="text-sm text-muted" style="grid-column:1/-1">İpucu: <code>bash mobile/scripts/publish-apk.sh &lt;apk&gt; --notes "…"</code> sürüm numarasını APK'dan kendisi okur.</div>
     </div>
   </div>
+  <div class="card" style="margin-bottom:1rem">
+    <div class="card-header"><h3>🚨 Minimum desteklenen sürüm</h3></div>
+    <div class="card-body" style="display:grid;gap:.75rem;grid-template-columns:160px 1fr auto;align-items:end">
+      <div class="form-group"><label class="form-label">versionCode</label><input type="number" min="0" class="form-input" id="pol-min" placeholder="0 = kapalı"></div>
+      <div class="form-group"><label class="form-label">Kullanıcıya mesaj</label><input type="text" class="form-input" id="pol-msg" placeholder="Bu sürüm artık desteklenmiyor, lütfen güncelleyin."></div>
+      <button class="btn btn-warning" onclick="savePolicy()">Kaydet</button>
+      <div class="text-sm text-muted" style="grid-column:1/-1" id="pol-info">Bu numaranın altındaki tüm cihazlar güncellemeden uygulamayı kullanamaz.</div>
+    </div>
+  </div>
   <div class="crud-grid" id="releases-grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">
     <div class="crud-loading"><div class="loading-spinner"></div></div>
   </div>
@@ -3001,13 +3010,14 @@ async function viewExchangeDetail(id) {
 async function loadReleasesPage() {
   const grid = document.getElementById('releases-grid');
   try {
+    loadPolicy();
     const items = await API.adminRequest('/app-releases');
     if (!items.length) { grid.innerHTML = '<div class="crud-loading"><div class="text-muted">Henüz yayınlanmış sürüm yok</div></div>'; return; }
-    const newestActive = items.find(r => r.is_active);
+    const newestActive = items.find(r => r.is_active && !r.withdrawn_at);
     grid.innerHTML = items.map(r => `<div class="data-card">
       <div class="data-card-inner">
         <div class="data-card-header">
-          <div class="data-card-avatar-sm" style="background:${r.is_active ? '#10b981' : '#64748b'}">⬇</div>
+          <div class="data-card-avatar-sm" style="background:${r.withdrawn_at ? '#ef4444' : r.is_active ? '#10b981' : '#64748b'}">${r.withdrawn_at ? '⛔' : '⬇'}</div>
           <div class="data-card-info">
             <div class="data-card-title">${r.version_name} <span class="text-sm text-muted">(${r.version_code})</span>${newestActive && newestActive.id === r.id ? ' · <span style="color:#10b981">yayında</span>' : ''}</div>
             <div class="data-card-sub">${(r.size_bytes / 1048576).toFixed(1)} MB · sha256 ${r.sha256.slice(0, 12)}…</div>
@@ -3017,7 +3027,9 @@ async function loadReleasesPage() {
           <div class="data-card-meta">
             <span class="data-chip">${r.is_active ? '✅ Aktif' : '⏸ Pasif'}</span>
             <span class="data-chip">${r.mandatory ? '🔒 Zorunlu' : 'İsteğe bağlı'}</span>
+            ${r.withdrawn_at ? `<span class="data-chip" style="color:#ef4444">⛔ Geri çekildi ${formatDate(r.withdrawn_at)}</span>` : ''}
           </div>
+          ${r.withdrawn_reason ? `<div class="text-sm" style="margin-top:.5rem;color:#ef4444">Sebep: ${r.withdrawn_reason}</div>` : ''}
           ${r.changelog ? `<div class="text-sm" style="margin-top:.5rem;white-space:pre-wrap">${r.changelog}</div>` : ''}
         </div>
         <div class="data-card-footer">
@@ -3025,7 +3037,10 @@ async function loadReleasesPage() {
           <div class="data-card-actions">
             <button class="btn btn-detay" onclick="patchRelease('${r.id}', {is_active: ${!r.is_active}})">${r.is_active ? 'Pasifleştir' : 'Aktifleştir'}</button>
             <button class="btn btn-warning" onclick="patchRelease('${r.id}', {mandatory: ${!r.mandatory}})">${r.mandatory ? 'Zorunluluğu kaldır' : 'Zorunlu yap'}</button>
-            <button class="btn btn-danger" onclick="deleteRelease('${r.id}')">Sil</button>
+            ${r.withdrawn_at
+              ? `<button class="btn btn-success" onclick="restoreRelease('${r.id}')">Geri al</button>`
+              : `<button class="btn btn-danger" onclick="withdrawRelease('${r.id}', '${r.version_name}')">🚨 Acil geri çek</button>`}
+            <button class="btn btn-ghost" onclick="deleteRelease('${r.id}')">Sil</button>
           </div>
         </div>
       </div>
@@ -3064,6 +3079,43 @@ function uploadRelease() {
   };
   xhr.onerror = () => { prog.textContent = ''; showToast('Yükleme başarısız (bağlantı)', 'error'); };
   xhr.send(fd);
+}
+
+async function loadPolicy() {
+  try {
+    const p = await API.adminRequest('/app-releases/policy');
+    document.getElementById('pol-min').value = p.min_supported_code || '';
+    document.getElementById('pol-msg').value = p.message || '';
+    document.getElementById('pol-info').textContent = p.min_supported_code
+      ? `Şu an: ${p.min_supported_code} altındaki cihazlar güncellemek zorunda.`
+      : 'Kapalı. Bir numara girersen altındaki tüm cihazlar güncellemeden uygulamayı kullanamaz.';
+  } catch (e) { /* page still usable */ }
+}
+
+async function savePolicy() {
+  const min = parseInt(document.getElementById('pol-min').value || '0', 10);
+  const message = document.getElementById('pol-msg').value.trim() || null;
+  try {
+    await API.adminRequest('/app-releases/policy', { method: 'PUT', body: { min_supported_code: min, message } });
+    showToast(min ? `Minimum sürüm ${min} olarak ayarlandı` : 'Minimum sürüm kapatıldı', 'success');
+    loadPolicy();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function withdrawRelease(id, name) {
+  // Emergency: stops offering the build AND warns everyone already running it.
+  showActionModal(`🚨 ${name} sürümünü geri çek`, 'Geri çek', async (reason) => {
+    try {
+      await API.adminRequest(`/app-releases/${id}/withdraw`, { method: 'POST', body: { reason } });
+      showToast(`${name} geri çekildi — kullanan herkes uyarılacak`, 'success');
+      loadReleasesPage();
+    } catch (e) { showToast(e.message, 'error'); }
+  });
+}
+
+async function restoreRelease(id) {
+  try { await API.adminRequest(`/app-releases/${id}/restore`, { method: 'POST' }); showToast('Sürüm geri alındı', 'success'); loadReleasesPage(); }
+  catch (e) { showToast(e.message, 'error'); }
 }
 
 async function patchRelease(id, body) {

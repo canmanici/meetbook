@@ -27,5 +27,21 @@ class AppRelease(Base):
     mandatory = Column(Boolean, nullable=False, default=False)
     # Inactive releases are never offered (pull a broken build instantly).
     is_active = Column(Boolean, nullable=False, default=True)
+    # Emergency: a withdrawn release is never offered, and devices RUNNING it
+    # are told it's broken (see LatestResponse.current_withdrawn).
+    withdrawn_at = Column(DateTime(timezone=True), nullable=True)
+    withdrawn_reason = Column(Text, nullable=True)
     uploaded_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+
+
+class AppUpdatePolicy(Base):
+    """One row per platform: the oldest versionCode still allowed to run."""
+
+    __tablename__ = "app_update_policies"
+
+    platform = Column(String(10), primary_key=True)
+    min_supported_code = Column(Integer, nullable=False, default=0)
+    message = Column(Text, nullable=True)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))

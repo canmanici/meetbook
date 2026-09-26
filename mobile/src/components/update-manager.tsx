@@ -23,7 +23,8 @@ import { useUpdateStore } from '@/stores/update-store';
 export function UpdateManager() {
   const scheme = useColorScheme();
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
-  const { release, mandatory, phase, progress, error, check, startUpdate, install, dismiss } = useUpdateStore();
+  const { release, mandatory, phase, progress, error, notice, withdrawn, check, startUpdate, install, dismiss } =
+    useUpdateStore();
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
@@ -40,8 +41,39 @@ export function UpdateManager() {
     };
   }, [check]);
 
-  if (!updatesSupported || !release || phase === 'idle') return null;
+  if (!updatesSupported || phase === 'idle') return null;
 
+  // Emergency: this build was withdrawn and no fix is published yet.
+  if (phase === 'warning') {
+    return (
+      <Modal visible transparent animationType="fade" onRequestClose={dismiss}>
+        <View style={styles.backdrop}>
+          <View style={[styles.card, { backgroundColor: colors.surface }, shadows.float]} testID="update-warning">
+            <View style={[styles.icon, { backgroundColor: colors.warning + '22' }]}>
+              <Ionicons name="warning-outline" size={30} color={colors.warning} />
+            </View>
+            <Text style={[styles.title, { color: colors.text }]}>
+              {withdrawn ? 'Bu sürümde bir sorun var' : 'Bu sürüm artık desteklenmiyor'}
+            </Text>
+            <Text style={[styles.sub, { color: colors.textMuted }]}>Sürüm {installedVersionName()}</Text>
+            {notice ? (
+              <View style={[styles.notes, { backgroundColor: colors.warning + '14' }]}>
+                <Text style={[styles.notesText, { color: colors.text }]}>{notice}</Text>
+              </View>
+            ) : null}
+            <Text style={[styles.hint, { color: colors.textMuted }]}>
+              Düzeltilmiş sürüm yayınlanınca sana hemen güncelleme önereceğiz.
+            </Text>
+            <Button onPress={dismiss} testID="update-warning-ok">
+              Anladım
+            </Button>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
+  if (!release) return null;
   const pct = Math.round(progress * 100);
 
   return (
@@ -57,6 +89,12 @@ export function UpdateManager() {
           <Text style={[styles.sub, { color: colors.textMuted }]}>
             {installedVersionName()} → {release.version_name} · {formatBytes(release.size_bytes)}
           </Text>
+
+          {notice ? (
+            <View style={[styles.notes, { backgroundColor: colors.warning + '14' }]}>
+              <Text style={[styles.notesText, { color: colors.text }]}>⚠️ {notice}</Text>
+            </View>
+          ) : null}
 
           {release.changelog ? (
             <ScrollView style={[styles.notes, { backgroundColor: colors.surfaceAlt }]}>

@@ -14,8 +14,11 @@ import {
 const SNOOZE_KEY = 'update_snoozed'; // {version_code, until}
 const SNOOZE_MS = 24 * 60 * 60 * 1000;
 const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+// While running a withdrawn build, look for the fix far more often.
+const WITHDRAWN_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
-type Phase = 'idle' | 'available' | 'downloading' | 'ready' | 'error';
+// 'warning' = this build was withdrawn but no fix is published yet.
+type Phase = 'idle' | 'available' | 'downloading' | 'ready' | 'error' | 'warning';
 
 interface UpdateState {
   release: AppRelease | null;
@@ -24,8 +27,12 @@ interface UpdateState {
   progress: number;
   error: string | null;
   lastCheckedAt: number;
+  /** Installed build was withdrawn by an admin. */
+  withdrawn: boolean;
+  /** Admin's message (withdraw reason / minimum-version message). */
+  notice: string | null;
   /** auto = launch/foreground (respects snooze + interval); manual = Settings button. */
-  check: (mode: 'auto' | 'manual') => Promise<'update' | 'none' | 'error'>;
+  check: (mode: 'auto' | 'manual') => Promise<'update' | 'warning' | 'none' | 'error'>;
   startUpdate: () => Promise<void>;
   install: () => Promise<void>;
   dismiss: () => Promise<void>;
@@ -48,20 +55,29 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
   progress: 0,
   error: null,
   lastCheckedAt: 0,
+  withdrawn: false,
+  notice: null,
 
   check: async (mode) => {
     if (!updatesSupported) return 'none';
-    const { phase, lastCheckedAt } = get();
+    const { phase, lastCheckedAt, withdrawn } = get();
     if (phase === 'downloading') return 'update';
-    if (mode === 'auto' && Date.now() - lastCheckedAt < AUTO_CHECK_INTERVAL_MS) return 'none';
+    const interval = withdrawn ? WITHDRAWN_CHECK_INTERVAL_MS : AUTO_CHECK_INTERVAL_MS;
+    if (mode === 'auto' && Date.now() - lastCheckedAt < interval) return 'none';
     let res;
     try {
       res = await checkForUpdate();
     } catch {
       return 'error';
     }
-    set({ lastCheckedAt: Date.now() });
+    const notice = res.notice ?? null;
+    set({ lastCheckedAt: Date.now(), withdrawn: !!res.current_withdrawn, notice });
     if (!res.update_available || !res.latest) {
+      if (res.current_withdrawn || res.below_minimum) {
+        // Broken / unsupported build and no fix yet: warn, keep checking.
+        set({ release: null, phase: 'warning' });
+        return 'warning';
+      }
       set({ release: null, phase: 'idle' });
       return 'none';
     }
@@ -102,6 +118,10 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
 
   dismiss: async () => {
     const { release, mandatory, phase } = get();
+    if (phase === 'warning') {
+      set({ phase: 'idle' }); // shown again on the next check
+      return;
+    }
     if (mandatory) return; // can't skip a mandatory update
     if (phase === 'downloading') await cancelDownload();
     if (release) {

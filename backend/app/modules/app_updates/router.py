@@ -15,7 +15,7 @@ import logging
 import tempfile
 import uuid
 import zipfile
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.db import get_session
 from app.core.s3 import _is_s3_configured, get_s3_client
-from app.modules.app_updates.models import AppRelease
+from app.modules.app_updates.models import AppRelease, AppUpdatePolicy
 from app.modules.auth.dependencies import get_admin_user
 from app.modules.auth.models import User
 
@@ -57,15 +57,40 @@ class ReleaseView(BaseModel):
     changelog: str | None
     mandatory: bool
     is_active: bool
+    withdrawn_at: datetime | None
+    withdrawn_reason: str | None
     created_at: datetime
     download_path: str
 
 
 class LatestResponse(BaseModel):
     update_available: bool
-    # True when ANY newer active release is mandatory → the app blocks use.
+    # True → the app can't be used until updated (a newer release is marked
+    # mandatory, the device is below the minimum, or it runs a withdrawn build).
     mandatory: bool
     latest: ReleaseView | None
+    # The installed build was pulled by an admin (emergency).
+    current_withdrawn: bool = False
+    # Installed versionCode is below the admin's minimum supported version.
+    below_minimum: bool = False
+    # Text to show the user (withdraw reason / policy message).
+    notice: str | None = None
+
+
+class PolicyView(BaseModel):
+    platform: str
+    min_supported_code: int
+    message: str | None
+    updated_at: datetime | None
+
+
+class PolicyUpdate(BaseModel):
+    min_supported_code: int = Field(ge=0)
+    message: str | None = Field(default=None, max_length=1000)
+
+
+class WithdrawRequest(BaseModel):
+    reason: str = Field(min_length=3, max_length=1000)
 
 
 class ReleaseUpdate(BaseModel):
@@ -78,7 +103,8 @@ def _view(r: AppRelease) -> ReleaseView:
     return ReleaseView(
         id=r.id, platform=r.platform, version_code=r.version_code, version_name=r.version_name,
         size_bytes=r.size_bytes, sha256=r.sha256, md5=r.md5, changelog=r.changelog,
-        mandatory=r.mandatory, is_active=r.is_active, created_at=r.created_at,
+        mandatory=r.mandatory, is_active=r.is_active, withdrawn_at=r.withdrawn_at,
+        withdrawn_reason=r.withdrawn_reason, created_at=r.created_at,
         download_path=f"/api/v1/app/{r.platform}/releases/{r.version_code}/download",
     )
 
@@ -90,6 +116,15 @@ def _filename(r: AppRelease) -> str:
 # ── Public ───────────────────────────────────────────────────────────────
 
 
+def _offerable(platform: str):
+    """Releases we may hand out: active and not withdrawn."""
+    return (
+        AppRelease.platform == platform,
+        AppRelease.is_active.is_(True),
+        AppRelease.withdrawn_at.is_(None),
+    )
+
+
 @public_router.get("/{platform}/latest", response_model=LatestResponse)
 async def latest_release(
     platform: Platform,
@@ -98,23 +133,43 @@ async def latest_release(
 ) -> LatestResponse:
     newest = (
         await session.execute(
-            select(AppRelease)
-            .where(AppRelease.platform == platform, AppRelease.is_active.is_(True))
-            .order_by(AppRelease.version_code.desc())
-            .limit(1)
+            select(AppRelease).where(*_offerable(platform)).order_by(AppRelease.version_code.desc()).limit(1)
         )
     ).scalar_one_or_none()
-    if newest is None or newest.version_code <= version_code:
-        return LatestResponse(update_available=False, mandatory=False, latest=_view(newest) if newest else None)
-    mandatory_newer = await session.scalar(
-        select(func.count()).where(
-            AppRelease.platform == platform,
-            AppRelease.is_active.is_(True),
-            AppRelease.mandatory.is_(True),
-            AppRelease.version_code > version_code,
+    current = (
+        await session.execute(
+            select(AppRelease).where(AppRelease.platform == platform, AppRelease.version_code == version_code)
         )
+    ).scalar_one_or_none()
+    policy = await session.get(AppUpdatePolicy, platform)
+
+    current_withdrawn = bool(current and current.withdrawn_at)
+    below_minimum = bool(policy and version_code < policy.min_supported_code)
+    update_available = bool(newest and newest.version_code > version_code)
+
+    mandatory = False
+    if update_available:
+        mandatory_newer = await session.scalar(
+            select(func.count()).where(
+                *_offerable(platform), AppRelease.mandatory.is_(True), AppRelease.version_code > version_code
+            )
+        )
+        mandatory = bool(mandatory_newer) or current_withdrawn or below_minimum
+
+    notice = None
+    if current_withdrawn:
+        notice = current.withdrawn_reason  # type: ignore[union-attr]
+    elif below_minimum:
+        notice = policy.message  # type: ignore[union-attr]
+
+    return LatestResponse(
+        update_available=update_available,
+        mandatory=mandatory,
+        latest=_view(newest) if newest else None,
+        current_withdrawn=current_withdrawn,
+        below_minimum=below_minimum,
+        notice=notice,
     )
-    return LatestResponse(update_available=True, mandatory=bool(mandatory_newer), latest=_view(newest))
 
 
 @public_router.get("/{platform}/releases/{version_code}/download")
@@ -226,6 +281,76 @@ async def upload_release(
     session.add(r)
     await session.commit()
     logger.info("App release %s (%s) uploaded by %s", version_name, version_code, admin.id)
+    return _view(r)
+
+
+@admin_router.get("/policy", response_model=PolicyView)
+async def get_policy(
+    platform: Platform = Query("android"),
+    _: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> PolicyView:
+    pol = await session.get(AppUpdatePolicy, platform)
+    if pol is None:
+        return PolicyView(platform=platform, min_supported_code=0, message=None, updated_at=None)
+    return PolicyView(platform=platform, min_supported_code=pol.min_supported_code,
+                      message=pol.message, updated_at=pol.updated_at)
+
+
+@admin_router.put("/policy", response_model=PolicyView)
+async def set_policy(
+    body: PolicyUpdate,
+    platform: Platform = Query("android"),
+    admin: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> PolicyView:
+    """Everything below min_supported_code must update before it can be used."""
+    newest = await session.scalar(
+        select(func.max(AppRelease.version_code)).where(*_offerable(platform))
+    )
+    if body.min_supported_code > (newest or 0):
+        # Otherwise every device would be locked out with nothing to update to.
+        raise HTTPException(status_code=409, detail=f"MIN_ABOVE_LATEST_RELEASE (latest offerable {newest or 0})")
+    pol = await session.get(AppUpdatePolicy, platform)
+    if pol is None:
+        pol = AppUpdatePolicy(platform=platform)
+        session.add(pol)
+    pol.min_supported_code = body.min_supported_code
+    pol.message = body.message
+    pol.updated_by = admin.id
+    pol.updated_at = datetime.now(UTC)
+    await session.commit()
+    logger.warning("App update policy %s: min_supported_code=%s by %s", platform, body.min_supported_code, admin.id)
+    return PolicyView(platform=platform, min_supported_code=pol.min_supported_code,
+                      message=pol.message, updated_at=pol.updated_at)
+
+
+@admin_router.post("/{release_id}/withdraw", response_model=ReleaseView)
+async def withdraw_release(
+    release_id: uuid.UUID, body: WithdrawRequest,
+    admin: User = Depends(get_admin_user), session: AsyncSession = Depends(get_session),
+) -> ReleaseView:
+    """EMERGENCY: stop offering this build and warn every device running it."""
+    r = await session.get(AppRelease, release_id)
+    if r is None:
+        raise HTTPException(status_code=404, detail="NOT_FOUND")
+    r.withdrawn_at = datetime.now(UTC)
+    r.withdrawn_reason = body.reason
+    await session.commit()
+    logger.warning("App release %s (%s) WITHDRAWN by %s: %s", r.version_name, r.version_code, admin.id, body.reason)
+    return _view(r)
+
+
+@admin_router.post("/{release_id}/restore", response_model=ReleaseView)
+async def restore_release(
+    release_id: uuid.UUID, _: User = Depends(get_admin_user), session: AsyncSession = Depends(get_session),
+) -> ReleaseView:
+    r = await session.get(AppRelease, release_id)
+    if r is None:
+        raise HTTPException(status_code=404, detail="NOT_FOUND")
+    r.withdrawn_at = None
+    r.withdrawn_reason = None
+    await session.commit()
     return _view(r)
 
 
