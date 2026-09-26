@@ -12,6 +12,15 @@ Environment variables:
     ENV=development   → seeds dev users + demo data
     ENV=production    → seeds only essentials (admin user, categories)
     SKIP_SEED=1       → skip entirely
+
+  Production admin (set in Dokploy env, never in the repo):
+    SEED_ADMIN_EMAIL     → bootstrap admin account (default admin@meetbook.app)
+    SEED_ADMIN_PASSWORD  → its password. Empty in production = the account is
+                           NOT created. When set, an existing account's
+                           password is re-synced to it on every boot — change
+                           the env var + redeploy to rotate it.
+    ADMIN_EMAILS         → comma-separated EXISTING accounts to give admin
+                           rights (e.g. your own registered account).
 """
 
 import asyncio
@@ -19,7 +28,9 @@ import os
 import sys
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from typing import Any
+
+from sqlalchemy import func, select, update
 
 from app.core.config import get_settings
 from app.core.db import Base, get_engine, get_session_factory
@@ -105,6 +116,31 @@ def step(msg: str) -> None:
 # ── Seeding Logic ────────────────────────────────────────────────────────────
 
 
+async def _sync_admin_password(session: Any, user_id: Any, password: str) -> None:
+    """Make the bootstrap admin's password match SEED_ADMIN_PASSWORD."""
+    from app.core.security import hash_password, verify_password
+    from app.modules.auth.models import UserCredential
+
+    cred = (
+        await session.execute(select(UserCredential).where(UserCredential.user_id == user_id))
+    ).scalar_one_or_none()
+    if cred is None:
+        now = datetime.now(timezone.utc)
+        session.add(
+            UserCredential(
+                user_id=user_id,
+                password_hash=hash_password(password),
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        info("Bootstrap admin password set.")
+    elif not verify_password(password, cred.password_hash):
+        cred.password_hash = hash_password(password)
+        cred.updated_at = datetime.now(timezone.utc)
+        info("Bootstrap admin password rotated from SEED_ADMIN_PASSWORD.")
+
+
 async def seed() -> int:
     """Main seed function. Returns 0 on success, 1 on failure."""
     settings = get_settings()
@@ -125,7 +161,20 @@ async def seed() -> int:
     try:
         # ── 1. Create admin/dev users ────────────────────────────────────
         step("Seeding users...")
-        users_to_seed = DEV_USERS if is_dev else [DEV_USERS[0]]  # admin only
+        if is_dev:
+            users_to_seed = DEV_USERS
+        else:
+            # Never ship the repo's default password to production: the
+            # bootstrap admin exists only when its password comes from env.
+            admin_email = os.environ.get("SEED_ADMIN_EMAIL", "").strip() or DEV_USERS[0]["email"]
+            admin_password = os.environ.get("SEED_ADMIN_PASSWORD", "")
+            users_to_seed = (
+                [{**DEV_USERS[0], "email": admin_email, "password": admin_password}]
+                if admin_password
+                else []
+            )
+            if not admin_password:
+                warn("SEED_ADMIN_PASSWORD not set — bootstrap admin not created/updated.")
 
         async with factory() as session:
             from app.modules.auth.models import User, UserCredential
@@ -138,7 +187,10 @@ async def seed() -> int:
                 existing = await session.execute(
                     select(User.__table__.c.id).where(User.__table__.c.email == user_data["email"])
                 )
-                if existing.first():
+                row = existing.first()
+                if row:
+                    if not is_dev:
+                        await _sync_admin_password(session, row[0], user_data["password"])
                     info(f"User '{user_data['email']}' already exists — skipped.")
                     continue
 
@@ -166,6 +218,22 @@ async def seed() -> int:
                 )
                 session.add(credential)
                 info(f"Created user: {user_data['email']}")
+
+            # Promote listed existing accounts (e.g. the owner's own account).
+            admin_emails = [
+                e.strip().lower()
+                for e in os.environ.get("ADMIN_EMAILS", "").split(",")
+                if e.strip()
+            ]
+            for email in admin_emails:
+                result = await session.execute(
+                    update(User.__table__)
+                    .where(func.lower(User.__table__.c.email) == email)
+                    .where(User.__table__.c.is_admin.is_(False))
+                    .values(is_admin=True)
+                )
+                if result.rowcount:
+                    info(f"Granted admin: {email}")
 
             await session.commit()
 

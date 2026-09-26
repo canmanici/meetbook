@@ -16,6 +16,9 @@
 # can never advertise a different number than what actually gets installed.
 # ==============================================================================
 set -euo pipefail
+# Resolve the APK argument against the CALLER's directory before we cd —
+# otherwise a relative path (the usual case) is looked up inside mobile/.
+ORIG_PWD=$(pwd)
 cd "$(dirname "$0")/.."
 
 APK=""; API="https://canmanici.com/meetbook/api/v1"; NOTES=""; MANDATORY="false"
@@ -28,6 +31,7 @@ while [ $# -gt 0 ]; do
     *) APK="$1"; shift ;;
   esac
 done
+case "$APK" in /*|"") ;; *) APK="$ORIG_PWD/$APK" ;; esac
 [ -f "$APK" ] || { echo "❌ APK not found: '$APK'"; exit 1; }
 
 # ── Read version from the APK ─────────────────────────────────────────────────
@@ -58,9 +62,9 @@ PASS="${MEETBOOK_ADMIN_PASSWORD:-}"
 [ -n "$EMAIL" ] || read -rp "Admin e-posta: " EMAIL
 [ -n "$PASS" ] || { read -rsp "Admin şifre: " PASS; echo; }
 LOGIN_JSON=$(python3 -c 'import json,sys; print(json.dumps({"email": sys.argv[1], "password": sys.argv[2]}))' "$EMAIL" "$PASS")
-TOKEN=$(curl -sf -X POST "$API/auth/login" -H 'Content-Type: application/json' -d "$LOGIN_JSON" \
-  | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])') \
-  || { echo "❌ Login failed"; exit 1; }
+TOKEN=$(curl -sf -X POST "$API/auth/login" -H 'Content-Type: application/json' -d "$LOGIN_JSON" 2>/dev/null \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])' 2>/dev/null) \
+  || { echo "❌ Login failed — e-posta veya şifre hatalı (ya da sunucuya ulaşılamadı)"; exit 1; }
 unset PASS LOGIN_JSON
 
 # ── Upload ────────────────────────────────────────────────────────────────────
@@ -71,6 +75,10 @@ RESP=$(curl -s -w '\n%{http_code}' -X POST "$API/admin/app-releases" \
   -F "version_code=$CODE" -F "version_name=$NAME" \
   -F "mandatory=$MANDATORY" -F "changelog=$NOTES")
 STATUS=$(tail -1 <<<"$RESP"); BODY=$(sed '$d' <<<"$RESP")
+if [ "$STATUS" = "403" ]; then
+  echo "❌ Bu hesap admin değil (HTTP 403). Dokploy'da ADMIN_EMAILS=$EMAIL ekleyip redeploy et."
+  exit 1
+fi
 if [ "$STATUS" != "201" ]; then
   echo "❌ Upload failed (HTTP $STATUS): $BODY"
   exit 1

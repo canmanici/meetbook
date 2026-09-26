@@ -171,6 +171,12 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-MeetBook <no-reply@canmanici.com>}
       KVKK_CONTROLLER_EMAIL: ${KVKK_CONTROLLER_EMAIL:-}
+      # Bootstrap admin (scripts/seed.py). No password = not created; the
+      # password is re-synced on every deploy, so rotating = change + redeploy.
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@meetbook.app}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      # Existing accounts to grant admin (comma-separated).
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
     volumes:
       - mediadata:/app/media
     depends_on:
