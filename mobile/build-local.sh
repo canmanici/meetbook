@@ -189,7 +189,10 @@ cd android
 EXPO_PUBLIC_API_URL="$API_URL" \
 EXPO_PUBLIC_MAPTILER_KEY="$MAPTILER_KEY" \
 EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
-./gradlew assembleRelease \
+# --no-build-cache: a stale cached mergeReleaseAssets once produced an APK
+# with NO JS bundle (app dead on launch). Local cache still speeds up native
+# compilation via up-to-date checks; only cross-run cache restores are off.
+./gradlew assembleRelease --no-build-cache \
   -PreactNativeArchitectures=arm64-v8a \
   -PmeetbookAbis=arm64-v8a \
   -Pandroid.enableMinifyInReleaseBuilds=false \
