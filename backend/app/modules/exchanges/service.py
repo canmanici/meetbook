@@ -165,65 +165,56 @@ class ExchangeService:
         lifecycle event (accept, meetup, lend/return, extension, ...) inline in
         the DM, and push-notify whichever participant didn't trigger it.
 
-        No-ops silently if the chat doesn't exist yet (e.g. before accept)."""
+        Before accept there is no chat yet (reject/cancel of a pending
+        request): the inline message is skipped but the other party is still
+        notified — otherwise a rejected requester never finds out."""
         from app.modules.chat.repository import ChatRepository
         from app.modules.chat.schemas import MessageView
         from app.modules.chat.service import ConnectionManager, publish_message
         from app.modules.notifications.service import NotificationService
-        from app.modules.push_tokens.service import PushMessage, send_push_to_user
 
         chat_repo = ChatRepository(self.session)
         chat = await chat_repo.get_chat_by_exchange(exchange_id)
-        if chat is None:
-            return
+        if chat is not None:
+            msg = await chat_repo.create_message(
+                chat.id, None, text, message_type="system", extra={"action": action}
+            )
+            await self.session.commit()
 
-        msg = await chat_repo.create_message(
-            chat.id, None, text, message_type="system", extra={"action": action}
-        )
-        await self.session.commit()
-
-        view = MessageView(
-            id=msg.id,
-            chat_id=msg.chat_id,
-            sender_id=None,
-            message_type="system",
-            text=msg.text,
-            created_at=msg.created_at,
-            extra=msg.extra,
-        )
-        payload = {"type": "message", "message": view.model_dump(mode="json"), "sender_id": None}
-        await ConnectionManager.broadcast_to_chat(chat.id, payload, repo=chat_repo)
-        await publish_message(chat.id, payload)
+            view = MessageView(
+                id=msg.id,
+                chat_id=msg.chat_id,
+                sender_id=None,
+                message_type="system",
+                text=msg.text,
+                created_at=msg.created_at,
+                extra=msg.extra,
+            )
+            payload = {
+                "type": "message",
+                "message": view.model_dump(mode="json"),
+                "sender_id": None,
+            }
+            await ConnectionManager.broadcast_to_chat(chat.id, payload, repo=chat_repo)
+            await publish_message(chat.id, payload)
 
         exchange = await self.repo.get(exchange_id)
         if exchange is None:
             return
         other_members = [m for m in (exchange.requested_by, exchange.requested_to) if m != actor_id]
+        actor = await self.auth_repo.get_user_by_id(actor_id) if actor_id else None
 
         notif_svc = NotificationService(self.session)
         for member_id in other_members:
-            await notif_svc.create_notification(
-                user_id=member_id,
-                type_="chat_system",
-                payload={"exchange_id": str(exchange_id), "action": action, "message": text},
+            await notif_svc.notify(
+                member_id,
+                "chat_system",
+                {"exchange_id": str(exchange_id), "action": action},
+                title=actor.name if actor and actor.name else "MeetBook",
+                body=text,
+                skip_push_if_online=True,
             )
         await self.session.commit()
-
-        for member_id in other_members:
-            if await ConnectionManager.check_online(member_id):
-                continue
-            try:
-                await send_push_to_user(
-                    str(member_id),
-                    PushMessage(
-                        title="MeetBook",
-                        body=text,
-                        data={"type": "chat_system", "exchange_id": str(exchange_id)},
-                    ),
-                    session=self.session,
-                )
-            except Exception as exc:
-                logger.warning("System-message push failed for user %s: %s", member_id, exc)
 
     async def _to_detail(
         self, request: ExchangeRequest, current_user_id: uuid.UUID
@@ -290,11 +281,13 @@ class ExchangeService:
             created_at=buddy.created_at,
         )
 
-    async def _to_summary(self, request: ExchangeRequest, role: Role) -> ExchangeSummary:
-        book_row = await self.books_repo.get_by_id(request.book_id)
-        photos = await self.books_repo.get_photos(request.book_id)
-        counterpart_id = request.requested_to if role == "sent" else request.requested_by
-        counterpart = await self.auth_repo.get_user_by_id(counterpart_id)
+    @staticmethod
+    def _build_summary(
+        request: ExchangeRequest,
+        book_row: BookRow | None,
+        photos: list[Any],
+        counterpart: User | None,
+    ) -> ExchangeSummary:
         if counterpart is None:
             raise ExchangeError("NOT_FOUND", 404)
         return ExchangeSummary(
@@ -361,7 +354,28 @@ class ExchangeService:
             loan_duration_days=body.loan_duration_days,
         )
         await self.session.commit()
+        await self._notify_new_request(request, book.title)
         return await self._to_detail(request, current_user_id)
+
+    async def _notify_new_request(self, request: ExchangeRequest, book_title: str) -> None:
+        """Tell the owner someone wants their book — there is no chat before
+        accept, so this is the only way they learn about the request."""
+        from app.modules.notifications.service import NotificationService
+
+        try:
+            requester = await self.auth_repo.get_user_by_id(request.requested_by)
+            name = requester.name if requester and requester.name else "Biri"
+            verb = "ödünç almak" if request.mode is ExchangeMode.borrow else "takas etmek"
+            await NotificationService(self.session).notify(
+                request.requested_to,
+                "exchange_request",
+                {"exchange_id": str(request.id), "book_id": str(request.book_id)},
+                title="Yeni takas isteği",
+                body=f"{name}, “{book_title}” kitabını {verb} istiyor",
+            )
+            await self.session.commit()
+        except Exception:
+            logger.exception("New-request notification failed for exchange %s", request.id)
 
     async def list_exchanges(
         self,
@@ -376,7 +390,23 @@ class ExchangeService:
         if len(rows) == limit:
             last = rows[-1]
             next_cursor = encode_ts_cursor(last.created_at, last.id)
-        items = [await self._to_summary(request, role) for request in rows]
+        # Batch-load books, photos and counterparts: 3 queries per page instead
+        # of 3 per row.
+        book_ids = [r.book_id for r in rows]
+        books = await self.books_repo.get_by_ids(book_ids)
+        photos = await self.books_repo.get_photos_batch(book_ids)
+        users = await self.auth_repo.get_users_by_ids(
+            r.requested_to if role == "sent" else r.requested_by for r in rows
+        )
+        items = [
+            self._build_summary(
+                request,
+                books.get(request.book_id),
+                photos.get(request.book_id, []),
+                users.get(request.requested_to if role == "sent" else request.requested_by),
+            )
+            for request in rows
+        ]
         return ExchangeListResponse(items=items, next_cursor=next_cursor)
 
     async def get_exchange(
@@ -1129,35 +1159,22 @@ class ExchangeService:
         self, exchange_id: uuid.UUID, sharer_id: uuid.UUID, partner_id: uuid.UUID
     ) -> None:
         from app.modules.notifications.service import NotificationService
-        from app.modules.push_tokens.service import PushMessage, send_push_to_user
 
         sharer = await self.auth_repo.get_user_by_id(sharer_id)
         sharer_name = sharer.name if sharer else "Takas ortağın"
 
-        notif_svc = NotificationService(self.session)
-        await notif_svc.create_notification(
-            user_id=partner_id,
-            type_="location_started",
-            payload={
+        await NotificationService(self.session).notify(
+            partner_id,
+            "location_started",
+            {
                 "exchange_id": str(exchange_id),
                 "sharer_id": str(sharer_id),
                 "sharer_name": sharer_name,
             },
+            title="Nerdeyim Modu",
+            body=f"{sharer_name} canlı konumunu paylaşmaya başladı",
         )
         await self.session.commit()
-
-        try:
-            await send_push_to_user(
-                str(partner_id),
-                PushMessage(
-                    title="Nerdeyim Modu",
-                    body=f"{sharer_name} canlı konumunu paylaşmaya başladı",
-                    data={"type": "location_started", "exchange_id": str(exchange_id)},
-                ),
-                session=self.session,
-            )
-        except Exception as exc:
-            logger.warning("Location-started push failed for user %s: %s", partner_id, exc)
 
     async def stop_location_sharing(self, exchange_id: uuid.UUID, user_id: uuid.UUID) -> None:
         """Explicitly stop sharing — clears the Redis key immediately instead of waiting for TTL,

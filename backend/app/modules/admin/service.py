@@ -129,14 +129,21 @@ class AdminService:
         report.resolved_at = datetime.now(UTC)
         report.updated_at = report.resolved_at
 
-        await self.notification_service.create_notification(
-            user_id=report.reporter_id,
-            type_="report_resolved",
-            payload={
+        resolved = body.status is ReportStatus.resolved
+        await self.notification_service.notify(
+            report.reporter_id,
+            "report_resolved",
+            {
                 "report_id": str(report.id),
                 "status": body.status.value,
                 "moderator_notes": body.moderator_notes,
             },
+            title="Şikayetin sonuçlandı",
+            body=(
+                "Şikayetini inceledik ve gerekli işlemi yaptık. Teşekkürler!"
+                if resolved
+                else "Şikayetini inceledik; kurallarımıza aykırı bir durum bulamadık."
+            ),
         )
         await self._audit(
             moderator_id,
@@ -226,7 +233,11 @@ class AdminService:
     ) -> int:
         user_ids = await self.repo.list_active_user_ids()
         count = await self.notification_service.broadcast(
-            user_ids, "admin_broadcast", {"title": title, "message": message}
+            user_ids,
+            "admin_broadcast",
+            {"title": title, "message": message},
+            push_title=title,
+            push_body=message,
         )
         await self._audit(
             moderator_id,

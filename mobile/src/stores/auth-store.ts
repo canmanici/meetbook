@@ -29,7 +29,7 @@ interface AuthState {
   bootstrap: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   status: 'loading',
   user: null,
   accessToken: null,
@@ -62,7 +62,10 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   clearSession: () => {
     crashReporter.addBreadcrumb('auth', 'logout');
-    import('../lib/push-tokens').then(m => m.unregisterPushToken());
+    // Capture the token now — the set() below clears it before the lazy
+    // import resolves.
+    const { accessToken } = get();
+    import('../lib/push-tokens').then(m => m.unregisterPushToken(accessToken));
     set({ status: 'unauthenticated', user: null, accessToken: null, refreshToken: null });
   },
 
@@ -75,6 +78,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
       });
+      // Tokens rotate (reinstall, FCM refresh, backend pruning) — re-register
+      // on every launch, silently if permission isn't granted yet.
+      import('../lib/push-tokens').then(m => m.registerPushToken({ prompt: false }));
     } else {
       set({ status: 'unauthenticated' });
     }

@@ -24,13 +24,20 @@ async function getNotifications(): Promise<any | null> {
 /**
  * Android notification channels. Incoming-call pushes go to a dedicated
  * max-importance 'calls' channel (heads-up, lock screen, long vibration) so
- * they aren't buried like an ordinary message notification.
+ * they aren't buried like an ordinary message notification. Everything else
+ * uses 'default' (the backend always sends a channelId).
  */
 export async function ensureNotificationChannels(): Promise<void> {
   if (Platform.OS !== 'android') return;
   const Notifications = await getNotifications();
   if (!Notifications?.setNotificationChannelAsync) return;
   try {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'Bildirimler',
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: 'default',
+      vibrationPattern: [0, 250, 250, 250],
+    });
     await Notifications.setNotificationChannelAsync('calls', {
       name: 'Aramalar',
       importance: Notifications.AndroidImportance.MAX,
@@ -45,20 +52,52 @@ export async function ensureNotificationChannels(): Promise<void> {
 }
 
 /**
- * Routes notification taps: a message push opens its chat; an incoming-call
- * push only needs the app foregrounded (CallManager reconnects the socket and
- * the backend re-delivers the ringing offer) — if that window has passed,
- * fall back to the chat so the user can call back.
+ * Foreground behaviour + live bell refresh. Without a handler expo drops
+ * every push that arrives while the app is open (the backend only skips the
+ * push for users with a live socket, so a backgrounded-but-connected app
+ * could lose them). `onReceived` lets the caller refetch the bell list.
+ * Returns an unsubscribe function.
+ */
+export async function initNotifications(onReceived: () => void): Promise<() => void> {
+  const Notifications = await getNotifications();
+  if (!Notifications?.setNotificationHandler) return () => {};
+  await ensureNotificationChannels();
+  Notifications.setNotificationHandler({
+    handleNotification: async (notification: any) => {
+      const data = notification?.request?.content?.data ?? {};
+      // Ringing is handled by the in-app call screen once the socket is up.
+      const silent = data.type === 'incoming_call';
+      return {
+        shouldShowBanner: !silent,
+        shouldShowList: !silent,
+        shouldShowAlert: !silent,
+        shouldPlaySound: !silent,
+        shouldSetBadge: false,
+      };
+    },
+  });
+  const sub = Notifications.addNotificationReceivedListener?.(() => onReceived());
+  return () => sub?.remove?.();
+}
+
+/**
+ * Routes notification taps to the same screen the in-app list would open
+ * (see notification-routing.ts) and marks the matching bell entry read.
+ * An incoming-call push only needs the app foregrounded (CallManager
+ * reconnects the socket and the backend re-delivers the ringing offer) — if
+ * that window has passed, fall back to the chat so the user can call back.
  * Returns an unsubscribe function.
  */
 let lastHandledTapId: string | null = null;
 
 export async function listenForNotificationTaps(
-  openChat: (exchangeId: string) => void,
+  navigate: (href: string) => void,
   isCallInProgress: () => boolean,
+  onOpened: (notificationId: string | null) => void,
 ): Promise<() => void> {
   const Notifications = await getNotifications();
   if (!Notifications?.addNotificationResponseReceivedListener) return () => {};
+  const { hrefForNotification } = await import('./notification-routing');
   const handle = (response: any) => {
     // getLastNotificationResponseAsync keeps returning the same tap on every
     // re-subscribe (re-login, remount) — route each tap only once.
@@ -68,15 +107,17 @@ export async function listenForNotificationTaps(
       lastHandledTapId = id;
     }
     const data = response?.notification?.request?.content?.data ?? {};
-    const exchangeId = typeof data.exchange_id === 'string' ? data.exchange_id : null;
-    if (!exchangeId) return;
-    if (data.type === 'incoming_call') {
+    const type = typeof data.type === 'string' ? data.type : '';
+    onOpened(typeof data.notification_id === 'string' ? data.notification_id : null);
+    // Informational pushes (broadcast, report result) open the bell list.
+    const href = hrefForNotification(type, data) ?? '/notifications';
+    if (type === 'incoming_call') {
       // Give the re-delivered offer a moment to arrive before falling back.
       setTimeout(() => {
-        if (!isCallInProgress()) openChat(exchangeId);
+        if (!isCallInProgress()) navigate(href);
       }, 4000);
-    } else if (data.type === 'new_message') {
-      openChat(exchangeId);
+    } else {
+      navigate(href);
     }
   };
   const sub = Notifications.addNotificationResponseReceivedListener(handle);
@@ -88,26 +129,39 @@ export async function listenForNotificationTaps(
   return () => sub.remove();
 }
 
-export async function registerPushToken(): Promise<boolean> {
+/**
+ * Register this device's Expo push token for the logged-in user.
+ * `prompt: false` (app restart) only re-registers when permission was already
+ * granted — it never pops the OS dialog on launch.
+ *
+ * Always POSTs, even for an unchanged token: the call is idempotent, and a
+ * local "already registered" cache skipped re-registration after switching
+ * accounts or after the backend pruned the token.
+ */
+export async function registerPushToken({ prompt = true }: { prompt?: boolean } = {}): Promise<boolean> {
   const Notifications = await getNotifications();
   if (!Notifications) return false;
   await ensureNotificationChannels();
 
   try {
-    const { status } = await Notifications.requestPermissionsAsync();
+    const current = await Notifications.getPermissionsAsync();
+    let status = current.status;
+    if (status !== 'granted' && prompt) {
+      status = (await Notifications.requestPermissionsAsync()).status;
+    }
     if (status !== 'granted') {
       console.log('[Push] Permission denied');
       return false;
     }
 
-    const { data: expoToken } = await Notifications.getExpoPushTokenAsync();
+    // Standalone builds need the EAS projectId (app.json extra.eas.projectId).
+    const Constants = (await import('expo-constants')).default;
+    const projectId =
+      Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+    const { data: expoToken } = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined,
+    );
     if (!expoToken) return false;
-
-    const lastToken = await AsyncStorage.getItem(REGISTERED_TOKEN_KEY);
-    if (lastToken === expoToken) {
-      console.log('[Push] Token already registered');
-      return true;
-    }
 
     const res = await apiClient.post('/auth/push-token', {
       token: expoToken,
@@ -129,11 +183,19 @@ export async function registerPushToken(): Promise<boolean> {
   }
 }
 
-export async function unregisterPushToken(): Promise<void> {
+/**
+ * Detach this device from the account on logout. `accessToken` must be the
+ * token from BEFORE the session was cleared — reading it from the store at
+ * call time sent the DELETE unauthenticated, so the logged-out user kept
+ * receiving pushes on this phone.
+ */
+export async function unregisterPushToken(accessToken: string | null): Promise<void> {
   try {
     const token = await AsyncStorage.getItem(REGISTERED_TOKEN_KEY);
-    if (token) {
-      await apiClient.delete(`/auth/push-token?token=${encodeURIComponent(token)}`).catch(() => {});
+    if (token && accessToken) {
+      await apiClient
+        .delete(`/auth/push-token?token=${encodeURIComponent(token)}`, accessToken)
+        .catch(() => {});
     }
     await AsyncStorage.removeItem(REGISTERED_TOKEN_KEY);
   } catch {}

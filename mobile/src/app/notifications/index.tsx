@@ -3,18 +3,10 @@
  *
  * Lists notifications from GET /notifications. Unread items get a primary
  * left border + soft tint. Tapping a notification marks it read (optimistic)
- * and navigates based on type:
- *   - exchange-like   → /exchange/{exchange_id|id}
- *   - chat-like       → /chat/{chat_id|id}
- *   - book-like       → /book/{book_id|id}
- *   - year_in_review  → /year-in-review (star accent, gold border)
- *   - book_twin       → /user/{twin_user_id} (people accent, green border)
- *   - report/broadcast/admin → no navigation (informational)
+ * and navigates via hrefForNotification (shared with push taps).
  *
- * Backend types currently emitted: geofence_match, report_resolved,
- * admin_broadcast, year_in_review, book_twin. Payload is a free-form object;
- * we read title/message/body/book_title/twin_name/completed_count when present
- * and fall back to type-derived defaults.
+ * The backend stores the push's title/message on every entry, so those are
+ * shown as-is; the type-derived defaults below only cover older rows.
  */
 import { useCallback, useMemo } from 'react';
 import {
@@ -28,15 +20,17 @@ import {
 } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { router, type Href } from 'expo-router';
+import { router, Stack, type Href } from 'expo-router';
 
 import { palette, spacing, fontSize, radius, shadows } from '@/components/ui/tokens';
 import { EmptyState } from '@/components/ui';
 import {
   listNotifications,
   markNotificationsRead,
+  markAllNotificationsRead,
   type NotificationListResponse,
 } from '@/lib/api/client';
+import { hrefForNotification } from '@/lib/notification-routing';
 
 type NotificationItem = NotificationListResponse['items'][number];
 
@@ -64,6 +58,9 @@ function formatRelative(iso: string): string {
 type NotifKind =
   | 'exchange'
   | 'chat'
+  | 'call'
+  | 'loan'
+  | 'club'
   | 'book'
   | 'report'
   | 'broadcast'
@@ -75,6 +72,10 @@ function kindFor(type: string): NotifKind {
   const t = type.toLowerCase();
   if (t === 'year_in_review' || t.includes('year_review')) return 'year_review';
   if (t === 'book_twin' || t.includes('twin')) return 'twin';
+  if (t === 'missed_call') return 'call';
+  if (t.startsWith('loan_')) return 'loan';
+  if (t.startsWith('club_')) return 'club';
+  if (t === 'chat_system') return 'exchange';
   if (t.includes('exchange') || t.includes('swap') || t.includes('trade') || t.includes('location')) return 'exchange';
   if (t.includes('chat') || t.includes('message')) return 'chat';
   if (t.includes('geofence') || t.includes('book') || t.includes('wishlist')) return 'book';
@@ -89,6 +90,12 @@ function iconFor(kind: NotifKind): React.ComponentProps<typeof Ionicons>['name']
       return 'swap-horizontal';
     case 'chat':
       return 'chatbubble-ellipses';
+    case 'call':
+      return 'call';
+    case 'loan':
+      return 'time';
+    case 'club':
+      return 'people-circle';
     case 'book':
       return 'book';
     case 'report':
@@ -113,6 +120,12 @@ function defaultTitle(type: string): string {
       return 'Takas Güncellemesi';
     case 'chat':
       return 'Yeni Mesaj';
+    case 'call':
+      return 'Cevapsız arama';
+    case 'loan':
+      return 'İade hatırlatması';
+    case 'club':
+      return 'Kitap Kulübü';
     case 'report':
       return 'Şikayetiniz Çözüldü';
     case 'broadcast':
@@ -140,6 +153,8 @@ function defaultBody(type: string, payload: Record<string, unknown>): string {
       return 'Takas talebinizde güncelleme var.';
     case 'chat':
       return 'Yeni bir mesajınız var.';
+    case 'loan':
+      return 'Ödünç kitabının iade tarihine göz at.';
     case 'report': {
       const status = payload.status ? ` (${String(payload.status)})` : '';
       return `Şikayet durumunuz çözüldü olarak işaretlendi${status}.`;
@@ -165,30 +180,7 @@ function defaultBody(type: string, payload: Record<string, unknown>): string {
 }
 
 function navTargetFor(item: NotificationItem): string | null {
-  const p = (item.payload ?? {}) as Record<string, unknown>;
-  switch (kindFor(item.type)) {
-    case 'year_review':
-      // Year-in-review screen reads the current user's exchanges; no id param.
-      return '/year-in-review';
-    case 'twin': {
-      const id = (p.twin_user_id as string) ?? (p.id as string);
-      return id ? `/user/${id}` : null;
-    }
-    case 'exchange': {
-      const id = (p.exchange_id as string) ?? (p.id as string);
-      return id ? `/exchange/${id}` : null;
-    }
-    case 'chat': {
-      const id = (p.chat_id as string) ?? (p.id as string);
-      return id ? `/chat/${id}` : null;
-    }
-    case 'book': {
-      const id = (p.book_id as string) ?? (p.id as string);
-      return id ? `/book/${id}` : null;
-    }
-    default:
-      return null;
-  }
+  return hrefForNotification(item.type, (item.payload ?? {}) as Record<string, unknown>);
 }
 
 function textFor(item: NotificationItem): { title: string; body: string } {
@@ -213,6 +205,19 @@ export default function NotificationsScreen() {
   });
 
   const items = useMemo(() => notificationsQuery.data?.items ?? [], [notificationsQuery.data]);
+  const hasUnread = useMemo(() => items.some((n) => !n.read_at), [items]);
+
+  const handleMarkAll = useCallback(async () => {
+    const now = new Date().toISOString();
+    queryClient.setQueryData<NotificationListResponse>(['notifications'], (prev) =>
+      prev ? { items: prev.items.map((n) => (n.read_at ? n : { ...n, read_at: now })) } : prev,
+    );
+    try {
+      await markAllNotificationsRead();
+    } catch {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    }
+  }, [queryClient]);
 
   const handlePress = useCallback(
     async (item: NotificationItem) => {
@@ -313,6 +318,16 @@ export default function NotificationsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Stack.Screen
+        options={{
+          headerRight: () =>
+            hasUnread ? (
+              <TouchableOpacity onPress={handleMarkAll} hitSlop={8} testID="notif-mark-all">
+                <Text style={[styles.markAll, { color: colors.primary }]}>Tümünü okundu say</Text>
+              </TouchableOpacity>
+            ) : null,
+        }}
+      />
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
@@ -393,6 +408,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     lineHeight: 18,
     marginTop: spacing.xs,
+  },
+  markAll: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
   },
   unreadDot: {
     width: 8,

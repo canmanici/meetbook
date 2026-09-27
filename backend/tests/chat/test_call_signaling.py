@@ -201,7 +201,7 @@ async def test_muted_chat_gets_no_push(
 ) -> None:
     monkeypatch.setattr(chat_service.ConnectionManager, "broadcast_to_chat", AsyncMock())
     notif = MagicMock()
-    notif.return_value.create_notification = AsyncMock()
+    notif.return_value.notify = AsyncMock()
     monkeypatch.setattr(chat_service, "NotificationService", notif)
     env.repo.create_message = AsyncMock(return_value=SimpleNamespace(sender_id=CALLER))
     env.repo.get_chat_settings = AsyncMock(
@@ -209,4 +209,4 @@ async def test_muted_chat_gets_no_push(
     )
     await env.svc.handle_send(CALLER, FakeWS(), CHAT, "hi")
     env.push.assert_not_awaited()
-    notif.return_value.create_notification.assert_not_awaited()
+    notif.return_value.notify.assert_not_awaited()

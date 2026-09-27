@@ -40,13 +40,17 @@ const THEME_LABEL: Record<ThemePref, string> = {
   dark: 'Karanlık',
 };
 
-// B11: push notification event toggles shown to the user.
+// B11: push notification event toggles. Keys must match PREFERENCE_KEY in
+// backend/app/modules/notifications/service.py — off mutes the push only,
+// the entry still lands in the bell list. Calls are never muted here.
 const NOTIFICATION_EVENTS: { key: string; label: string }[] = [
   { key: 'new_exchange_request', label: 'Yeni takas isteği' },
-  { key: 'new_message', label: 'Mesaj' },
-  { key: 'meetup_reminder', label: 'Buluşma hatırlatma' },
-  { key: 'book_favorited', label: 'Kitapın beğenildi' },
+  { key: 'exchange_updates', label: 'Takas güncellemeleri' },
+  { key: 'new_message', label: 'Mesajlar' },
+  { key: 'meetup_reminder', label: 'İade hatırlatmaları' },
   { key: 'wishlist_match', label: 'İstek listem bulundu' },
+  { key: 'clubs', label: 'Kitap kulüpleri' },
+  { key: 'book_twin', label: 'Kitap ikizi' },
 ];
 
 // B12: active session shape returned by /auth/me/sessions.

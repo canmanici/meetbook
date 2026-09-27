@@ -72,8 +72,6 @@ async def find_and_notify_book_twins(session: AsyncSession) -> int:
 
     Returns the number of notifications created.
     """
-    from app.modules.push_tokens.service import PushMessage, send_push_to_user
-
     # Active users owning at least MIN_BOOKS non-deleted books.
     book_counts = await session.execute(
         select(Book.owner_id, func.count(Book.id))
@@ -130,34 +128,21 @@ async def find_and_notify_book_twins(session: AsyncSession) -> int:
 
             for user, twin in ((a, b), (b, a)):
                 try:
-                    await notif_service.create_notification(
-                        user_id=user.id,
-                        type_="book_twin",
-                        payload={
+                    await notif_service.notify(
+                        user.id,
+                        "book_twin",
+                        {
                             "twin_user_id": str(twin.id),
                             "twin_name": twin.name,
                             "similarity": round(sim, 2),
                             "shared_categories": shared,
                         },
+                        title="Kitap İkizi",
+                        body=(
+                            f"{twin.name} ile benzer kitap zevkleriniz var. "
+                            "Profili görmek için dokun."
+                        ),
                     )
-                    try:
-                        await send_push_to_user(
-                            str(user.id),
-                            PushMessage(
-                                title="Kitap İkizi",
-                                body=(
-                                    f"{twin.name} ile benzer kitap zevkleriniz var. "
-                                    "Profili görmek için dokun."
-                                ),
-                                data={
-                                    "type": "book_twin",
-                                    "twin_user_id": str(twin.id),
-                                },
-                            ),
-                            session=session,
-                        )
-                    except Exception as exc:
-                        logger.warning("book_twin push failed for %s: %s", user.id, exc)
                     created += 1
                 except Exception:
                     logger.exception(

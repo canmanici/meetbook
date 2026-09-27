@@ -34,3 +34,11 @@ async def mark_notifications_read(
     service: NotificationService = Depends(_get_service),
 ) -> None:
     await service.mark_read(user.id, body.notification_ids)
+
+
+@router.post("/notifications/read-all", status_code=204)
+async def mark_all_notifications_read(
+    user: User = Depends(get_current_user),
+    service: NotificationService = Depends(_get_service),
+) -> None:
+    await service.mark_all_read(user.id)

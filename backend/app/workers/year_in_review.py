@@ -64,8 +64,6 @@ async def generate_year_in_review(session: AsyncSession) -> int:
 
     Returns the number of notifications created.
     """
-    from app.modules.push_tokens.service import PushMessage, send_push_to_user
-
     now = datetime.now(UTC)
     year = now.year
     year_start = datetime(year, 1, 1, tzinfo=UTC)
@@ -83,33 +81,18 @@ async def generate_year_in_review(session: AsyncSession) -> int:
 
             completed = await _count_completed_this_year(session, user.id, year_start)
 
-            await notif_service.create_notification(
-                user_id=user.id,
-                type_="year_in_review",
-                payload={
-                    "year": year,
-                    "completed_count": completed,
-                    "user_name": user.name,
-                },
-            )
-
             if completed > 0:
                 body = f"{completed} kitap takası tamamladın. Yılın özetini görmek için dokun."
             else:
                 body = "Bu yıl seninle olan kitap yolculuğunu keşfetmek için dokun."
 
-            try:
-                await send_push_to_user(
-                    str(user.id),
-                    PushMessage(
-                        title="Yılın Özeti",
-                        body=body,
-                        data={"type": "year_in_review", "year": str(year)},
-                    ),
-                    session=session,
-                )
-            except Exception as exc:
-                logger.warning("year_in_review push failed for %s: %s", user.id, exc)
+            await notif_service.notify(
+                user.id,
+                "year_in_review",
+                {"year": year, "completed_count": completed, "user_name": user.name},
+                title="Yılın Özeti",
+                body=body,
+            )
 
             created += 1
         except Exception:

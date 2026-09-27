@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.db import get_session_factory
 from app.core.security import generate_opaque_token, hash_token
+from app.core.ttl_cache import TTLCache
 from app.modules.chat.models import Message
 from app.modules.chat.repository import ChatRepository
 from app.modules.chat.schemas import (
@@ -89,8 +90,20 @@ _INSTANCE_ID = uuid.uuid4().hex
 _background_tasks: set[asyncio.Task[None]] = set()
 # Offers parked while the callee is offline (see handle_call grace window).
 _pending_calls: dict[str, dict[str, Any]] = {}
-# (chat_id, user_id) -> (other participant, expiry loop-time) for call relays.
-_call_peer_cache: dict[tuple[uuid.UUID, uuid.UUID], tuple[uuid.UUID, float]] = {}
+# (chat_id, user_id) -> other participant, for call relays (60 s, bounded —
+# was a dict that was never evicted).
+_call_peer_cache: TTLCache[tuple[uuid.UUID, uuid.UUID], uuid.UUID] = TTLCache(
+    maxsize=5000, ttl_seconds=60
+)
+# chat_id -> (requested_by, requested_to). A chat's participants never
+# change, so the pub/sub listener and broadcast_to_chat can skip the DB
+# round-trip (and session) for every relayed message.
+_chat_participants: TTLCache[uuid.UUID, tuple[uuid.UUID, uuid.UUID]] = TTLCache(
+    maxsize=20000, ttl_seconds=6 * 3600
+)
+# A socket that cannot take a frame within this long is treated as dead, so
+# one stalled client no longer holds up delivery to everyone else.
+WS_SEND_TIMEOUT_SECONDS = 5.0
 
 PRESENCE_CHANNEL = "presence"
 
@@ -138,6 +151,68 @@ def _to_view(
         pinned_at=msg.pinned_at,
         extra=msg.extra,
     )
+
+
+async def _send_one(ws: WebSocket, text: str) -> bool:
+    try:
+        await asyncio.wait_for(ws.send_text(text), WS_SEND_TIMEOUT_SECONDS)
+        return True
+    except Exception:
+        return False
+
+
+def _close_quietly(ws: WebSocket) -> None:
+    """A socket whose send failed/timed out may be half-written: close it so
+    the client reconnects instead of silently missing events."""
+
+    async def _close() -> None:
+        try:
+            await asyncio.wait_for(ws.close(code=1011), 1.0)
+        except Exception:
+            pass
+
+    task = asyncio.create_task(_close())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+
+async def _send_all(sockets: list[WebSocket], text: str) -> list[WebSocket]:
+    """Send one frame to several sockets concurrently; return the dead ones."""
+    if not sockets:
+        return []
+    if len(sockets) == 1:
+        ok = [await _send_one(sockets[0], text)]
+    else:
+        ok = await asyncio.gather(*(_send_one(ws, text) for ws in sockets))
+    dead = [ws for ws, good in zip(sockets, ok, strict=True) if not good]
+    for ws in dead:
+        _close_quietly(ws)
+    return dead
+
+
+async def _fan_out(user_ids: Any, payload: dict[str, Any]) -> None:
+    """Deliver to several users concurrently (was one await per user)."""
+    targets = list(user_ids)
+    if len(targets) == 1:
+        await ConnectionManager.send_to_user(targets[0], payload)
+    elif targets:
+        await asyncio.gather(*(ConnectionManager.send_to_user(uid, payload) for uid in targets))
+
+
+async def _get_chat_participants(
+    chat_id: uuid.UUID, repo: "ChatRepository | None"
+) -> tuple[uuid.UUID, uuid.UUID] | None:
+    cached = _chat_participants.get(chat_id)
+    if cached is not None:
+        return cached
+    if repo is None:
+        return None
+    exchange = await repo.get_exchange_for_chat(chat_id)
+    if exchange is None:
+        return None
+    pair = (exchange.requested_by, exchange.requested_to)
+    _chat_participants.set(chat_id, pair)
+    return pair
 
 
 # ---------------------------------------------------------------------------
@@ -242,9 +317,7 @@ class ConnectionManager:
         except Exception:
             logger.exception("Presence peer lookup failed for %s", user_id)
             return
-        for uid in peers:
-            if uid in _connections:
-                await ConnectionManager.send_to_user(uid, payload)
+        await _fan_out([uid for uid in peers if uid in _connections], payload)
 
     @staticmethod
     async def send_to_user(user_id: uuid.UUID, payload: dict[str, Any]) -> None:
@@ -252,13 +325,8 @@ class ConnectionManager:
         if not pool:
             return
         text = json.dumps(payload, default=str)
-        dead: list[WebSocket] = []
         # Snapshot: the set may change while we await a send.
-        for ws in list(pool):
-            try:
-                await ws.send_text(text)
-            except Exception:
-                dead.append(ws)
+        dead = await _send_all(list(pool), text)
         for ws in dead:
             pool.discard(ws)
         if not pool and _connections.get(user_id) is pool:
@@ -273,13 +341,8 @@ class ConnectionManager:
         if not pool:
             return
         text = json.dumps(payload, default=str)
-        for sock in list(pool):
-            if sock is exclude:
-                continue
-            try:
-                await sock.send_text(text)
-            except Exception:
-                pool.discard(sock)
+        for sock in await _send_all([s for s in pool if s is not exclude], text):
+            pool.discard(sock)
 
     @staticmethod
     async def broadcast_to_chat(
@@ -289,17 +352,15 @@ class ConnectionManager:
         repo: ChatRepository | None = None,
     ) -> None:
         targets: set[uuid.UUID] = set()
-        if repo:
-            exchange = await repo.get_exchange_for_chat(chat_id)
-            if exchange:
-                targets = {exchange.requested_by, exchange.requested_to}
-        # No repo → no way to know the participants → deliver to nobody.
+        participants = await _get_chat_participants(chat_id, repo)
+        if participants:
+            targets = set(participants)
+        # No repo and nothing cached → participants unknown → deliver to nobody.
 
         if exclude_user_id:
             targets.discard(exclude_user_id)
 
-        for uid in targets:
-            await ConnectionManager.send_to_user(uid, payload)
+        await _fan_out(targets, payload)
 
 
 # ---------------------------------------------------------------------------
@@ -336,6 +397,9 @@ async def _deliver_club_event(club_id: uuid.UUID, payload: dict[str, Any]) -> No
     """Pub/sub from another instance → this instance's active club members."""
     from app.modules.clubs.models import ClubMember
 
+    if not _connections:
+        return  # nobody connected here — skip the DB round-trip
+
     async with get_session_factory()() as session:
         rows = await session.execute(
             select(ClubMember.user_id).where(
@@ -343,9 +407,7 @@ async def _deliver_club_event(club_id: uuid.UUID, payload: dict[str, Any]) -> No
             )
         )
         member_ids = [r[0] for r in rows.all()]
-    for uid in member_ids:
-        if uid in _connections:
-            await ConnectionManager.send_to_user(uid, payload)
+    await _fan_out([uid for uid in member_ids if uid in _connections], payload)
 
 
 async def subscribe_and_listen() -> None:
@@ -403,6 +465,14 @@ async def subscribe_and_listen() -> None:
                         pass
                 # Resolve the chat's two participants — NEVER fan out to every
                 # connected socket (that leaked messages to all online users).
+                if not _connections:
+                    continue  # nobody connected to this instance
+                if _chat_participants.get(chat_id) is not None:
+                    # Cached: no DB session per relayed message.
+                    await ConnectionManager.broadcast_to_chat(
+                        chat_id, payload, exclude_user_id=exclude
+                    )
+                    continue
                 async with get_session_factory()() as session:
                     await ConnectionManager.broadcast_to_chat(
                         chat_id, payload, exclude_user_id=exclude, repo=ChatRepository(session)
@@ -445,9 +515,10 @@ class ChatService:
 
         auth_repo = AuthRepository(self.session)
 
+        users = await auth_repo.get_users_by_ids(row["counterpart_id"] for row in rows)
         items: list[ChatSummary] = []
         for row in rows:
-            counterpart = await auth_repo.get_user_by_id(row["counterpart_id"])
+            counterpart = users.get(row["counterpart_id"])
             name = counterpart.name if counterpart else "Bilinmeyen"
             items.append(
                 ChatSummary(
@@ -498,19 +569,18 @@ class ChatService:
 
         auth_repo = AuthRepository(self.session)
 
-        reply_ids = [m.reply_to_id for m in msgs if m.reply_to_id]
+        reply_ids = {m.reply_to_id for m in msgs if m.reply_to_id}
         reply_map: dict[uuid.UUID, tuple[str, str]] = {}
         if reply_ids:
-            for rid in reply_ids:
-                reply_msg = await self.repo.get_message_by_id(rid)
-                if reply_msg:
-                    sender = (
-                        await auth_repo.get_user_by_id(reply_msg.sender_id)
-                        if reply_msg.sender_id
-                        else None
-                    )
-                    sender_name = sender.name if sender else "Sistem"
-                    reply_map[rid] = (reply_msg.text, sender_name)
+            # 2 queries per page (was 2 per quoted message).
+            reply_msgs = await self.repo.get_messages_by_ids(reply_ids)
+            senders = await auth_repo.get_users_by_ids(
+                r.sender_id for r in reply_msgs if r.sender_id
+            )
+            for reply_msg in reply_msgs:
+                sender = senders.get(reply_msg.sender_id) if reply_msg.sender_id else None
+                sender_name = sender.name if sender else "Sistem"
+                reply_map[reply_msg.id] = (reply_msg.text, sender_name)
 
         msg_ids = [m.id for m in msgs]
         reactions_map = await self.repo.get_reactions_for_messages(msg_ids)
@@ -804,37 +874,25 @@ class ChatService:
                 if await self._is_chat_muted(chat_id, member_id):
                     continue
                 # Online members already see the message live (and the
-                # unread badge) — only offline ones get a bell entry + push.
+                # unread badge) — only offline ones get a push. No bell
+                # entry: the chats tab already tracks unread messages, and
+                # one bell row per message buried everything else.
                 # check_online covers sockets on other instances (Redis).
                 if await ConnectionManager.check_online(member_id):
                     continue
-                await notif_svc.create_notification(
-                    user_id=member_id,
-                    type_="new_message",
-                    payload={
+                await notif_svc.notify(
+                    member_id,
+                    "new_message",
+                    {
                         "chat_id": str(chat_id),
+                        # The app routes chats by exchange id.
+                        "exchange_id": str(exchange.id),
                         "sender_id": str(ws_user_id),
-                        "sender_name": sender_name,
-                        "preview": text[:100] if text else "",
                     },
+                    title=sender_name or "Yeni Mesaj",
+                    body=text[:120] if text else "Yeni bir mesajınız var",
+                    inbox=False,
                 )
-                try:
-                    await send_push_to_user(
-                        str(member_id),
-                        PushMessage(
-                            title="Yeni Mesaj",
-                            body=text[:120] if text else "Yeni bir mesajınız var",
-                            data={
-                                "type": "new_message",
-                                "chat_id": str(chat_id),
-                                # The app routes chats by exchange id.
-                                "exchange_id": str(exchange.id),
-                            },
-                        ),
-                        session=self.session,
-                    )
-                except Exception as exc:
-                    logger.warning("Push send failed for user %s: %s", member_id, exc)
             await self.session.commit()
         except Exception:
             logger.exception("Failed to create push notifications for new message")
@@ -957,10 +1015,9 @@ class ChatService:
         Cached per (chat, user) for a minute: a call trickles dozens of ICE
         candidates and each used to cost 4 DB round-trips."""
         key = (chat_id, ws_user_id)
-        now = asyncio.get_running_loop().time()
         cached = _call_peer_cache.get(key)
-        if cached is not None and cached[1] > now and not check_block:
-            return cached[0]
+        if cached is not None and not check_block:
+            return cached
         if not await self.repo.is_participant(chat_id, ws_user_id):
             await self._ws_error(ws, "Not a participant of this chat")
             return None
@@ -974,7 +1031,7 @@ class ChatService:
         if check_block and await self.repo.is_blocked(ws_user_id, other_id):
             await self._ws_error(ws, "Cannot call — user is blocked")
             return None
-        _call_peer_cache[key] = (other_id, now + 60)
+        _call_peer_cache.set(key, other_id)
         return other_id
 
     async def handle_call(self, ws_user_id: uuid.UUID, ws: WebSocket, raw: dict[str, Any]) -> None:
@@ -1202,6 +1259,41 @@ class ChatService:
             }
             await ConnectionManager.broadcast_to_chat(chat_id, payload, repo=self.repo)
             await publish_message(chat_id, payload)
+
+            # A callee who never picked up is left with a stale "incoming
+            # call" push — replace it with a missed-call entry they can act on.
+            caller_id = state.get("caller")
+            if status == "missed" and caller_id:
+                await self._notify_missed_call(chat_id, uuid.UUID(caller_id), kind)
+
+    async def _notify_missed_call(
+        self, chat_id: uuid.UUID, caller_id: uuid.UUID, kind: str
+    ) -> None:
+        try:
+            from app.modules.auth.repository import AuthRepository
+
+            exchange = await self.repo.get_exchange_for_chat(chat_id)
+            if exchange is None:
+                return
+            callee_id = (
+                exchange.requested_to
+                if caller_id == exchange.requested_by
+                else exchange.requested_by
+            )
+            caller = await AuthRepository(self.session).get_user_by_id(caller_id)
+            name = caller.name if caller and caller.name else "Takas ortağın"
+            label = "görüntülü" if kind == "video" else "sesli"
+            await NotificationService(self.session).notify(
+                callee_id,
+                "missed_call",
+                {"chat_id": str(chat_id), "exchange_id": str(exchange.id), "kind": kind},
+                title="Cevapsız arama",
+                body=f"{name} seni {label} aradı",
+                skip_push_if_online=True,
+            )
+            await self.session.commit()
+        except Exception:
+            logger.exception("Missed-call notification failed for chat %s", chat_id)
 
     async def handle_presence(self, ws_user_id: uuid.UUID) -> None:
         """Refresh presence and broadcast to peers."""

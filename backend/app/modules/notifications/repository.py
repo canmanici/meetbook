@@ -50,13 +50,21 @@ class NotificationRepository:
         await self.session.flush()
         return len(user_ids)
 
-    async def list_by_user(self, user_id: uuid.UUID) -> list[Notification]:
+    async def list_by_user(self, user_id: uuid.UUID, limit: int = 100) -> list[Notification]:
         result = await self.session.execute(
             select(Notification)
             .where(Notification.user_id == user_id)
             .order_by(Notification.created_at.desc())
+            .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def mark_all_read(self, user_id: uuid.UUID) -> None:
+        await self.session.execute(
+            update(Notification)
+            .where(Notification.user_id == user_id, Notification.read_at.is_(None))
+            .values(read_at=datetime.now(UTC))
+        )
 
     async def mark_read(self, user_id: uuid.UUID, notification_ids: list[uuid.UUID]) -> None:
         await self.session.execute(

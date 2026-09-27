@@ -13,6 +13,8 @@ import { useCallStore } from '@/stores/call-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useChatStore } from '@/stores/chat-store';
 import { chatWS } from '@/lib/api/chat';
+import { markNotificationsRead } from '@/lib/api/client';
+import { queryClient } from '@/lib/query-client';
 
 export function CallManager() {
   const router = useRouter();
@@ -49,22 +51,33 @@ export function CallManager() {
     return () => sub.remove();
   }, []);
 
-  // Notification taps (message → chat, missed incoming call → chat).
+  // Push notifications: foreground display, live bell refresh, and taps
+  // (routed like the in-app list, marking the bell entry read).
   useEffect(() => {
     if (authStatus !== 'authenticated') return;
-    let unsubscribe: (() => void) | null = null;
+    const unsubs: (() => void)[] = [];
     let cancelled = false;
+    const refreshBell = () => queryClient.invalidateQueries({ queryKey: ['notifications'] });
     void import('@/lib/push-tokens').then(async (m) => {
-      const unsub = await m.listenForNotificationTaps(
-        (exchangeId) => router.push(`/chat/${exchangeId}` as never),
-        () => useCallStore.getState().status !== 'idle',
-      );
-      if (cancelled) unsub();
-      else unsubscribe = unsub;
+      const subs = await Promise.all([
+        m.initNotifications(refreshBell),
+        m.listenForNotificationTaps(
+          (href) => router.push(href as never),
+          () => useCallStore.getState().status !== 'idle',
+          (notificationId) => {
+            if (!notificationId) return;
+            markNotificationsRead({ notification_ids: [notificationId] })
+              .catch(() => {})
+              .finally(refreshBell);
+          },
+        ),
+      ]);
+      if (cancelled) subs.forEach((u) => u());
+      else unsubs.push(...subs);
     });
     return () => {
       cancelled = true;
-      unsubscribe?.();
+      unsubs.forEach((u) => u());
     };
   }, [authStatus, router]);
 

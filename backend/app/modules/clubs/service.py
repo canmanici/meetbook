@@ -181,25 +181,14 @@ class ClubService:
     async def _notify(
         self, user_ids: list[uuid.UUID], type_: str, payload: dict[str, Any], title: str, body: str
     ) -> None:
-        from app.modules.chat.service import ConnectionManager
         from app.modules.notifications.service import NotificationService
-        from app.modules.push_tokens.service import PushMessage, send_push_to_user
 
         notif = NotificationService(self.session)
         for uid in user_ids:
-            await notif.create_notification(uid, type_, payload)
+            await notif.notify(
+                uid, type_, payload, title=title, body=body, skip_push_if_online=True
+            )
         await self.session.commit()
-        for uid in user_ids:
-            if await ConnectionManager.check_online(uid):
-                continue
-            try:
-                await send_push_to_user(
-                    str(uid),
-                    PushMessage(title=title, body=body, data={"type": type_, **payload}),
-                    session=self.session,
-                )
-            except Exception as exc:
-                logger.warning("club push failed for %s: %s", uid, exc)
 
     async def _invalidate_shuffle(self, club: Club, members: list[ClubMember]) -> bool:
         if club.shuffled_at is None:
@@ -572,22 +561,20 @@ class ClubService:
         # Push to members who are offline (in-app notification list stays quiet
         # for chat-like traffic, matching 1:1 chat behaviour).
         from app.modules.chat.service import ConnectionManager
-        from app.modules.push_tokens.service import PushMessage, send_push_to_user
+        from app.modules.notifications.service import NotificationService
 
         club = await self.session.get(Club, club_id)
+        notif = NotificationService(self.session)
         for uid in await self._active_user_ids(club_id):
             if uid == user_id or await ConnectionManager.check_online(uid):
                 continue
-            try:
-                await send_push_to_user(
-                    str(uid),
-                    PushMessage(
-                        title=f"{club.name if club else 'Kulüp'} · {sender.name if sender else ''}",
-                        body=text[:120],
-                        data={"type": "club_message", "club_id": str(club_id)},
-                    ),
-                    session=self.session,
-                )
-            except Exception as exc:
-                logger.warning("club push failed for %s: %s", uid, exc)
+            await notif.notify(
+                uid,
+                "club_message",
+                {"club_id": str(club_id)},
+                title=f"{club.name if club else 'Kulüp'} · {sender.name if sender else ''}",
+                body=text[:120],
+                inbox=False,
+            )
+        await self.session.commit()
         return view

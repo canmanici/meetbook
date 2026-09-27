@@ -213,8 +213,7 @@ export const apiClient = {
     const { accessToken } = useAuthStore.getState();
     return rawRequest(path, 'POST', body, accessToken);
   },
-  async delete(path: string) {
-    const { accessToken } = useAuthStore.getState();
+  async delete(path: string, accessToken = useAuthStore.getState().accessToken) {
     return rawRequest(path, 'DELETE', undefined, accessToken);
   },
 };
@@ -782,6 +781,10 @@ export async function listNotifications(): Promise<NotificationListResponse> {
 
 export async function markNotificationsRead(body: NotificationMarkReadBody): Promise<void> {
   return authedRequest<void>('/notifications/read', 'POST', body);
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  return authedRequest<void>('/notifications/read-all', 'POST', undefined);
 }
 
 // ---------------------------------------------------------------------------

@@ -40,6 +40,9 @@ from app.modules.books.schemas import (
 )
 from app.modules.exchanges.repository import ExchangeRepository
 
+MAX_PHOTO_BYTES = 10 * 1024 * 1024
+MAX_THUMB_BYTES = 1 * 1024 * 1024
+
 
 async def _s3_upload_photo_raw(
     book_id: uuid.UUID, filename: str, file_bytes: bytes, content_type: str
@@ -617,11 +620,11 @@ class BookService:
             raise BookError("INVALID_IMAGE_FORMAT", 400)
 
         # Validate file size (max 10MB)
-        if len(file_bytes) > 10 * 1024 * 1024:
+        if len(file_bytes) > MAX_PHOTO_BYTES:
             raise BookError("FILE_TOO_LARGE", 400)
 
         # Validate thumbnail size (max 1MB - it's a small client-resized image)
-        if thumb_bytes is not None and len(thumb_bytes) > 1 * 1024 * 1024:
+        if thumb_bytes is not None and len(thumb_bytes) > MAX_THUMB_BYTES:
             raise BookError("THUMBNAIL_TOO_LARGE", 400)
 
         # Validate max 3 photos
@@ -706,7 +709,7 @@ class BookService:
             raise BookError("Photo not found", 404)
 
         # Validate thumbnail size (max 1MB - it's a small client-resized image)
-        if len(thumb_bytes) > 1 * 1024 * 1024:
+        if len(thumb_bytes) > MAX_THUMB_BYTES:
             raise BookError("THUMBNAIL_TOO_LARGE", 400)
 
         # Upload thumbnail to S3
@@ -911,7 +914,6 @@ async def _notify_wishlist_matches(
         from sqlalchemy import select
 
         from app.modules.notifications.service import NotificationService
-        from app.modules.push_tokens.service import PushMessage, send_push_to_user
         from app.modules.wishlist.models import WishlistItem
 
         logger = logging.getLogger(__name__)
@@ -930,31 +932,16 @@ async def _notify_wishlist_matches(
         notif_svc = NotificationService(session)
 
         for user_id in matched_user_ids:
-            await notif_svc.create_notification(
-                user_id=user_id,
-                type_="wishlist_match",
-                payload={
-                    "book_id": str(book_id),
-                    "book_title": book_title,
-                    "isbn": book_isbn,
-                },
+            # No distance check here (that's the geofence worker's job), so
+            # don't claim the book is nearby.
+            await notif_svc.notify(
+                user_id,
+                "wishlist_match",
+                {"book_id": str(book_id), "book_title": book_title, "isbn": book_isbn},
+                title="İstediğin Kitap Bulundu!",
+                body=f"“{book_title}” MeetBook'ta listelendi.",
             )
-
-            try:
-                await send_push_to_user(
-                    str(user_id),
-                    PushMessage(
-                        title="İstediğin Kitap Bulundu!",
-                        body=f'"{book_title}" yakınında listelendi.',
-                        data={
-                            "type": "wishlist_match",
-                            "book_id": str(book_id),
-                        },
-                    ),
-                    session=session,
-                )
-            except Exception as exc:
-                logger.warning("Failed to send wishlist push to user %s: %s", user_id, exc)
+        await session.commit()
 
         logger.info(
             "Wishlist match: book=%s isbn=%s notified %d users",
