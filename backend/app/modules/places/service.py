@@ -8,10 +8,10 @@ import hashlib
 import json
 from typing import Any
 
-import httpx
 import redis.asyncio as aioredis
 
 from app.core.config import get_settings
+from app.core.http import get_http_client
 from app.modules.places.schemas import PlaceSummary
 
 BASE_URL = "https://maps.googleapis.com/maps/api/place"
@@ -67,9 +67,9 @@ async def autocomplete(
         "location": f"{lat},{lng}",
         "radius": 50000,
     }
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.get(f"{BASE_URL}/autocomplete/json", params=req_params)
-        data = response.json()
+    client = get_http_client()
+    response = await client.get(f"{BASE_URL}/autocomplete/json", params=req_params)
+    data = response.json()
 
     items = [
         {"place_id": p["place_id"], "description": p.get("description", "")}
@@ -96,9 +96,9 @@ async def details(redis: aioredis.Redis, place_id: str) -> PlaceSummary | None:
         "language": "tr",
         "fields": "name,formatted_address,geometry,type,place_id",
     }
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.get(f"{BASE_URL}/details/json", params=req_params)
-        data = response.json()
+    client = get_http_client()
+    response = await client.get(f"{BASE_URL}/details/json", params=req_params)
+    data = response.json()
 
     result = data.get("result")
     if not result:
@@ -133,32 +133,32 @@ async def nearby(
         return [PlaceSummary(**item) for item in json.loads(cached)]
 
     seen: dict[str, PlaceSummary] = {}
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        for place_type in search_types:
-            req_params: dict[str, str | int | float] = {
-                "location": f"{lat},{lng}",
-                "radius": 2000,
-                "type": place_type,
-                "key": settings.google_places_key,
-                "language": "tr",
-            }
-            response = await client.get(f"{BASE_URL}/nearbysearch/json", params=req_params)
-            data = response.json()
-            for result in data.get("results", []):
-                place_id = result.get("place_id")
-                if place_id is None or place_id in seen:
-                    continue
-                location = result.get("geometry", {}).get("location", {})
-                seen[place_id] = PlaceSummary(
-                    place_id=place_id,
-                    name=result.get("name", ""),
-                    address=result.get("vicinity"),
-                    category=_category_for_types(result.get("types", [])) or place_type,
-                    lat=location.get("lat", 0.0),
-                    lng=location.get("lng", 0.0),
-                )
-            if len(seen) >= 20:
-                break
+    client = get_http_client()
+    for place_type in search_types:
+        req_params: dict[str, str | int | float] = {
+            "location": f"{lat},{lng}",
+            "radius": 2000,
+            "type": place_type,
+            "key": settings.google_places_key,
+            "language": "tr",
+        }
+        response = await client.get(f"{BASE_URL}/nearbysearch/json", params=req_params)
+        data = response.json()
+        for result in data.get("results", []):
+            place_id = result.get("place_id")
+            if place_id is None or place_id in seen:
+                continue
+            location = result.get("geometry", {}).get("location", {})
+            seen[place_id] = PlaceSummary(
+                place_id=place_id,
+                name=result.get("name", ""),
+                address=result.get("vicinity"),
+                category=_category_for_types(result.get("types", [])) or place_type,
+                lat=location.get("lat", 0.0),
+                lng=location.get("lng", 0.0),
+            )
+        if len(seen) >= 20:
+            break
 
     items = list(seen.values())[:20]
     await redis.set(key, json.dumps([item.model_dump() for item in items]), ex=NEARBY_TTL)

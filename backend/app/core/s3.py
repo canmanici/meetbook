@@ -1,5 +1,6 @@
 """Photo storage — S3 when configured, local filesystem fallback."""
 
+import asyncio
 import logging
 import uuid
 from collections.abc import AsyncIterator
@@ -19,27 +20,72 @@ def _is_s3_configured() -> bool:
     return bool(settings.s3_bucket and settings.s3_access_key)
 
 
+# One S3 client per process (per event loop). Building an aioboto3 Session +
+# client costs ~80 ms of CPU and leaves ~5 MB of cyclic garbage behind; doing
+# it per request (the storage proxy serves every photo) measured 184 → 403 MB
+# RSS over 45 requests. A shared client answers in ~4 ms and keeps its
+# connection pool warm.
+_client: Any = None
+_client_cm: Any = None
+_client_loop: asyncio.AbstractEventLoop | None = None
+_client_lock: asyncio.Lock | None = None
+_lock_loop: asyncio.AbstractEventLoop | None = None
+
+
+async def _shared_client() -> Any:
+    global _client, _client_cm, _client_loop, _client_lock, _lock_loop
+
+    loop = asyncio.get_running_loop()
+    if _client is not None and _client_loop is loop:
+        return _client
+    if _client_lock is None or _lock_loop is not loop:
+        # A new loop (tests create one per test): locks and clients are loop-bound.
+        _client_lock, _lock_loop = asyncio.Lock(), loop
+    async with _client_lock:
+        if _client is not None and _client_loop is loop:
+            return _client
+
+        import aioboto3
+        from botocore.config import Config
+
+        settings = get_settings()
+        cm = aioboto3.Session().client(
+            "s3",
+            endpoint_url=settings.s3_endpoint or None,
+            aws_access_key_id=settings.s3_access_key,
+            aws_secret_access_key=settings.s3_secret_key,
+            config=Config(signature_version="s3v4", max_pool_connections=50),
+        )
+        client = await cm.__aenter__()
+        _client, _client_cm, _client_loop = client, cm, loop
+        return client
+
+
 @asynccontextmanager
 async def get_s3_client() -> AsyncIterator[Any]:
-    """Shared S3 client context manager used by lifespan, storage proxy, and uploads.
+    """Shared S3 client used by lifespan, storage proxy, and uploads.
+
+    The client is created once and reused; leaving the context does NOT close
+    it (see ``close_s3_client``, called on app shutdown).
 
     Usage:
         async with get_s3_client() as client:
             await client.put_object(Bucket=..., Key=..., Body=...)
     """
-    import aioboto3
-    from botocore.config import Config
+    yield await _shared_client()
 
-    settings = get_settings()
-    session = aioboto3.Session()
-    async with session.client(
-        "s3",
-        endpoint_url=settings.s3_endpoint or None,
-        aws_access_key_id=settings.s3_access_key,
-        aws_secret_access_key=settings.s3_secret_key,
-        config=Config(signature_version="s3v4"),
-    ) as client:
-        yield client
+
+async def close_s3_client() -> None:
+    """Close the shared client (app shutdown)."""
+    global _client, _client_cm, _client_loop
+
+    cm, loop = _client_cm, _client_loop
+    _client = _client_cm = _client_loop = None
+    if cm is not None and loop is asyncio.get_running_loop():
+        try:
+            await cm.__aexit__(None, None, None)
+        except Exception:
+            logger.warning("Closing the S3 client failed", exc_info=True)
 
 
 async def upload_photo(

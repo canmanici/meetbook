@@ -160,7 +160,9 @@ services:
       S3_BUCKET: meetbook-photos
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
-      UVICORN_WORKERS: "2"
+      # Must stay 1: WebSocket/call state is in-process (start_app.py logs
+      # and ignores any other value). Scale by adding containers.
+      UVICORN_WORKERS: "1"
       CORS_ORIGINS: https://canmanici.com
       GOOGLE_PLACES_KEY: ${GOOGLE_PLACES_KEY:-}
       SMS_PROVIDER_KEY: ${SMS_PROVIDER_KEY:-}

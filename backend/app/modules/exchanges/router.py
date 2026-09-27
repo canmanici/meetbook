@@ -32,6 +32,8 @@ from app.modules.exchanges.schemas import (
 )
 from app.modules.exchanges.service import ExchangeError, ExchangeService
 
+MAX_LOAN_PHOTO_BYTES = 10 * 1024 * 1024
+
 router = APIRouter(prefix="/exchanges", tags=["exchanges"])
 
 
@@ -178,8 +180,10 @@ async def upload_loan_photo(
     user: User = Depends(get_verified_user),
     service: ExchangeService = Depends(_get_service),
 ) -> LoanPhotoResponse:
-    file_bytes = await file.read()
-    if len(file_bytes) > 10 * 1024 * 1024:
+    if file.size is not None and file.size > MAX_LOAN_PHOTO_BYTES:
+        raise HTTPException(status_code=413, detail="Photo too large (max 10MB)")
+    file_bytes = await file.read(MAX_LOAN_PHOTO_BYTES + 1)
+    if len(file_bytes) > MAX_LOAN_PHOTO_BYTES:
         raise HTTPException(status_code=413, detail="Photo too large (max 10MB)")
     try:
         url = await service.upload_loan_photo(

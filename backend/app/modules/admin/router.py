@@ -1,12 +1,15 @@
 """Admin moderation endpoints — role-gated via `get_admin_user`."""
 
 import uuid
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
+from app.core.redis import get_cached, set_cached
 from app.modules.admin.metrics_service import MetricsService
 from app.modules.admin.schemas import (
     AdminBookDetailView,
@@ -228,13 +231,34 @@ def _get_metrics_service(session: AsyncSession = Depends(get_session)) -> Metric
     return MetricsService(session)
 
 
+# The dashboard auto-refreshes every 60 s per open tab and the overview alone
+# is ~23 aggregate queries — serve all admins from a short Redis cache.
+METRICS_CACHE_TTL_SECONDS = 30
+
+
+async def _cached_metrics[M: BaseModel](
+    key: str, model: type[M], produce: Callable[[], Awaitable[M]]
+) -> M:
+    raw = await get_cached(f"admin:metrics:{key}")
+    if raw is not None:
+        try:
+            return model.model_validate_json(raw)
+        except ValueError:
+            pass  # schema changed since it was cached — recompute
+    result = await produce()
+    await set_cached(
+        f"admin:metrics:{key}", result.model_dump(mode="json"), METRICS_CACHE_TTL_SECONDS
+    )
+    return result
+
+
 @router.get("/metrics/overview", response_model=MetricsOverviewResponse)
 async def get_metrics_overview(
     user: User = Depends(get_admin_user),
     ms: MetricsService = Depends(_get_metrics_service),
 ) -> MetricsOverviewResponse:
     """Ocean overview: 50+ KPIs across users, books, exchanges, reports, engagement, trust, system."""
-    return await ms.get_overview()
+    return await _cached_metrics("overview", MetricsOverviewResponse, ms.get_overview)
 
 
 @router.get("/metrics/trends", response_model=TrendGroup)
@@ -244,7 +268,7 @@ async def get_metrics_trends(
     ms: MetricsService = Depends(_get_metrics_service),
 ) -> TrendGroup:
     """Time-series data: signups, DAU, exchanges, reports, books, favorites per day."""
-    return await ms.get_trends(days)
+    return await _cached_metrics(f"trends:{days}", TrendGroup, lambda: ms.get_trends(days))
 
 
 @router.get("/metrics/books", response_model=BookMetricsResponse)
@@ -253,7 +277,7 @@ async def get_metrics_books(
     ms: MetricsService = Depends(_get_metrics_service),
 ) -> BookMetricsResponse:
     """Book inventory analytics: category/condition/language distribution, top books."""
-    return await ms.get_book_metrics()
+    return await _cached_metrics("books", BookMetricsResponse, ms.get_book_metrics)
 
 
 @router.get("/metrics/exchanges", response_model=ExchangeMetricsResponse)
@@ -262,7 +286,7 @@ async def get_metrics_exchanges(
     ms: MetricsService = Depends(_get_metrics_service),
 ) -> ExchangeMetricsResponse:
     """Exchange analytics: success rate, completion time, pipeline, top exchangers."""
-    return await ms.get_exchange_metrics()
+    return await _cached_metrics("exchanges", ExchangeMetricsResponse, ms.get_exchange_metrics)
 
 
 @router.get("/metrics/users", response_model=UserMetricsResponse)
@@ -271,7 +295,7 @@ async def get_metrics_users(
     ms: MetricsService = Depends(_get_metrics_service),
 ) -> UserMetricsResponse:
     """User analytics: status breakdown, verification rates, engagement."""
-    return await ms.get_user_metrics()
+    return await _cached_metrics("users", UserMetricsResponse, ms.get_user_metrics)
 
 
 @router.get("/metrics/trust", response_model=TrustMetricsResponse)
@@ -280,7 +304,7 @@ async def get_metrics_trust(
     ms: MetricsService = Depends(_get_metrics_service),
 ) -> TrustMetricsResponse:
     """Trust & safety: bans, suspensions, report resolution, top offenders, recent actions."""
-    return await ms.get_trust_metrics()
+    return await _cached_metrics("trust", TrustMetricsResponse, ms.get_trust_metrics)
 
 
 @router.get("/metrics/system", response_model=SystemHealthResponse)

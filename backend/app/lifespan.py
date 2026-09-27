@@ -10,7 +10,8 @@ from fastapi import FastAPI
 
 from app.core.config import get_settings
 from app.core.db import get_session_factory
-from app.core.s3 import get_s3_client
+from app.core.http import close_http_client
+from app.core.s3 import close_s3_client, get_s3_client
 
 # Crash reports initialized via lifespan (no external SDK needed)
 
@@ -109,3 +110,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await chat_listener_task
         except asyncio.CancelledError:
             pass
+    # Shared outbound clients (connection pools) — close them cleanly.
+    await close_s3_client()
+    await close_http_client()

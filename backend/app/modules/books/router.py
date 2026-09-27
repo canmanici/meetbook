@@ -28,7 +28,7 @@ from app.modules.books.schemas import (
     ReorderBody,
     StaleBooksResponse,
 )
-from app.modules.books.service import BookError, BookService
+from app.modules.books.service import MAX_PHOTO_BYTES, MAX_THUMB_BYTES, BookError, BookService
 
 logger = logging.getLogger(__name__)
 
@@ -291,8 +291,10 @@ async def upload_photo(
         file.size,
         bool(thumbnail),
     )
-    contents = await file.read()
-    thumb_contents = await thumbnail.read() if thumbnail else None
+    # Read at most limit+1 bytes: an oversized upload is still rejected by the
+    # service's size check, without first buffering all of it in RAM.
+    contents = await file.read(MAX_PHOTO_BYTES + 1)
+    thumb_contents = await thumbnail.read(MAX_THUMB_BYTES + 1) if thumbnail else None
     try:
         result = await service.upload_photo(
             book_id, user.id, contents, file.content_type or "image/jpeg", thumb_contents
@@ -329,7 +331,7 @@ async def upload_thumbnail(
     service: BookService = Depends(_get_service),
 ) -> PhotoView:
     """Backfill thumbnail for an existing photo (client-side resized)."""
-    contents = await file.read()
+    contents = await file.read(MAX_THUMB_BYTES + 1)
     try:
         return await service.upload_photo_thumbnail(book_id, photo_id, user.id, contents)
     except BookError as e:

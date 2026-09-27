@@ -48,9 +48,9 @@ from app.modules.auth.schemas import (
     VouchView,
 )
 
-
 CODE_TTL_MINUTES = 15
 MAX_CODE_ATTEMPTS = 5
+MAX_AVATAR_BYTES = 5 * 1024 * 1024
 CODE_RESEND_COOLDOWN_SECONDS = 60
 
 logger = logging.getLogger(__name__)
@@ -632,7 +632,7 @@ class AuthService:
         if content_type not in allowed_types:
             raise AuthError("INVALID_IMAGE_FORMAT", 400)
 
-        if len(file_bytes) > 5 * 1024 * 1024:
+        if len(file_bytes) > MAX_AVATAR_BYTES:
             raise AuthError("FILE_TOO_LARGE", 400)
 
         # Upload to S3 with user_id as "folder"

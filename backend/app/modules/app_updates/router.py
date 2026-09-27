@@ -281,12 +281,14 @@ async def upload_release(
         if _is_s3_configured():
             storage_key = f"releases/{platform}/{key_name}"
             async with get_s3_client() as client:
+                # Stream from the temp file (multipart, ~8 MB parts) instead
+                # of holding up to 250 MB in RAM with put_object(Body=fh.read()).
                 with tmp_path.open("rb") as fh:
-                    await client.put_object(
-                        Bucket=get_settings().s3_bucket,
-                        Key=storage_key,
-                        Body=fh.read(),
-                        ContentType=APK_MIME,
+                    await client.upload_fileobj(
+                        fh,
+                        get_settings().s3_bucket,
+                        storage_key,
+                        ExtraArgs={"ContentType": APK_MIME},
                     )
         else:
             LOCAL_RELEASES_DIR.mkdir(parents=True, exist_ok=True)

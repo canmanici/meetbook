@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import cast, Any
 
-from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.chat.models import (
@@ -21,6 +21,10 @@ from sqlalchemy.engine import CursorResult
 # URL detection for link previews
 # ---------------------------------------------------------------------------
 URL_PATTERN = re.compile(r"https?://[^\s]+")
+
+# Hard cap on the chat list (one chat per exchange; a very active trader
+# could otherwise pull thousands of rows per poll).
+CHAT_LIST_LIMIT = 500
 
 # ---------------------------------------------------------------------------
 # Repository
@@ -75,13 +79,29 @@ class ChatRepository:
     # ── Chat list ─────────────────────────────────────────────────────────
 
     async def list_chats_for_user(self, user_id: uuid.UUID) -> list[dict[str, Any]]:
-        last_msg_sub = (
+        # One LATERAL probe per chat for the latest visible message (was: a
+        # GROUP BY over the whole messages table + two correlated
+        # subqueries). Served by ix_messages_chat_created_id; the unread
+        # count by the partial ix_messages_chat_unread.
+        last_msg = (
             select(
-                Message.chat_id,
-                func.max(Message.created_at).label("last_msg_at"),
+                Message.text.label("text"),
+                Message.message_type.label("message_type"),
             )
-            .group_by(Message.chat_id)
-            .subquery()
+            .where(Message.chat_id == Chat.id, Message.deleted_at.is_(None))
+            .order_by(Message.created_at.desc(), Message.id.desc())
+            .limit(1)
+            .correlate(Chat)
+            .lateral("last_msg")
+        )
+
+        # Sort key keeps its old meaning: newest message incl. deleted ones.
+        last_msg_at = (
+            select(func.max(Message.created_at))
+            .where(Message.chat_id == Chat.id)
+            .correlate(Chat)
+            .scalar_subquery()
+            .label("last_msg_at")
         )
 
         unread_subq = (
@@ -96,30 +116,6 @@ class ChatRepository:
             .scalar_subquery()
         )
 
-        last_text_subq = (
-            select(Message.text)
-            .where(
-                Message.chat_id == Chat.id,
-                Message.deleted_at.is_(None),
-            )
-            .order_by(Message.created_at.desc())
-            .limit(1)
-            .correlate(Chat)
-            .scalar_subquery()
-        )
-
-        last_type_subq = (
-            select(Message.message_type)
-            .where(
-                Message.chat_id == Chat.id,
-                Message.deleted_at.is_(None),
-            )
-            .order_by(Message.created_at.desc())
-            .limit(1)
-            .correlate(Chat)
-            .scalar_subquery()
-        )
-
         stmt = (
             select(
                 Chat.id.label("chat_id"),
@@ -127,16 +123,16 @@ class ChatRepository:
                 ExchangeRequest.requested_by,
                 ExchangeRequest.requested_to,
                 unread_subq.label("unread_count"),
-                last_text_subq.label("last_message_text"),
-                last_type_subq.label("last_message_type"),
-                last_msg_sub.c.last_msg_at,
+                last_msg.c.text.label("last_message_text"),
+                last_msg.c.message_type.label("last_message_type"),
+                last_msg_at,
                 ChatSettings.is_pinned.label("is_pinned"),
                 ChatSettings.pinned_at.label("pinned_at"),
                 ChatSettings.muted_until.label("muted_until"),
             )
             .select_from(Chat)
             .join(ExchangeRequest, Chat.exchange_request_id == ExchangeRequest.id)
-            .outerjoin(last_msg_sub, last_msg_sub.c.chat_id == Chat.id)
+            .outerjoin(last_msg, true())
             .outerjoin(
                 ChatSettings,
                 and_(ChatSettings.chat_id == Chat.id, ChatSettings.user_id == user_id),
@@ -149,8 +145,9 @@ class ChatRepository:
             )
             .order_by(
                 ChatSettings.is_pinned.desc().nullslast(),
-                last_msg_sub.c.last_msg_at.desc().nullslast(),
+                last_msg_at.desc().nullslast(),
             )
+            .limit(CHAT_LIST_LIMIT)
         )
 
         result = await self.session.execute(stmt)
@@ -215,6 +212,12 @@ class ChatRepository:
     async def get_message_by_id(self, message_id: uuid.UUID) -> Message | None:
         result = await self.session.execute(select(Message).where(Message.id == message_id))
         return result.scalar_one_or_none()
+
+    async def get_messages_by_ids(self, message_ids: set[uuid.UUID]) -> list[Message]:
+        if not message_ids:
+            return []
+        result = await self.session.execute(select(Message).where(Message.id.in_(message_ids)))
+        return list(result.scalars().all())
 
     async def get_messages(
         self,

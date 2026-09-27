@@ -14,8 +14,12 @@ class Settings(BaseSettings):
 
     env: str = "local"
     database_url: str
-    database_pool_size: int = 20
-    database_max_overflow: int = 30
+    # Per process. The app runs ONE uvicorn process (see start_app.py), and
+    # Postgres allows max_connections=100: 10 + 10 burst leaves headroom for
+    # migrations, the admin shell and a rolling deploy's second container
+    # (was 20 + 30 = 50, i.e. two containers could exhaust Postgres).
+    database_pool_size: int = 10
+    database_max_overflow: int = 10
     redis_url: str
     jwt_secret: str
     jwt_access_ttl_seconds: int = 15 * 60

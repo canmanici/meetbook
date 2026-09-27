@@ -38,7 +38,7 @@ from app.modules.auth.schemas import (
     VouchRequest,
     VouchView,
 )
-from app.modules.auth.service import AuthError, AuthService
+from app.modules.auth.service import MAX_AVATAR_BYTES, AuthError, AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -217,7 +217,8 @@ async def upload_my_avatar(
     user: User = Depends(get_current_user),
     service: AuthService = Depends(_get_service),
 ) -> dict[str, Any]:
-    contents = await file.read()
+    # At most limit+1 bytes: the service rejects oversize without us buffering it all.
+    contents = await file.read(MAX_AVATAR_BYTES + 1)
     try:
         url = await service.upload_avatar(user.id, contents, file.content_type or "image/jpeg")
         return {"avatar_url": url}

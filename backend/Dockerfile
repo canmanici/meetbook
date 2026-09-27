@@ -32,6 +32,11 @@ RUN find /app -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true \
 # ── Runtime optimizations ────────────────────────────────────────────────────
 ENV PYTHON_JIT=1
 ENV PYTHONPATH=/app
+# Run the venv's interpreter directly: `uv run` stayed resident as PID 1
+# (~49 MB RSS) only to wrap the Python process. start_app.py runs
+# migrations/seed in-process and never shells out to uv.
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH=/app/.venv/bin:$PATH
 
 # ipdb/media exist in the image so fresh named volumes inherit appuser
 # ownership (a root-owned volume would make the IP-database download fail).
@@ -40,4 +45,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uv", "run", "--no-dev", "python", "scripts/start_app.py"]
+CMD ["/app/.venv/bin/python", "scripts/start_app.py"]

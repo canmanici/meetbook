@@ -9,9 +9,11 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Text,
     UniqueConstraint,
 )
+from sqlalchemy import text as sql_text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,7 +33,6 @@ class Message(Base):
         UUID(as_uuid=True),
         ForeignKey("chats.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
     sender_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
@@ -54,7 +55,6 @@ class Message(Base):
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(UTC),
-        index=True,
     )
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -70,7 +70,22 @@ class Message(Base):
     # system: {"action": "exchange_accepted"|"exchange_completed"|"meetup_proposed"|..., "data": {...}}
     extra: Mapped[Any] = mapped_column(JSONB, nullable=True)
 
-    __table_args__ = (CheckConstraint("char_length(text) <= 2000", name="ck_message_text_length"),)
+    __table_args__ = (
+        CheckConstraint("char_length(text) <= 2000", name="ck_message_text_length"),
+        # Latest message per chat + keyset message list (created_at DESC, id DESC).
+        Index(
+            "ix_messages_chat_created_id",
+            "chat_id",
+            sql_text("created_at DESC"),
+            sql_text("id DESC"),
+        ),
+        # Unread badge counts only touch unread rows.
+        Index(
+            "ix_messages_chat_unread",
+            "chat_id",
+            postgresql_where=sql_text("read_at IS NULL AND deleted_at IS NULL"),
+        ),
+    )
 
 
 class MessageReaction(Base):

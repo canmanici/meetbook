@@ -139,6 +139,15 @@ class BookRepository:
         row = result.one_or_none()
         return self._to_row(row) if row is not None else None
 
+    async def get_by_ids(self, book_ids: list[uuid.UUID]) -> dict[uuid.UUID, BookRow]:
+        """Batch form of ``get_by_id`` (soft-deleted included) — one query."""
+        if not book_ids:
+            return {}
+        stmt = self._select_with_coords().where(Book.id.in_(set(book_ids)))
+        result = await self.session.execute(stmt)
+        rows = (self._to_row(row) for row in result.all())
+        return {r.book.id: r for r in rows}
+
     async def list_by_owner(
         self, owner_id: uuid.UUID, cursor: str | None, limit: int
     ) -> tuple[list[BookRow], str | None]:
@@ -765,6 +774,20 @@ class BookRepository:
         stmt = select(BookPhoto).where(BookPhoto.book_id == book_id).order_by(BookPhoto.position)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_photos_batch(self, book_ids: list[uuid.UUID]) -> dict[uuid.UUID, list[BookPhoto]]:
+        """All photos for many books, ordered by position — one query."""
+        out: dict[uuid.UUID, list[BookPhoto]] = {}
+        if not book_ids:
+            return out
+        stmt = (
+            select(BookPhoto)
+            .where(BookPhoto.book_id.in_(set(book_ids)))
+            .order_by(BookPhoto.book_id, BookPhoto.position)
+        )
+        for p in (await self.session.execute(stmt)).scalars().all():
+            out.setdefault(p.book_id, []).append(p)
+        return out
 
     async def get_first_photos_batch(self, book_ids: list[uuid.UUID]) -> dict[uuid.UUID, BookPhoto]:
         """Return the first photo (position 0) for each book in a single query."""

@@ -241,7 +241,16 @@ def start_uvicorn() -> None:
     port = int(os.environ.get("PORT", "8000"))
     reload = settings.env in ("development", "dev", "local")
 
-    log_elapsed(f"Starting uvicorn on {host}:{port} (reload={reload})...")
+    # Exactly ONE worker process, on purpose: live WebSocket state
+    # (chat._connections, pending call offers, per-process caches) is
+    # in-process. A second worker would split users across processes and
+    # calls/typing/presence between them would silently miss. Scale with
+    # more containers + the Redis pub/sub relay, not uvicorn workers.
+    requested = os.environ.get("UVICORN_WORKERS")
+    if requested not in (None, "", "1"):
+        log_elapsed(f"UVICORN_WORKERS={requested} ignored — MeetBook runs a single worker.")
+
+    log_elapsed(f"Starting uvicorn on {host}:{port} (reload={reload}, workers=1)...")
 
     import uvicorn
 
@@ -250,6 +259,7 @@ def start_uvicorn() -> None:
         host=host,
         port=port,
         reload=reload,
+        workers=1,
         # Behind Traefik: take the client address from X-Forwarded-For, but
         # only when the direct peer is on a private (docker) network — so
         # access logs show real users instead of 10.0.x.x.

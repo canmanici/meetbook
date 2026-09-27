@@ -46,6 +46,7 @@ class Book(Base):
         Index("ix_books_owner_id", "owner_id"),
         Index("ix_books_location", "location", postgresql_using="gist"),
         Index("ix_books_public_location", "public_location", postgresql_using="gist"),
+        Index("ix_books_isbn", "isbn", postgresql_where=text("isbn IS NOT NULL")),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
@@ -65,10 +66,10 @@ class Book(Base):
     )
     is_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     location: Mapped[Any] = mapped_column(
-        Geography(geometry_type="POINT", srid=4326), nullable=False
+        Geography(geometry_type="POINT", srid=4326, spatial_index=False), nullable=False
     )
     public_location: Mapped[Any] = mapped_column(
-        Geography(geometry_type="POINT", srid=4326), nullable=False
+        Geography(geometry_type="POINT", srid=4326, spatial_index=False), nullable=False
     )
     view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     favorite_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

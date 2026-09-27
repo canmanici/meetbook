@@ -5,32 +5,44 @@ from typing import Any
 
 import httpx
 
-_cache: dict[str, dict[str, Any]] = {}
+from app.core.http import get_http_client
+from app.core.ttl_cache import TTLCache
+
 CACHE_TTL = 30 * 24 * 3600  # 30 days in seconds
+# Bounded: keys are client-supplied ISBNs (was an unbounded dict that also
+# ignored CACHE_TTL). ~2 KB/entry → ≤ ~4 MB.
+_cache: TTLCache[str, dict[str, Any]] = TTLCache(maxsize=2000, ttl_seconds=CACHE_TTL)
 OL = "https://openlibrary.org"
 
 
 async def lookup_isbn(isbn: str) -> dict[str, Any]:
     """Look up book info by ISBN from Open Library API."""
-    if isbn in _cache:
-        return _cache[isbn]
+    cached = _cache.get(isbn)
+    if cached is not None:
+        return cached
 
     try:
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            response = await client.get(f"{OL}/isbn/{isbn}.json")
-            if response.status_code == 200:
-                data: dict[str, Any] = response.json()
-                result = {
-                    "isbn": isbn,
-                    "title": data.get("title"),
-                    "author": await _author_name(client, data),
-                    "description": _extract_description(data),
-                    "cover_url": await _cover_url(client, isbn),
-                    "page_count": data.get("number_of_pages"),
-                    "published_year": _publish_year(data),
-                }
-                _cache[isbn] = result
-                return result
+        client = get_http_client()
+        response = await client.get(f"{OL}/isbn/{isbn}.json", follow_redirects=True)
+        if response.status_code == 200:
+            data: dict[str, Any] = response.json()
+            result = {
+                "isbn": isbn,
+                "title": data.get("title"),
+                "author": await _author_name(client, data),
+                "description": _extract_description(data),
+                "cover_url": await _cover_url(client, isbn),
+                "page_count": data.get("number_of_pages"),
+                "published_year": _publish_year(data),
+            }
+            _cache.set(isbn, result)
+            return result
+        if response.status_code == 404:
+            # Unknown to Open Library: remember briefly so repeated scans of
+            # the same barcode don't each cost a ~0.4 s round-trip.
+            miss = {"isbn": isbn}
+            _cache.set(isbn, miss, ttl_seconds=3600)
+            return miss
     except httpx.RequestError:
         pass
 
@@ -49,7 +61,7 @@ async def _author_name(client: httpx.AsyncClient, edition: dict[str, Any]) -> st
         works = edition.get("works") or []
         if works and isinstance(works[0], dict) and works[0].get("key"):
             try:
-                w = await client.get(f"{OL}{works[0]['key']}.json")
+                w = await client.get(f"{OL}{works[0]['key']}.json", follow_redirects=True)
                 if w.status_code == 200:
                     for a in w.json().get("authors", []):
                         key = (a.get("author") or {}).get("key") if isinstance(a, dict) else None
@@ -60,7 +72,7 @@ async def _author_name(client: httpx.AsyncClient, edition: dict[str, Any]) -> st
     names: list[str] = []
     for key in keys[:3]:
         try:
-            r = await client.get(f"{OL}{key}.json")
+            r = await client.get(f"{OL}{key}.json", follow_redirects=True)
         except httpx.RequestError:
             continue
         if r.status_code == 200:
@@ -92,7 +104,7 @@ async def _cover_url(client: httpx.AsyncClient, isbn: str) -> str | None:
     instead of a blank 1×1 placeholder image)."""
     url = f"https://covers.openlibrary.org/b/isbn/{isbn}-L.jpg?default=false"
     try:
-        r = await client.head(url)
+        r = await client.head(url, follow_redirects=True)
     except httpx.RequestError:
         return None
     return url if r.status_code == 200 else None

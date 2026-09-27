@@ -1,6 +1,7 @@
 """Database queries for auth tables."""
 
 import uuid
+from collections.abc import Iterable
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select, update
@@ -49,6 +50,14 @@ class AuthRepository:
     async def get_user_by_id(self, user_id: uuid.UUID) -> User | None:
         result = await self.session.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
+
+    async def get_users_by_ids(self, user_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, User]:
+        """Batch form of ``get_user_by_id`` — one ``IN`` query."""
+        ids = set(user_ids)
+        if not ids:
+            return {}
+        result = await self.session.execute(select(User).where(User.id.in_(ids)))
+        return {u.id: u for u in result.scalars().all()}
 
     async def get_user_by_username(self, username: str) -> User | None:
         result = await self.session.execute(select(User).where(User.username == username.lower()))
