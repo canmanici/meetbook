@@ -30,7 +30,9 @@ async def test_deletion_request_flow(client: httpx.AsyncClient, register_user) -
     assert first["status"] == "open" and not first["already_open"]
     created = datetime.fromisoformat(first["created_at"])
     due = datetime.fromisoformat(first["due_at"])
-    assert 40 <= (due - created).days <= 44
+    # created_at is stamped by the DB a few ms after the handler's `now`; from a
+    # Sat/Sun start the span is exactly 40-41 days, so compare rounded days.
+    assert 40 <= round((due - created).total_seconds() / 86400) <= 44
 
     # a second tap doesn't create a duplicate
     r = await client.post("/api/v1/privacy/deletion-request", json={}, headers=h)

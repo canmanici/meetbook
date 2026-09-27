@@ -6,6 +6,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
+import pytest
 import pytest_asyncio
 import redis.asyncio as aioredis
 from sqlalchemy.ext.asyncio import (
@@ -48,9 +49,30 @@ async def _reset_schema(conn: Any) -> None:
         await conn.exec_driver_sql(f'DROP TYPE IF EXISTS "{name}" CASCADE')
 
 
+def _refuse_non_test_db(url: str) -> None:
+    """The fixtures below DROP every table in the target DB. Refuse to touch
+    anything that is not clearly a throwaway test database (the dev DB
+    `meetbook` was wiped this way once)."""
+    from sqlalchemy.engine import make_url
+
+    name = make_url(url).database or ""
+    if not name.endswith("_test"):
+        pytest.exit(
+            f"Refusing to run: database {name!r} does not end in '_test'. The test "
+            "suite drops every table. Point DATABASE_URL at a test DB, e.g. "
+            "postgresql+asyncpg://meetbook:meetbook_dev@localhost:5436/meetbook_test",
+            returncode=2,
+        )
+
+
+def pytest_sessionstart(session: Any) -> None:
+    _refuse_non_test_db(get_settings().database_url)
+
+
 @pytest_asyncio.fixture
 async def db_engine() -> AsyncIterator[Any]:
     settings = get_settings()
+    _refuse_non_test_db(settings.database_url)
     engine = create_async_engine(settings.database_url, pool_pre_ping=True)
     async with engine.begin() as conn:
         await _reset_schema(conn)
@@ -75,6 +97,8 @@ async def _fresh_module_clients() -> AsyncIterator[None]:
         redis_mod._redis = None
         chat_service._redis_pubsub = None
         chat_service._connections.clear()
+        chat_service._chat_participants.clear()
+        chat_service._call_peer_cache.clear()
         db_mod._engine = None
         db_mod._session_factory = None
 
