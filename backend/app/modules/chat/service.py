@@ -108,6 +108,34 @@ WS_SEND_TIMEOUT_SECONDS = 5.0
 PRESENCE_CHANNEL = "presence"
 
 
+class _NullWebSocket:
+    """Stand-in for handle_call when the action arrives over REST."""
+
+    async def send_text(self, _data: str) -> None:
+        return None
+
+
+async def _deliver_pending_call(entry: dict[str, Any]) -> None:
+    """Hand a parked offer (+ trickled ICE) to the callee, exactly once."""
+    if entry["cancelled"] or entry["delivered"]:
+        return
+    entry["delivered"] = True
+    for payload in (entry["relay"], *entry["ice"]):
+        await ConnectionManager.send_to_user(entry["callee"], payload)
+        await publish_message(entry["chat_id"], payload)
+
+
+async def deliver_pending_calls(user_id: uuid.UUID) -> None:
+    """Called when a user's socket connects: a phone woken by an incoming-call
+    push gets the offer immediately instead of on the next grace-window poll."""
+    for entry in list(_pending_calls.values()):
+        if entry.get("callee") == user_id:
+            try:
+                await _deliver_pending_call(entry)
+            except Exception:
+                logger.exception("Pending call delivery failed for %s", user_id)
+
+
 # ── Ticket helpers ─────────────────────────────────────────────────────────
 
 
@@ -1002,6 +1030,8 @@ class ChatService:
     )
     # Events that end a call attempt (and may carry a call-log).
     TERMINAL_CALL_EVENTS = frozenset({"end", "reject", "cancel"})
+    # How long an offline callee's phone rings (matches the grace window).
+    RING_GRACE_SECONDS = 25
     # Server-side record of a call (Redis, shared across instances): proves
     # a call really happened before a client-supplied log is persisted, and
     # bounds the logged duration by what the server actually observed.
@@ -1058,6 +1088,7 @@ class ChatService:
         kind = raw.get("kind") if raw.get("kind") in ("audio", "video") else "audio"
 
         caller_name = ""
+        caller_avatar_url: str | None = None
         exchange_id: uuid.UUID | None = None
         if event == "offer":
             exchange = await self.repo.get_exchange_for_chat(chat_id)
@@ -1066,6 +1097,7 @@ class ChatService:
 
             caller = await AuthRepository(self.session).get_user_by_id(ws_user_id)
             caller_name = caller.name if caller else ""
+            caller_avatar_url = caller.avatar_url if caller else None
 
         relay = {
             "type": "call",
@@ -1077,6 +1109,8 @@ class ChatService:
             "sender_name": caller_name,
             "payload": raw.get("payload"),
         }
+        if caller_avatar_url:
+            relay["sender_avatar_url"] = caller_avatar_url
         await ConnectionManager.send_to_user(other_id, relay)
         # Deliver to the peer's sockets on other instances too.
         await publish_message(chat_id, relay)
@@ -1126,8 +1160,16 @@ class ChatService:
         if pending is not None and pending["caller"] == ws_user_id:
             if event == "ice":
                 pending["ice"].append(relay)
-            elif event in self.TERMINAL_CALL_EVENTS:
+            elif event in self.TERMINAL_CALL_EVENTS and not pending["cancelled"]:
                 pending["cancelled"] = True
+                # Stop the callee's ringing call notification.
+                await self._push_call_event(
+                    other_id, {"type": "call_cancelled", "call_id": call_id}
+                )
+        elif pending is not None and event in self.TERMINAL_CALL_EVENTS:
+            # The callee declined from the lock-screen notification (REST,
+            # app not connected): never re-deliver the offer afterwards.
+            pending["cancelled"] = True
 
         if event == "offer" and raw.get("payload") is not None and call_id not in _pending_calls:
             # Callee's WS is down (app backgrounded / Doze) → push an
@@ -1137,48 +1179,55 @@ class ChatService:
             # in-app. Only if the window expires do we tell the caller
             # 'unavailable'.
             if not await ConnectionManager.check_online(other_id):
-                try:
-                    label = "görüntülü" if kind == "video" else "sesli"
-                    await send_push_to_user(
-                        str(other_id),
-                        PushMessage(
-                            title="📞 Gelen Arama",
-                            body=f"{caller_name} seni arıyor ({label})",
-                            data={
-                                "type": "incoming_call",
-                                "chat_id": str(chat_id),
-                                "exchange_id": str(exchange_id) if exchange_id else None,
-                                "call_id": call_id,
-                                "kind": kind,
-                            },
-                            channel_id="calls",
+                # Data-only: the app's background task shows a full-screen,
+                # ringing call notification (Answer / Decline). A 30s TTL
+                # keeps a late delivery from ringing a call that's over.
+                await self._push_call_event(
+                    other_id,
+                    {
+                        "type": "incoming_call",
+                        "chat_id": str(chat_id),
+                        "exchange_id": str(exchange_id) if exchange_id else None,
+                        "call_id": call_id,
+                        "kind": kind,
+                        "caller_name": caller_name,
+                        "caller_avatar_url": caller_avatar_url,
+                        # Epoch ms: the phone stops ringing on its own when the
+                        # grace window ends, without waiting for a cancel push.
+                        "expires_at": int(
+                            (datetime.now(UTC).timestamp() + self.RING_GRACE_SECONDS) * 1000
                         ),
-                        session=self.session,
-                    )
-                except Exception as exc:
-                    logger.warning("Call push failed for user %s: %s", other_id, exc)
+                    },
+                )
 
                 pending_entry: dict[str, Any] = {
                     "caller": ws_user_id,
+                    "callee": other_id,
+                    "chat_id": chat_id,
+                    "relay": relay,
                     "ice": [],
                     "cancelled": False,
+                    "delivered": False,
                 }
                 _pending_calls[call_id] = pending_entry
 
                 async def _ring_grace_window() -> None:
                     try:
                         # 12 × 2s ≈ 24s — inside the caller's 30s ring timeout.
-                        for _ in range(12):
-                            await asyncio.sleep(2)
-                            if pending_entry["cancelled"]:
-                                return  # caller hung up — never ring a dead call
+                        # The callee's socket connecting delivers instantly
+                        # (deliver_pending_calls); this poll is the fallback
+                        # for a socket on another instance. 48 × 0.5s ≈ 24s —
+                        # inside the caller's 30s ring timeout.
+                        for _ in range(int(self.RING_GRACE_SECONDS * 2) - 2):
+                            await asyncio.sleep(0.5)
+                            if pending_entry["cancelled"] or pending_entry["delivered"]:
+                                return  # hung up, or already rung in-app
                             if await ConnectionManager.check_online(other_id):
-                                await ConnectionManager.send_to_user(other_id, relay)
-                                await publish_message(chat_id, relay)
-                                for ice in pending_entry["ice"]:
-                                    await ConnectionManager.send_to_user(other_id, ice)
-                                    await publish_message(chat_id, ice)
+                                await _deliver_pending_call(pending_entry)
                                 return
+                        await self._push_call_event(
+                            other_id, {"type": "call_cancelled", "call_id": call_id}
+                        )
                         try:
                             await ws.send_text(
                                 json.dumps(
@@ -1265,6 +1314,37 @@ class ChatService:
             caller_id = state.get("caller")
             if status == "missed" and caller_id:
                 await self._notify_missed_call(chat_id, uuid.UUID(caller_id), kind)
+
+    async def decline_call(
+        self, user_id: uuid.UUID, chat_id: uuid.UUID, call_id: str, kind: str
+    ) -> None:
+        """Decline a ringing call without a WebSocket (lock-screen Decline on a
+        backgrounded/killed app). Same path as a WS 'reject', so the caller
+        gets the usual event and the call log is written once."""
+        await self.handle_call(
+            user_id,
+            _NullWebSocket(),  # type: ignore[arg-type]
+            {
+                "type": "call",
+                "event": "reject",
+                "chat_id": str(chat_id),
+                "call_id": call_id,
+                "kind": kind,
+                "payload": None,
+                "log": {"status": "rejected", "duration_seconds": 0},
+            },
+        )
+
+    async def _push_call_event(self, user_id: uuid.UUID, data: dict[str, Any]) -> None:
+        """Silent data push for call signalling to a backgrounded/killed app."""
+        try:
+            await send_push_to_user(
+                str(user_id),
+                PushMessage(title="", body="", data=data, data_only=True, ttl=30),
+                session=self.session,
+            )
+        except Exception as exc:
+            logger.warning("Call %s push failed for user %s: %s", data.get("type"), user_id, exc)
 
     async def _notify_missed_call(
         self, chat_id: uuid.UUID, caller_id: uuid.UUID, kind: str

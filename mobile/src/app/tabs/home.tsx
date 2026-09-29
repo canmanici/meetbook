@@ -390,7 +390,14 @@ export default function HomeScreen() {
 
       let gps: { lat: number; lng: number } | null = null;
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
+        // Check before asking: a request always starts Android's permission
+        // activity (even when already granted), which flashed over the call
+        // screen when the app was cold-started by an incoming call.
+        const current = await Location.getForegroundPermissionsAsync?.().catch(() => null);
+        const status =
+          current?.status === 'granted'
+            ? 'granted'
+            : (await Location.requestForegroundPermissionsAsync()).status;
         if (status === 'granted') {
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           gps = { lat: loc.coords.latitude, lng: loc.coords.longitude };

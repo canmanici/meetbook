@@ -227,6 +227,8 @@ export interface WSMessage {
   call_id?: string;
   kind?: 'audio' | 'video';
   sender_name?: string;
+  /** Caller's avatar on a call offer (may be an animated GIF). */
+  sender_avatar_url?: string | null;
   payload?: unknown;
   message?: MessageView & { club_id?: string; sender_name?: string | null; sender_avatar_url?: string | null };
   error?: string;

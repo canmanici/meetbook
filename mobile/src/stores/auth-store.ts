@@ -66,6 +66,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // import resolves.
     const { accessToken } = get();
     import('../lib/push-tokens').then(m => m.unregisterPushToken(accessToken));
+    // The native call-Decline button must not keep the old user's token.
+    import('../../modules/incoming-call').then(m => m.clearNativeCallAuth());
     set({ status: 'unauthenticated', user: null, accessToken: null, refreshToken: null });
   },
 

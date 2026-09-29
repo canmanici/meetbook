@@ -69,7 +69,9 @@ def env(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     from app.modules.auth.repository import AuthRepository
 
     monkeypatch.setattr(
-        AuthRepository, "get_user_by_id", AsyncMock(return_value=SimpleNamespace(name="Emir"))
+        AuthRepository,
+        "get_user_by_id",
+        AsyncMock(return_value=SimpleNamespace(name="Emir", avatar_url="https://cdn/emir.gif?v=1")),
     )
 
     exchange = SimpleNamespace(id=uuid.uuid4(), requested_by=CALLER, requested_to=CALLEE)
@@ -210,3 +212,74 @@ async def test_muted_chat_gets_no_push(
     await env.svc.handle_send(CALLER, FakeWS(), CHAT, "hi")
     env.push.assert_not_awaited()
     notif.return_value.notify.assert_not_awaited()
+
+
+async def test_offline_callee_gets_data_only_ring_and_cancel_push(env: SimpleNamespace) -> None:
+    """Killed/backgrounded app: the ring is a silent data push (the app shows
+    the full-screen call UI itself) and the caller hanging up stops it."""
+    await env.svc.handle_call(CALLER, FakeWS(), _call("offer", payload={"sdp": "x"}))
+    ring = env.push.await_args_list[0].args[1]
+    assert ring.data_only and ring.ttl == 30
+    assert ring.data["type"] == "incoming_call"
+    assert ring.data["caller_name"] == "Emir"
+    assert ring.data["caller_avatar_url"] == "https://cdn/emir.gif?v=1"
+    # The phone stops ringing by itself when the grace window ends.
+    import time
+
+    assert 20_000 < ring.data["expires_at"] - time.time() * 1000 <= 25_000
+
+    await env.svc.handle_call(CALLER, FakeWS(), _call("cancel"))
+    cancel = env.push.await_args_list[-1].args[1]
+    assert cancel.data == {"type": "call_cancelled", "call_id": "c1"}
+    assert chat_service._pending_calls["c1"]["cancelled"] is True
+
+
+async def test_decline_over_rest_rejects_and_stops_redelivery(
+    env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    caller_ws = FakeWS()
+    sent: list[tuple[uuid.UUID, dict[str, Any]]] = []
+
+    async def send_to_user(uid: uuid.UUID, payload: dict[str, Any]) -> None:
+        sent.append((uid, payload))
+
+    monkeypatch.setattr(chat_service.ConnectionManager, "send_to_user", send_to_user)
+    await env.svc.handle_call(CALLER, caller_ws, _call("offer", payload={"sdp": "x"}))
+
+    await env.svc.decline_call(CALLEE, CHAT, "c1", "audio")
+
+    assert (CALLER, "reject") in [(uid, p.get("event")) for uid, p in sent]
+    assert chat_service._pending_calls["c1"]["cancelled"] is True
+    extra = env.repo.create_message.await_args.args[5]
+    assert extra["status"] == "rejected"
+
+
+def test_data_only_expo_message_has_no_title_body_or_channel() -> None:
+    from app.modules.push_tokens.service import PushMessage, _build_expo_message
+
+    msg = _build_expo_message(
+        "tok", PushMessage(title="", body="", data={"type": "x"}, data_only=True, ttl=30)
+    )
+    assert msg == {"to": "tok", "priority": "high", "ttl": 30, "data": {"type": "x"}}
+
+
+async def test_callee_socket_connect_delivers_parked_offer_once(
+    env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A phone woken by the call push rings as soon as its socket connects,
+    not on the next grace-window poll — and never twice."""
+    sent: list[tuple[uuid.UUID, str | None]] = []
+
+    async def send_to_user(uid: uuid.UUID, payload: dict[str, Any]) -> None:
+        sent.append((uid, payload.get("event")))
+
+    monkeypatch.setattr(chat_service.ConnectionManager, "send_to_user", send_to_user)
+    await env.svc.handle_call(CALLER, FakeWS(), _call("offer", payload={"sdp": "x"}))
+    await env.svc.handle_call(CALLER, FakeWS(), _call("ice", payload={"candidate": "c"}))
+    sent.clear()
+
+    await chat_service.deliver_pending_calls(CALLEE)
+    await chat_service.deliver_pending_calls(CALLEE)
+
+    assert sent == [(CALLEE, "offer"), (CALLEE, "ice")]
+    assert chat_service._pending_calls["c1"]["delivered"] is True

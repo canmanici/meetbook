@@ -3,11 +3,12 @@
 import json
 import logging
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,6 +36,7 @@ from app.modules.chat.service import (
     ChatService,
     ConnectionManager,
     consume_ticket,
+    deliver_pending_calls,
 )
 
 # ---------------------------------------------------------------------------
@@ -350,6 +352,22 @@ async def get_turn_credentials(
     return TurnCredentialsResponse(ice_servers=servers, ttl_seconds=ttl)
 
 
+class CallDeclineRequest(BaseModel):
+    chat_id: uuid.UUID
+    call_id: str = Field(min_length=1, max_length=128)
+    kind: Literal["audio", "video"] = "audio"
+
+
+@chat_router.post("/calls/decline", status_code=204)
+async def decline_call(
+    body: CallDeclineRequest,
+    user: User = Depends(get_current_user),
+    service: ChatService = Depends(_get_service),
+) -> None:
+    """Decline a ringing call from the lock-screen notification (no WebSocket)."""
+    await service.decline_call(user.id, body.chat_id, body.call_id, body.kind)
+
+
 @chat_router.post("/ticket", response_model=ChatTicketResponse)
 async def create_chat_ticket(
     user: User = Depends(get_current_user),
@@ -400,6 +418,8 @@ async def websocket_endpoint(
         return
 
     await ConnectionManager.connect(user_id, ws)
+    # Woken by an incoming-call push? Ring now, not on the next poll.
+    await deliver_pending_calls(user_id)
     session_factory = get_session_factory()
 
     try:

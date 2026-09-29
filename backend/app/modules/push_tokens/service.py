@@ -30,6 +30,10 @@ class PushMessage:
     sound: str = "default"
     priority: str = "high"
     channel_id: str = "default"
+    # Data-only: no title/body, so Android doesn't display anything itself and
+    # the app's background task handles it (incoming-call full-screen UI).
+    data_only: bool = False
+    ttl: int | None = None  # seconds; drop instead of delivering stale
 
 
 async def send_push(
@@ -154,19 +158,20 @@ async def send_push_to_user(
 
 
 def _build_expo_message(token: str, message: PushMessage) -> dict[str, Any]:
-    msg: dict[str, Any] = {
-        "to": token,
-        "title": message.title,
-        "body": message.body,
-        "sound": message.sound,
-        "priority": message.priority,
-    }
+    msg: dict[str, Any] = {"to": token, "priority": message.priority}
+    if message.ttl is not None:
+        msg["ttl"] = message.ttl
     if message.data:
         msg["data"] = message.data
+    if message.data_only:
+        return msg
+    msg["title"] = message.title
+    msg["body"] = message.body
+    msg["sound"] = message.sound
     if message.badge is not None:
         msg["badge"] = message.badge
     if message.channel_id:
-        # The app creates both 'default' and 'calls' channels on Android.
+        # The app creates the 'default' channel on Android.
         msg["channelId"] = message.channel_id
     return msg
 

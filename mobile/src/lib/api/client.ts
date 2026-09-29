@@ -7,6 +7,20 @@ import { emitApiError, messageForStatus } from './error-bus';
 import type { components, paths } from './schema';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
+/** API root, for native code that calls the backend itself (call Decline). */
+export const API_BASE_URL = BASE_URL;
+
+/** Stored media URLs can be server-relative (local storage: /media/...);
+ * native code and <Image> need an absolute one. */
+export function absoluteMediaUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url)) return url;
+  try {
+    return new URL(url, BASE_URL).toString();
+  } catch {
+    return null;
+  }
+}
 
 export class ApiError extends Error {
   status: number;
@@ -781,6 +795,15 @@ export async function listNotifications(): Promise<NotificationListResponse> {
 
 export async function markNotificationsRead(body: NotificationMarkReadBody): Promise<void> {
   return authedRequest<void>('/notifications/read', 'POST', body);
+}
+
+/** Decline a ringing call from the lock-screen notification (no socket). */
+export async function declineCall(body: {
+  chat_id: string;
+  call_id: string;
+  kind: 'audio' | 'video';
+}): Promise<void> {
+  return authedRequest<void>('/chat/calls/decline', 'POST', body);
 }
 
 export async function markAllNotificationsRead(): Promise<void> {

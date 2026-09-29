@@ -142,7 +142,7 @@ export default function RootLayout() {
           <Stack.Screen name="search/users" options={{ headerShown: false }} />
           <Stack.Screen
             name="call"
-            options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}
+            options={{ headerShown: false, gestureEnabled: false, animation: 'none' }}
           />
           <Stack.Screen name="notifications" options={{ headerShown: false }} />
           <Stack.Screen name="saved-searches" options={{ headerShown: false }} />

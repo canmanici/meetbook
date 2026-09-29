@@ -6,7 +6,8 @@
  * the user is on. Renders nothing.
  */
 import { useEffect, useRef } from 'react';
-import { AppState } from 'react-native';
+import { Alert, AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePathname, useRouter } from 'expo-router';
 
 import { useCallStore } from '@/stores/call-store';
@@ -15,6 +16,71 @@ import { useChatStore } from '@/stores/chat-store';
 import { chatWS } from '@/lib/api/chat';
 import { markNotificationsRead } from '@/lib/api/client';
 import { queryClient } from '@/lib/query-client';
+
+/** MeetBook was opened while a call rings in the native notification (the
+ * user tapped Cevapla on the lock-screen call screen, or just opened the
+ * app). Show the in-app incoming-call screen right away, apply an Answer /
+ * Decline that was tapped natively, and only then silence the notification.
+ * Without a tapped action the notification keeps ringing — it holds the
+ * Answer/Decline buttons if the user leaves the app again. */
+async function takeOverRingingNotification(): Promise<void> {
+  const cn = await import('@/lib/call-notification');
+  const shown = await cn.getDisplayedIncomingCall();
+  const call = useCallStore.getState();
+  if (shown && call.status === 'idle') {
+    call.prepareIncoming({
+      callId: shown.callId,
+      chatId: shown.chatId,
+      kind: shown.kind,
+      callerName: shown.callerName,
+      callerAvatarUrl: shown.callerAvatarUrl,
+      ring: false,
+    });
+  }
+  const current = useCallStore.getState();
+  if (current.status !== 'incoming' || !current.callId) return;
+  const action = await cn.takePendingCallAction(current.callId);
+  if (action === 'answer') await useCallStore.getState().acceptCall();
+  else if (action === 'decline') useCallStore.getState().rejectCall();
+}
+
+const FSI_PROMPT_KEY = 'call_fsi_prompted_at';
+const XIAOMI_PROMPT_KEY = 'call_xiaomi_lock_prompted';
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Without these permissions a call on a locked phone only rings — the
+ * screen stays black. Ask (sparingly) and deep-link to the right page. */
+async function promptCallPermissionsIfNeeded(): Promise<void> {
+  const m = await import('../../modules/incoming-call');
+  if (!m.isIncomingCallNativeAvailable) return;
+  try {
+    if (!m.canUseFullScreenIntent()) {
+      const last = Number(await AsyncStorage.getItem(FSI_PROMPT_KEY)) || 0;
+      if (Date.now() - last < WEEK_MS) return;
+      await AsyncStorage.setItem(FSI_PROMPT_KEY, String(Date.now()));
+      Alert.alert(
+        'Aramalar kilit ekranında görünsün',
+        'Telefonun kilitliyken gelen aramaların tam ekran açılması için MeetBook’a “Tam ekran bildirim” izni ver.',
+        [
+          { text: 'Sonra', style: 'cancel' },
+          { text: 'Ayarları aç', onPress: () => m.openFullScreenIntentSettings() },
+        ],
+      );
+      return;
+    }
+    if (m.isXiaomiDevice() && !(await AsyncStorage.getItem(XIAOMI_PROMPT_KEY))) {
+      await AsyncStorage.setItem(XIAOMI_PROMPT_KEY, '1');
+      Alert.alert(
+        'Xiaomi: kilit ekranı izni',
+        'Xiaomi telefonlarda aramaların kilit ekranında açılması için “Kilit ekranında göster” ve “Arka planda açılır pencereler” izinlerini aç.',
+        [
+          { text: 'Sonra', style: 'cancel' },
+          { text: 'İzinleri aç', onPress: () => m.openXiaomiPermissions() },
+        ],
+      );
+    }
+  } catch {}
+}
 
 export function CallManager() {
   const router = useRouter();
@@ -47,6 +113,10 @@ export function CallManager() {
       if (state === 'active' && useAuthStore.getState().status === 'authenticated') {
         chatWS.connect();
       }
+      // App came to the front mid-ring (full-screen launch / tap): open the
+      // call screen from the notification right away, then stop the
+      // notification's looping ringtone — the in-app screen rings now.
+      if (state === 'active') void takeOverRingingNotification();
     });
     return () => sub.remove();
   }, []);
@@ -80,6 +150,29 @@ export function CallManager() {
       unsubs.forEach((u) => u());
     };
   }, [authStatus, router]);
+
+  // Launched/resumed from the call notification: move the call into the app.
+  // Also keep the native Decline button's token fresh while logged in.
+  useEffect(() => {
+    if (authStatus !== 'authenticated') return;
+    void takeOverRingingNotification();
+    void import('@/lib/call-notification').then((m) => m.syncCallAuth());
+    // Declined on the notification / lock-screen call screen while the app
+    // (and its socket) is alive: drop our own ringing state as well.
+    let removeListener: (() => void) | null = null;
+    void import('../../modules/incoming-call').then((m) => {
+      removeListener = m.addCallActionListener(({ callId, action }) => {
+        const c = useCallStore.getState();
+        if (action === 'decline' && c.status === 'incoming' && c.callId === callId) c.rejectCall();
+      });
+    });
+    // Give the home screen a moment before any permission dialog.
+    const t = setTimeout(() => void promptCallPermissionsIfNeeded(), 4000);
+    return () => {
+      clearTimeout(t);
+      removeListener?.();
+    };
+  }, [authStatus]);
 
   useEffect(() => {
     const inCall = status !== 'idle';

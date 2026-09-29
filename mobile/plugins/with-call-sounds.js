@@ -1,21 +1,25 @@
 /**
- * Copies call sounds into android/app/src/main/res/raw on every prebuild.
+ * Native bits for calls, applied on every prebuild:
  *
- * react-native-incall-manager resolves `ringback: '_BUNDLE_'` to the raw
- * resource `incallmanager_ringback`. When that resource is missing it silently
- * falls back to Settings.System.DEFAULT_RINGTONE_URI — so the CALLER heard
- * their own phone's ringtone instead of a dial tone. Shipping the file makes
- * the ringback a fixed 450 Hz "düt… düt…" on every device.
+ * 1. Copies call sounds into android/app/src/main/res/raw.
+ *    - incallmanager_ringback: react-native-incall-manager resolves
+ *      `ringback: '_BUNDLE_'` to this raw resource. When it's missing it
+ *      silently falls back to the phone's ringtone — the CALLER heard their
+ *      own ringtone instead of a dial tone.
+ *    - meetbook_ringtone: looping ringtone of the native incoming-call
+ *      notification channel (modules/incoming-call). The in-app callee UI
+ *      keeps `_DEFAULT_` (the phone's own ringtone).
  *
- * The callee side intentionally keeps `_DEFAULT_` (the phone's own ringtone).
+ * (Showing over the lock screen is done at runtime, only while a call is
+ * ringing or live — modules/incoming-call. Never set it in the manifest.)
  */
 const fs = require('fs');
 const path = require('path');
 const { withDangerousMod } = require('expo/config-plugins');
 
-const SOUNDS = ['incallmanager_ringback.mp3'];
+const SOUNDS = ['incallmanager_ringback.mp3', 'meetbook_ringtone.ogg'];
 
-module.exports = function withCallSounds(config) {
+function withSounds(config) {
   return withDangerousMod(config, [
     'android',
     async (cfg) => {
@@ -24,7 +28,18 @@ module.exports = function withCallSounds(config) {
       for (const name of SOUNDS) {
         fs.copyFileSync(path.join(cfg.modRequest.projectRoot, 'assets/sounds', name), path.join(rawDir, name));
       }
+      // Resolved by name at runtime (getIdentifier) — survive resource shrinking.
+      fs.writeFileSync(
+        path.join(rawDir, 'keep.xml'),
+        '<?xml version="1.0" encoding="utf-8"?>\n' +
+          '<resources xmlns:tools="http://schemas.android.com/tools"\n' +
+          '    tools:keep="@raw/meetbook_ringtone,@raw/incallmanager_ringback" />\n',
+      );
       return cfg;
     },
   ]);
+}
+
+module.exports = function withCallSounds(config) {
+  return withSounds(config);
 };

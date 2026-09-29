@@ -27,6 +27,31 @@ change values / add keys, never rename).
   RINGTONE. The callee keeps `_DEFAULT_` (the phone's real ringtone).
 - Callee answers `offer` with a `ringing` event → caller UI shows "Çalıyor…".
 
+## Incoming calls when the app is backgrounded/killed
+- Backend sends a DATA-ONLY push (`incoming_call` with `expires_at`, ttl 30s;
+  `call_cancelled` when the caller hangs up). The handler lives in
+  `src/lib/background-handlers.ts`, registered from the entry file `index.js`
+  (package.json `main`) — NOT from a route/_layout: a headless start never
+  renders routes.
+- The notification is NATIVE: `modules/incoming-call` (local Expo module) —
+  Android CallStyle with system Answer/Decline, looping `meetbook_ringtone.ogg`
+  at ring volume, `setTimeoutAfter(expires_at)`. Channel settings are frozen
+  by Android: bump the channel id to change them.
+- Lock screen: the full-screen intent opens `IncomingCallActivity` — a small
+  native call screen with `showWhenLocked`/`turnScreenOn` declared in ITS
+  manifest entry. NEVER make MainActivity show over the keyguard (manifest or
+  runtime `setShowWhenLocked`): at runtime it raced with HyperOS (keyguard
+  un-occluded ~20 ms later → hidden app ringing), and re-applying it on resume
+  caused an endless flashing loop.
+- Decline runs natively (`IncomingCallActions` → `POST /chat/calls/decline`
+  with a token JS keeps fresh via `syncCallAuth`) and emits `onCallAction` so a
+  running app drops its ringing state. Answer: the call screen asks for unlock
+  (`requestDismissKeyguard`), then opens MeetBook with a pending "answer";
+  CallManager `takeOverRingingNotification()` accepts once the offer arrives
+  (the backend delivers it the instant the socket connects).
+- A hidden/backgrounded app must never ring on its own: when the offer comes
+  over a live socket while backgrounded, the native notification rings.
+
 ## Chat gotchas
 - The chat WebSocket is APP-GLOBAL (also the call-signaling channel):
   CallManager opens it on login and `useChatStore.disconnect()` is for logout

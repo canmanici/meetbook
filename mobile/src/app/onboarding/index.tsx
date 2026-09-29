@@ -43,7 +43,23 @@ const SLIDES: Slide[] = [
     title: 'Konum İzni',
     text: 'Yakınındaki kitapları bulmak için konumuna ihtiyacımız var.',
   },
+  {
+    icon: 'call',
+    title: 'Bildirimler ve Aramalar',
+    text: 'Takas isteklerini, mesajları ve gelen aramaları kaçırmaman için bildirim izni isteyeceğiz. Aramalar telefonun kilitliyken de tam ekran açılır.',
+  },
 ];
+
+async function requestNotificationPermission(): Promise<void> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- native; absent in Expo Go
+    const Notifications = require('expo-notifications');
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') await Notifications.requestPermissionsAsync();
+  } catch {
+    // Expo Go / web: skip.
+  }
+}
 
 export default function OnboardingScreen() {
   const scheme = useColorScheme();
@@ -63,6 +79,9 @@ export default function OnboardingScreen() {
     setRequesting(true);
     try {
       await Location.requestForegroundPermissionsAsync();
+      // Notifications power messages, exchange updates and incoming calls.
+      // Only the OS dialog here — the token is registered after login.
+      await requestNotificationPermission();
       await useOnboardingStore.getState().complete();
       // Route through index so it can pick auth vs tabs based on auth status.
       // Going straight to /tabs/home deadlocks when the user isn't logged in.

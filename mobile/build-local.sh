@@ -15,12 +15,14 @@ source scripts/env-defaults.sh
 #   --publish          upload the APK as an in-app update after building
 #   --notes "…"        release notes shown in the update dialog
 #   --mandatory        users on older versions must update
-PUBLISH=0; NOTES=""; MANDATORY_FLAG=""
+#   --no-install       build only; don't touch a connected phone
+PUBLISH=0; NOTES=""; MANDATORY_FLAG=""; NO_INSTALL=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --publish) PUBLISH=1; shift ;;
     --notes) NOTES="$2"; shift 2 ;;
     --mandatory) MANDATORY_FLAG="--mandatory"; shift ;;
+    --no-install) NO_INSTALL=1; shift ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
@@ -107,6 +109,12 @@ EXPO_PUBLIC_API_URL=$API_URL
 EXPO_PUBLIC_MAPTILER_KEY=$MAPTILER_KEY
 EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID
 ENV
+# The release bundle step runs with NODE_ENV=production and loads
+# .env.production BEFORE .env, so the prod URL silently won and the local
+# APK talked to production. .env.production.local outranks it; it is
+# gitignored (.env*.local) and removed when this script exits.
+cp .env .env.production.local
+trap 'rm -f .env.production.local' EXIT
 echo "       Done."
 
 # ── 1b. Verify API endpoint is reachable ──────────────────────────────────────
@@ -192,7 +200,7 @@ EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
 # --no-build-cache: a stale cached mergeReleaseAssets once produced an APK
 # with NO JS bundle (app dead on launch). Local cache still speeds up native
 # compilation via up-to-date checks; only cross-run cache restores are off.
-./gradlew assembleRelease --no-build-cache \
+./gradlew assembleRelease --no-daemon --no-build-cache \
   -PreactNativeArchitectures=arm64-v8a \
   -PmeetbookAbis=arm64-v8a \
   -Pandroid.enableMinifyInReleaseBuilds=false \
@@ -256,7 +264,9 @@ WIRELESS_DEVICE=$(adb devices 2>/dev/null | awk '$2=="device" && $1 ~ /:/ {print
 ANY_DEVICE=$(adb devices 2>/dev/null | awk '$2=="device" && $1 !~ /^emulator-/ {print $1; exit}')
 TARGET_DEVICE="${WIRELESS_DEVICE:-$ANY_DEVICE}"
 
-if [ -n "$TARGET_DEVICE" ]; then
+if [ "$NO_INSTALL" = "1" ]; then
+  echo -e "  ${BOLD}Device:${NC}      skipped (--no-install)"
+elif [ -n "$TARGET_DEVICE" ]; then
   echo -e "  ${BOLD}Device:${NC}      $TARGET_DEVICE"
   echo -e "${YELLOW}[7/7]${NC} Installing on $TARGET_DEVICE and streaming logcat (Ctrl+C to stop)..."
   adb -s "$TARGET_DEVICE" install -r "$OUTPUT_APK" || {

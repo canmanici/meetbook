@@ -14,9 +14,12 @@
  *   - if the callee hangs up an active call, the callee logs 'ended'
  */
 import { create } from 'zustand';
-import { Vibration } from 'react-native';
+import { AppState, Vibration } from 'react-native';
 
 import { chatWS, getTurnCredentials, type IceServerConfig, type WSMessage } from '@/lib/api/chat';
+import { absoluteMediaUrl } from '@/lib/api/client';
+import { cancelIncomingCall, showIncomingCall, takePendingCallAction } from '@/lib/call-notification';
+
 import { getWebRTC, getInCallManager, requestCallPermissions, getUserMediaDirect, FALLBACK_ICE_SERVERS } from '@/lib/webrtc';
 
 export type CallStatus = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'active' | 'ended';
@@ -71,6 +74,16 @@ interface CallState {
   bindSignaling: () => void;
   startCall: (chatId: string, kind: CallKind, peer: PeerInfo) => Promise<boolean>;
   acceptCall: () => Promise<void>;
+  /** Show the incoming-call screen right away from notification data. */
+  prepareIncoming: (info: {
+    callId: string;
+    chatId: string;
+    kind: CallKind;
+    callerName: string;
+    callerAvatarUrl?: string | null;
+    /** false when the native call notification is already ringing. */
+    ring?: boolean;
+  }) => void;
   rejectCall: () => void;
   endCall: () => void;
   toggleMute: () => void;
@@ -90,6 +103,10 @@ let ringTimer: ReturnType<typeof setTimeout> | null = null;
 let endedTimer: ReturnType<typeof setTimeout> | null = null;
 let connectTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingOffer: any | null = null;
+// Call screen opened from the lock-screen notification before the offer
+// arrived over the (re)connecting socket: UI is up, SDP still on its way.
+let awaitingOffer = false;
+let answerWhenOfferArrives = false;
 // ICE candidates buffered before the PC has a remote description. Tagged with
 // the call id they belong to so a new call can never ingest a stale batch,
 // and so candidates that arrive BEFORE the offer (very common: the caller's
@@ -367,6 +384,9 @@ export const useCallStore = create<CallState>((set, get) => {
   function teardown(reason: CallEndReason, log?: 'ended' | 'missed' | 'rejected' | 'failed') {
     const { chatId, callId, kind, startedAt, status } = get();
     clearTimers();
+    awaitingOffer = false;
+    answerWhenOfferArrives = false;
+    void cancelIncomingCall(callId);
     if (log && chatId && callId) {
       const duration = startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0;
       const event = log === 'rejected' ? 'reject' : status === 'outgoing' ? 'cancel' : 'end';
@@ -703,6 +723,32 @@ export const useCallStore = create<CallState>((set, get) => {
           }
           return;
         }
+        if (awaitingOffer && s.callId === msg.call_id && (s.status === 'incoming' || s.status === 'connecting')) {
+          awaitingOffer = false;
+          pendingOffer = msg.payload;
+          if (pendingIceCallId !== msg.call_id) {
+            pendingIce = [];
+            pendingIceCallId = msg.call_id ?? null;
+          }
+          set({
+            chatId: msg.chat_id ?? s.chatId,
+            kind: msg.kind ?? s.kind,
+            peer: {
+              id: msg.sender_id,
+              name: msg.sender_name || s.peer?.name || 'Bilinmeyen',
+              avatarUrl: absoluteMediaUrl(msg.sender_avatar_url) ?? s.peer?.avatarUrl ?? null,
+            },
+          });
+          if (msg.chat_id && msg.call_id) {
+            void chatWS.sendCallReliable(msg.chat_id, 'ringing', msg.call_id, msg.kind ?? 'audio');
+          }
+          if (answerWhenOfferArrives) {
+            answerWhenOfferArrives = false;
+            set({ status: 'incoming' });
+            void get().acceptCall();
+          }
+          return;
+        }
         if (s.status !== 'idle') return; // duplicate offer for same call
         pendingOffer = msg.payload;
         // Keep candidates that arrived ahead of this offer; discard buffers
@@ -718,8 +764,44 @@ export const useCallStore = create<CallState>((set, get) => {
           kind: msg.kind ?? 'audio',
           isCaller: false,
           endReason: null,
-          peer: { id: msg.sender_id, name: msg.sender_name || 'Bilinmeyen', avatarUrl: null },
+          peer: {
+            id: msg.sender_id,
+            name: msg.sender_name || 'Bilinmeyen',
+            avatarUrl: absoluteMediaUrl(msg.sender_avatar_url),
+          },
         });
+        // Answer/Decline was already tapped on the lock-screen call
+        // notification before this (re-delivered) offer reached us.
+        const earlyAction = msg.call_id ? await takePendingCallAction(msg.call_id) : null;
+        if (get().callId !== msg.call_id || get().status !== 'incoming') return;
+        if (earlyAction === 'decline') {
+          teardown('rejected', 'rejected');
+          return;
+        }
+        if (earlyAction === 'answer') {
+          void cancelIncomingCall(msg.call_id);
+          void get().acceptCall();
+          return;
+        }
+        if (msg.call_id && msg.chat_id && AppState.currentState !== 'active') {
+          // Backgrounded but still connected (no push was sent): the NATIVE
+          // notification rings and opens the lock-screen call screen. The
+          // hidden app must not ring itself — nobody could see or stop it.
+          void showIncomingCall({
+            callId: msg.call_id,
+            chatId: msg.chat_id,
+            kind: msg.kind ?? 'audio',
+            callerName: msg.sender_name || 'Bilinmeyen',
+            callerAvatarUrl: absoluteMediaUrl(msg.sender_avatar_url),
+          });
+          void chatWS.sendCallReliable(msg.chat_id, 'ringing', msg.call_id, msg.kind ?? 'audio');
+          ringTimer = setTimeout(() => {
+            if (get().status === 'incoming') teardown('missed');
+          }, RING_TIMEOUT_MS + 5_000);
+          break;
+        }
+        // In the app: our own call screen rings; drop any push UI.
+        if (msg.call_id) void cancelIncomingCall(msg.call_id);
         const icm = getInCallManager();
         // Reset any stale in-communication audio mode first — otherwise the
         // ringtone plays through the EARPIECE instead of the loudspeaker.
@@ -904,6 +986,18 @@ export const useCallStore = create<CallState>((set, get) => {
     },
 
     acceptCall: async () => {
+      if (awaitingOffer && get().status === 'incoming') {
+        // Tapped answer before the SDP arrived: show "Bağlanıyor…" and
+        // answer the moment the offer lands.
+        answerWhenOfferArrives = true;
+        // Answered: forget the native ringing call (no phantom re-ring later).
+        void cancelIncomingCall(get().callId);
+        const icm = getInCallManager();
+        try { icm?.stopRingtone(); } catch {}
+        Vibration.cancel();
+        set({ status: 'connecting' });
+        return;
+      }
       const { chatId, callId, kind, status } = get();
       if (status !== 'incoming' || !chatId || !callId || !pendingOffer) return;
       // Defensive: same rationale as startCall — never build a new PC on top
@@ -917,6 +1011,7 @@ export const useCallStore = create<CallState>((set, get) => {
       if (!rtc) { teardown('failed'); return; }
 
       clearTimers();
+      void cancelIncomingCall(callId);
       const icm = getInCallManager();
       try { icm?.stopRingtone(); } catch {}
       Vibration.cancel();
@@ -958,6 +1053,36 @@ export const useCallStore = create<CallState>((set, get) => {
       } catch (e) {
         teardown(permissionReason(e) ?? 'failed', 'failed');
       }
+    },
+
+    prepareIncoming: ({ callId, chatId, kind, callerName, callerAvatarUrl, ring = true }) => {
+      if (get().status !== 'idle') return;
+      awaitingOffer = true;
+      answerWhenOfferArrives = false;
+      pendingOffer = null;
+      set({
+        status: 'incoming',
+        callId,
+        chatId,
+        kind,
+        isCaller: false,
+        endReason: null,
+        peer: { id: '', name: callerName || 'Bilinmeyen', avatarUrl: callerAvatarUrl ?? null },
+      });
+      // Warm the TURN credentials now so answering doesn't wait on them.
+      void getIceServers().catch(() => {});
+      // ring=false: the native notification is still ringing (and holds the
+      // Answer/Decline buttons) — don't add a second ringtone.
+      if (ring) {
+        const icm = getInCallManager();
+        try { icm?.stop(); } catch {}
+        try { icm?.startRingtone('_DEFAULT_'); } catch {}
+        Vibration.vibrate([800, 1200], true);
+      }
+      // The offer never came (caller gave up while we were waking up).
+      ringTimer = setTimeout(() => {
+        if (get().status === 'incoming' || get().status === 'connecting') teardown('missed');
+      }, RING_TIMEOUT_MS);
     },
 
     rejectCall: () => {
