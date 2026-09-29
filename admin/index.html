@@ -1313,7 +1313,9 @@ function showToast(message, type = 'info', duration = 4000) {
   const el = document.createElement('div');
   el.className = `toast toast-${['success','error','warning','info'].includes(type) ? type : 'info'}`;
   el.setAttribute('role', type === 'error' ? 'alert' : 'status');
-  el.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()" aria-label="Kapat">&times;</button>`;
+  // Messages mix raw text (e.g. the search box) with pre-escaped API text;
+  // escHtml is idempotent, so both end up safe and displayed once-escaped.
+  el.innerHTML = `<span>${escHtml(message)}</span><button onclick="this.parentElement.remove()" aria-label="Kapat">&times;</button>`;
   container.appendChild(el);
   setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(100%)'; setTimeout(() => el.remove(), 400); }, duration);
 }
@@ -1652,9 +1654,43 @@ function initialOf(escaped) {
 // here would double-encode ("&amp;amp;"). Kept as a pass-through for the
 // existing call sites; use htmlEscape() for strings that did NOT come from
 // the API.
+// Idempotent escape. API data arrives already escaped (request() →
+// escapeDeep), so an existing entity like "&amp;" is left alone instead of
+// becoming "&amp;amp;" — while any raw text (input values, location.hash,
+// JS error messages) still gets fully escaped.
+// Pre-escaped API text → plain text, for DOM *text* sinks (.value,
+// textContent, prompt defaults) and anything sent back to the server.
+function decodeHtml(escaped) {
+  const t = document.createElement('textarea');
+  t.innerHTML = escaped === null || escaped === undefined ? '' : String(escaped);
+  return t.value;
+}
+
+// A value for a JS string argument inside an inline handler, e.g.
+// onclick="fn(${jsArg(x)})". HTML-escaping alone is NOT enough there: the
+// browser decodes &#39; back to ' before running the handler. So decode the
+// (pre-escaped) API text, JSON-encode it as a JS literal, then HTML-escape.
+function jsArg(str) {
+  const t = document.createElement('textarea');
+  t.innerHTML = str === null || str === undefined ? '' : String(str);
+  return htmlEscape(JSON.stringify(t.value));
+}
+
+// Only http(s) links from data may become an href (no javascript:, data:).
+function safeHref(url) {
+  const t = document.createElement('textarea');
+  t.innerHTML = url || '';
+  return /^https?:\/\//i.test(t.value.trim()) ? escHtml(url) : '';
+}
+
 function escHtml(str) {
   if (str === null || str === undefined) return '';
-  return String(str);
+  return String(str)
+    .replace(/&(?!(?:amp|lt|gt|quot|#39|#\d+|#x[0-9a-f]+);)/gi, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function shortId(id) {
@@ -2263,7 +2299,7 @@ async function loadAnalyticsTab(tab) {
       }
     }
   } catch (e) {
-    el.innerHTML = `<div class="error-state"><div class="error-icon">&#9888;</div><p>${e.message}</p></div>`;
+    el.innerHTML = `<div class="error-state"><div class="error-icon">&#9888;</div><p>${escHtml(e.message)}</p></div>`;
   }
 }
 
@@ -2350,7 +2386,7 @@ async function loadReportsPage() {
       reportsListenersAttached = true;
       document.getElementById('reports-status-filter').addEventListener('change', () => loadReportsPage());
     }
-  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${escHtml(e.message)}</div></div>`; }
 }
 
 async function loadReportsPagePaginated(page) {
@@ -2408,7 +2444,7 @@ async function loadReportsPagePaginated(page) {
       phtml += `<span class="page-info">${total} rapor</span></div>`;
       pag.innerHTML = phtml;
     } else { pag.innerHTML = ''; }
-  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${escHtml(e.message)}</div></div>`; }
 }
 
 async function handleReport(id, action) {
@@ -2462,7 +2498,7 @@ async function showChatContext(reportId, targetType, targetId) {
       </div>`;
     }).join('')}</div>`;
   } catch (e) {
-    body.innerHTML = `<div class="error-state"><p>${e.message}</p></div>`;
+    body.innerHTML = `<div class="error-state"><p>${escHtml(e.message)}</p></div>`;
   }
 }
 
@@ -2793,7 +2829,7 @@ async function loadUserMessages(id) {
     el.innerHTML = html;
 
   } catch (e) {
-    el.innerHTML = `<div class="text-center text-muted" style="padding:2rem">Mesajlar yüklenemedi: ${e.message}</div>`;
+    el.innerHTML = `<div class="text-center text-muted" style="padding:2rem">Mesajlar yüklenemedi: ${escHtml(e.message)}</div>`;
   }
 }
 
@@ -2833,7 +2869,7 @@ async function loadUserCalls(id) {
 
     el.innerHTML = html;
   } catch (e) {
-    el.innerHTML = `<div class="text-center text-muted" style="padding:2rem">Çağrılar yüklenemedi: ${e.message}</div>`;
+    el.innerHTML = `<div class="text-center text-muted" style="padding:2rem">Çağrılar yüklenemedi: ${escHtml(e.message)}</div>`;
   }
 }
 
@@ -2920,7 +2956,7 @@ async function loadBooksPageData(page) {
       document.getElementById('books-search').addEventListener('input', debounce(loadBooksPage, 400));
       document.getElementById('books-available-filter').addEventListener('change', loadBooksPage);
     }
-  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${escHtml(e.message)}</div></div>`; }
 }
 
 async function viewBookDetail(id) {
@@ -3024,7 +3060,7 @@ async function loadExchangesPageData(page) {
       excListenersAttached = true;
       document.getElementById('exchanges-status-filter').addEventListener('change', loadExchangesPage);
     }
-  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${escHtml(e.message)}</div></div>`; }
 }
 
 async function viewExchangeDetail(id) {
@@ -3079,13 +3115,13 @@ async function loadReleasesPage() {
             <button class="btn btn-warning" onclick="patchRelease('${r.id}', {mandatory: ${!r.mandatory}})">${r.mandatory ? 'Zorunluluğu kaldır' : 'Zorunlu yap'}</button>
             ${r.withdrawn_at
               ? `<button class="btn btn-success" onclick="restoreRelease('${r.id}')">Geri al</button>`
-              : `<button class="btn btn-danger" onclick="withdrawRelease('${r.id}', '${r.version_name}')">Acil geri çek</button>`}
+              : `<button class="btn btn-danger" onclick="withdrawRelease('${r.id}', ${jsArg(r.version_name)})">Acil geri çek</button>`}
             <button class="btn btn-ghost" onclick="deleteRelease('${r.id}')">Sil</button>
           </div>
         </div>
       </div>
     </div>`).join('');
-  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${escHtml(e.message)}</div></div>`; }
 }
 
 function uploadRelease() {
@@ -3125,7 +3161,9 @@ async function loadPolicy() {
   try {
     const p = await API.adminRequest('/app-releases/policy');
     document.getElementById('pol-min').value = p.min_supported_code || '';
-    document.getElementById('pol-msg').value = p.message || '';
+    // .value is plain text: un-escape, or saving would store "&amp;" and
+    // compound it on every save (and phones would show the entities).
+    document.getElementById('pol-msg').value = decodeHtml(p.message || '');
     document.getElementById('pol-info').textContent = p.min_supported_code
       ? `Şu an: ${p.min_supported_code} altındaki cihazlar güncellemek zorunda.`
       : 'Kapalı. Bir numara girersen altındaki tüm cihazlar güncellemeden uygulamayı kullanamaz.';
@@ -3275,7 +3313,7 @@ async function loadKvkkPage() {
         </div>
       </div>
     </div>`).join('');
-  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${escHtml(e.message)}</div></div>`; }
 }
 
 function kvkkAction(id, status) {
@@ -3319,7 +3357,7 @@ async function loadBlockedPlacesPage() {
         </div>
       </div>`;
     }).join('');
-  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${escHtml(e.message)}</div></div>`; }
 }
 
 async function createBlockedPlace() {
@@ -3405,7 +3443,7 @@ async function loadAuditLogData(page) {
       auditListenersAttached = true;
       document.getElementById('audit-event-filter').addEventListener('change', loadAuditLogPage);
     }
-  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${e.message}</div></div>`; }
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${escHtml(e.message)}</div></div>`; }
 }
 
 // ─── System Page ────────────────────────────────────────────────
@@ -3898,7 +3936,7 @@ async function loadCrashReportsPage(page) {
       document.getElementById(id)?.addEventListener('change', () => loadCrashReportsPage(1));
     });
   } catch (e) {
-    body.innerHTML = `<tr><td colspan="9" class="text-center text-muted">Hata: ${e.message}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="text-center text-muted">Hata: ${escHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -3967,7 +4005,7 @@ async function showCrashDetail(id) {
       }</tbody></table></div></div>`;
     }
     body.innerHTML = html;
-  } catch (e) { body.innerHTML = `<div class="text-center text-muted">Hata: ${e.message}</div>`; }
+  } catch (e) { body.innerHTML = `<div class="text-center text-muted">Hata: ${escHtml(e.message)}</div>`; }
 }
 
 function showCrashActionModal(id, currentStatus) {
@@ -4018,7 +4056,7 @@ async function loadCrashVersionStats() {
     body.innerHTML = `<div class="table-container"><table><thead><tr><th>Sürüm</th><th>Hata Sayısı</th><th>Farklı Hata</th><th>Son Hata</th></tr></thead><tbody>${
       v.items.map(i => `<tr><td><strong>${i.version}</strong></td><td>${formatNum(i.count)}</td><td>${i.distinct_errors}</td><td class="text-sm text-muted">${formatDate(i.last_seen)}</td></tr>`).join('')
     }</tbody></table></div>`;
-  } catch (e) { body.innerHTML = `<div class="text-center text-muted">Hata: ${e.message}</div>`; }
+  } catch (e) { body.innerHTML = `<div class="text-center text-muted">Hata: ${escHtml(e.message)}</div>`; }
 }
 
 // ─── Pagination ─────────────────────────────────────────────────

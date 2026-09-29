@@ -50,3 +50,28 @@ async def test_throttle_records_failure() -> None:
     await throttle.record_failure("test@email.com", "127.0.0.1")
     throttle._redis.zadd.assert_called_once()
     throttle._redis.expire.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_login_locks_out_after_repeated_wrong_passwords(client: httpx.AsyncClient) -> None:
+    """End-to-end: the lockout is wired into /auth/login and on by default,
+    independent of the global RATE_LIMIT_ENABLED switch."""
+    await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "brute@example.com",
+            "password": "securepass123",
+            "name": "Target",
+            "kvkk_consent": True,
+        },
+    )
+    for _ in range(5):
+        resp = await client.post(
+            "/api/v1/auth/login", json={"email": "brute@example.com", "password": "wrong-guess"}
+        )
+        assert resp.status_code == 401
+    resp = await client.post(
+        "/api/v1/auth/login", json={"email": "brute@example.com", "password": "securepass123"}
+    )
+    # Even the right password is refused while locked out.
+    assert resp.status_code == 429

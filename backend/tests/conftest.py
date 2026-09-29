@@ -16,6 +16,9 @@ from sqlalchemy.ext.asyncio import (
 )
 
 os.environ["ENV"] = "test"
+# The suite fires hundreds of requests from one client; the limiter's own
+# behaviour is covered by tests/auth/test_rate_limit.py.
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 
 from app.core.config import get_settings  # noqa: E402
 from app.core.db import Base, get_session  # noqa: E402

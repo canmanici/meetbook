@@ -3,13 +3,13 @@
 import uuid
 from typing import Any
 
-import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.client_ip import resolve_client_ip
 from app.core.config import get_settings
 from app.core.db import get_session
+from app.core.redis import get_redis
 from app.core.throttle import LoginThrottle
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
@@ -53,8 +53,12 @@ def _get_client_ip(request: Request) -> str:
     return resolve_client_ip(peer, request.headers.get("X-Forwarded-For"))
 
 
-def _get_throttle() -> LoginThrottle:
-    return LoginThrottle(aioredis.from_url(get_settings().redis_url))
+def _get_throttle() -> LoginThrottle | None:
+    if not get_settings().login_throttle_enabled:
+        return None
+    # Shared client: a from_url() per request built a fresh connection pool
+    # on every login and never closed it.
+    return LoginThrottle(get_redis())
 
 
 @router.post("/register", response_model=AuthTokensResponse, status_code=201)
@@ -90,7 +94,7 @@ async def login(
     body: LoginRequest,
     request: Request,
     service: AuthService = Depends(_get_service),
-    throttle: LoginThrottle = Depends(_get_throttle),
+    throttle: LoginThrottle | None = Depends(_get_throttle),
 ) -> TokenResponse:
     try:
         ip = _get_client_ip(request)

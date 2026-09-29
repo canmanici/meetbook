@@ -22,6 +22,29 @@ from app.storage_proxy import router as storage_router
 logger = logging.getLogger("app.access")
 
 
+# The admin panel holds an admin token, so it gets the strictest headers the
+# page allows. It is one self-contained file with inline <script>/<style> and
+# inline handlers, hence 'unsafe-inline' — but nothing may load from or talk
+# to another origin, so even injected markup can't phone a token home.
+ADMIN_SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' data:; "
+        "connect-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'none'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none'"
+    ),
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+}
+
+
 class _RevalidatingStaticFiles(StaticFiles):
     """Admin panel is a single HTML file that changes with every deploy —
     make browsers revalidate (ETag → 304) instead of serving a stale copy."""
@@ -29,12 +52,16 @@ class _RevalidatingStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope: Any) -> Any:
         response = await super().get_response(path, scope)
         response.headers["Cache-Control"] = "no-cache"
+        response.headers.update(ADMIN_SECURITY_HEADERS)
         return response
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    is_dev = settings.env in ("local", "dev", "development", "test")
+    is_dev = settings.is_dev
+    if not is_dev and not settings.mail_enabled:
+        # Sign-ups can't receive their code, so nobody new can verify.
+        logger.error("SMTP_HOST is not set: new accounts cannot verify their email")
 
     app = FastAPI(
         title="MeetBook API",

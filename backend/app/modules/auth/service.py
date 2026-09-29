@@ -119,11 +119,10 @@ class AuthService:
 
         now = datetime.now(UTC)
         settings = get_settings()
-        if not settings.mail_enabled:
-            # No SMTP → a code could never reach the user; don't lock them out.
-            logger.warning(
-                "SMTP not configured — auto-verifying %s (set SMTP_HOST to enforce)", user.email
-            )
+        if settings.auto_verify_email:
+            # Dev without SMTP: a code could never arrive; don't lock devs out.
+            # Never in production (see Settings.auto_verify_email).
+            logger.warning("SMTP not configured (dev) — auto-verifying %s", user.email)
             user.email_verified_at = now
         user.kvkk_consent_at = now
         user.kvkk_policy_version = current_policy_version()

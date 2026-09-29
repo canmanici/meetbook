@@ -55,8 +55,12 @@ services:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
       MINIO_BROWSER_REDIRECT_URL: https://canmanici.com/meetbook/admin/minio
+    # Console on the HOST's loopback only. A plain "9001:9001" published the
+    # MinIO console (root = S3 keys) to the whole internet over plain HTTP —
+    # Docker-published ports bypass ufw. Reach it via the HTTPS route below
+    # (IP-allowlisted) or an SSH tunnel: ssh -L 9001:127.0.0.1:9001 <server>
     ports:
-      - "9001:9001"
+      - "127.0.0.1:9001:9001"
     volumes:
       - miniodata:/data
     healthcheck:
@@ -81,7 +85,9 @@ services:
       - traefik.http.routers.meetbook-storage.middlewares=meetbook-storage-strip
       - traefik.http.services.meetbook-storage.loadbalancer.server.port=9000
       # https://canmanici.com/meetbook/admin/minio -> minio console at :9001
-      - traefik.http.middlewares.minio-ipwhitelist.ipallowlist.sourcerange=127.0.0.1/32, YOUR_ADMIN_IP_HERE
+      # Admin IPs allowed to open the console, e.g. "1.2.3.4/32,5.6.7.8/32".
+      # Unset = nobody from outside (the old placeholder was not a valid IP).
+      - traefik.http.middlewares.minio-ipwhitelist.ipallowlist.sourcerange=${MINIO_CONSOLE_ALLOWED_IPS:-127.0.0.1/32}
       - traefik.http.routers.meetbook-minio-console.rule=Host(`canmanici.com`) && PathPrefix(`/meetbook/admin/minio`)
       - traefik.http.routers.meetbook-minio-console.entrypoints=websecure
       - traefik.http.routers.meetbook-minio-console.tls.certresolver=letsencrypt
@@ -166,6 +172,11 @@ services:
       # and ignores any other value). Scale by adding containers.
       UVICORN_WORKERS: "1"
       CORS_ORIGINS: https://canmanici.com
+      # Security switches — safe values by default, overridable in Dokploy.
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      LOGIN_THROTTLE_ENABLED: ${LOGIN_THROTTLE_ENABLED:-true}
+      # Book credits: flip to true once the app build with wallets is out.
+      CREDITS_ENFORCED: ${CREDITS_ENFORCED:-false}
       GOOGLE_PLACES_KEY: ${GOOGLE_PLACES_KEY:-}
       SMS_PROVIDER_KEY: ${SMS_PROVIDER_KEY:-}
       TURN_SECRET: ${TURN_SECRET}
@@ -173,8 +184,9 @@ services:
       TURN_PORT: "3478"
       # Sign in with Google — the WEB OAuth client ID (token audience).
       GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
-      # Outgoing mail (verification / reset codes, KVKK). Empty SMTP_HOST =
-      # no mail sent and email verification not enforced.
+      # Outgoing mail (verification / reset codes, KVKK). REQUIRED in
+      # production: without SMTP_HOST new accounts can never verify (they are
+      # no longer auto-verified — that made "verified" meaningless).
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
