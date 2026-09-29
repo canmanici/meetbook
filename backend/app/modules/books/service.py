@@ -38,6 +38,8 @@ from app.modules.books.schemas import (
     ReorderDelta,
     StaleBookView,
 )
+from app.core.content_policy import commercial_content
+from app.modules.credits.service import CreditService
 from app.modules.exchanges.repository import ExchangeRepository
 
 MAX_PHOTO_BYTES = 10 * 1024 * 1024
@@ -588,7 +590,11 @@ class BookService:
         if force:
             # Cancel any active exchange requests (book-level cascade — owner deleting their book
             # implicitly cancels all pending/accepted exchanges on it).
-            cancelled = await self.exchanges_repo.cancel_all_active_for_book(book_id)
+            cancelled, loans = await self.exchanges_repo.cancel_all_active_for_book(book_id)
+            # The owner withdrew the book, the borrower did nothing wrong.
+            credits = CreditService(self.session)
+            for loan in loans:
+                await credits.release_deposit(loan)
             if cancelled:
                 logger.info(
                     "Force-delete book %s: cancelled %d active exchange(s)", book_id, cancelled

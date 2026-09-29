@@ -77,6 +77,29 @@ class User(Base):
     loans_returned_late: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
+    # University (.edu.tr) verification — one verified student address per account.
+    edu_email: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    edu_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Set when the student verified with a teacher's class code instead of an
+    # .edu.tr address (demo stage). edu_verified_at is set in both cases.
+    verified_by_teacher_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # Address a code was sent to, awaiting verification.
+    pending_edu_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Book credits: running total of credit_transactions (may be negative = debt).
+    credit_balance: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    # Set by an admin approving a teacher application (badge only, no extra rights).
+    teacher_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    teacher_institution: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Set when an owner writes off an unreturned loan; the user can never borrow again.
+    borrow_banned_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     # Admin manual override of the computed trust score (0-100). Null → use computed value.
     trust_score_override: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     geofence_radius_km: Mapped[int] = mapped_column(
@@ -159,6 +182,7 @@ class PasswordResetToken(Base):
 class EmailCodePurpose(str, enum.Enum):
     verify_email = "verify_email"
     password_reset = "password_reset"
+    verify_edu = "verify_edu"
 
 
 class EmailCode(Base):

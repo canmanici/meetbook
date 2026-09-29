@@ -67,7 +67,10 @@ export function GoogleSignInButton({ onError }: { onError?: (msg: string) => voi
   const finish = async (res: GoogleLoginResponse) => {
     await setTokens(res.access_token, res.refresh_token);
     setSession(res.user, { accessToken: res.access_token, refreshToken: res.refresh_token });
-    router.replace(res.is_new_user ? '/personality-books' : '/tabs/home');
+    // New accounts are offered student (.edu.tr) verification first; Gmail stays fine.
+    router.replace(
+      (res.is_new_user ? '/settings/student-verification?onboarding=1' : '/tabs/home') as never,
+    );
   };
 
   const onPress = async () => {

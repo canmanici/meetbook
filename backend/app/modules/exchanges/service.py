@@ -19,6 +19,7 @@ from app.modules.auth.repository import AuthRepository
 from app.modules.auth.trust import compute_trust
 from app.modules.books.repository import BookRepository, BookRow, encode_ts_cursor
 from app.modules.books.schemas import LocationOutput, PhotoView
+from app.modules.credits.service import CreditError, CreditService
 from app.modules.exchanges.models import (
     ACTIVE_LOAN_STATUSES,
     Chat,
@@ -80,6 +81,8 @@ def _trust_view(user: User) -> TrustView:
         label=result.label,
         on_time_rate=result.on_time_rate,
         loans_borrowed_count=result.loans_borrowed_count,
+        edu_verified=user.edu_verified_at is not None,
+        teacher=user.teacher_verified_at is not None,
     )
 
 
@@ -97,6 +100,10 @@ class ExchangeError(Exception):
     def __init__(self, code: str, status_code: int = 400) -> None:
         self.code = code
         self.status_code = status_code
+
+    @classmethod
+    def from_credit(cls, e: CreditError) -> "ExchangeError":
+        return cls(e.code, e.status_code)
 
 
 def _book_summary(book_row: BookRow | None, photos: list[Any] | None = None) -> BookSummary:
@@ -335,11 +342,15 @@ class ExchangeService:
             if active_count >= NEW_ACCOUNT_ACTIVE_REQUEST_LIMIT:
                 raise ExchangeError("NEW_ACCOUNT_LIMIT", 400)
 
+        # Locks the requester row, so concurrent requests can't double-spend
+        # the same credit (or both pass the single-active-loan check below).
+        try:
+            await CreditService(self.session).check_can_request(current_user_id, body.mode)
+        except CreditError as e:
+            raise ExchangeError.from_credit(e) from e
+
         # Single active loan rule: a borrower may hold only one borrowed book at a time.
         if body.mode is ExchangeMode.borrow:
-            await self.session.execute(
-                select(User).where(User.id == current_user_id).with_for_update()
-            )
             if await self.repo.has_active_loan_as_borrower(current_user_id):
                 raise ExchangeError("ACTIVE_LOAN_EXISTS", 409)
 
@@ -455,6 +466,8 @@ class ExchangeService:
                     loans_returned_late=User.loans_returned_late + 1,
                 )
             )
+            # The owner is compensated with the deposit; the borrower can't borrow again.
+            await CreditService(self.session).forfeit_deposit(request)
 
         if action is ExchangeAction.complete:
             request.completion_marked_by = current_user_id
@@ -498,6 +511,8 @@ class ExchangeService:
                 .where(User.id == request.requested_to)
                 .values(completed_exchanges=User.completed_exchanges + 1)
             )
+            # A permanent hand-over (any mode that ends here): owner +1, requester -1.
+            await CreditService(self.session).settle_trade(request)
 
         await self.session.commit()
 
@@ -574,6 +589,10 @@ class ExchangeService:
         # Re-check the single active loan rule for the borrower at hand-over time.
         if await self.repo.has_active_loan_as_borrower(request.requested_by):
             raise ExchangeError("ACTIVE_LOAN_EXISTS", 409)
+        try:
+            await CreditService(self.session).hold_deposit(request)
+        except CreditError as e:
+            raise ExchangeError.from_credit(e) from e
         now = datetime.now(UTC)
         request.status = next_status
         request.lent_at = now
@@ -641,6 +660,7 @@ class ExchangeService:
             .where(User.id == request.requested_to)
             .values(completed_exchanges=User.completed_exchanges + 1)
         )
+        await CreditService(self.session).release_deposit(request)
 
         await self.session.commit()
         await self._send_system_message(

@@ -34,6 +34,7 @@ from app.modules.auth.schemas import (
     UserPublicProfile,
     UserSearchResponse,
     VerifyEmailRequest,
+    EduEmailRequest,
     VouchListResponse,
     VouchRequest,
     VouchView,
@@ -171,6 +172,30 @@ async def resend_verification_email(
 ) -> MessageResponse:
     try:
         return await service.resend_verification(user.id)
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/edu-email", response_model=MessageResponse)
+async def request_edu_verification(
+    body: EduEmailRequest,
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> MessageResponse:
+    try:
+        return await service.request_edu_verification(user.id, body.edu_email)
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/edu-email/verify", response_model=MessageResponse)
+async def verify_edu_email(
+    body: VerifyEmailRequest,
+    user: User = Depends(get_current_user),
+    service: AuthService = Depends(_get_service),
+) -> MessageResponse:
+    try:
+        return await service.verify_edu(user.id, body.code)
     except AuthError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 

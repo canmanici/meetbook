@@ -115,6 +115,8 @@ class TrustView(BaseModel):
     label: str
     on_time_rate: float | None = None
     loans_borrowed_count: int = 0
+    edu_verified: bool = False  # has a verified .edu.tr address
+    teacher: bool = False  # admin-approved teacher (badge only)
 
 
 class CounterpartView(BaseModel):

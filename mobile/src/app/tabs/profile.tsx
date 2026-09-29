@@ -669,6 +669,31 @@ export default function ProfileScreen() {
         ))}
       </View>
 
+      {typeof meData?.credit_balance === 'number' && (
+        <TouchableOpacity
+          onPress={() => router.push('/settings/credits' as any)}
+          style={[styles.creditCard, { backgroundColor: colors.surface, borderColor: colors.border }, shadows.card]}
+          testID="profile-credit-card"
+          accessibilityRole="button"
+          accessibilityLabel={`Kitap kredin: ${meData.credit_balance}`}
+        >
+          <View style={[styles.creditIcon, { backgroundColor: colors.primarySoft }]}>
+            <Ionicons name="wallet" size={20} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.verifyTitle, { color: colors.text }]}>
+              {meData.credit_balance} kitap kredisi
+            </Text>
+            <Text style={[styles.verifySub, { color: colors.textMuted }]}>
+              {meData.edu_verified
+                ? 'Öğrenci doğrulandı · kitap ver, kredi kazan'
+                : 'Öğrenci misin? Öğretmeninden aldığın kodla doğrula'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </TouchableOpacity>
+      )}
+
       {/* F03 — Yearly reading stats */}
       <View style={styles.yearlySection}>
         <Text style={[styles.yearlyHeader, { color: colors.text }]}>Bu yıl</Text>
@@ -1147,6 +1172,23 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  creditCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radius.card,
+    borderWidth: 1,
+  },
+  creditIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.field,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   verifyBanner: {
     flexDirection: 'row',
     alignItems: 'center',

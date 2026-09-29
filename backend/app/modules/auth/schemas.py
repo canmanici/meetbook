@@ -101,6 +101,10 @@ class VerifyEmailRequest(BaseModel):
     code: str = Field(pattern=r"^\s*\d{6}\s*$")
 
 
+class EduEmailRequest(BaseModel):
+    edu_email: str = Field(min_length=6, max_length=255)
+
+
 class UpdateMeRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     username: str | None = Field(
@@ -203,6 +207,12 @@ class MeResponse(BaseModel):
     geofence_radius_km: int = 10
     notification_settings: dict[str, Any] = {}
     auto_accept_rules: list[Any] = []
+    edu_verified: bool = False
+    edu_email: str | None = None
+    pending_edu_email: str | None = None
+    credit_balance: int = 0
+    is_teacher: bool = False
+    teacher_institution: str | None = None
 
 
 # ---------------------------------------------------------------------------

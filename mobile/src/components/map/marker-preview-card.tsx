@@ -39,6 +39,7 @@ import { BookCover } from '../ui/book-cover';
 import { useToast } from '@/hooks/use-toast';
 import { useFavoritesStore } from '@/stores/favorites';
 import { addFavorite, removeFavorite, createExchange } from '@/lib/api/client';
+import { exchangeRequestError } from '@/lib/exchange-errors';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -200,15 +201,9 @@ function MarkerPreviewCardImpl({
       translateY.value = withTiming(300, { duration: 180 });
       opacity.value = withTiming(0, { duration: 180 });
       runOnJS(onClose)();
-    } catch (err: any) {
-      const status = err?.status ?? err?.response?.status;
-      if (status === 409) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        toast.show('Bu kitap için zaten talebiniz var', { variant: 'error' });
-      } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        toast.show('Talep gönderilemedi', { variant: 'error' });
-      }
+    } catch (err) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      toast.show(exchangeRequestError(err).message, { variant: 'error', duration: 5000 });
     } finally {
       setExchangeLoading(false);
     }

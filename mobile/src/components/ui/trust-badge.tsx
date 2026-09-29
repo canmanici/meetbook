@@ -33,10 +33,12 @@ export const TrustBadge: React.FC<TrustBadgeProps> = ({
     showBorrowCount && trust.loans_borrowed_count != null
       ? ` · ${trust.loans_borrowed_count} ödünç`
       : '';
+  // Verified .edu.tr address — one real student behind the account.
+  const student = trust.teacher ? ' · Öğretmen' : trust.edu_verified ? ' · 🎓 Öğrenci' : '';
   return (
     <Badge
       variant={variant}
-      text={`Güven ${trust.score} · ${trust.label}${borrow}`}
+      text={`Güven ${trust.score} · ${trust.label}${borrow}${student}`}
       testID={testID}
     />
   );

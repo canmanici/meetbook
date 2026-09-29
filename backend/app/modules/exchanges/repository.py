@@ -174,8 +174,14 @@ class ExchangeRepository:
         result = await self.session.execute(stmt)
         return result.scalar() or 0
 
-    async def cancel_all_active_for_book(self, book_id: uuid.UUID) -> int:
-        """Cancel all active exchange requests for a book. Returns count cancelled."""
+    async def cancel_all_active_for_book(
+        self, book_id: uuid.UUID
+    ) -> tuple[int, list[ExchangeRequest]]:
+        """Cancel all active exchange requests for a book.
+
+        Returns (count cancelled, the ones that were live loans) — the caller
+        must hand those borrowers their deposits back.
+        """
         stmt = (
             select(ExchangeRequest)
             .where(
@@ -186,10 +192,11 @@ class ExchangeRepository:
         )
         result = await self.session.execute(stmt)
         requests = list(result.scalars().all())
+        loans = [r for r in requests if r.status in ACTIVE_LOAN_STATUSES]
         for req in requests:
             req.status = ExchangeStatus.cancelled
         await self.session.flush()
-        return len(requests)
+        return len(requests), loans
 
     async def is_blocked_pair(self, user_a: uuid.UUID, user_b: uuid.UUID) -> bool:
         stmt = (

@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.policy import current_policy_version
@@ -52,9 +53,18 @@ from app.modules.auth.schemas import (
 CODE_TTL_MINUTES = 15
 MAX_CODE_ATTEMPTS = 5
 MAX_AVATAR_BYTES = 5 * 1024 * 1024
+
 CODE_RESEND_COOLDOWN_SECONDS = 60
 
+EDU_DOMAIN_SUFFIX = ".edu.tr"
+
 logger = logging.getLogger(__name__)
+
+
+def is_edu_email(email: str) -> bool:
+    """A Turkish university address: something@<anything>.edu.tr."""
+    local, _, domain = email.strip().lower().rpartition("@")
+    return bool(local) and domain.endswith(EDU_DOMAIN_SUFFIX) and domain != EDU_DOMAIN_SUFFIX[1:]
 
 
 def _code_hash(user_id: uuid.UUID, code: str) -> str:
@@ -436,8 +446,83 @@ class AuthService:
             raise AuthError("INVALID_CODE", 400)
         user.email_verified_at = datetime.now(UTC)
         await log_event(self.session, "email_verified", user_id=user_id)
+        # Signed up with a university address: the same code proves it.
+        if is_edu_email(user.email) and user.edu_verified_at is None:
+            if not await self._edu_email_taken(user.email.strip().lower(), user.id):
+                await self._mark_edu_verified(user, user.email.strip().lower())
         await self.session.commit()
         return MessageResponse(message="Email verified")
+
+    # -- University (.edu.tr) verification ----------------------------------
+    # One verified student address per account is what makes the starter
+    # credit and the allowed debt safe to hand out: no throwaway accounts.
+
+    async def _edu_email_taken(self, edu_email: str, user_id: uuid.UUID) -> bool:
+        result = await self.session.execute(
+            select(User.id).where(User.edu_email == edu_email, User.id != user_id).limit(1)
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def _mark_edu_verified(self, user: User, edu_email: str) -> None:
+        from app.modules.credits.service import CreditService
+
+        user.edu_email = edu_email
+        user.edu_verified_at = datetime.now(UTC)
+        user.pending_edu_email = None
+        await self.session.flush()
+        await CreditService(self.session).grant_starter(user.id)
+        await log_event(self.session, "edu_verified", user_id=user.id)
+
+    async def request_edu_verification(self, user_id: uuid.UUID, edu_email: str) -> MessageResponse:
+        email = edu_email.strip().lower()
+        if not is_edu_email(email):
+            raise AuthError("NOT_EDU_EMAIL", 422)
+        user = await self.repo.get_user_by_id(user_id)
+        if user is None:
+            raise AuthError("Not found", 404)
+        if user.edu_verified_at is not None:
+            raise AuthError("EDU_ALREADY_VERIFIED", 409)
+        if await self._edu_email_taken(email, user_id):
+            raise AuthError("EDU_EMAIL_TAKEN", 409)
+        if await self._cooldown_active(user_id, EmailCodePurpose.verify_edu):
+            raise AuthError("Please wait before requesting a new code", 429)
+        settings = get_settings()
+        if not settings.mail_enabled and not settings.is_dev:
+            # Never auto-verify a student address: the code must reach that inbox.
+            raise AuthError("MAIL_NOT_CONFIGURED", 503)
+
+        user.pending_edu_email = email
+        code = await self._issue_code(user_id, EmailCodePurpose.verify_edu)
+        await self.session.commit()
+        text, html = code_email(
+            "Üniversite e-postanı doğrula",
+            "Öğrenci hesabını doğrulamak için bu kodu MeetBook'a gir:",
+            code,
+            CODE_TTL_MINUTES,
+        )
+        await send_mail(email, f"MeetBook öğrenci doğrulama kodun: {code}", text, html)
+        return MessageResponse(message="Verification code sent")
+
+    async def verify_edu(self, user_id: uuid.UUID, code: str) -> MessageResponse:
+        user = await self.repo.get_user_by_id(user_id)
+        if user is None:
+            raise AuthError("Not found", 404)
+        if user.edu_verified_at is not None:
+            return MessageResponse(message="University email already verified")
+        if user.pending_edu_email is None:
+            raise AuthError("NO_PENDING_EDU_EMAIL", 400)
+        if not await self._consume_code(user_id, EmailCodePurpose.verify_edu, code):
+            raise AuthError("INVALID_CODE", 400)
+        if await self._edu_email_taken(user.pending_edu_email, user_id):
+            raise AuthError("EDU_EMAIL_TAKEN", 409)
+        try:
+            await self._mark_edu_verified(user, user.pending_edu_email)
+            await self.session.commit()
+        except IntegrityError as e:
+            # Lost a race with another account verifying the same address.
+            await self.session.rollback()
+            raise AuthError("EDU_EMAIL_TAKEN", 409) from e
+        return MessageResponse(message="University email verified")
 
     # -- Password reset (6-digit code by email) -----------------------------
 
@@ -524,6 +609,12 @@ class AuthService:
             geofence_radius_km=user.geofence_radius_km,
             notification_settings=user.notification_settings or {},
             auto_accept_rules=user.auto_accept_rules or [],
+            edu_verified=user.edu_verified_at is not None,
+            edu_email=user.edu_email,
+            pending_edu_email=user.pending_edu_email,
+            credit_balance=user.credit_balance,
+            is_teacher=user.teacher_verified_at is not None,
+            teacher_institution=user.teacher_institution,
         )
 
     async def is_username_available(self, username: str) -> bool:

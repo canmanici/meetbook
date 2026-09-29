@@ -58,6 +58,7 @@ import {
 import { buildMapLinks } from '@/lib/maps';
 import { SafetyPermissionError, setSafetyPrecision } from '@/lib/safety';
 import { listChats } from '@/lib/api/chat';
+import { lendError } from '@/lib/exchange-errors';
 import { useChatStore } from '@/stores/chat-store';
 import { useNerdeyimMode } from '@/hooks/use-nerdeyim-mode';
 import { useToast } from '@/hooks/use-toast';
@@ -240,6 +241,9 @@ export default function ExchangeDetailScreen() {
     queryClient.setQueryData(['exchanges', id], updated);
     await queryClient.invalidateQueries({ queryKey: ['exchanges', 'sent'] });
     await queryClient.invalidateQueries({ queryKey: ['exchanges', 'received'] });
+    // Completing, lending, returning or writing off a loan moves credits.
+    queryClient.invalidateQueries({ queryKey: ['wallet'] });
+    queryClient.invalidateQueries({ queryKey: ['me'] });
   };
 
   const acceptMutation = useMutation({
@@ -312,7 +316,7 @@ export default function ExchangeDetailScreen() {
     },
     onError: (err) => {
       if ((err as Error).message !== 'PHOTO_REQUIRED') {
-        toast.show('İşlem tamamlanamadı. Lütfen tekrar deneyin.', { variant: 'error' });
+        toast.show(lendError(err), { variant: 'error', duration: 6000 });
       }
     },
   });

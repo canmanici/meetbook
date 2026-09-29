@@ -24,6 +24,9 @@ function passwordScore(pw: string): number {
   return score;
 }
 
+// New accounts are offered student (.edu.tr) verification before the rest of onboarding.
+const STUDENT_STEP = '/settings/student-verification?onboarding=1';
+
 export default function RegisterScreen() {
   const colorScheme = useColorScheme();
   const colors = palette[colorScheme === 'dark' ? 'dark' : 'light'];
@@ -88,9 +91,9 @@ export default function RegisterScreen() {
       // A 6-digit code was emailed at sign-up (when SMTP is configured).
       const me = await getMe().catch(() => null);
       if (me && me.email_verified === false) {
-        router.replace({ pathname: '/verify-email', params: { next: '/personality-books' } });
+        router.replace({ pathname: '/verify-email', params: { next: STUDENT_STEP } });
       } else {
-        router.replace('/personality-books');
+        router.replace(STUDENT_STEP as never);
       }
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {

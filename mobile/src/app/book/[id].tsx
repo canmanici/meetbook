@@ -46,6 +46,9 @@ import {
   type BookCondition,
 } from '@/constants/books';
 import { addFavorite, ApiError, createExchange, deleteBook, getBook, incrementBookView, listExchanges, lookupISBN, removeFavorite, searchNearbyBooks, updateBook } from '@/lib/api/client';
+import { getWallet } from '@/lib/api/credits';
+import { normalizeCourseCode } from '@/lib/course-code';
+import { apiErrorDetail, exchangeRequestError } from '@/lib/exchange-errors';
 import { formatDistance } from '@/lib/format';
 import { DatePicker } from '@/components/ui/date-time-picker';
 import { useToast } from '@/hooks/use-toast';
@@ -101,6 +104,13 @@ export default function BookDetailScreen() {
     queryFn: () => searchNearbyBooks({ owner_id: book!.owner_id, limit: 10 }),
     enabled: !!book && !isOwner,
     select: (data) => data.items.filter((b) => b.id !== id),
+  });
+
+  // Balance shown next to the request form ("this book costs 1 credit").
+  const { data: wallet } = useQuery({
+    queryKey: ['wallet'],
+    queryFn: getWallet,
+    enabled: !!book && !isOwner && book.is_available,
   });
 
   const [editing, setEditing] = useState(false);
@@ -283,6 +293,7 @@ export default function BookDetailScreen() {
 
   const [requestMessage, setRequestMessage] = useState('');
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [requestCreditAction, setRequestCreditAction] = useState(false);
   // Exchange mode: permanent trade vs. time-limited borrow.
   const [mode, setMode] = useState<'trade' | 'borrow'>('trade');
   // Quick duration buttons (days) plus a 'manual' option that reveals a date picker.
@@ -306,6 +317,8 @@ export default function BookDetailScreen() {
       }),
     onSuccess: async (exchange) => {
       await queryClient.invalidateQueries({ queryKey: ['exchanges', 'sent'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      setRequestError(null);
       toast.show(
         mode === 'borrow' ? 'Ödünç isteği gönderildi! 🎉' : 'Takas isteği gönderildi! 🎉',
         { variant: 'success', duration: 4000 },
@@ -313,29 +326,9 @@ export default function BookDetailScreen() {
       router.push(`/exchange/${exchange.id}`);
     },
     onError: (err) => {
-      const detail =
-        err instanceof ApiError &&
-        err.body &&
-        typeof err.body === 'object' &&
-        'detail' in err.body
-          ? (err.body as { detail?: string }).detail
-          : undefined;
-      if (detail === 'ACTIVE_LOAN_EXISTS') {
-        setRequestError('Zaten ödünçte bir kitabın var. Önce onu iade et.');
-      } else if (err instanceof ApiError && err.status === 409) {
-        setRequestError('Bu kitap için zaten bir talebin var.');
-      } else if (
-        err instanceof ApiError &&
-        err.status === 400 &&
-        err.body &&
-        typeof err.body === 'object' &&
-        'detail' in err.body &&
-        err.body.detail === 'NEW_ACCOUNT_LIMIT'
-      ) {
-        setRequestError('Yeni hesaplar için aktif talep limitine ulaştın.');
-      } else {
-        setRequestError('Talep gönderilemedi. Lütfen tekrar deneyin.');
-      }
+      const info = exchangeRequestError(err);
+      setRequestError(info.message);
+      setRequestCreditAction(info.creditAction);
     },
   });
 
@@ -875,7 +868,23 @@ export default function BookDetailScreen() {
               placeholder="Merhaba, bu kitapla ilgileniyorum..."
               testID="exchange-message-input"
             />
+            {wallet && (
+              <Text style={[styles.creditHint, { color: colors.textMuted }]} testID="request-credit-hint">
+                {mode === 'borrow'
+                  ? `Ödünç için ${wallet.loan_deposit} kredi depozito ayrılır, kitap dönünce geri gelir. Kullanılabilir: ${wallet.available}`
+                  : `Bu kitap ${wallet.trade_cost} kredi. Kullanılabilir: ${wallet.available}`}
+              </Text>
+            )}
             {requestError && <InlineError message={requestError} />}
+            {requestError && requestCreditAction && (
+              <TouchableOpacity
+                onPress={() => router.push('/settings/credits' as any)}
+                testID="request-credit-cta"
+                accessibilityRole="button"
+              >
+                <Text style={[styles.mapLink, { color: colors.primary }]}>Kredilerim →</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -1503,6 +1512,25 @@ const styles = StyleSheet.create({
   locationCardCoords: {
     fontSize: fontSize.bodySm,
     marginBottom: spacing.sm,
+  },
+  courseChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    marginTop: spacing.md,
+  },
+  courseChipText: {
+    fontSize: fontSize.bodySm,
+    fontWeight: '700',
+  },
+  creditHint: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
+    marginTop: spacing.xs,
   },
   mapLink: {
     fontSize: fontSize.bodySm,
