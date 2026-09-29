@@ -14,7 +14,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { Button, Input, palette, spacing, fontSize, radius, shadows } from '@/components/ui';
-import { ApiError, resendVerificationEmail, verifyEmail } from '@/lib/api/client';
+import { ApiError, resendVerificationEmail, setVerifyScreenOpen, verifyEmail } from '@/lib/api/client';
 import { useAuthStore } from '@/stores/auth-store';
 
 const RESEND_COOLDOWN_S = 60;
@@ -37,6 +37,13 @@ export default function VerifyEmailScreen() {
   const [info, setInfo] = useState<string | null>(null);
   // The sign-up email was just sent — start with a cooldown.
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_S);
+
+  // Tell the API client we're showing, so a 403 elsewhere doesn't stack
+  // another copy of this screen on top.
+  useEffect(() => {
+    setVerifyScreenOpen(true);
+    return () => setVerifyScreenOpen(false);
+  }, []);
 
   useEffect(() => {
     if (cooldown <= 0) return;

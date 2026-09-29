@@ -10,6 +10,9 @@ import { useAuthStore } from '@/stores/auth-store';
 
 import BookDetailScreen from '../[id]';
 
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 24, left: 0, right: 0 }),
+}));
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), replace: jest.fn(), back: jest.fn() },
   useLocalSearchParams: () => ({ id: 'book-1' }),

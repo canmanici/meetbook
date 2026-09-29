@@ -31,6 +31,7 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BOOK_CONDITION_LABELS, type BookCondition } from '@/constants/books';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
@@ -1005,7 +1006,7 @@ export default function HomeScreen() {
                 </View>
               )}
               <Text style={[styles.miniCardCond, { color: colors.textMuted }]}>
-                {item.condition}
+                {BOOK_CONDITION_LABELS[item.condition as BookCondition] ?? item.condition}
               </Text>
             </View>
           </View>

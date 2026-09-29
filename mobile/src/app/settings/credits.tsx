@@ -66,7 +66,7 @@ export default function CreditsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {header}
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: spacing.xxxl + insets.bottom }]}
         refreshControl={
           <RefreshControl refreshing={wallet.isRefetching} onRefresh={() => wallet.refetch()} />
         }

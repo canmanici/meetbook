@@ -99,7 +99,10 @@ export default function StudentVerificationScreen() {
         <Text style={[styles.headerTitle, { color: colors.text }]}>Öğrenci Doğrulama</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: spacing.xl + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.hero}>
           <View style={[styles.logo, { backgroundColor: colors.primary }, shadows.card]}>
             <Ionicons name={step === 'done' ? 'checkmark' : 'school'} size={34} color="#fff" />
@@ -142,7 +145,12 @@ export default function StudentVerificationScreen() {
               Devam et
             </Button>
           ) : (
-            <Button onPress={() => router.replace('/settings/credits' as any)} testID="student-go-credits">
+            <Button
+              onPress={() =>
+                router.canGoBack() ? router.back() : router.replace('/settings/credits' as any)
+              }
+              testID="student-go-credits"
+            >
               Kredilerimi gör
             </Button>
           ))}

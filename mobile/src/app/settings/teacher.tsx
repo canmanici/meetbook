@@ -297,7 +297,10 @@ export default function TeacherScreen() {
         <Text style={[styles.headerTitle, { color: colors.text }]}>Öğretmen Hesabı</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: spacing.xxxl + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+      >
         {isLoading ? (
           <Skeleton variant="card" />
         ) : isError || !status ? (

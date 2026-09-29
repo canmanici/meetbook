@@ -93,3 +93,45 @@ describe('api client', () => {
     expect(useAuthStore.getState().status).toBe('unauthenticated');
   });
 });
+
+describe('verification-required redirect', () => {
+  const unverified = {
+    ok: false,
+    status: 403,
+    json: async () => ({ detail: 'Email or phone verification required' }),
+  };
+
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  async function setup() {
+    const push = jest.fn();
+    jest.doMock('expo-router', () => ({ router: { push } }));
+    const client = require('../client');
+    require('@/stores/auth-store').useAuthStore.setState({ accessToken: 't', refreshToken: 'r' });
+    global.fetch = jest.fn().mockResolvedValue(unverified);
+    return { client, push };
+  }
+
+  it('does not open the code screen for background reads', async () => {
+    const { client, push } = await setup();
+    await expect(client.authedRequest('/exchanges', 'GET', undefined)).rejects.toBeTruthy();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('opens it once for a user action, not again while it is open', async () => {
+    const { client, push } = await setup();
+    await expect(client.authedRequest('/exchanges', 'POST', {})).rejects.toBeTruthy();
+    await expect(client.authedRequest('/books', 'POST', {})).rejects.toBeTruthy();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith('/verify-email');
+
+    client.setVerifyScreenOpen(false); // screen closed ("Daha sonra")
+    await expect(client.authedRequest('/books', 'POST', {})).rejects.toBeTruthy();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(push).toHaveBeenCalledTimes(2);
+  });
+});

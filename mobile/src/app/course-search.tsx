@@ -178,6 +178,8 @@ export default function CourseSearchScreen() {
             keyExtractor={(b) => b.id}
             renderItem={renderBook}
             contentContainerStyle={styles.list}
+            // First tap opens the book even while the keyboard is up.
+            keyboardShouldPersistTaps="handled"
             ListHeaderComponent={
               <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
                 {selected} İÇİN {origin ? 'YAKINDAKİ ' : ''}KİTAPLAR

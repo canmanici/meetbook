@@ -155,7 +155,16 @@ async function safeJson(res: Response): Promise<unknown> {
   }
 }
 
-async function parse<T>(res: Response): Promise<T> {
+// The e-mail code screen reports whether it is mounted. Background polling
+// (e.g. the pending-requests badge) used to push a fresh copy of it on every
+// 403 — wiping the typed code, restarting the resend timer, and leaving
+// copies stacked underneath so "verified" looked like it never finished.
+let verifyScreenOpen = false;
+export function setVerifyScreenOpen(open: boolean): void {
+  verifyScreenOpen = open;
+}
+
+async function parse<T>(res: Response, method: string = 'GET'): Promise<T> {
   const data = await safeJson(res);
   if (!res.ok) {
     // 5xx → backend is down/erroring. Show the animated popup globally.
@@ -167,9 +176,17 @@ async function parse<T>(res: Response): Promise<T> {
         'ApiServerError',
       );
     }
-    if (res.status === 403 && (data as { detail?: unknown } | undefined)?.detail === VERIFICATION_REQUIRED) {
+    if (
+      res.status === 403 &&
+      (data as { detail?: unknown } | undefined)?.detail === VERIFICATION_REQUIRED &&
+      // Only for something the user did (not background reads), and never
+      // on top of the code screen itself.
+      method !== 'GET' &&
+      !verifyScreenOpen
+    ) {
       // Unverified account tried a verified-only action → take them to the
       // code screen instead of surfacing a cryptic error.
+      verifyScreenOpen = true;
       import('expo-router')
         .then(({ router }) => router.push('/verify-email'))
         .catch(() => {});
@@ -219,7 +236,7 @@ export async function authedRequest<T>(
     }
   }
 
-  return parse<T>(res);
+  return parse<T>(res, method);
 }
 
 export const apiClient = {

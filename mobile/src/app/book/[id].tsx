@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
@@ -61,6 +62,7 @@ export default function BookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const scheme = useColorScheme();
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const toast = useToast();
   const galleryRef = useRef<ScrollView>(null);
@@ -950,9 +952,10 @@ export default function BookDetailScreen() {
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* Sticky bottom button */}
+      {/* Sticky bottom button — padded by the inset so it sits above the
+          system navigation bar (the app draws edge-to-edge). */}
       {!isOwner && book.is_available && (
-        <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.textMuted + '15' }]}>
+        <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.textMuted + '15', paddingBottom: spacing.xl + insets.bottom }]}>
           <TouchableOpacity
             style={styles.exchangeButton}
             onPress={() => {

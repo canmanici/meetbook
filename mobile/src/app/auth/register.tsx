@@ -200,16 +200,24 @@ export default function RegisterScreen() {
               text={kvkkConsent ? 'Onaylandı' : 'Onayla'}
               variant={kvkkConsent ? 'success' : 'info'}
             />
+            {/* Plain text: tapping anywhere on the row ticks the box. The
+                link used to fill the middle of the row, so most taps opened
+                the web page instead of consenting. */}
             <Text style={[styles.consentText, { color: colors.text }]}>
-              <Text onPress={() => {
-                const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
-                Linking.openURL(`${apiUrl.replace(/\/api\/v1$/, '')}/legal/kvkk-aydinlatma-metni`);
-              }} style={{ textDecorationLine: 'underline', fontWeight: '600' }}>
-                KVKK Aydınlatma Metni
-              </Text>
-              {' ni okudum ve kabul ediyorum.'}
+              KVKK Aydınlatma Metni&apos;ni okudum ve kabul ediyorum.
             </Text>
           </Pressable>
+          <Text
+            onPress={() => {
+              const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
+              Linking.openURL(`${apiUrl.replace(/\/api\/v1$/, '')}/legal/kvkk-aydinlatma-metni`);
+            }}
+            accessibilityRole="link"
+            testID="kvkk-read-link"
+            style={{ color: colors.primary, textDecorationLine: 'underline', fontWeight: '600', marginTop: spacing.xs }}
+          >
+            Aydınlatma Metnini oku
+          </Text>
           {error && <InlineError message={error} />}
           <Button onPress={onSubmit} disabled={!canSubmit} loading={loading}>
             Kayıt ol
