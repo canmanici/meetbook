@@ -127,7 +127,9 @@ def bench(base: str, path: str, token: str | None, conns: int, procs: int, durat
     latencies.sort()
 
     def pct(p: float) -> float:
-        return latencies[min(len(latencies) - 1, int(len(latencies) * p))] * 1000 if latencies else 0.0
+        return (
+            latencies[min(len(latencies) - 1, int(len(latencies) * p))] * 1000 if latencies else 0.0
+        )
 
     total = sum(statuses.values())
     return {

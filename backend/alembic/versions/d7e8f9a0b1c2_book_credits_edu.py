@@ -35,9 +35,7 @@ def upgrade() -> None:
         "users",
         sa.Column("credit_balance", sa.Integer(), nullable=False, server_default="0"),
     )
-    op.add_column(
-        "users", sa.Column("borrow_banned_at", sa.DateTime(timezone=True), nullable=True)
-    )
+    op.add_column("users", sa.Column("borrow_banned_at", sa.DateTime(timezone=True), nullable=True))
     op.create_unique_constraint("users_edu_email_key", "users", ["edu_email"])
 
     credit_kind = postgresql.ENUM(*CREDIT_KINDS, name="credit_kind", create_type=False)
