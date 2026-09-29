@@ -1,35 +1,77 @@
-# env / secrets
+# ── env / secrets ────────────────────────────────────────────
 .env
 .env.*
 !.env.example
 !.env.production.example
 
-# python
+# signing keys / certificates (Android + iOS)
+*.jks
+*.keystore
+*.p12
+*.p8
+*.key
+*.pem
+*.mobileprovision
+
+# machine-local Android SDK path (git rm --cached if already tracked)
+mobile/local.properties
+
+# ── python ──────────────────────────────────────────────────
 __pycache__/
-*.pyc
+*.py[cod]
 .venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.egg-info/
 
-# node / expo
+# ── node / expo ─────────────────────────────────────────────
 node_modules/
 .expo/
 dist/
+web-build/
 *.tsbuildinfo
+npm-debug.*
+yarn-debug.*
+yarn-error.*
 
-# os / editors
+# ── android / gradle (native expo modules) ──────────────────
+# local modules under mobile/modules/*/android build in place
+.gradle/
+.cxx/
+.kotlin/
+build/
+*.hprof
+
+# release artifacts
+*.apk
+*.aab
+*.ipa
+
+# ── agent / tooling local state ─────────────────────────────
+# .opencode/ is NOT ignored: opencode.json + plugins/ are tracked config
+# (its node_modules/package.json noise self-ignores via .opencode/.gitignore)
+.claude/
+.playwright-mcp/
+graphify-out/
+.superpowers/
+
+# downloaded stock images — licenses + attribution in media/registry.json
+media/originals/
+
+# ── os / editors ────────────────────────────────────────────
 .DS_Store
+Thumbs.db
+desktop.ini
 .idea/
 .vscode/
-*.apk
 
-# brainstorming visual companion
-.superpowers/
-graphify-out/
+# ── local notes / recordings ────────────────────────────────
 Meetbook_Job_Application.md
-.gitignore
 Screenrecorder-2026-07-10-17-37-59-311.mp4
 
-# Firebase client config (not secret, kept out of the public repo)
+# ── Firebase client config (not secret, kept out of the public repo) ─
 mobile/google-services.json
