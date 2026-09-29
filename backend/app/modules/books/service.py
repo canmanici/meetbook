@@ -155,6 +155,11 @@ class BookService:
             # SSRF-hardened: public IPs only (every redirect hop re-checked),
             # image content types only, size-capped.
             file_bytes, content_type = await fetch_public_image(cover_url)
+            # Third-party bytes: same checks as user uploads.
+            from app.core.image_safety import PHOTO_LIMITS, sanitize_image
+
+            safe = sanitize_image(file_bytes, PHOTO_LIMITS)
+            file_bytes, content_type = safe.data, safe.content_type
 
             ext = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}[content_type]
             filename = f"cover.{ext}"
@@ -614,11 +619,6 @@ class BookService:
         if row is None or row.book.owner_id != owner_id:
             raise BookError("Book not found", 404)
 
-        # Validate content type
-        allowed_types = {"image/jpeg", "image/png", "image/webp"}
-        if content_type not in allowed_types:
-            raise BookError("INVALID_IMAGE_FORMAT", 400)
-
         # Validate file size (max 10MB)
         if len(file_bytes) > MAX_PHOTO_BYTES:
             raise BookError("FILE_TOO_LARGE", 400)
@@ -626,6 +626,18 @@ class BookService:
         # Validate thumbnail size (max 1MB - it's a small client-resized image)
         if thumb_bytes is not None and len(thumb_bytes) > MAX_THUMB_BYTES:
             raise BookError("THUMBNAIL_TOO_LARGE", 400)
+
+        # Real type from the bytes (not the client label), image-bomb limits,
+        # GPS/EXIF stripped — for the thumbnail too.
+        from app.core.image_safety import PHOTO_LIMITS, UnsafeImageError, sanitize_image
+
+        try:
+            photo = sanitize_image(file_bytes, PHOTO_LIMITS)
+            thumb = sanitize_image(thumb_bytes, PHOTO_LIMITS) if thumb_bytes is not None else None
+        except UnsafeImageError as exc:
+            raise BookError(exc.code, 400) from None
+        file_bytes, content_type = photo.data, photo.content_type
+        thumb_bytes = thumb.data if thumb is not None else None
 
         # Validate max 3 photos
         count = await self.repo.count_photos(book_id)

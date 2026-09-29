@@ -38,10 +38,15 @@ import QuickRadiusSheet from '@/components/map/quick-radius-sheet';
 import { clearTokens } from '@/lib/secure-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useToast } from '@/hooks/use-toast';
+/** Same cap as the backend (auth/service.py MAX_AVATAR_BYTES). */
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 type PastelName = keyof typeof pastels.light;
 
 const MENU_ITEMS = [
+  { key: 'credits', label: 'Kitap Kredim', icon: 'wallet' as const, tint: 'mint' as PastelName, route: '/settings/credits' as const },
+  { key: 'courses', label: 'Ders Kitapları', icon: 'school' as const, tint: 'sky' as PastelName, route: '/course-search' as const },
+  { key: 'teacher', label: 'Öğretmen Hesabı', icon: 'ribbon' as const, tint: 'butter' as PastelName, route: '/settings/teacher' as const },
   { key: 'user-search', label: 'Kullanıcı Ara', icon: 'search' as const, tint: 'lilac' as PastelName, route: '/search/users' as const },
   { key: 'trusted', label: 'Güvendiğim Kişi', icon: 'shield-checkmark' as const, tint: 'mint' as PastelName, route: '/settings/trusted-contact' as const },
   { key: 'blocked', label: 'Engellenen Kullanıcılar', icon: 'ban' as const, tint: 'coral' as PastelName, route: '/settings/blocked-users' as const },
@@ -106,6 +111,7 @@ export default function ProfileScreen() {
   const [editName, setEditName] = useState('');
   const [editUsername, setEditUsername] = useState('');
   const [editAvatarUri, setEditAvatarUri] = useState<string | null>(null);
+  const [editAvatarType, setEditAvatarType] = useState<'image/jpeg' | 'image/gif'>('image/jpeg');
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const autoEditDoneRef = useRef(false);
@@ -348,15 +354,49 @@ export default function ProfileScreen() {
       toast.show('Galeri izni gerekli', { variant: 'error' });
       return;
     }
+    // No picker crop editor: it re-encodes to JPEG, which would freeze an
+    // animated GIF. GIFs upload as-is; photos get a centred square crop.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      quality: 0.85,
-      allowsEditing: true,
-      aspect: [1, 1],
+      quality: 1,
+      allowsEditing: false,
     });
-    if (!result.canceled && result.assets?.[0]) {
-      setEditAvatarUri(result.assets[0].uri);
+    const asset = result.canceled ? null : result.assets?.[0];
+    if (!asset) return;
+    const isGif = asset.mimeType === 'image/gif' || /\.gif$/i.test(asset.fileName ?? asset.uri);
+    if (isGif) {
+      if (asset.fileSize && asset.fileSize > MAX_AVATAR_BYTES) {
+        toast.show('GIF en fazla 5 MB olabilir', { variant: 'error' });
+        return;
+      }
+      setEditAvatarUri(asset.uri);
+      setEditAvatarType('image/gif');
+      return;
     }
+    try {
+      // Square-crop the centre and shrink to 512 px (also drops metadata).
+      const { manipulateAsync, SaveFormat } = await import('expo-image-manipulator');
+      const side = Math.min(asset.width, asset.height);
+      const cropped = await manipulateAsync(
+        asset.uri,
+        [
+          {
+            crop: {
+              originX: Math.floor((asset.width - side) / 2),
+              originY: Math.floor((asset.height - side) / 2),
+              width: side,
+              height: side,
+            },
+          },
+          { resize: { width: Math.min(side, 512) } },
+        ],
+        { compress: 0.85, format: SaveFormat.JPEG },
+      );
+      setEditAvatarUri(cropped.uri);
+    } catch {
+      setEditAvatarUri(asset.uri);
+    }
+    setEditAvatarType('image/jpeg');
   };
 
   const saveProfile = async () => {
@@ -381,12 +421,22 @@ export default function ProfileScreen() {
       let newAvatarUrl = (me as any)?.avatar_url ?? avatarUrl;
       if (editAvatarUri) {
         try {
-          const result = await uploadAvatar(editAvatarUri);
+          const result = await uploadAvatar(editAvatarUri, editAvatarType);
           newAvatarUrl = result.avatar_url;
           setAvatarUrl(newAvatarUrl);
         } catch (e) {
           console.warn('[profile] avatar upload failed:', e);
-          toast.show('Fotoğraf yüklenemedi ama profil güncellendi', { variant: 'info' });
+          const code = (e as { body?: { detail?: string } })?.body?.detail;
+          const reason =
+            code === 'TOO_MANY_FRAMES' ? 'GIF çok uzun (en fazla 300 kare).'
+            : code === 'IMAGE_TOO_LARGE' ? 'Görsel çok büyük.'
+            : code === 'FILE_TOO_LARGE' ? 'Dosya 5 MB’dan büyük.'
+            : code === 'INVALID_IMAGE_FORMAT' || code === 'INVALID_IMAGE' ? 'Desteklenmeyen görsel.'
+            : null;
+          toast.show(
+            reason ? `Fotoğraf yüklenemedi: ${reason}` : 'Fotoğraf yüklenemedi ama profil güncellendi',
+            { variant: 'info' },
+          );
         }
       }
 

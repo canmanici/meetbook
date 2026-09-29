@@ -2,11 +2,13 @@ import React from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   useColorScheme,
   ViewStyle,
 } from 'react-native';
+// expo-image, not RN Image: RN's Android Image doesn't animate GIFs, and GIF
+// avatars are allowed.
+import { Image } from 'expo-image';
 import { palette, radius, fontSize } from './tokens';
 
 export type AvatarSize = 'small' | 'medium' | 'large';
@@ -50,6 +52,11 @@ export const Avatar: React.FC<AvatarProps> = ({
           <Image
             source={{ uri: imageUrl }}
             style={styles.image}
+            contentFit="cover"
+            autoplay
+            transition={120}
+            cachePolicy="memory-disk"
+            recyclingKey={imageUrl}
             testID="avatar-image"
           />
         ) : (

@@ -189,6 +189,7 @@ def _get_extension(content_type: str) -> str:
         "image/jpeg": "jpg",
         "image/png": "png",
         "image/webp": "webp",
+        "image/gif": "gif",
     }
     return mapping.get(content_type, "jpg")
 

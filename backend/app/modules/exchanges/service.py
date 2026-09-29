@@ -662,14 +662,18 @@ class ExchangeService:
         participants = (request.requested_by, request.requested_to) if request else ()
         if request is None or current_user_id not in participants:
             raise ExchangeError("NOT_FOUND", 404)
-        # Same rules as book photos: the stored Content-Type is served back
-        # verbatim, so anything but a real image type is a stored-XSS vector.
-        if content_type == "image/jpg":  # common non-standard alias
-            content_type = "image/jpeg"
-        if content_type not in {"image/jpeg", "image/png", "image/webp"}:
-            raise ExchangeError("INVALID_IMAGE_FORMAT", 400)
         if len(file_bytes) > 10 * 1024 * 1024:
             raise ExchangeError("FILE_TOO_LARGE", 400)
+        # Same rules as book photos: type from the bytes (the stored
+        # Content-Type is served back, so a fake label is a stored-XSS
+        # vector), image-bomb limits, GPS/EXIF stripped.
+        from app.core.image_safety import PHOTO_LIMITS, UnsafeImageError, sanitize_image
+
+        try:
+            image = sanitize_image(file_bytes, PHOTO_LIMITS)
+        except UnsafeImageError as exc:
+            raise ExchangeError(exc.code, 400) from None
+        file_bytes, content_type = image.data, image.content_type
         result = await upload_photo(request.book_id, file_bytes, content_type)
         return str(result["url"])
 

@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   StyleSheet,
   Animated,
@@ -14,6 +13,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { palette, spacing, fontSize, radius, shadows } from './tokens';
 import { QuickReactions } from './emoji-picker';
+import { Image } from 'expo-image';
+
 import { ImageMessage } from './image-message';
 import { VoiceMessage } from './voice-message';
 import { LocationMessage } from './location-message';
@@ -174,7 +175,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {isGrouped ? null : (
             <View style={[styles.miniAvatar, { backgroundColor: colors.primarySoft }]}>
               {counterpartAvatarUrl ? (
-                <Image source={{ uri: counterpartAvatarUrl }} style={styles.miniAvatarImage} />
+                <Image source={{ uri: counterpartAvatarUrl }} style={styles.miniAvatarImage} contentFit="cover" autoplay />
               ) : (
                 <Text style={[styles.miniAvatarText, { color: colors.primary }]}>?</Text>
               )}

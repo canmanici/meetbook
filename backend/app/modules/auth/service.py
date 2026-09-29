@@ -628,24 +628,35 @@ class AuthService:
         await self.session.commit()
 
     async def upload_avatar(self, user_id: uuid.UUID, file_bytes: bytes, content_type: str) -> str:
+        del content_type  # the client's label is not trusted — see below
         user = await self.repo.get_user_by_id(user_id)
         if user is None:
             raise AuthError("Not found", 404)
 
-        allowed_types = {"image/jpeg", "image/png", "image/webp"}
-        if content_type not in allowed_types:
-            raise AuthError("INVALID_IMAGE_FORMAT", 400)
-
         if len(file_bytes) > MAX_AVATAR_BYTES:
             raise AuthError("FILE_TOO_LARGE", 400)
 
-        # Upload to S3 with user_id as "folder"
-        from app.core.s3 import _is_s3_configured, _upload_local, _upload_s3
+        # Real type from the bytes, image-bomb limits, GPS/EXIF stripped —
+        # animated GIF avatars are allowed (see app/core/image_safety.py).
+        from app.core.image_safety import AVATAR_LIMITS, UnsafeImageError, sanitize_image
 
+        try:
+            image = sanitize_image(file_bytes, AVATAR_LIMITS)
+        except UnsafeImageError as exc:
+            raise AuthError(exc.code, 400) from None
+        detected, file_bytes = image.content_type, image.data
+
+        # Upload to S3 with user_id as "folder"
+        from app.core.s3 import _get_extension, _is_s3_configured, _upload_local, _upload_s3
+
+        filename = f"avatar_{user_id}.{_get_extension(detected)}"
         if _is_s3_configured():
-            url = await _upload_s3(user_id, f"avatar_{user_id}", file_bytes, content_type)
+            url = await _upload_s3(user_id, filename, file_bytes, detected)
         else:
-            url = await _upload_local(user_id, f"avatar_{user_id}", file_bytes)
+            url = await _upload_local(user_id, filename, file_bytes)
+        # Same object key on every change: version the URL so apps and caches
+        # don't keep showing the previous photo/GIF.
+        url = f"{url}?v={int(datetime.now(UTC).timestamp())}"
 
         user.avatar_url = url
         user.updated_at = datetime.now(UTC)
