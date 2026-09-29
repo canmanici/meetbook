@@ -126,6 +126,8 @@ export default function BookDetailScreen() {
   const [author, setAuthor] = useState('');
   const [isbn, setIsbn] = useState('');
   const [description, setDescription] = useState('');
+  const [courseCode, setCourseCode] = useState('');
+  const [instructor, setInstructor] = useState('');
   const [category, setCategory] = useState<BookCategory>('fiction');
   const [language, setLanguage] = useState('tr');
   const [condition, setCondition] = useState<BookCondition>('good');
@@ -182,6 +184,8 @@ export default function BookDetailScreen() {
         setAuthor(book.author ?? '');
         setIsbn(book.isbn ?? '');
         setDescription(book.description ?? '');
+        setCourseCode(book.course_code ?? '');
+        setInstructor(book.instructor ?? '');
         setCategory(book.category);
         setLanguage(book.language);
         setCondition(book.condition);
@@ -225,6 +229,11 @@ export default function BookDetailScreen() {
     if (!location) {
       return;
     }
+    const course = normalizeCourseCode(courseCode);
+    if (course === null) {
+      setError('Ders kodu harf ve rakamdan oluşmalı (ör. MAT101).');
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setError(null);
     setSaving(true);
@@ -234,6 +243,8 @@ export default function BookDetailScreen() {
         author: author.trim() || null,
         isbn: isbn.trim() || null,
         description: description.trim() || null,
+        course_code: course || null,
+        instructor: course ? instructor.trim() || null : null,
         category,
         language,
         condition,
@@ -244,7 +255,9 @@ export default function BookDetailScreen() {
       await queryClient.invalidateQueries({ queryKey: ['books', 'me'] });
       setEditing(false);
     } catch (err) {
-      if (err instanceof ApiError && err.status === 400) {
+      if (apiErrorDetail(err) === 'COMMERCIAL_CONTENT') {
+        setError('İlanda fiyat, IBAN veya telefon olamaz. Kitaplar sadece krediyle takas edilir.');
+      } else if (err instanceof ApiError && err.status === 400) {
         setError('Seçilen konum Türkiye sınırları dışında.');
       } else {
         setError('Bir şeyler ters gitti. Lütfen tekrar deneyin.');
@@ -396,6 +409,24 @@ export default function BookDetailScreen() {
         </View>
 
         <Input label="Açıklama" value={description} onChangeText={setDescription} />
+        <Input
+          label="Ders kodu (opsiyonel)"
+          placeholder="ör. MAT101"
+          value={courseCode}
+          onChangeText={setCourseCode}
+          autoCapitalize="characters"
+          error={normalizeCourseCode(courseCode) === null ? 'Harf ve rakam: ör. MAT101' : undefined}
+          testID="edit-course-code"
+        />
+        {!!courseCode.trim() && (
+          <Input
+            label="Dersin hocası (opsiyonel)"
+            value={instructor}
+            onChangeText={setInstructor}
+            autoCapitalize="words"
+            testID="edit-instructor"
+          />
+        )}
 
         <ChipSelect
           label="Kategori"
@@ -644,6 +675,24 @@ export default function BookDetailScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Course: tap to see every copy for this course */}
+          {book.course_code ? (
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: '/course-search', params: { code: book.course_code! } } as any)}
+              style={[styles.courseChip, { backgroundColor: colors.primarySoft }]}
+              testID="book-course-chip"
+              accessibilityRole="button"
+              accessibilityLabel={`${book.course_code} dersinin tüm kitapları`}
+            >
+              <Ionicons name="school" size={16} color={colors.primary} />
+              <Text style={[styles.courseChipText, { color: colors.primary }]}>
+                {book.course_code}
+                {book.instructor ? ` · ${book.instructor}` : ''}
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+            </TouchableOpacity>
+          ) : null}
 
           {/* Description */}
           {book.description ? (

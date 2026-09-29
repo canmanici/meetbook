@@ -7,6 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.content_policy import normalize_course_code
 from app.core.db import get_session
 from app.core.redis import bbox_cache_key, get_cached, set_cached
 from app.modules.auth.dependencies import get_current_user, get_verified_user
@@ -22,6 +23,7 @@ from app.modules.books.schemas import (
     BookSearchResponse,
     BookUpdateRequest,
     ClusterResponse,
+    CourseListResponse,
     ISBNLookupResponse,
     PhotoReorderRequest,
     PhotoView,
@@ -49,10 +51,15 @@ async def search_books(
     condition: str | None = Query(default=None),
     q: str | None = Query(default=None, max_length=100),
     owner_id: uuid.UUID | None = Query(default=None),
+    course: str | None = Query(default=None, max_length=20, description="Course code, e.g. MAT101"),
     limit: int = Query(default=20, ge=1, le=50),
     user: User = Depends(get_current_user),
     service: BookService = Depends(_get_service),
 ) -> BookSearchResponse:
+    try:
+        course_code = normalize_course_code(course) if course else None
+    except ValueError:
+        raise HTTPException(status_code=422, detail="INVALID_COURSE_CODE")
     params = BookSearchParams(
         lat=lat,
         lng=lng,
@@ -62,6 +69,7 @@ async def search_books(
         condition=condition,
         q=q,
         owner_id=owner_id,
+        course=course_code,
     )
     logger.info(
         "Nearby search: lat=%s, lng=%s, radius=%s km, user=%s",
@@ -71,6 +79,16 @@ async def search_books(
         user.id,
     )
     return await service.search_nearby(params, limit, current_user_id=user.id)
+
+
+@router.get("/courses", response_model=CourseListResponse)
+async def list_courses(
+    q: str | None = Query(default=None, max_length=20, description="Course code prefix"),
+    user: User = Depends(get_current_user),
+    service: BookService = Depends(_get_service),
+) -> CourseListResponse:
+    """Course codes with available books — for the course search screen."""
+    return await service.list_courses(q, user.id)
 
 
 @router.get("/search-bbox", response_model=BookSearchResponse)

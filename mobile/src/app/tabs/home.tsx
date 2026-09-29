@@ -1301,6 +1301,20 @@ export default function HomeScreen() {
             contentContainerStyle={styles.chipContent}
             testID="chip-row"
           >
+            {/* Course-code search: "who has the MAT101 book?" */}
+            <TouchableOpacity
+              style={[
+                styles.chip,
+                { backgroundColor: isDark ? 'rgba(33,31,26,0.88)' : 'rgba(255,255,255,0.92)' },
+              ]}
+              onPress={() => router.push('/course-search' as any)}
+              testID="chip-course-search"
+              accessibilityRole="button"
+              accessibilityLabel="Ders koduna göre ara"
+            >
+              <Ionicons name="school" size={14} color={colors.primary} />
+              <Text style={[styles.chipText, { color: colors.text }]}>Ders Kodu</Text>
+            </TouchableOpacity>
             {CATEGORIES.map((cat) => {
               const isActive = (activeFilters.category ?? null) === cat.value;
               const dotColor = cat.value ? categoryColor(cat.value, isDark) : colors.primary;

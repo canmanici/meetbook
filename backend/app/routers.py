@@ -22,6 +22,10 @@ def register_routers(app: FastAPI) -> None:
     from app.modules.chat.router import router as chat_exchange_router
     from app.modules.clubs.router import router as clubs_router
     from app.modules.crash_reports.router import crash_router
+    from app.modules.credits.router import router as credits_router
+    from app.modules.teachers.router import admin_router as teachers_admin_router
+    from app.modules.teachers.router import router as teachers_router
+    from app.modules.teachers.router import students_router
     from app.modules.exchanges.router import router as exchanges_router
     from app.modules.geofence.router import router as geofence_router
     from app.modules.legal.router import privacy_router
@@ -38,6 +42,10 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(books_router, prefix="/api/v1")
     app.include_router(wishlist_router, prefix="/api/v1")
     app.include_router(exchanges_router, prefix="/api/v1")
+    app.include_router(credits_router, prefix="/api/v1")
+    app.include_router(teachers_router, prefix="/api/v1")
+    app.include_router(teachers_admin_router, prefix="/api/v1")
+    app.include_router(students_router, prefix="/api/v1")
     app.include_router(places_router, prefix="/api/v1")
     app.include_router(ratings_router, prefix="/api/v1")
     app.include_router(reports_router, prefix="/api/v1")

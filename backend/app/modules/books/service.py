@@ -29,6 +29,8 @@ from app.modules.books.schemas import (
     BookSearchResult,
     BookUpdateRequest,
     ClusterPoint,
+    CourseListResponse,
+    CourseSummary,
     ClusterResponse,
     FailedBookCreate,
     ISBNLookupResponse,
@@ -61,6 +63,12 @@ class BookError(Exception):
         self.status_code = status_code
 
 
+def _check_listing_text(*texts: str | None) -> None:
+    """Books move for credits, never money: no prices, IBANs or phone numbers."""
+    if commercial_content(*texts):
+        raise BookError("COMMERCIAL_CONTENT", 422)
+
+
 def _to_photo_views(photos: list[Any]) -> list[PhotoView]:
     return [
         PhotoView(id=p.id, url=p.url, thumbnail_url=p.thumbnail_url, position=p.position)
@@ -84,6 +92,8 @@ def _to_owner_view(
         author=book.author,
         isbn=book.isbn,
         description=book.description,
+        course_code=book.course_code,
+        instructor=book.instructor,
         category=book.category,
         language=book.language,
         condition=book.condition,
@@ -114,6 +124,8 @@ def _to_public_view(
         author=book.author,
         isbn=book.isbn,
         description=book.description,
+        course_code=book.course_code,
+        instructor=book.instructor,
         category=book.category,
         language=book.language,
         condition=book.condition,
@@ -185,6 +197,7 @@ class BookService:
         lat, lng = body.location.lat, body.location.lng
         if not in_turkey_bbox(lat, lng):
             raise BookError("LOCATION_OUTSIDE_TURKEY", 400)
+        _check_listing_text(body.title, body.author, body.description, body.instructor)
 
         public_lat, public_lng = blur(lat, lng)
         fields = body.model_dump(exclude={"location", "cover_url"})
@@ -240,6 +253,11 @@ class BookService:
                 lat, lng = book_body.location.lat, book_body.location.lng
                 if not in_turkey_bbox(lat, lng):
                     failed.append(FailedBookCreate(index=idx, error="LOCATION_OUTSIDE_TURKEY"))
+                    continue
+                if commercial_content(
+                    book_body.title, book_body.author, book_body.description, book_body.instructor
+                ):
+                    failed.append(FailedBookCreate(index=idx, error="COMMERCIAL_CONTENT"))
                     continue
 
                 public_lat, public_lng = blur(lat, lng)
@@ -380,6 +398,8 @@ class BookService:
                 author=r.book.author,
                 isbn=r.book.isbn,
                 description=r.book.description,
+                course_code=r.book.course_code,
+                instructor=r.book.instructor,
                 category=r.book.category,
                 language=r.book.language,
                 condition=r.book.condition,
@@ -465,6 +485,8 @@ class BookService:
                 author=r.book.author,
                 isbn=r.book.isbn,
                 description=r.book.description,
+                course_code=r.book.course_code,
+                instructor=r.book.instructor,
                 category=r.book.category,
                 language=r.book.language,
                 condition=r.book.condition,
@@ -481,6 +503,16 @@ class BookService:
             for r in singleton_rows
         ]
         return ClusterResponse(clusters=clusters, singletons=singletons)
+
+    async def list_courses(self, q: str | None, current_user_id: uuid.UUID) -> CourseListResponse:
+        """Course codes that have available books, most copies first."""
+        rows = await self.repo.list_courses(q, current_user_id)
+        return CourseListResponse(
+            items=[
+                CourseSummary(course_code=code, book_count=count, instructors=instructors)
+                for code, count, instructors in rows
+            ]
+        )
 
     async def search_nearby(
         self, params: BookSearchParams, limit: int = 20, current_user_id: uuid.UUID | None = None
@@ -499,6 +531,7 @@ class BookService:
             limit=limit,
             current_user_id=current_user_id,
             owner_id=params.owner_id,
+            course=params.course,
         )
 
         items = []
@@ -516,6 +549,8 @@ class BookService:
                     author=row.book.author,
                     isbn=row.book.isbn,
                     description=row.book.description,
+                    course_code=row.book.course_code,
+                    instructor=row.book.instructor,
                     category=row.book.category,
                     language=row.book.language,
                     condition=row.book.condition,
@@ -561,6 +596,7 @@ class BookService:
             raise BookError("Book not found", 404)
 
         update_data = body.model_dump(exclude_unset=True, exclude={"location"})
+        _check_listing_text(body.title, body.author, body.description, body.instructor)
 
         new_location = row.location
         new_public_location = row.public_location
@@ -985,6 +1021,8 @@ def _search_result(r: Any, first_photo: Any | None) -> BookSearchResult:
         author=r.book.author,
         isbn=r.book.isbn,
         description=r.book.description,
+        course_code=r.book.course_code,
+        instructor=r.book.instructor,
         category=r.book.category,
         language=r.book.language,
         condition=r.book.condition,

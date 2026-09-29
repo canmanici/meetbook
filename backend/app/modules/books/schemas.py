@@ -3,9 +3,23 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from app.core.content_policy import normalize_course_code
 from app.modules.books.models import BookCategory, BookCondition
+
+
+def _course_code(value: str | None) -> str | None:
+    if value is None or not value.strip():
+        return None
+    return normalize_course_code(value)
+
+
+def _instructor(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return " ".join(value.split()) or None
+
 
 # ---------------------------------------------------------------------------
 # Shared
@@ -37,6 +51,18 @@ class BookCreateRequest(BaseModel):
     language: str = Field(default="tr", min_length=2, max_length=10)
     condition: BookCondition
     location: LocationInput
+    course_code: str | None = Field(default=None, max_length=20)
+    instructor: str | None = Field(default=None, max_length=100)
+
+    @field_validator("course_code")
+    @classmethod
+    def _norm_course(cls, value: str | None) -> str | None:
+        return _course_code(value)
+
+    @field_validator("instructor")
+    @classmethod
+    def _norm_instructor(cls, value: str | None) -> str | None:
+        return _instructor(value)
 
 
 class BookUpdateRequest(BaseModel):
@@ -49,6 +75,18 @@ class BookUpdateRequest(BaseModel):
     condition: BookCondition | None = None
     is_available: bool | None = None
     location: LocationInput | None = None
+    course_code: str | None = Field(default=None, max_length=20)
+    instructor: str | None = Field(default=None, max_length=100)
+
+    @field_validator("course_code")
+    @classmethod
+    def _norm_course(cls, value: str | None) -> str | None:
+        return _course_code(value)
+
+    @field_validator("instructor")
+    @classmethod
+    def _norm_instructor(cls, value: str | None) -> str | None:
+        return _instructor(value)
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +111,8 @@ class BookOwnerView(BaseModel):
     author: str | None
     isbn: str | None
     description: str | None
+    course_code: str | None = None
+    instructor: str | None = None
     category: BookCategory
     language: str
     condition: BookCondition
@@ -98,6 +138,8 @@ class BookPublicView(BaseModel):
     author: str | None
     isbn: str | None
     description: str | None
+    course_code: str | None = None
+    instructor: str | None = None
     category: BookCategory
     language: str
     condition: BookCondition
@@ -129,6 +171,7 @@ class BookSearchParams(BaseModel):
     condition: BookCondition | None = None
     q: str | None = Field(default=None, max_length=100)
     owner_id: uuid.UUID | None = None
+    course: str | None = None  # normalized course code
 
 
 class OwnerSummary(BaseModel):
@@ -147,6 +190,8 @@ class BookSearchResult(BaseModel):
     author: str | None
     isbn: str | None
     description: str | None
+    course_code: str | None = None
+    instructor: str | None = None
     category: BookCategory
     language: str
     condition: BookCondition
@@ -233,3 +278,13 @@ class StaleBookView(BookOwnerView):
 class StaleBooksResponse(BaseModel):
     items: list[StaleBookView]
     days_threshold: int = 30
+
+
+class CourseSummary(BaseModel):
+    course_code: str
+    book_count: int  # available copies
+    instructors: list[str] = []
+
+
+class CourseListResponse(BaseModel):
+    items: list[CourseSummary]

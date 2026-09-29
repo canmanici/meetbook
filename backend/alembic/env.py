@@ -19,11 +19,14 @@ from app.modules.reports import models as reports_models  # noqa: F401
 from app.modules.notifications import models as notifications_models  # noqa: F401
 from app.modules.geofence import models as geofence_models  # noqa: F401
 from app.modules.crash_reports import models as crash_reports_models  # noqa: F401
+from app.modules.credits import models as credits_models  # noqa: F401
+from app.modules.teachers import models as teachers_models  # noqa: F401
 from app.modules.push_tokens import models as push_tokens_models  # noqa: F401
 from app.modules.saved_searches import models as saved_searches_models  # noqa: F401
 from app.modules.clubs import models as clubs_models  # noqa: F401
 from app.modules.app_updates import models as app_updates_models  # noqa: F401
 from app.modules.legal import models as legal_models  # noqa: F401
+from app.modules.admin import loadtest_models  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url)

@@ -21,6 +21,8 @@ import {
   type BookCondition,
 } from '@/constants/books';
 import { ApiError, createBook, lookupISBN, uploadBookPhoto } from '@/lib/api/client';
+import { normalizeCourseCode } from '@/lib/course-code';
+import { apiErrorDetail } from '@/lib/exchange-errors';
 import { useBookDraftStore } from '@/stores/book-draft-store';
 
 const STEPS = [
@@ -53,6 +55,8 @@ export default function NewBookScreen() {
   const [author, setAuthor] = useState('');
   const [isbn, setIsbn] = useState('');
   const [description, setDescription] = useState('');
+  const [courseCode, setCourseCode] = useState('');
+  const [instructor, setInstructor] = useState('');
   const [category, setCategory] = useState<BookCategory>('fiction');
   const [language, setLanguage] = useState('tr');
   const [condition, setCondition] = useState<BookCondition>('good');
@@ -165,6 +169,11 @@ export default function NewBookScreen() {
     if (!marker || photos.length === 0) {
       return;
     }
+    const course = normalizeCourseCode(courseCode);
+    if (course === null) {
+      setError('Ders kodu harf ve rakamdan oluşmalı (ör. MAT101).');
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
@@ -173,6 +182,8 @@ export default function NewBookScreen() {
         author: author.trim() || undefined,
         isbn: isbn.trim() || undefined,
         description: description.trim() || undefined,
+        course_code: course || undefined,
+        instructor: instructor.trim() || undefined,
         category,
         language,
         condition,
@@ -187,7 +198,9 @@ export default function NewBookScreen() {
       await queryClient.invalidateQueries({ queryKey: ['books', 'me'] });
       router.replace(`/book/${book.id}`);
     } catch (err) {
-      if (err instanceof ApiError && err.status === 400) {
+      if (apiErrorDetail(err) === 'COMMERCIAL_CONTENT') {
+        setError('İlanda fiyat, IBAN veya telefon olamaz. Kitaplar sadece krediyle takas edilir.');
+      } else if (err instanceof ApiError && err.status === 400) {
         setError('Seçilen konum Türkiye sınırları dışında.');
       } else {
         setError('Bir şeyler ters gitti. Lütfen tekrar deneyin.');
@@ -308,7 +321,28 @@ export default function NewBookScreen() {
               placeholder="Açıklama (opsiyonel)"
               value={description}
               onChangeText={setDescription}
+              helper="Fiyat, IBAN veya telefon yazma — kitaplar krediyle takas edilir."
             />
+            <Input
+              label="Ders kodu (opsiyonel)"
+              placeholder="ör. MAT101"
+              value={courseCode}
+              onChangeText={setCourseCode}
+              autoCapitalize="characters"
+              error={normalizeCourseCode(courseCode) === null ? 'Harf ve rakam: ör. MAT101' : undefined}
+              helper="Bu kitap bir derste kullanılıyorsa, o dersi alan öğrenciler seni bulsun."
+              testID="course-code-input"
+            />
+            {!!courseCode.trim() && (
+              <Input
+                label="Dersin hocası (opsiyonel)"
+                placeholder="ör. Prof. Dr. Ayşe Kaya"
+                value={instructor}
+                onChangeText={setInstructor}
+                autoCapitalize="words"
+                testID="instructor-input"
+              />
+            )}
           </View>
         );
       case 3:

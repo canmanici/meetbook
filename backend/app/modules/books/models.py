@@ -47,6 +47,11 @@ class Book(Base):
         Index("ix_books_location", "location", postgresql_using="gist"),
         Index("ix_books_public_location", "public_location", postgresql_using="gist"),
         Index("ix_books_isbn", "isbn", postgresql_where=text("isbn IS NOT NULL")),
+        Index(
+            "ix_books_course_code",
+            "course_code",
+            postgresql_where=text("course_code IS NOT NULL AND deleted_at IS NULL"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
@@ -57,6 +62,9 @@ class Book(Base):
     author: Mapped[str | None] = mapped_column(Text, nullable=True)
     isbn: Mapped[str | None] = mapped_column(Text, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Course the book is used for, normalized ('MAT101') — see normalize_course_code.
+    course_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    instructor: Mapped[str | None] = mapped_column(Text, nullable=True)
     category: Mapped[BookCategory] = mapped_column(
         Enum(BookCategory, name="book_category", create_type=True), nullable=False
     )

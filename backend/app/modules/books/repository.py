@@ -5,6 +5,7 @@ directly. This is the only place that cast happens.
 """
 
 import base64
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -30,6 +31,7 @@ from app.modules.ratings.models import Rating
 _TR_FROM = "ıİşŞçÇöÖüÜğĞ"
 _TR_TO = "iissccoouugg"
 _TR_TABLE = str.maketrans(_TR_FROM, _TR_TO)
+_COURSE_TABLE = str.maketrans(_TR_FROM, "IISSCCOOUUGG")
 
 
 def _text_match(q: str) -> ColumnElement[bool]:
@@ -37,12 +39,18 @@ def _text_match(q: str) -> ColumnElement[bool]:
     folded = q.translate(_TR_TABLE)
     escaped = folded.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     pattern = f"%{escaped}%"
-    return or_(
+    clauses = [
         func.translate(Book.title, _TR_FROM, _TR_TO).ilike(pattern, escape="\\"),
         func.translate(func.coalesce(Book.author, ""), _TR_FROM, _TR_TO).ilike(
             pattern, escape="\\"
         ),
-    )
+    ]
+    # "mat 101" in the search bar finds books listed for course MAT101.
+    try:
+        clauses.append(Book.course_code == normalize_course_code(q))
+    except ValueError:
+        pass
+    return or_(*clauses)
 
 
 @dataclass
@@ -247,6 +255,7 @@ class BookRepository:
         limit: int,
         current_user_id: uuid.UUID | None = None,
         owner_id: uuid.UUID | None = None,
+        course: str | None = None,
     ) -> list[BookSearchRow]:
         pub = cast(Book.public_location, Geometry)
 
@@ -308,6 +317,8 @@ class BookRepository:
 
         if owner_id is not None:
             conditions.append(Book.owner_id == owner_id)
+        if course:
+            conditions.append(Book.course_code == course)
 
         if category:
             conditions.append(Book.category == category)
@@ -689,6 +700,35 @@ class BookRepository:
                 )
 
         return clusters[:limit], singletons[:limit]
+
+    async def list_courses(
+        self, q: str | None, current_user_id: uuid.UUID, limit: int = 20
+    ) -> list[tuple[str, int, list[str]]]:
+        """(course_code, available copies, distinct instructors) for codes starting with q."""
+        conditions: list[ColumnElement[bool]] = [
+            Book.course_code.is_not(None),
+            Book.deleted_at.is_(None),
+            Book.is_available.is_(True),
+            Book.owner_id != current_user_id,
+        ]
+        if q:
+            # Codes are stored as [A-Z0-9]+, so no LIKE wildcard can survive this.
+            prefix = re.sub(r"[^A-Z0-9]", "", q.translate(_COURSE_TABLE).upper())
+            if prefix:
+                conditions.append(Book.course_code.like(f"{prefix}%"))
+        stmt = (
+            select(
+                Book.course_code,
+                func.count(),
+                func.array_remove(func.array_agg(func.distinct(Book.instructor)), None),
+            )
+            .where(*conditions)
+            .group_by(Book.course_code)
+            .order_by(func.count().desc(), Book.course_code)
+            .limit(limit)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [(code, count, list(instructors or [])[:5]) for code, count, instructors in rows]
 
     async def update(self, book: Book, fields: dict[str, Any]) -> None:
         for key, value in fields.items():
