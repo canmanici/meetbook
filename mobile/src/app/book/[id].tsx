@@ -368,6 +368,10 @@ export default function BookDetailScreen() {
     return (
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
         <Text style={{ color: colors.text }}>Kitap bulunamadı.</Text>
+        {/* No navigation header on this screen — give a way back. */}
+        <Button variant="ghost" onPress={() => router.back()} testID="not-found-back">
+          Geri dön
+        </Button>
       </View>
     );
   }
@@ -376,7 +380,7 @@ export default function BookDetailScreen() {
     return (
       <ScrollView
         style={[styles.container, { backgroundColor: colors.background }]}
-        contentContainerStyle={styles.content}>
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md }]}>
         {'photos' in book && book.photos.length > 0 && (
           <ScrollView
             horizontal
@@ -536,7 +540,8 @@ export default function BookDetailScreen() {
           />
 
           {/* Top buttons */}
-          <View style={styles.galleryTopButtons}>
+          {/* Below the status bar on every phone (no navigation header here). */}
+          <View style={[styles.galleryTopButtons, { top: insets.top + spacing.sm }]}>
             <TouchableOpacity
               style={styles.glassButton}
               onPress={() => router.back()}
@@ -604,7 +609,7 @@ export default function BookDetailScreen() {
 
           {/* Photo counter */}
           {photos.length > 1 && (
-            <View style={styles.photoCounter}>
+            <View style={[styles.photoCounter, { top: insets.top + spacing.sm + 48 }]}>
               <Text style={styles.photoCounterText}>
                 {activePhotoIndex + 1}/{photos.length}
               </Text>

@@ -26,12 +26,22 @@ import { courseCodePrefix } from '@/lib/course-code';
 import { BOOK_CONDITION_LABELS, type BookCondition } from '@/constants/books';
 import { formatDistance } from '@/lib/format';
 
-/** Last known position — only if permission was already given; never prompts here. */
+const FRESH_FIX_TIMEOUT_MS = 5000;
+
+/** The user's position — only if permission was already given; never prompts
+ * here. Last known fix first (instant); a fresh device (or emulator) often has
+ * none, so fall back to a quick current fix, capped so the list never waits. */
 async function knownPosition(): Promise<{ lat: number; lng: number } | null> {
   try {
     const { status } = await Location.getForegroundPermissionsAsync();
     if (status !== 'granted') return null;
-    const loc = await Location.getLastKnownPositionAsync();
+    const last = await Location.getLastKnownPositionAsync();
+    const loc =
+      last ??
+      (await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), FRESH_FIX_TIMEOUT_MS)),
+      ]));
     return loc ? { lat: loc.coords.latitude, lng: loc.coords.longitude } : null;
   } catch {
     return null;

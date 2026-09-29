@@ -7,7 +7,9 @@ export default function BookLayout() {
       <Stack.Screen name="location-picker" options={{ title: 'Konum Seç' }} />
       <Stack.Screen name="scan-isbn" options={{ title: 'ISBN Tara' }} />
       <Stack.Screen name="shelf-scan" options={{ title: 'Rafı Tara' }} />
-      <Stack.Screen name="[id]" options={{ title: 'Kitap' }} />
+      {/* The detail screen draws its own back / favourite / share buttons over
+          the cover — a header on top of that showed two back arrows. */}
+      <Stack.Screen name="[id]" options={{ title: 'Kitap', headerShown: false }} />
     </Stack>
   );
 }

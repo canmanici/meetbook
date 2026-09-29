@@ -424,13 +424,26 @@ export default function HomeScreen() {
   }, []);
 
   // ── Push permission banner (first launch only) ─────────────────────────────
+  // Shown only when notifications are really off. Onboarding asks for the
+  // permission itself without setting the flag, so the flag alone made the
+  // banner nag users who had already said yes.
   useEffect(() => {
-    // Expo Go: AsyncStorage unavailable, .catch() to prevent crash
-    AsyncStorage.getItem('hasAskedPushPermission')
-      .then((asked) => {
-        if (!asked) setShowPushBanner(true);
-      })
-      .catch(() => {});
+    (async () => {
+      // Expo Go: AsyncStorage unavailable, .catch() to prevent crash
+      const asked = await AsyncStorage.getItem('hasAskedPushPermission').catch(() => null);
+      if (asked) return;
+      const Notifications = getNotifications();
+      if (Notifications) {
+        try {
+          const { status } = await Notifications.getPermissionsAsync();
+          if (status === 'granted') {
+            await AsyncStorage.setItem('hasAskedPushPermission', 'true').catch(() => {});
+            return;
+          }
+        } catch {}
+      }
+      setShowPushBanner(true);
+    })();
   }, []);
 
   const requestPushPermission = useCallback(async () => {

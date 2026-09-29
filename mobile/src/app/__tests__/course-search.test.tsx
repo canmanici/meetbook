@@ -12,6 +12,8 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('expo-location', () => ({
   getForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'denied' }),
   getLastKnownPositionAsync: jest.fn(),
+  getCurrentPositionAsync: jest.fn(),
+  Accuracy: { Balanced: 3 },
 }));
 jest.mock('@/lib/api/client', () => ({ absoluteMediaUrl: (u: string | null) => u ?? null }));
 jest.mock('@/lib/api/courses', () => ({
@@ -87,5 +89,19 @@ describe('CourseSearchScreen', () => {
     const { findByText } = renderScreen();
     expect(await findByText('FIZ101 için henüz kitap yok')).toBeTruthy();
     expect(api.listCourses).not.toHaveBeenCalled();
+  });
+
+  it('uses a fresh fix when there is no last known position', async () => {
+    const Location = require('expo-location');
+    Location.getForegroundPermissionsAsync.mockResolvedValueOnce({ status: 'granted' });
+    Location.getLastKnownPositionAsync.mockResolvedValueOnce(null);
+    Location.getCurrentPositionAsync.mockResolvedValueOnce({ coords: { latitude: 41, longitude: 29 } });
+    useLocalSearchParams.mockReturnValue({ code: 'MAT101' });
+    api.searchCourseBooks.mockResolvedValue({ items: [book] });
+    const { findByText } = renderScreen();
+    await waitFor(() =>
+      expect(api.searchCourseBooks).toHaveBeenLastCalledWith('MAT101', { lat: 41, lng: 29 }),
+    );
+    expect(await findByText(/YAKINDAKİ KİTAPLAR/)).toBeTruthy();
   });
 });
