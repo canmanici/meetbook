@@ -729,6 +729,7 @@ code { font-family: var(--font-mono); font-size: 0.8rem; padding: 0.05rem 0.3rem
         <div class="nav-item" data-page="releases"><span class="nav-item-icon">&#8681;</span><span class="nav-item-text">Uygulama Sürümleri</span></div>
         <div class="nav-item" data-page="kvkk"><span class="nav-item-icon">&#9878;</span><span class="nav-item-text">KVKK Başvuruları</span></div>
         <div class="nav-item" data-page="teachers"><span class="nav-item-icon">&#9998;</span><span class="nav-item-text">Öğretmen Başvuruları</span><span class="nav-item-badge" id="teachers-badge">0</span></div>
+        <div class="nav-item" data-page="student-codes"><span class="nav-item-icon">&#9919;</span><span class="nav-item-text">Öğrenci Kodları</span></div>
         <div class="nav-item" data-page="blocked-places"><span class="nav-item-icon">&#9873;</span><span class="nav-item-text">Engellenen Yerler</span></div>
         <div class="nav-item" data-page="audit-log"><span class="nav-item-icon">&#9783;</span><span class="nav-item-text">Denetim Kaydı</span></div>
       </div>
@@ -1023,6 +1024,27 @@ code { font-family: var(--font-mono); font-size: 0.8rem; padding: 0.05rem 0.3rem
     <div class="crud-loading"><div class="loading-spinner"></div></div>
   </div>
 </div>
+<div class="page" id="page-student-codes">
+  <div class="crud-toolbar">
+    <div class="crud-toolbar-left" style="gap:.5rem;flex-wrap:wrap">
+      <label class="text-sm">Adet <input class="form-input" id="sc-count" type="number" min="1" max="50" value="10" style="width:90px"></label>
+      <label class="text-sm">Geçerlilik
+        <select class="crud-filter-select" id="sc-days">
+          <option value="1">1 gün</option><option value="7">7 gün</option><option value="14" selected>14 gün</option>
+          <option value="30">30 gün</option><option value="60">60 gün</option><option value="90">90 gün</option>
+        </select>
+      </label>
+      <button class="btn btn-success" onclick="issueAdminStudentCodes()">Kod Oluştur</button>
+      <span class="crud-total-badge" id="sc-total">0</span>
+    </div>
+  </div>
+  <div class="text-sm text-muted" style="margin:0 0 1rem">
+    Kodlar sunucuda üretilir, tek kullanımlıktır. Bir kodu giren öğrenci doğrulanır (1 hoş geldin kredisi + 2 kredi borç hakkı) ve hangi kodla doğrulandığı kaydedilir.
+  </div>
+  <div class="crud-grid" id="sc-grid" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">
+    <div class="crud-loading"><div class="loading-spinner"></div></div>
+  </div>
+</div>
 <div class="page" id="page-kvkk">
   <div class="crud-toolbar"><div class="crud-toolbar-left"><span class="crud-total-badge" id="kvkk-total">0</span></div></div>
   <div class="crud-grid" id="kvkk-grid" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr))">
@@ -1124,6 +1146,7 @@ code { font-family: var(--font-mono); font-size: 0.8rem; padding: 0.05rem 0.3rem
 <!-- Chat Message Viewer Modal -->
 <div class="modal-overlay" id="chat-viewer-modal" onclick="if(event.target===this)closeModal('chat-viewer-modal')"><div class="modal wide"><div class="modal-header"><h2 class="modal-title">Mesajlar</h2><button class="modal-close" onclick="closeModal('chat-viewer-modal')">&times;</button></div><div class="modal-body" id="chat-viewer-body" style="max-height:70vh;overflow-y:auto;padding:1rem"><div class="loading-spinner"></div></div></div></div>
 <div class="modal-overlay" id="confirm-modal" onclick="if(event.target===this)closeModal('confirm-modal')"><div class="modal" style="max-width:420px"><div class="modal-header"><h2 class="modal-title" id="confirm-title">Onay</h2><button class="modal-close" onclick="closeModal('confirm-modal')">&times;</button></div><div class="modal-body"><p id="confirm-message" style="color:var(--text-secondary)"></p></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('confirm-modal')">İptal</button><button class="btn btn-danger" id="confirm-btn">Onayla</button></div></div></div>
+<div class="modal-overlay" id="teacher-code-modal" onclick="if(event.target===this)closeModal('teacher-code-modal')"><div class="modal" style="max-width:480px"><div class="modal-header"><h2 class="modal-title">Öğretmen Aktivasyon Kodu</h2><button class="modal-close" onclick="closeModal('teacher-code-modal')">&times;</button></div><div class="modal-body"><div class="text-sm" id="tc-target"></div><div class="form-group" style="margin-top:.75rem"><label class="form-label">Geçerlilik</label><select class="crud-filter-select" id="tc-days"><option value="1">1 gün</option><option value="3">3 gün</option><option value="7" selected>7 gün</option><option value="14">14 gün</option><option value="30">30 gün</option></select></div><div id="tc-result" style="margin-top:1rem"></div><div class="text-sm text-muted" style="margin-top:.75rem">Kod yalnızca bir kez gösterilir ve sadece bu başvuruyu yapan hesapta çalışır. Kodu SADECE başvurudaki iş e-postasına gönder — başka bir adrese ya da uygulama içinden istenene değil.</div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('teacher-code-modal')">Kapat</button><button class="btn btn-success" id="tc-generate">Kod Oluştur</button></div></div></div>
 <div class="modal-overlay" id="action-modal" onclick="if(event.target===this)closeModal('action-modal')"><div class="modal" style="max-width:480px"><div class="modal-header"><h2 class="modal-title" id="action-modal-title">İşlem</h2><button class="modal-close" onclick="closeModal('action-modal')">&times;</button></div><div class="modal-body"><div class="form-group"><label class="form-label">Sebep</label><textarea class="form-textarea" id="action-modal-reason" maxlength="500" placeholder="İşlem sebebi..."></textarea></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('action-modal')">İptal</button><button class="btn btn-danger" id="action-modal-btn">Uygula</button></div></div></div>
 <div class="modal-overlay" id="blocked-place-modal" onclick="if(event.target===this)closeModal('blocked-place-modal')"><div class="modal" style="max-width:480px"><div class="modal-header"><h2 class="modal-title">Yer Ekle</h2><button class="modal-close" onclick="closeModal('blocked-place-modal')">&times;</button></div><div class="modal-body"><div class="form-row"><div class="form-group"><label class="form-label">Enlem</label><input class="form-input" type="number" step="any" id="bp-lat"></div><div class="form-group"><label class="form-label">Boylam</label><input class="form-input" type="number" step="any" id="bp-lng"></div></div><div class="form-group"><label class="form-label">Yer ID</label><input class="form-input" id="bp-place-id" placeholder="Google Places ID"></div><div class="form-group"><label class="form-label">Sebep</label><textarea class="form-textarea" id="bp-reason" maxlength="500"></textarea></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('blocked-place-modal')">İptal</button><button class="btn btn-primary" onclick="createBlockedPlace()">Ekle</button></div></div></div>
 
@@ -1363,7 +1386,7 @@ function navigateTo(page) {
   const pg = document.getElementById(`page-${page}`);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
-  const titles = { dashboard: 'Genel Bakış', analytics: 'Analizler', reports: 'Raporlar', users: 'Kullanıcılar', books: 'Kitaplar', exchanges: 'Takaslar', 'blocked-places': 'Engellenen Yerler', kvkk: 'KVKK Başvuruları', teachers: 'Öğretmen Başvuruları', releases: 'Uygulama Sürümleri', 'audit-log': 'Denetim Kaydı', system: 'Sistem Sağlığı', 'crash-reports': 'Hata Raporları', loadtest: 'Yük Testi' };
+  const titles = { dashboard: 'Genel Bakış', analytics: 'Analizler', reports: 'Raporlar', users: 'Kullanıcılar', books: 'Kitaplar', exchanges: 'Takaslar', 'blocked-places': 'Engellenen Yerler', kvkk: 'KVKK Başvuruları', teachers: 'Öğretmen Başvuruları', 'student-codes': 'Öğrenci Kodları', releases: 'Uygulama Sürümleri', 'audit-log': 'Denetim Kaydı', system: 'Sistem Sağlığı', 'crash-reports': 'Hata Raporları', loadtest: 'Yük Testi' };
   document.getElementById('page-title').textContent = titles[page] || page;
   loadPage(page);
 }
@@ -1772,6 +1795,7 @@ function loadPage(page) {
     case 'blocked-places': loadBlockedPlacesPage(); break;
     case 'kvkk': loadKvkkPage(); break;
     case 'teachers': loadTeachersPage(); break;
+    case 'student-codes': loadStudentCodesPage(); break;
     case 'releases': loadReleasesPage(); break;
     case 'audit-log': loadAuditLogPage(); break;
     case 'system': loadSystemPage(); break;
@@ -3217,6 +3241,7 @@ async function loadTeachersPage() {
   try {
     const res = await API.adminRequest('/teachers', { params: select.value ? { status: select.value } : {} });
     const items = res.items || [];
+    window.__teacherItems = items;
     document.getElementById('teachers-total').textContent = `${items.length} başvuru`;
     if (select.value === 'pending') updateTeachersBadge(items.length);
     if (!items.length) { grid.innerHTML = '<div class="crud-loading"><div class="text-muted">Başvuru yok</div></div>'; return; }
@@ -3250,13 +3275,80 @@ async function loadTeachersPage() {
         <div class="data-card-footer">
           <span class="data-card-date">📅 ${formatDate(t.created_at)}</span>
           <div class="data-card-actions">
-            ${t.status === 'pending' ? `<button class="btn btn-success" onclick="teacherAction('${t.id}','approve')">Onayla</button><button class="btn btn-warning" onclick="teacherAction('${t.id}','reject')">Reddet</button>` : ''}
+            ${t.status === 'pending' ? `<button class="btn btn-detay" onclick="openTeacherCodeModal('${t.id}')">Aktivasyon Kodu</button><button class="btn btn-success" onclick="teacherAction('${t.id}','approve')">Onayla</button><button class="btn btn-warning" onclick="teacherAction('${t.id}','reject')">Reddet</button>` : ''}
             ${t.status === 'approved' ? `<button class="btn btn-danger" onclick="teacherAction('${t.id}','revoke')">Rozeti Kaldır</button>` : ''}
           </div>
         </div>
       </div>
     </div>`).join('');
   } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${escHtml(e.message)}</div></div>`; }
+}
+
+// Teacher activation: the code is generated on the server, shown here ONCE,
+// and must be e-mailed by hand to the application's work address.
+function openTeacherCodeModal(appId) {
+  const item = (window.__teacherItems || []).find(t => t.id === appId);
+  document.getElementById('tc-target').innerHTML = item
+    ? `<b>${escHtml(item.user_name)}</b> — ${escHtml(item.institution)}<br>İş e-postası: <b>${escHtml(item.work_email || '-')}</b>`
+    : '';
+  document.getElementById('tc-result').innerHTML = '';
+  const btn = document.getElementById('tc-generate');
+  btn.disabled = false;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    try {
+      const days = parseInt(document.getElementById('tc-days').value, 10);
+      const r = await API.adminRequest(`/teachers/${appId}/activation-code`, { method: 'POST', body: { expires_in_days: days } });
+      const subject = 'MeetBook öğretmen aktivasyon kodunuz';
+      const body = `Merhaba,\n\nMeetBook öğretmen başvurunuz için aktivasyon kodunuz: ${decodeHtml(r.code)}\n\nUygulamada Profil > Öğretmen Hesabı ekranında bu kodu girin. Kod ${formatDate(r.expires_at)} tarihine kadar geçerlidir ve yalnızca başvuruyu yaptığınız hesapta çalışır.\n\nBu başvuruyu siz yapmadıysanız bu e-postayı dikkate almayın.\n\nMeetBook`;
+      const mailto = `mailto:${encodeURIComponent(decodeHtml(r.work_email))}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      document.getElementById('tc-result').innerHTML = `
+        <div style="font-size:2rem;font-weight:900;letter-spacing:.2rem;text-align:center">${escHtml(r.code)}</div>
+        <div class="text-sm text-muted" style="text-align:center">Son geçerlilik: ${formatDate(r.expires_at)}</div>
+        <div style="text-align:center;margin-top:.75rem"><a class="btn btn-success" href="${escHtml(mailto)}">E-posta taslağını aç → ${escHtml(r.work_email)}</a></div>`;
+      showToast('Kod oluşturuldu — şimdi e-postayla gönder', 'success');
+    } catch (e) { btn.disabled = false; showToast(e.message, 'error'); }
+  };
+  showModal('teacher-code-modal');
+}
+
+// ─── Student codes issued by the admin ──────────────────────────
+const SC_STATUS = { active: 'Kullanılabilir', redeemed: 'Kullanıldı', expired: 'Süresi doldu', revoked: 'İptal' };
+async function loadStudentCodesPage() {
+  const grid = document.getElementById('sc-grid');
+  try {
+    renderStudentCodes(await API.adminRequest('/student-codes'));
+  } catch (e) { grid.innerHTML = `<div class="crud-loading"><div class="text-muted">Hata: ${escHtml(e.message)}</div></div>`; }
+}
+
+function renderStudentCodes(res) {
+  const grid = document.getElementById('sc-grid');
+  const items = res.items || [];
+  document.getElementById('sc-total').textContent = `${res.active_count} / ${res.max_active} açık kod`;
+  if (!items.length) { grid.innerHTML = '<div class="crud-loading"><div class="text-muted">Henüz kod yok</div></div>'; return; }
+  grid.innerHTML = items.map(c => `<div class="data-card"><div class="data-card-inner">
+      <div class="data-card-header"><div class="data-card-info">
+        <div class="data-card-title" style="font-family:var(--font-mono);letter-spacing:.1rem">${escHtml(c.code)}</div>
+        <div class="data-card-sub">${SC_STATUS[c.status] || escHtml(c.status)} · son: ${formatDate(c.expires_at)}</div>
+      </div></div>
+      <div class="data-card-footer"><span class="data-card-date">📅 ${formatDate(c.created_at)}</span>
+        <div class="data-card-actions">${c.status === 'active' ? `<button class="btn btn-ghost" onclick="revokeAdminStudentCode('${c.id}')">İptal</button>` : ''}</div>
+      </div></div></div>`).join('');
+}
+
+async function issueAdminStudentCodes() {
+  const count = parseInt(document.getElementById('sc-count').value, 10);
+  const days = parseInt(document.getElementById('sc-days').value, 10);
+  if (!(count >= 1 && count <= 50)) { showToast('Adet 1–50 arası olmalı', 'error'); return; }
+  try {
+    renderStudentCodes(await API.adminRequest('/student-codes', { method: 'POST', body: { count, expires_in_days: days } }));
+    showToast(`${count} kod oluşturuldu`, 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function revokeAdminStudentCode(id) {
+  try { renderStudentCodes(await API.adminRequest(`/student-codes/${id}/revoke`, { method: 'POST' })); showToast('Kod iptal edildi', 'success'); }
+  catch (e) { showToast(e.message, 'error'); }
 }
 
 function updateTeachersBadge(count) {

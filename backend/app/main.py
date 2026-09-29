@@ -59,7 +59,11 @@ class _RevalidatingStaticFiles(StaticFiles):
 def create_app() -> FastAPI:
     settings = get_settings()
     is_dev = settings.is_dev
-    if not is_dev and not settings.mail_enabled:
+    if not is_dev and not settings.email_verification_required:
+        logger.warning(
+            "EMAIL_VERIFICATION_REQUIRED=false: sign-ups are not e-mail verified (demo mode)"
+        )
+    elif not is_dev and not settings.mail_enabled:
         # Sign-ups can't receive their code, so nobody new can verify.
         logger.error("SMTP_HOST is not set: new accounts cannot verify their email")
 

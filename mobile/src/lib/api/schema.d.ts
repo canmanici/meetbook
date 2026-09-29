@@ -1411,6 +1411,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/teachers/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate Teacher
+         * @description Enter the activation code an admin e-mailed to the work address.
+         */
+        post: operations["activate_teacher_api_v1_teachers_activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/teachers": {
         parameters: {
             query?: never;
@@ -1479,6 +1499,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/teachers/{application_id}/activation-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue Teacher Activation
+         * @description Returns the code ONCE (only its hash is stored) — e-mail it yourself to
+         *     the application's work address.
+         */
+        post: operations["issue_teacher_activation_api_v1_admin_teachers__application_id__activation_code_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/students/verify-code": {
         parameters: {
             query?: never;
@@ -1490,6 +1531,41 @@ export interface paths {
         put?: never;
         /** Verify With Student Code */
         post: operations["verify_with_student_code_api_v1_students_verify_code_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/student-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Student Codes */
+        get: operations["admin_student_codes_api_v1_admin_student_codes_get"];
+        put?: never;
+        /** Admin Issue Student Codes */
+        post: operations["admin_issue_student_codes_api_v1_admin_student_codes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/student-codes/{code_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Revoke Student Code */
+        post: operations["admin_revoke_student_code_api_v1_admin_student_codes__code_id__revoke_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4131,6 +4207,19 @@ export interface components {
             updated_at: string;
             /** Resolved At */
             resolved_at: string | null;
+        };
+        /** AdminStudentCodeCreateRequest */
+        AdminStudentCodeCreateRequest: {
+            /**
+             * Count
+             * @default 10
+             */
+            count: number;
+            /**
+             * Expires In Days
+             * @default 14
+             */
+            expires_in_days: number;
         };
         /** AdminTeacherApplicationList */
         AdminTeacherApplicationList: {
@@ -7547,6 +7636,11 @@ export interface components {
              * @default 1
              */
             count: number;
+            /**
+             * Expires In Days
+             * @default 14
+             */
+            expires_in_days: number;
         };
         /** StudentCodeListResponse */
         StudentCodeListResponse: {
@@ -7600,6 +7694,34 @@ export interface components {
             /** Audit Log 30D */
             audit_log_30d: number;
         };
+        /** TeacherActivateRequest */
+        TeacherActivateRequest: {
+            /** Code */
+            code: string;
+        };
+        /** TeacherActivationIssueRequest */
+        TeacherActivationIssueRequest: {
+            /**
+             * Expires In Days
+             * @default 7
+             */
+            expires_in_days: number;
+        };
+        /**
+         * TeacherActivationIssued
+         * @description Shown to the admin ONCE — only a hash is stored.
+         */
+        TeacherActivationIssued: {
+            /** Code */
+            code: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Work Email */
+            work_email: string;
+        };
         /**
          * TeacherApplicationStatus
          * @enum {string}
@@ -7639,8 +7761,11 @@ export interface components {
             institution: string;
             /** Department */
             department?: string | null;
-            /** Work Email */
-            work_email?: string | null;
+            /**
+             * Work Email
+             * Format: email
+             */
+            work_email: string;
             /** Profile Url */
             profile_url?: string | null;
             /** Note */
@@ -7667,6 +7792,11 @@ export interface components {
             can_apply: boolean;
             /** Reapply After */
             reapply_after?: string | null;
+            /**
+             * Activation Code Sent
+             * @default false
+             */
+            activation_code_sent: boolean;
         };
         /** TokenResponse */
         TokenResponse: {
@@ -11141,6 +11271,39 @@ export interface operations {
             };
         };
     };
+    activate_teacher_api_v1_teachers_activate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeacherActivateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeacherStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_teacher_applications_api_v1_admin_teachers_get: {
         parameters: {
             query?: {
@@ -11271,6 +11434,41 @@ export interface operations {
             };
         };
     };
+    issue_teacher_activation_api_v1_admin_teachers__application_id__activation_code_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeacherActivationIssueRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeacherActivationIssued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     verify_with_student_code_api_v1_students_verify_code_post: {
         parameters: {
             query?: never;
@@ -11290,6 +11488,90 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_student_codes_api_v1_admin_student_codes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentCodeListResponse"];
+                };
+            };
+        };
+    };
+    admin_issue_student_codes_api_v1_admin_student_codes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminStudentCodeCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentCodeListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_revoke_student_code_api_v1_admin_student_codes__code_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentCodeListResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

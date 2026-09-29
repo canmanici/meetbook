@@ -175,6 +175,9 @@ services:
       # Security switches — safe values by default, overridable in Dokploy.
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
       LOGIN_THROTTLE_ENABLED: ${LOGIN_THROTTLE_ENABLED:-true}
+      # Demo only: false = sign-ups are not e-mail verified. Back to true
+      # (and SMTP configured) before a real launch.
+      EMAIL_VERIFICATION_REQUIRED: ${EMAIL_VERIFICATION_REQUIRED:-true}
       # Book credits: flip to true once the app build with wallets is out.
       CREDITS_ENFORCED: ${CREDITS_ENFORCED:-false}
       GOOGLE_PLACES_KEY: ${GOOGLE_PLACES_KEY:-}

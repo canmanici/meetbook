@@ -51,6 +51,7 @@ class Settings(BaseSettings):
         "database_pool_pre_ping",
         "rate_limit_enabled",
         "login_throttle_enabled",
+        "email_verification_required",
         "jwt_access_ttl_seconds",
         "refresh_token_ttl_days",
         "smtp_port",
@@ -112,6 +113,11 @@ class Settings(BaseSettings):
     # Where KVKK data-subject requests are forwarded (data controller inbox).
     kvkk_controller_email: str = ""
 
+    # Demo switch. False = new accounts are verified at sign-up, no e-mail
+    # code (anyone can register any address — fine for a closed demo where
+    # students are vouched for by teacher codes; turn back on before launch).
+    email_verification_required: bool = True
+
     @property
     def mail_enabled(self) -> bool:
         return bool(self.smtp_host)
@@ -122,9 +128,11 @@ class Settings(BaseSettings):
 
     @property
     def auto_verify_email(self) -> bool:
-        """Without SMTP a code can never arrive. In dev, verify sign-ups
-        automatically so nobody is locked out; in production NEVER — that
-        would make "verified" meaningless. Configure SMTP instead."""
+        """Verify sign-ups without a code when verification is switched off
+        explicitly, or in dev without SMTP (a code could never arrive). In
+        production with verification on: NEVER — configure SMTP instead."""
+        if not self.email_verification_required:
+            return True
         return not self.mail_enabled and self.is_dev
 
     # Number of reverse proxies we control in front of the app (Traefik = 1).

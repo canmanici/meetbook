@@ -17,7 +17,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Input, Skeleton, palette, pastels, radius, spacing, fontSize } from '@/components/ui';
+import { ChipSelect } from '@/components/chip-select';
 import {
+  activateTeacher,
   applyAsTeacher,
   getTeacherStatus,
   issueStudentCodes,
@@ -108,8 +110,10 @@ function StudentCodes({ colors }: { colors: any }) {
     setError(null);
     queryClient.setQueryData(['student-codes'], next);
   };
+  const [days, setDays] = useState<'1' | '7' | '14' | '30'>('14');
+  const [count, setCount] = useState<'1' | '5' | '10'>('5');
   const issue = useMutation({
-    mutationFn: () => issueStudentCodes(5),
+    mutationFn: () => issueStudentCodes(Number(count), Number(days)),
     onSuccess: onDone,
     onError: (err) =>
       setError(
@@ -124,7 +128,7 @@ function StudentCodes({ colors }: { colors: any }) {
 
   const shareCode = (c: StudentCode) =>
     Share.share({
-      message: `MeetBook öğrenci kodun: ${c.code}\nUygulamada Profil → Kitap Kredim → "Öğrenci misin?" bölümüne gir. Tek kullanımlık, 14 gün geçerli.`,
+      message: `MeetBook öğrenci kodun: ${c.code}\nUygulamada Profil → Kitap Kredim → "Öğrenci misin?" bölümüne gir. Tek kullanımlık, ${formatDate(c.expires_at)} tarihine kadar geçerli.`,
     });
 
   return (
@@ -138,8 +142,24 @@ function StudentCodes({ colors }: { colors: any }) {
         {active.length} / {data?.max_active ?? 30} açık kod · {used} öğrenci doğrulandı
       </Text>
       {error && <Text style={[styles.error, { color: colors.danger }]} testID="teacher-codes-error">{error}</Text>}
+      <ChipSelect
+        label="Kaç kod?"
+        options={['1', '5', '10'] as const}
+        labels={{ '1': '1', '5': '5', '10': '10' }}
+        value={count}
+        onChange={setCount}
+        testIDPrefix="codes-count"
+      />
+      <ChipSelect
+        label="Geçerlilik"
+        options={['1', '7', '14', '30'] as const}
+        labels={{ '1': '1 gün', '7': '1 hafta', '14': '2 hafta', '30': '1 ay' }}
+        value={days}
+        onChange={setDays}
+        testIDPrefix="codes-days"
+      />
       <Button onPress={() => issue.mutate()} loading={issue.isPending} disabled={issue.isPending} testID="teacher-codes-issue">
-        5 kod oluştur
+        {`${count} kod oluştur`}
       </Button>
       {active.map((c: StudentCode) => (
         <View key={c.id} style={[styles.codeRow, { borderColor: colors.border }]} testID={`code-${c.code}`}>
@@ -157,6 +177,58 @@ function StudentCodes({ colors }: { colors: any }) {
           </TouchableOpacity>
         </View>
       ))}
+    </View>
+  );
+}
+
+/** Pending applicant: enter the code an admin e-mailed to the work address. */
+function ActivationCode({ colors, workEmail }: { colors: any; workEmail: string | null }) {
+  const queryClient = useQueryClient();
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const activate = useMutation({
+    mutationFn: () => activateTeacher(code),
+    onSuccess: (next) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.setQueryData(['teacher-status'], next);
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
+    onError: (err) =>
+      setError(
+        apiErrorDetail(err) === 'TOO_MANY_ATTEMPTS'
+          ? 'Çok fazla deneme. Bir saat sonra tekrar dene.'
+          : 'Kod hatalı veya süresi dolmuş. 5 hatalı denemeden sonra kod iptal olur; yeni kod iste.',
+      ),
+  });
+  const onChange = (raw: string) => {
+    const clean = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    setCode(clean.length > 4 ? `${clean.slice(0, 4)}-${clean.slice(4)}` : clean);
+  };
+  return (
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]} testID="teacher-activation">
+      <Text style={[styles.cardTitle, { color: colors.text }]}>Aktivasyon Kodu</Text>
+      <Text style={[styles.cardBody, { color: colors.textMuted }]}>
+        {workEmail
+          ? `Başvurun incelenince ${workEmail} adresine bir aktivasyon kodu göndereceğiz. Kodu buraya gir.`
+          : 'İş e-postana gönderilen aktivasyon kodunu buraya gir.'}
+      </Text>
+      <Input
+        label="Kod"
+        placeholder="ABCD-EFGH"
+        value={code}
+        onChangeText={onChange}
+        autoCapitalize="characters"
+        error={error ?? undefined}
+        testID="teacher-activation-input"
+      />
+      <Button
+        onPress={() => { setError(null); activate.mutate(); }}
+        loading={activate.isPending}
+        disabled={code.replace('-', '').length !== 8 || activate.isPending}
+        testID="teacher-activation-submit"
+      >
+        Öğretmen hesabını etkinleştir
+      </Button>
     </View>
   );
 }
@@ -185,7 +257,7 @@ export default function TeacherScreen() {
       applyAsTeacher({
         institution: institution.trim(),
         department: department.trim() || null,
-        work_email: workEmail.trim() || null,
+        work_email: workEmail.trim(),
         profile_url: profileUrl.trim() || null,
         note: note.trim() || null,
       }),
@@ -206,8 +278,8 @@ export default function TeacherScreen() {
       setError('Kadro sayfası bağlantısı http:// veya https:// ile başlamalı.');
       return;
     }
-    if (!workEmail.trim() && !profileUrl.trim()) {
-      setError('Kontrol edebilmemiz için iş e-postanı veya kadro sayfanı ekle.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(workEmail.trim())) {
+      setError('İş e-postanı yaz — aktivasyon kodunu oraya göndereceğiz.');
       return;
     }
     applyMutation.mutate();
@@ -239,11 +311,15 @@ export default function TeacherScreen() {
 
             {status.is_teacher && <StudentCodes colors={colors} />}
 
+            {!status.is_teacher && status.application?.status === 'pending' && (
+              <ActivationCode colors={colors} workEmail={status.application.work_email} />
+            )}
+
             {status.can_apply && (
               <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <Text style={[styles.cardTitle, { color: colors.text }]}>Başvuru</Text>
                 <Text style={[styles.cardBody, { color: colors.textMuted }]}>
-                  .edu.tr adresin olmasa da başvurabilirsin. Her başvuruyu bir yönetici elle kontrol eder.
+                  Kurumundaki iş e-postanı yaz. Bir yönetici başvurunu kontrol edip o adrese bir aktivasyon kodu gönderir; kodu bu ekrana girince öğretmen hesabın açılır.
                 </Text>
                 <Input label="Kurum" placeholder="Üniversite / okul adı" value={institution} onChangeText={setInstitution} testID="teacher-institution" />
                 <Input label="Bölüm (opsiyonel)" placeholder="Matematik" value={department} onChangeText={setDepartment} testID="teacher-department" />

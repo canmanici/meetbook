@@ -28,6 +28,15 @@
   (`POST /teachers/codes`, `POST /students/verify-code`). `.edu.tr` email
   verification is paused in the app (backend kept) — turn it back on once a
   university partners with us.
+- Demo: `EMAIL_VERIFICATION_REQUIRED=false` in Dokploy (sign-ups need no
+  e-mail code; students are vouched for by teacher/admin codes).
+  **Set it back to true (with SMTP) before a real launch.**
+- Becoming a teacher: apply in the app with the work e-mail → admin panel
+  "Aktivasyon Kodu" → you e-mail the code by hand to THAT address → teacher
+  enters it in the app. Codes are server-generated, shown once, bound to the
+  application, 5 wrong tries kill them.
+- Student codes: teachers (≤30 open, ≤30 days) or admin panel "Öğrenci
+  Kodları" (≤500 open, ≤90 days). 10 wrong guesses/hour per account.
 - [ ] Approve a demo teacher in the admin panel, issue codes, verify a student.
 
 ## Launch

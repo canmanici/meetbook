@@ -24,6 +24,7 @@ jest.mock('@/lib/api/teachers', () => ({
   listStudentCodes: jest.fn(),
   issueStudentCodes: jest.fn(),
   revokeStudentCode: jest.fn(),
+  activateTeacher: jest.fn(),
 }));
 
 import TeacherScreen from '../teacher';
@@ -48,12 +49,12 @@ describe('TeacherScreen', () => {
     api.applyAsTeacher.mockReset();
   });
 
-  it('requires a way to verify the claim before submitting', async () => {
+  it('requires a work e-mail (the activation code goes there)', async () => {
     api.getTeacherStatus.mockResolvedValue(fresh);
     const { findByTestId, getByTestId, findByText } = renderScreen();
     fireEvent.changeText(await findByTestId('teacher-institution'), 'İTÜ');
     fireEvent.press(getByTestId('teacher-submit'));
-    expect(await findByText(/iş e-postanı veya kadro sayfanı ekle/)).toBeTruthy();
+    expect(await findByText(/İş e-postanı yaz/)).toBeTruthy();
     expect(api.applyAsTeacher).not.toHaveBeenCalled();
   });
 
@@ -101,7 +102,7 @@ describe('TeacherScreen', () => {
     api.applyAsTeacher.mockRejectedValue(new ApiError(409, { detail: 'TEACHER_REVOKED' }));
     const { findByTestId, getByTestId, findByText } = renderScreen();
     fireEvent.changeText(await findByTestId('teacher-institution'), 'İTÜ');
-    fireEvent.changeText(getByTestId('teacher-url'), 'https://itu.edu.tr/kadro/x');
+    fireEvent.changeText(getByTestId('teacher-email'), 'hoca@itu.edu.tr');
     fireEvent.press(getByTestId('teacher-submit'));
     expect(await findByText(/Rozetin daha önce kaldırıldığı/)).toBeTruthy();
   });
@@ -118,13 +119,44 @@ describe('TeacherScreen', () => {
       .mockRejectedValueOnce(new ApiError(409, { detail: 'CODE_LIMIT' }));
     const { findByTestId, getByTestId, findByText, queryByTestId } = renderScreen();
 
+    fireEvent.press(await findByTestId('codes-days-30'));
     fireEvent.press(await findByTestId('teacher-codes-issue'));
     expect(await findByTestId('code-ABCD-EFGH')).toBeTruthy();
+    expect(api.issueStudentCodes).toHaveBeenCalledWith(5, 30);
     expect(getByTestId('teacher-codes-summary').props.children.join('')).toMatch(/^1 \/ 30/);
 
     fireEvent.press(getByTestId('teacher-codes-issue'));
     expect(await findByText(/En fazla 30 açık kodun olabilir/)).toBeTruthy();
     // Approved: no application form any more.
     expect(queryByTestId('teacher-submit')).toBeNull();
+  });
+
+  it('pending applicant activates with the e-mailed code', async () => {
+    const pending = {
+      ...fresh,
+      can_apply: false,
+      activation_code_sent: true,
+      application: {
+        id: 'a1', institution: 'İTÜ', department: null, work_email: 'hoca@itu.edu.tr',
+        profile_url: null, note: null, status: 'pending', review_note: null,
+        reviewed_at: null, created_at: '2026-09-29T10:00:00Z',
+      },
+    };
+    api.getTeacherStatus.mockResolvedValue(pending);
+    api.activateTeacher
+      .mockRejectedValueOnce(new ApiError(400, { detail: 'TEACHER_CODE_INVALID' }))
+      .mockResolvedValueOnce({ ...pending, is_teacher: true, institution: 'İTÜ' });
+    api.listStudentCodes.mockResolvedValue({ items: [], active_count: 0, max_active: 30 });
+    const { findByTestId, getByTestId, findByText } = renderScreen();
+
+    expect(await findByText(/hoca@itu.edu.tr adresine bir aktivasyon kodu/)).toBeTruthy();
+    fireEvent.changeText(getByTestId('teacher-activation-input'), 'zzzz zzzz');
+    fireEvent.press(getByTestId('teacher-activation-submit'));
+    expect(await findByText(/Kod hatalı veya süresi dolmuş/)).toBeTruthy();
+
+    fireEvent.changeText(getByTestId('teacher-activation-input'), 'abcdefgh');
+    fireEvent.press(getByTestId('teacher-activation-submit'));
+    await waitFor(() => expect(api.activateTeacher).toHaveBeenLastCalledWith('ABCD-EFGH'));
+    expect(await findByTestId('teacher-approved')).toBeTruthy();
   });
 });

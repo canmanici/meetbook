@@ -26,8 +26,16 @@ export function listStudentCodes(): Promise<StudentCodeList> {
   return authedRequest<StudentCodeList>('/teachers/codes', 'GET', undefined);
 }
 
-export function issueStudentCodes(count: number): Promise<StudentCodeList> {
-  return authedRequest<StudentCodeList>('/teachers/codes', 'POST', { count });
+export function issueStudentCodes(count: number, expiresInDays: number): Promise<StudentCodeList> {
+  return authedRequest<StudentCodeList>('/teachers/codes', 'POST', {
+    count,
+    expires_in_days: expiresInDays,
+  });
+}
+
+/** Applicant: the activation code an admin e-mailed to the work address. */
+export function activateTeacher(code: string): Promise<TeacherStatus> {
+  return authedRequest<TeacherStatus>('/teachers/activate', 'POST', { code });
 }
 
 export function revokeStudentCode(id: string): Promise<StudentCodeList> {

@@ -1,5 +1,6 @@
 """Teacher applications: apply → a human admin approves / rejects / revokes."""
 
+import hmac
 import logging
 import secrets
 import uuid
@@ -10,6 +11,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import log_event
+from app.core.security import hash_token
+from app.core.throttle import CodeAttemptThrottle
 from app.modules.auth.models import User
 from app.modules.books.models import Book
 from app.modules.reports.models import Report, ReportTarget
@@ -18,6 +21,7 @@ from app.modules.teachers.schemas import (
     AdminTeacherApplicationView,
     StudentCodeListResponse,
     StudentCodeView,
+    TeacherActivationIssued,
     TeacherApplicationView,
     TeacherApplyRequest,
     TeacherStatusResponse,
@@ -30,7 +34,10 @@ REAPPLY_COOLDOWN = timedelta(days=30)
 
 # Student codes: a teacher can't mint accounts wholesale.
 MAX_ACTIVE_CODES = 30
-CODE_TTL = timedelta(days=14)
+# The admin (you) seeds whole classes at once.
+MAX_ACTIVE_CODES_ADMIN = 500
+# Teacher activation: a code the admin e-mails by hand; few tries, then dead.
+MAX_ACTIVATION_ATTEMPTS = 5
 # No 0/O, 1/I/L: codes are read aloud and copied off a board.
 _CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 _CODE_LEN = 8
@@ -42,6 +49,19 @@ def _new_code() -> str:
 
 def normalize_student_code(raw: str) -> str:
     return "".join(ch for ch in raw.upper() if ch.isalnum())
+
+
+def _activation_hash(application_id: uuid.UUID, code: str) -> str:
+    # Salted with the application id: the code only works for that application.
+    return hash_token(f"teacher-activation:{application_id}:{code}")
+
+
+def _may_issue_codes(user: User) -> bool:
+    return user.is_admin or user.teacher_verified_at is not None
+
+
+def _code_cap(user: User) -> int:
+    return MAX_ACTIVE_CODES_ADMIN if user.is_admin else MAX_ACTIVE_CODES
 
 
 def _format_code(code: str) -> str:
@@ -56,6 +76,17 @@ def _code_status(c: StudentCode, now: datetime) -> str:
     if c.expires_at <= now:
         return "expired"
     return "active"
+
+
+def _activation_live(app: TeacherApplication | None) -> bool:
+    return (
+        app is not None
+        and app.status is TeacherApplicationStatus.pending
+        and app.activation_code_hash is not None
+        and app.activation_expires_at is not None
+        and app.activation_expires_at > datetime.now(UTC)
+        and app.activation_attempts < MAX_ACTIVATION_ATTEMPTS
+    )
 
 
 class TeacherError(Exception):
@@ -115,6 +146,7 @@ class TeacherService:
             application=_view(latest) if latest else None,
             can_apply=block is None,
             reapply_after=reapply_after,
+            activation_code_sent=_activation_live(latest),
         )
 
     async def apply(self, user: User, body: TeacherApplyRequest) -> TeacherStatusResponse:
@@ -358,7 +390,7 @@ class TeacherService:
             code.revoked_at = now
 
     async def list_codes(self, teacher: User) -> StudentCodeListResponse:
-        if teacher.teacher_verified_at is None:
+        if not _may_issue_codes(teacher):
             raise TeacherError("NOT_TEACHER", 403)
         rows = (
             await self.session.execute(
@@ -383,23 +415,34 @@ class TeacherService:
         return StudentCodeListResponse(
             items=items,
             active_count=sum(1 for i in items if i.status == "active"),
-            max_active=MAX_ACTIVE_CODES,
+            max_active=_code_cap(teacher),
         )
 
-    async def issue_codes(self, teacher: User, count: int) -> StudentCodeListResponse:
-        if teacher.teacher_verified_at is None:
+    async def issue_codes(
+        self, teacher: User, count: int, expires_in_days: int
+    ) -> StudentCodeListResponse:
+        """Codes are only ever generated here, server-side (never on a client).
+        The caller's schema bounds expires_in_days (teacher ≤ 30, admin ≤ 90)."""
+        if not _may_issue_codes(teacher):
             raise TeacherError("NOT_TEACHER", 403)
-        # Serialize issuing per teacher so two requests can't both pass the cap.
+        # Serialize issuing per issuer so two requests can't both pass the cap.
         await self.session.get(User, teacher.id, with_for_update=True)
-        if await self._active_code_count(teacher.id) + count > MAX_ACTIVE_CODES:
+        if await self._active_code_count(teacher.id) + count > _code_cap(teacher):
             raise TeacherError("CODE_LIMIT", 409)
-        expires_at = datetime.now(UTC) + CODE_TTL
+        expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
         for _ in range(count):
             self.session.add(
                 StudentCode(code=_new_code(), teacher_id=teacher.id, expires_at=expires_at)
             )
         await log_event(
-            self.session, "student_codes_issued", user_id=teacher.id, metadata={"count": count}
+            self.session,
+            "student_codes_issued",
+            user_id=teacher.id,
+            metadata={
+                "count": count,
+                "expires_in_days": expires_in_days,
+                "admin": teacher.is_admin,
+            },
         )
         await self.session.commit()
         return await self.list_codes(teacher)
@@ -413,13 +456,19 @@ class TeacherService:
             await self.session.commit()
         return await self.list_codes(teacher)
 
-    async def redeem_code(self, student: User, raw_code: str) -> None:
-        """Verify a student with a teacher's class code. Every failure looks
-        the same (INVALID_STUDENT_CODE) so codes can't be probed."""
+    async def redeem_code(
+        self, student: User, raw_code: str, throttle: CodeAttemptThrottle | None = None
+    ) -> None:
+        """Verify a student with a teacher's (or an admin's) code. Every failure
+        looks the same (INVALID_STUDENT_CODE) so codes can't be probed, and each
+        account only gets a few wrong guesses per hour."""
         from app.modules.credits.service import CreditService
 
         if student.edu_verified_at is not None:
             raise TeacherError("ALREADY_STUDENT", 409)
+        subject = str(student.id)
+        if throttle is not None and not await throttle.allowed(subject):
+            raise TeacherError("TOO_MANY_ATTEMPTS", 429)
         code = (
             await self.session.execute(
                 select(StudentCode)
@@ -434,8 +483,10 @@ class TeacherService:
             or _code_status(code, now) != "active"
             or code.teacher_id == student.id
             or teacher is None
-            or teacher.teacher_verified_at is None
+            or not _may_issue_codes(teacher)
         ):
+            if throttle is not None:
+                await throttle.record_failure(subject)
             raise TeacherError("INVALID_STUDENT_CODE", 400)
 
         code.redeemed_by = student.id
@@ -452,3 +503,76 @@ class TeacherService:
             metadata={"teacher_user_id": str(code.teacher_id), "code_id": str(code.id)},
         )
         await self.session.commit()
+
+    # -- Teacher activation (admin e-mails a code to the work address) --------
+
+    async def issue_activation(
+        self, admin: User, application_id: uuid.UUID, expires_in_days: int
+    ) -> TeacherActivationIssued:
+        app = await self._get_for_update(application_id)
+        if app.status is not TeacherApplicationStatus.pending:
+            raise TeacherError("INVALID_STATUS", 409)
+        if app.user_id == admin.id:
+            raise TeacherError("SELF_REVIEW", 403)
+        if not app.work_email:
+            raise TeacherError("NO_WORK_EMAIL", 409)
+        code = _new_code()
+        app.activation_code_hash = _activation_hash(app.id, code)
+        app.activation_expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
+        app.activation_attempts = 0
+        app.activation_issued_by = admin.id
+        await log_event(
+            self.session,
+            "teacher_activation_issued",
+            user_id=admin.id,
+            metadata={"application_id": str(app.id), "expires_in_days": expires_in_days},
+        )
+        await self.session.commit()
+        return TeacherActivationIssued(
+            code=_format_code(code),
+            expires_at=app.activation_expires_at,
+            work_email=app.work_email,
+        )
+
+    async def activate(
+        self, user: User, raw_code: str, throttle: CodeAttemptThrottle | None = None
+    ) -> TeacherStatusResponse:
+        """The applicant enters the code that reached their work inbox. It only
+        matches the account that applied, so knowing a real teacher's address
+        (and applying with it) gets an attacker nothing: the code goes to the
+        real teacher."""
+        subject = str(user.id)
+        if throttle is not None and not await throttle.allowed(subject):
+            raise TeacherError("TOO_MANY_ATTEMPTS", 429)
+        latest = await self._latest(user.id)
+        app = await self._get_for_update(latest.id) if latest else None
+        if app is None or not _activation_live(app):
+            raise TeacherError("TEACHER_CODE_INVALID", 400)
+        expected = app.activation_code_hash or ""
+        given = _activation_hash(app.id, normalize_student_code(raw_code))
+        if not hmac.compare_digest(expected, given):
+            app.activation_attempts += 1
+            await self.session.commit()
+            if throttle is not None:
+                await throttle.record_failure(subject)
+            raise TeacherError("TEACHER_CODE_INVALID", 400)
+
+        now = datetime.now(UTC)
+        app.status = TeacherApplicationStatus.approved
+        app.reviewed_by = app.activation_issued_by
+        app.reviewed_at = now
+        app.review_note = "İş e-postasına gönderilen aktivasyon koduyla onaylandı"
+        app.activation_code_hash = None
+        user_row = await self.session.get(User, user.id, with_for_update=True)
+        assert user_row is not None
+        user_row.teacher_verified_at = now
+        user_row.teacher_institution = app.institution
+        await log_event(
+            self.session,
+            "teacher_activated_by_code",
+            user_id=user.id,
+            metadata={"application_id": str(app.id), "issued_by": str(app.activation_issued_by)},
+        )
+        await self.session.commit()
+        await self._notify(app)
+        return await self.status(user_row)

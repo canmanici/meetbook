@@ -9,7 +9,8 @@ from app.modules.teachers.models import TeacherApplicationStatus
 class TeacherApplyRequest(BaseModel):
     institution: str = Field(min_length=2, max_length=200)
     department: str | None = Field(default=None, max_length=200)
-    work_email: EmailStr | None = None
+    # Required: the activation code is e-mailed here by an admin.
+    work_email: EmailStr
     profile_url: str | None = Field(default=None, max_length=500, pattern=r"^https?://")
     note: str | None = Field(default=None, max_length=1000)
 
@@ -33,6 +34,8 @@ class TeacherStatusResponse(BaseModel):
     application: TeacherApplicationView | None
     can_apply: bool
     reapply_after: datetime | None = None
+    # A code was sent to the work address and can still be entered.
+    activation_code_sent: bool = False
 
 
 class AdminTeacherApplicationView(TeacherApplicationView):
@@ -67,6 +70,28 @@ class TeacherRejectRequest(BaseModel):
 
 class StudentCodeCreateRequest(BaseModel):
     count: int = Field(default=1, ge=1, le=10)
+    expires_in_days: int = Field(default=14, ge=1, le=30)
+
+
+class AdminStudentCodeCreateRequest(BaseModel):
+    count: int = Field(default=10, ge=1, le=50)
+    expires_in_days: int = Field(default=14, ge=1, le=90)
+
+
+class TeacherActivationIssueRequest(BaseModel):
+    expires_in_days: int = Field(default=7, ge=1, le=30)
+
+
+class TeacherActivationIssued(BaseModel):
+    """Shown to the admin ONCE — only a hash is stored."""
+
+    code: str
+    expires_at: datetime
+    work_email: str
+
+
+class TeacherActivateRequest(BaseModel):
+    code: str = Field(min_length=8, max_length=20)
 
 
 class StudentCodeView(BaseModel):
