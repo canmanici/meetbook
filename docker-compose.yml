@@ -5,6 +5,9 @@ services:
       POSTGRES_USER: meetbook
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meetbook_dev}
       POSTGRES_DB: meetbook
+    # 200 = backend pool (40 + 40 overflow) x a second container + tooling.
+    # jit=off: plan compilation costs more than it saves on OLTP queries.
+    command: ["postgres", "-c", "max_connections=200", "-c", "jit=off"]
     ports:
       - "5436:5432"
     volumes:

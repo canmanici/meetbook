@@ -630,6 +630,33 @@ input[type=file].form-input { padding: 0.4rem 0.5rem; height: auto; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
 .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+/* ── Load test ── */
+.lt-banner { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding: 0.8rem 1.1rem; border-radius: var(--radius-lg); margin-bottom: 1rem; font-size: 0.86rem; border: 1px solid transparent; }
+.lt-banner.warn { background: var(--warning-soft); color: var(--warning); border-color: var(--warning-soft); }
+.lt-banner.info { background: var(--info-soft); color: var(--info); }
+.lt-banner .btn { margin-left: auto; }
+.lt-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; }
+.lt-group { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.7rem 0.8rem; background: var(--surface-2); }
+.lt-group-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; font-size: 0.8rem; font-weight: 600; color: var(--text-2); }
+.lt-check { display: flex; align-items: center; gap: 0.5rem; min-height: 30px; font-size: 0.84rem; color: var(--text); cursor: pointer; }
+.lt-check input { width: 16px; height: 16px; accent-color: var(--brand); cursor: pointer; flex-shrink: 0; }
+.lt-check input:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.lt-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+.lt-footer { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.lt-footer .btn { margin-left: auto; }
+.lt-estimate { font-size: 0.84rem; color: var(--text-2); }
+.lt-estimate.over { color: var(--danger); font-weight: 600; }
+.lt-progress { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 0.75rem; align-items: center; margin-bottom: 1rem; font-size: 0.84rem; color: var(--text-2); }
+.lt-log { font-family: var(--font-mono); font-size: 0.76rem; line-height: 1.6; color: var(--text-2); max-height: 220px; overflow-y: auto; padding: 0.75rem 1.1rem; background: var(--surface-2); border-top: 1px solid var(--border); }
+.lt-num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.lt-row { cursor: pointer; }
+.lt-row:focus-visible td { box-shadow: inset 0 0 0 2px var(--brand); }
+.lt-detail td { background: var(--surface-2); font-size: 0.8rem; }
+.lt-detail pre { font-family: var(--font-mono); font-size: 0.74rem; white-space: pre-wrap; word-break: break-word; margin: 0.35rem 0 0; color: var(--text-2); }
+.lt-delta-up { color: var(--success); } .lt-delta-down { color: var(--danger); }
+#page-loadtest .card { margin-bottom: 1rem; }
+.lt-chart-title { font-size: 0.8rem; font-weight: 600; color: var(--text-2); padding: 0.75rem 1.1rem 0; }
+.lt-env { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0 1.5rem; }
 .system-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
 .flex-center { display: flex; align-items: center; justify-content: center; }
 .flex-between { display: flex; align-items: center; justify-content: space-between; }
@@ -708,6 +735,7 @@ code { font-family: var(--font-mono); font-size: 0.8rem; padding: 0.05rem 0.3rem
         <div class="nav-section-title">Sistem</div>
         <div class="nav-item" data-page="system"><span class="nav-item-icon">&#9881;</span><span class="nav-item-text">Sistem Sağlığı</span></div>
         <div class="nav-item" data-page="crash-reports"><span class="nav-item-icon">&#9888;</span><span class="nav-item-text">Hata Raporları</span><span class="nav-item-badge" id="crash-badge">0</span></div>
+        <div class="nav-item" data-page="loadtest"><span class="nav-item-icon">&#9889;</span><span class="nav-item-text">Yük Testi</span></div>
       </div>
     </nav>
     <div class="sidebar-footer">
@@ -1047,6 +1075,20 @@ code { font-family: var(--font-mono); font-size: 0.8rem; padding: 0.05rem 0.3rem
   </div>
 </div>
 
+<div class="page" id="page-loadtest">
+  <div id="lt-banner"></div>
+  <div id="lt-live"></div>
+  <div class="card" id="lt-config-card">
+    <div class="card-header"><div><h3>Yeni yük testi</h3><div class="card-sub">Test kendi geçici kullanıcılarıyla çalışır; bitince tüm test verisi silinir. Gerçek kullanıcıların verisine dokunulmaz.</div></div></div>
+    <div class="card-body" id="lt-config"><div class="loading-spinner"></div></div>
+  </div>
+  <div id="lt-result"></div>
+  <div class="card">
+    <div class="card-header"><div><h3>Geçmiş testler</h3><div class="card-sub">Sonuçları karşılaştırmak için bir testi açın</div></div></div>
+    <div class="table-container"><table><thead><tr><th>Tarih</th><th>Durum</th><th>Profil</th><th class="lt-num">Süre</th><th class="lt-num">İstek</th><th class="lt-num">Hata</th><th class="lt-num">Karma trafik</th><th class="lt-num">Kapasite</th><th>İşlemler</th></tr></thead><tbody id="lt-history"><tr><td colspan="9" class="text-center text-muted">Yükleniyor...</td></tr></tbody></table></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="crash-detail-modal" onclick="if(event.target===this)closeModal('crash-detail-modal')"><div class="modal wide"><div class="modal-header"><h2 class="modal-title">Hata Detayı</h2><button class="modal-close" onclick="closeModal('crash-detail-modal')">&times;</button></div><div class="modal-body" id="crash-detail-body">Yükleniyor...</div></div></div>
 <div class="modal-overlay" id="crash-versions-modal" onclick="if(event.target===this)closeModal('crash-versions-modal')"><div class="modal"><div class="modal-header"><h2 class="modal-title">Sürüm İstatistikleri</h2><button class="modal-close" onclick="closeModal('crash-versions-modal')">&times;</button></div><div class="modal-body" id="crash-versions-body">Yükleniyor...</div></div></div>
 <div class="modal-overlay" id="crash-action-modal" onclick="if(event.target===this)closeModal('crash-action-modal')"><div class="modal"><div class="modal-header"><h2 class="modal-title" id="crash-action-title">Hata Aksiyonu</h2><button class="modal-close" onclick="closeModal('crash-action-modal')">&times;</button></div><div class="modal-body" id="crash-action-body"></div></div></div>
@@ -1298,7 +1340,7 @@ function navigateTo(page) {
   const pg = document.getElementById(`page-${page}`);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
-  const titles = { dashboard: 'Genel Bakış', analytics: 'Analizler', reports: 'Raporlar', users: 'Kullanıcılar', books: 'Kitaplar', exchanges: 'Takaslar', 'blocked-places': 'Engellenen Yerler', kvkk: 'KVKK Başvuruları', releases: 'Uygulama Sürümleri', 'audit-log': 'Denetim Kaydı', system: 'Sistem Sağlığı', 'crash-reports': 'Hata Raporları' };
+  const titles = { dashboard: 'Genel Bakış', analytics: 'Analizler', reports: 'Raporlar', users: 'Kullanıcılar', books: 'Kitaplar', exchanges: 'Takaslar', 'blocked-places': 'Engellenen Yerler', kvkk: 'KVKK Başvuruları', teachers: 'Öğretmen Başvuruları', releases: 'Uygulama Sürümleri', 'audit-log': 'Denetim Kaydı', system: 'Sistem Sağlığı', 'crash-reports': 'Hata Raporları', loadtest: 'Yük Testi' };
   document.getElementById('page-title').textContent = titles[page] || page;
   loadPage(page);
 }
@@ -1672,10 +1714,12 @@ function loadPage(page) {
     case 'exchanges': loadExchangesPage(); break;
     case 'blocked-places': loadBlockedPlacesPage(); break;
     case 'kvkk': loadKvkkPage(); break;
+    case 'teachers': loadTeachersPage(); break;
     case 'releases': loadReleasesPage(); break;
     case 'audit-log': loadAuditLogPage(); break;
     case 'system': loadSystemPage(); break;
     case 'crash-reports': loadCrashReportsPage(); break;
+    case 'loadtest': loadLoadTestPage(); break;
   }
 }
 
@@ -3296,7 +3340,395 @@ async function loadSystemPage() {
         <div class="stat-row"><span>30 Gün</span><strong>${formatNum(s.audit_log_30d || 0)}</strong></div>
       </div></div></div>
     </div>`;
-  } catch (e) { el.innerHTML = `<div class="error-state"><div class="error-icon">&#9888;</div><p>${e.message}</p></div>`; }
+  } catch (e) { el.innerHTML = `<div class="error-state"><div class="error-icon">&#9888;</div><p>${escHtml(e.message)}</p></div>`; }
+}
+
+// ─── Load Test ─────────────────────────────────────────────────
+// Backend: app/modules/admin/loadtest.py. API strings arrive HTML-escaped
+// (request → escapeDeep), so they can go straight into templates.
+const _lt = { catalog: null, cfg: null, timer: null, running: false, estimateTimer: null, runs: [], shown: null, compare: '', openRow: null };
+
+const LT_STATUS = {
+  starting: ['Başlıyor', 'badge-info'], setup: ['Test verisi hazırlanıyor', 'badge-info'],
+  running: ['Çalışıyor', 'badge-info'], cleanup: ['Test verisi siliniyor', 'badge-warning'],
+  completed: ['Tamamlandı', 'badge-success'], stopped: ['Durduruldu', 'badge-warning'],
+  failed: ['Başarısız', 'badge-danger'], interrupted: ['Yarıda kesildi', 'badge-danger'],
+};
+const LT_GRADE = { good: ['İyi', 'badge-success'], warn: ['Yavaş', 'badge-warning'], bad: ['Sorunlu', 'badge-danger'] };
+const LT_GROUPS = { read: 'Okuma', write: 'Yazma', auth: 'Giriş', ws: 'WebSocket' };
+
+function ltBadge(map, key) { const [t, c] = map[key] || [key, '']; return `<span class="badge ${c}">${t}</span>`; }
+function ltDur(s) {
+  s = Math.max(0, Math.round(s || 0));
+  const m = Math.floor(s / 60), r = s % 60;
+  return m ? `${m} dk${r ? ' ' + r + ' sn' : ''}` : `${r} sn`;
+}
+function ltNum(v, d = 0) { return v === null || v === undefined ? '–' : Number(v).toLocaleString('tr-TR', { maximumFractionDigits: d, minimumFractionDigits: d }); }
+function ltDate(v) { return v ? new Date(v).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '–'; }
+
+async function loadLoadTestPage() {
+  try {
+    if (!_lt.catalog) {
+      _lt.catalog = await API.adminRequest('/loadtest/catalog');
+      _lt.cfg = { ..._lt.catalog.defaults, profile: 'standard', ..._ltProfileValues('standard') };
+    }
+    renderLtConfig();
+    await Promise.all([ltPoll(), loadLtHistory()]);
+    if (!_lt.running && !_lt.shown && _lt.runs.length) showLtRun(_lt.runs[0].id);
+  } catch (e) {
+    document.getElementById('lt-config').innerHTML = `<div class="error-state"><p>Yük testi bilgisi alınamadı: ${escHtml(e.message)}</p><button class="btn btn-ghost btn-sm" onclick="loadLoadTestPage()">Tekrar dene</button></div>`;
+  }
+}
+
+function _ltProfileValues(name) {
+  const p = _lt.catalog.profiles[name];
+  return p ? { concurrency: p.concurrency, duration_s: p.duration_s, users: p.users } : {};
+}
+
+// ── Configuration form ──
+function renderLtConfig() {
+  const c = _lt.cfg, cat = _lt.catalog;
+  const profiles = Object.entries(cat.profiles).map(([k, p]) =>
+    `<button type="button" class="${c.profile === k ? 'active' : ''}" onclick="ltSetProfile('${k}')">${p.label}</button>`).join('')
+    + `<button type="button" class="${c.profile === 'custom' ? 'active' : ''}" onclick="ltSetProfile('custom')">Özel</button>`;
+  const groups = {};
+  cat.scenarios.forEach(s => (groups[s.group] = groups[s.group] || []).push(s));
+  const groupHtml = Object.entries(groups).map(([g, list]) => {
+    const all = list.every(s => c.scenarios.includes(s.name));
+    return `<div class="lt-group">
+      <div class="lt-group-head"><span>${LT_GROUPS[g] || g}</span><button type="button" class="card-link" onclick="ltToggleGroup('${g}', ${!all})">${all ? 'Hiçbiri' : 'Tümü'}</button></div>
+      ${list.map(s => `<label class="lt-check"><input type="checkbox" ${c.scenarios.includes(s.name) ? 'checked' : ''} onchange="ltToggleScenario('${s.name}', this.checked)">${s.label}</label>`).join('')}
+    </div>`;
+  }).join('');
+  const field = (key, label, min, max, hint) => `<div class="form-group" style="margin:0">
+      <label class="form-label" for="lt-${key}">${label}</label>
+      <input class="form-input" id="lt-${key}" type="number" min="${min}" max="${max}" value="${c[key]}" onchange="ltSetField('${key}', this.value, ${min}, ${max})">
+      ${hint ? `<div class="kpi-hint">${hint}</div>` : ''}</div>`;
+  document.getElementById('lt-config').innerHTML = `
+    <div class="filters" style="margin-bottom:0.9rem"><span class="filter-label">Profil</span><div class="segmented" role="group" aria-label="Test profili">${profiles}</div></div>
+    <div class="lt-fields">
+      ${field('concurrency', 'Eşzamanlı bağlantı', 1, 256, 'Aynı anda açık istek')}
+      ${field('duration_s', 'Senaryo başına süre (sn)', 3, 60)}
+      ${field('users', 'Test kullanıcısı', 2, 50)}
+      ${field('books_per_user', 'Kullanıcı başına kitap', 1, 5)}
+    </div>
+    <div class="form-label">Senaryolar</div>
+    <div class="lt-groups" style="margin-bottom:1rem">${groupHtml}</div>
+    <div class="lt-fields">
+      <div><label class="lt-check"><input type="checkbox" ${c.mixed ? 'checked' : ''} onchange="ltSetFlag('mixed', this.checked)">Karma trafik</label><div class="kpi-hint">Seçili senaryoları gerçek kullanım oranlarında birlikte çalıştırır</div></div>
+      <div><label class="lt-check"><input type="checkbox" ${c.ramp ? 'checked' : ''} onchange="ltSetFlag('ramp', this.checked)">Kapasite rampası</label><div class="kpi-hint">Yükü adım adım artırıp sunucunun sınırını bulur</div></div>
+      <div class="form-group" style="margin:0"><label class="form-label" for="lt-ramp-steps">Rampa adımları</label>
+        <input class="form-input" id="lt-ramp-steps" value="${c.ramp_steps.join(', ')}" ${c.ramp ? '' : 'disabled'} onchange="ltSetSteps(this.value)"></div>
+      ${field('ramp_duration_s', 'Rampa adımı süresi (sn)', 3, 60)}
+    </div>
+    <div class="lt-footer">
+      <span class="lt-estimate" id="lt-estimate">Süre hesaplanıyor…</span>
+      <button class="btn btn-primary" id="lt-start" onclick="ltConfirmStart()" ${_lt.running ? 'disabled' : ''}>Testi başlat</button>
+    </div>`;
+  ltUpdateEstimate();
+}
+
+function ltCustom() { if (_lt.cfg.profile !== 'custom') { _lt.cfg.profile = 'custom'; } }
+function ltSetProfile(name) { _lt.cfg.profile = name; Object.assign(_lt.cfg, _ltProfileValues(name)); renderLtConfig(); }
+function ltSetField(key, value, min, max) {
+  const n = Math.min(max, Math.max(min, parseInt(value, 10) || min));
+  _lt.cfg[key] = n; ltCustom(); renderLtConfig();
+}
+function ltSetFlag(key, on) { _lt.cfg[key] = on; renderLtConfig(); }
+function ltSetSteps(text) {
+  const steps = [...new Set(text.split(/[,\s]+/).map(x => parseInt(x, 10)).filter(x => x >= 1 && x <= 512))].sort((a, b) => a - b).slice(0, 10);
+  _lt.cfg.ramp_steps = steps.length ? steps : [4, 8, 16, 32];
+  renderLtConfig();
+}
+function ltToggleScenario(name, on) {
+  const set = new Set(_lt.cfg.scenarios);
+  on ? set.add(name) : set.delete(name);
+  _lt.cfg.scenarios = _lt.catalog.scenarios.map(s => s.name).filter(n => set.has(n));
+  renderLtConfig();
+}
+function ltToggleGroup(group, on) {
+  const names = _lt.catalog.scenarios.filter(s => s.group === group).map(s => s.name);
+  const set = new Set(_lt.cfg.scenarios);
+  names.forEach(n => on ? set.add(n) : set.delete(n));
+  _lt.cfg.scenarios = _lt.catalog.scenarios.map(s => s.name).filter(n => set.has(n));
+  renderLtConfig();
+}
+
+function ltUpdateEstimate() {
+  clearTimeout(_lt.estimateTimer);
+  _lt.estimateTimer = setTimeout(async () => {
+    const el = document.getElementById('lt-estimate');
+    if (!el) return;
+    try {
+      const r = await API.adminRequest('/loadtest/estimate', { method: 'POST', body: _lt.cfg });
+      _lt.estimate = r.estimate_s;
+      const over = r.estimate_s > r.max_total_s;
+      el.className = 'lt-estimate' + (over ? ' over' : '');
+      el.textContent = over
+        ? `Tahmini süre ${ltDur(r.estimate_s)} — üst sınır ${ltDur(r.max_total_s)}. Süreyi veya senaryo sayısını azaltın.`
+        : `Tahmini süre ${ltDur(r.estimate_s)}. Bu süre boyunca uygulama kullanıcılara bakım mesajı gösterir.`;
+      const btn = document.getElementById('lt-start');
+      if (btn) btn.disabled = over || _lt.running || (!_lt.cfg.scenarios.length && !_lt.cfg.mixed && !_lt.cfg.ramp);
+    } catch (e) { el.textContent = e.message; }
+  }, 250);
+}
+
+function ltConfirmStart() {
+  confirmAction('Yük testini başlat',
+    `Test yaklaşık ${ltDur(_lt.estimate)} sürecek. Bu sürede uygulama kullanıcılara "bakım çalışması" mesajı gösterir ve açık sohbet bağlantıları kapanır; yönetim paneli çalışmaya devam eder. Test sonunda tüm test verisi otomatik silinir.`,
+    async () => {
+      try {
+        await API.adminRequest('/loadtest/start', { method: 'POST', body: { ..._lt.cfg, confirm_maintenance: true } });
+        showToast('Yük testi başladı', 'success');
+        _lt.shown = null; _lt.openRow = null;
+        document.getElementById('lt-result').innerHTML = '';
+        await ltPoll();
+      } catch (e) { showToast(e.message, 'error'); }
+    });
+}
+
+function ltConfirmStop() {
+  confirmAction('Testi durdur', 'Çalışan test durdurulur, test verisi silinir ve bakım modu kapanır. O ana kadarki sonuçlar kaydedilir.', async () => {
+    try { await API.adminRequest('/loadtest/stop', { method: 'POST' }); showToast('Durdurma istendi', 'info'); }
+    catch (e) { showToast(e.message, 'error'); }
+  });
+}
+
+function ltConfirmCleanup() {
+  confirmAction('Kalan test verisini sil', 'Yarıda kalmış bir testten kalan test kullanıcıları ve oluşturdukları tüm kayıtlar silinir. Gerçek kullanıcı verisi etkilenmez.', async () => {
+    try {
+      const r = await API.adminRequest('/loadtest/cleanup', { method: 'POST' });
+      showToast(`${ltNum(r.total)} test kaydı silindi`, 'success');
+      ltPoll();
+    } catch (e) { showToast(e.message, 'error'); }
+  });
+}
+
+// ── Live status ──
+async function ltPoll() {
+  if (state.page !== 'loadtest') { clearInterval(_lt.timer); _lt.timer = null; return; }
+  let st;
+  try { st = await API.adminRequest('/loadtest/status'); }
+  catch (e) { document.getElementById('lt-banner').innerHTML = `<div class="lt-banner warn">Durum alınamadı: ${escHtml(e.message)}</div>`; return; }
+  const wasRunning = _lt.running;
+  _lt.running = st.running;
+  const banner = document.getElementById('lt-banner');
+  banner.innerHTML = !st.running && st.leftover_test_users
+    ? `<div class="lt-banner warn"><span>Yarıda kalmış bir testten ${ltNum(st.leftover_test_users)} test kullanıcısı ve verisi duruyor.</span><button class="btn btn-sm btn-warning" onclick="ltConfirmCleanup()">Kalan test verisini sil</button></div>`
+    : st.maintenance && !st.running ? `<div class="lt-banner warn">Bakım modu açık.</div>` : '';
+  document.getElementById('lt-config-card').style.display = st.running ? 'none' : '';
+  renderLtLive(st.run);
+  if (st.running && !_lt.timer) _lt.timer = setInterval(ltPoll, 1000);
+  if (!st.running && _lt.timer) { clearInterval(_lt.timer); _lt.timer = null; }
+  if (wasRunning && !st.running) {
+    await loadLtHistory();
+    if (_lt.runs.length) showLtRun(_lt.runs[0].id);
+    renderLtConfig();
+  }
+}
+
+function renderLtLive(run) {
+  const el = document.getElementById('lt-live');
+  if (!run) { el.innerHTML = ''; return; }
+  const done = run.phases.length, planned = Math.max(1, run.planned_phases);
+  const cur = run.current;
+  const sent = run.phases.reduce((a, p) => a + p.requests, 0) + (cur ? cur.requests : 0);
+  const pct = run.status === 'setup' || run.status === 'starting' ? 0 : Math.min(100, (done / planned) * 100);
+  const phaseMeter = cur && cur.duration ? Math.min(100, (cur.elapsed / cur.duration) * 100) : 0;
+  el.innerHTML = `<div class="card">
+    <div class="card-header"><div><h3>Test çalışıyor ${ltBadge(LT_STATUS, run.status)}</h3><div class="card-sub">Bakım modu açık — kullanıcılar bakım mesajı görüyor, yönetim paneli çalışıyor</div></div>
+      <button class="btn btn-sm btn-danger" onclick="ltConfirmStop()" ${run.status === 'cleanup' ? 'disabled' : ''}>Testi durdur</button></div>
+    <div class="card-body">
+      <div class="kpi-row">
+        <div class="kpi-cell"><div class="kpi-cell-value">${ltDur(run.elapsed_s)}</div><div class="kpi-cell-label">Geçen süre</div></div>
+        <div class="kpi-cell"><div class="kpi-cell-value">${ltDur(Math.max(0, run.estimate_s - run.elapsed_s))}</div><div class="kpi-cell-label">Tahmini kalan</div></div>
+        <div class="kpi-cell"><div class="kpi-cell-value">${cur ? ltNum(cur.rps, 0) : '–'}</div><div class="kpi-cell-label">Anlık istek/sn</div></div>
+        <div class="kpi-cell"><div class="kpi-cell-value">${ltNum(sent)}</div><div class="kpi-cell-label">Gönderilen istek</div></div>
+        <div class="kpi-cell"><div class="kpi-cell-value">${ltDur(run.maintenance_left_s)}</div><div class="kpi-cell-label">Bakım modu üst sınırı</div></div>
+      </div>
+      <div class="lt-progress"><span>Aşamalar</span><span class="lt-num">${done} / ${planned}</span><div class="meter"><span style="width:${pct}%"></span></div></div>
+      ${cur ? `<div class="lt-progress"><span>${cur.label}${cur.concurrency > 1 ? ` · ${cur.concurrency} eşzamanlı` : ''}</span><span class="lt-num">${cur.duration ? `${ltNum(cur.elapsed, 0)} / ${cur.duration} sn` : ''}</span><div class="meter"><span style="width:${phaseMeter}%"></span></div></div>` : ''}
+      ${run.error ? `<div class="lt-banner warn">${run.error}</div>` : ''}
+    </div>
+    <div class="chart-body" id="lt-live-chart" style="height:200px"></div>
+    <div class="lt-log" id="lt-log" aria-live="polite">${run.log.map(l => `<div>${l}</div>`).join('')}</div>
+  </div>
+  ${run.phases.length ? `<div class="card"><div class="card-header"><h3>Tamamlanan aşamalar</h3></div>${ltPhaseTable(run.phases, null, 'live')}</div>` : ''}`;
+  const log = document.getElementById('lt-log'); if (log) log.scrollTop = log.scrollHeight;
+  if (run.series.length > 1) {
+    Charts.line('lt-live-chart', [{ label: 'İstek/sn', values: run.series.map(p => p.rps) }], { xLabels: run.series.map(p => ltDur(p.t)), ariaLabel: 'Anlık istek/sn' });
+  } else {
+    document.getElementById('lt-live-chart').innerHTML = '<div class="chart-empty"><span>İlk ölçümler bekleniyor…</span></div>';
+  }
+}
+
+// ── Results ──
+function ltPhaseTable(phases, compare, key) {
+  const cmp = {};
+  (compare?.phases || []).forEach(p => { cmp[p.phase] = p; });
+  const rows = phases.map((p, i) => {
+    const s = p.server || {};
+    const c = cmp[p.phase];
+    let delta = '';
+    if (c && c.ok_rps) {
+      const d = ((p.ok_rps - c.ok_rps) / c.ok_rps) * 100;
+      delta = `<span class="${d >= 0 ? 'lt-delta-up' : 'lt-delta-down'}">${d >= 0 ? '+' : ''}${ltNum(d, 0)}%</span>`;
+    }
+    const id = `${key}-${i}`;
+    const open = _lt.openRow === id;
+    const statuses = Object.entries(p.statuses || {}).map(([k, v]) => `${k}: ${ltNum(v)}`).join(' · ');
+    const samples = (p.error_samples || []).map(x => `<pre>${x.status} — ${x.body || ''}</pre>`).join('');
+    return `<tr class="lt-row" tabindex="0" aria-expanded="${open}" onclick="ltToggleRow('${id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();ltToggleRow('${id}')}">
+        <td>${p.label}</td>
+        <td class="lt-num">${p.concurrency}</td>
+        <td class="lt-num"><strong>${ltNum(p.ok_rps, 1)}</strong></td>
+        ${compare ? `<td class="lt-num">${delta || '–'}</td>` : ''}
+        <td class="lt-num">${ltNum(p.p50_ms, 1)}</td>
+        <td class="lt-num">${ltNum(p.p95_ms, 1)}</td>
+        <td class="lt-num">${ltNum(p.p99_ms, 1)}</td>
+        <td class="lt-num ${p.error_rate > 0 ? 'status-red' : ''}">%${ltNum(p.error_rate, 2)}</td>
+        <td class="lt-num">%${ltNum(s.cpu_pct, 0)}</td>
+        <td class="lt-num">${ltNum(s.pool_checked_out_max)}</td>
+        <td>${ltBadge(LT_GRADE, p.grade)}</td>
+      </tr>
+      ${open ? `<tr class="lt-detail"><td colspan="${compare ? 11 : 10}">
+        <div class="lt-env">
+          <div class="stat-row"><span>İstek / başarılı</span><strong>${ltNum(p.requests)} / ${ltNum(p.ok)}</strong></div>
+          <div class="stat-row"><span>Ortalama / en yavaş</span><strong>${ltNum(p.mean_ms, 1)} / ${ltNum(p.max_ms, 0)} ms</strong></div>
+          <div class="stat-row"><span>p90</span><strong>${ltNum(p.p90_ms, 1)} ms</strong></div>
+          <div class="stat-row"><span>Sunucu RAM (en yüksek)</span><strong>${ltNum(s.rss_mb_max, 0)} MB</strong></div>
+          <div class="stat-row"><span>Olay döngüsü gecikmesi p95 / en yüksek</span><strong>${ltNum(s.loop_lag_p95_ms, 1)} / ${ltNum(s.loop_lag_max_ms, 0)} ms</strong></div>
+          <div class="stat-row"><span>DB havuzu taşma (en yüksek)</span><strong>${ltNum(s.pool_overflow_max)}</strong></div>
+          <div class="stat-row"><span>Yük üreticisi CPU</span><strong>%${ltNum(p.runner_cpu_pct, 0)}</strong></div>
+        </div>
+        <div style="margin-top:0.4rem"><span class="text-muted">Yanıt kodları:</span> ${statuses || '–'}</div>
+        ${samples ? `<div style="margin-top:0.4rem"><span class="text-muted">Hata örnekleri:</span>${samples}</div>` : ''}
+      </td></tr>` : ''}`;
+  }).join('');
+  return `<div class="table-container"><table><thead><tr>
+      <th>Senaryo</th><th class="lt-num">Eşzamanlı</th><th class="lt-num">İstek/sn</th>${compare ? '<th class="lt-num">Fark</th>' : ''}
+      <th class="lt-num">p50 ms</th><th class="lt-num">p95 ms</th><th class="lt-num">p99 ms</th><th class="lt-num">Hata</th>
+      <th class="lt-num">Sunucu CPU</th><th class="lt-num">DB havuzu</th><th>Sonuç</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function ltToggleRow(id) {
+  _lt.openRow = _lt.openRow === id ? null : id;
+  if (id.startsWith('res') && _lt.shown) renderLtResult(_lt.shown);
+  // live rows re-render on the next poll tick
+}
+
+async function showLtRun(id) {
+  try {
+    _lt.shown = await API.adminRequest(`/loadtest/runs/${id}`);
+    _lt.openRow = null;
+    await ltLoadCompare();
+    renderLtResult(_lt.shown);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function ltLoadCompare() {
+  _lt.compareRun = null;
+  if (_lt.compare && _lt.shown && _lt.compare !== _lt.shown.id) {
+    try { _lt.compareRun = await API.adminRequest(`/loadtest/runs/${_lt.compare}`); } catch (e) { _lt.compareRun = null; }
+  }
+}
+
+async function ltSetCompare(id) { _lt.compare = id; await ltLoadCompare(); renderLtResult(_lt.shown); }
+
+function renderLtResult(run) {
+  const el = document.getElementById('lt-result');
+  if (!run) { el.innerHTML = ''; return; }
+  const sm = run.summary || {};
+  const env = sm.env_before || {}, after = sm.env_after || {};
+  const cap = sm.capacity;
+  const phases = run.phases || [];
+  const endpoint = phases.filter(p => !p.phase.startsWith('ramp@') && p.phase !== 'mixed');
+  const mixed = phases.filter(p => p.phase === 'mixed');
+  const ramp = phases.filter(p => p.phase.startsWith('ramp@'));
+  const others = _lt.runs.filter(r => r.id !== run.id && r.summary);
+  const cmp = _lt.compareRun;
+  const cpu = env.cpu_limit ? `${env.cpu_limit} CPU (kota)` : env.cpus_visible ? `${env.cpus_visible} CPU` : '–';
+  const cleaned = run.cleanup ? Object.values(run.cleanup).reduce((a, b) => a + b, 0) : 0;
+  el.innerHTML = `<div class="card">
+    <div class="card-header"><div><h3>Sonuç — ${ltDate(run.started_at)} ${ltBadge(LT_STATUS, run.status)}</h3>
+      <div class="card-sub">${ltDur(run.duration_s)} sürdü · ${ltNum(run.setup?.books)} kitap, ${ltNum(run.setup?.exchanges)} takas, ${ltNum(run.setup?.chats)} sohbetle · ${ltNum(cleaned)} test kaydı silindi</div></div>
+      ${others.length ? `<div class="filter-group"><label class="filter-label" for="lt-compare">Karşılaştır</label><select class="filter-select" id="lt-compare" onchange="ltSetCompare(this.value)">
+        <option value="">Yok</option>${others.map(r => `<option value="${r.id}" ${_lt.compare === r.id ? 'selected' : ''}>${ltDate(r.started_at)} · ${ltNum(r.summary.mixed_rps, 0)} ist/sn</option>`).join('')}</select></div>` : ''}
+    </div>
+    <div class="card-body">
+      ${run.error ? `<div class="lt-banner warn">${run.error}</div>` : ''}
+      <div class="kpi-row">
+        <div class="kpi-cell"><div class="kpi-cell-value">${ltNum(sm.total_requests)}</div><div class="kpi-cell-label">Toplam istek</div></div>
+        <div class="kpi-cell"><div class="kpi-cell-value ${sm.error_rate > 1 ? 'status-red' : ''}">%${ltNum(sm.error_rate, 2)}</div><div class="kpi-cell-label">Hata oranı</div></div>
+        <div class="kpi-cell"><div class="kpi-cell-value">${ltNum(sm.mixed_rps, 0)}</div><div class="kpi-cell-label">Karma trafik istek/sn</div></div>
+        <div class="kpi-cell"><div class="kpi-cell-value">${ltNum(sm.mixed_p95_ms, 0)} ms</div><div class="kpi-cell-label">Karma trafik p95</div></div>
+        <div class="kpi-cell"><div class="kpi-cell-value">${cap ? ltNum(cap.rps, 0) : '–'}</div><div class="kpi-cell-label">${cap ? `Kapasite · ${cap.concurrency} eşzamanlıda` : 'Kapasite (rampa yok)'}</div></div>
+        <div class="kpi-cell"><div class="kpi-cell-value">${ltNum(sm.grades?.good)} / ${ltNum(sm.grades?.warn)} / ${ltNum(sm.grades?.bad)}</div><div class="kpi-cell-label">İyi / yavaş / sorunlu</div></div>
+      </div>
+      <div class="lt-env">
+        <div class="stat-row"><span>İşlemci</span><strong>${cpu}</strong></div>
+        <div class="stat-row"><span>Python</span><strong>${env.python || '–'}${env.jit_active ? ' · JIT' : ''}</strong></div>
+        <div class="stat-row"><span>DB havuzu</span><strong>${ltNum(env.db_pool_size)} + ${ltNum(env.db_max_overflow)}${env.db_pool_pre_ping ? ' · pre-ping' : ''}</strong></div>
+        <div class="stat-row"><span>Hız sınırı (Redis)</span><strong>${env.rate_limit_enabled ? 'Açık' : 'Kapalı'}</strong></div>
+        <div class="stat-row"><span>PostgreSQL</span><strong>${(env.postgres || '–').split(' ')[0]} · en fazla ${ltNum(env.pg_max_connections)} bağlantı</strong></div>
+        <div class="stat-row"><span>Sunucu RAM önce → sonra</span><strong>${ltNum(env.rss_mb, 0)} → ${ltNum(after.rss_mb, 0)} MB</strong></div>
+      </div>
+      <div class="kpi-hint" style="margin-top:0.6rem">Yük üreticisi sunucuyla aynı işlemciyi paylaşır; ölçülen değerler gerçek kapasitenin alt sınırıdır. Satıra tıklayınca ayrıntılar açılır.</div>
+    </div>
+    ${endpoint.length ? `<div class="card-header" style="border-top:1px solid var(--border)"><h3>Uç noktalar</h3></div>${ltPhaseTable(endpoint, cmp, 'res-e')}` : ''}
+    ${mixed.length ? `<div class="card-header" style="border-top:1px solid var(--border)"><h3>Karma trafik</h3></div>${ltPhaseTable(mixed, cmp, 'res-m')}` : ''}
+    ${ramp.length ? `<div class="card-header" style="border-top:1px solid var(--border)"><div><h3>Kapasite rampası</h3><div class="card-sub">Eşzamanlı bağlantı arttıkça işlenen istek/sn ve p95 gecikme</div></div></div>
+      <div class="charts-grid" style="margin:0"><div><div class="lt-chart-title">İşlenen istek/sn</div><div class="chart-body" id="lt-ramp-rps" style="height:220px"></div></div><div><div class="lt-chart-title">p95 gecikme (ms)</div><div class="chart-body" id="lt-ramp-p95" style="height:220px"></div></div></div>
+      ${ltPhaseTable(ramp, cmp, 'res-r')}` : ''}
+    ${run.skipped?.length ? `<div class="card-footer">Atlanan: ${run.skipped.map(s => `${s.phase} (${s.reason})`).join(', ')}</div>` : ''}
+  </div>`;
+  if (ramp.length) {
+    const labels = ramp.map(p => String(p.concurrency));
+    Charts.line('lt-ramp-rps', [{ label: 'İstek/sn', values: ramp.map(p => p.ok_rps) }], { xLabels: labels, ariaLabel: 'Eşzamanlılığa göre istek/sn' });
+    Charts.line('lt-ramp-p95', [{ label: 'p95 ms', values: ramp.map(p => p.p95_ms) }], { xLabels: labels, colors: ['var(--c3)'], ariaLabel: 'Eşzamanlılığa göre p95 gecikme' });
+  }
+}
+
+// ── History ──
+async function loadLtHistory() {
+  const body = document.getElementById('lt-history');
+  try {
+    const r = await API.adminRequest('/loadtest/runs', { params: { limit: 30 } });
+    _lt.runs = r.items || [];
+    if (!_lt.runs.length) {
+      body.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-state-text">Henüz yük testi çalıştırılmadı. İlk testi yukarıdan başlatın.</div></div></td></tr>';
+      return;
+    }
+    body.innerHTML = _lt.runs.map(r => {
+      const sm = r.summary || {};
+      return `<tr>
+        <td>${ltDate(r.started_at)}</td>
+        <td>${ltBadge(LT_STATUS, r.status)}</td>
+        <td>${_lt.catalog?.profiles[r.config?.profile]?.label || 'Özel'} · ${r.config?.concurrency ?? '–'} eşzamanlı</td>
+        <td class="lt-num">${ltDur(r.duration_s)}</td>
+        <td class="lt-num">${ltNum(sm.total_requests)}</td>
+        <td class="lt-num">${sm.error_rate !== undefined ? '%' + ltNum(sm.error_rate, 2) : '–'}</td>
+        <td class="lt-num">${sm.mixed_rps !== undefined && sm.mixed_rps !== null ? ltNum(sm.mixed_rps, 0) + ' ist/sn' : '–'}</td>
+        <td class="lt-num">${sm.capacity ? ltNum(sm.capacity.rps, 0) + ' ist/sn' : '–'}</td>
+        <td><div class="action-btns"><button class="btn btn-ghost btn-xs" onclick="showLtRun('${r.id}')">Görüntüle</button><button class="btn btn-ghost btn-xs" onclick="ltDeleteRun('${r.id}')" ${_lt.running && r.status === 'running' ? 'disabled' : ''}>Sil</button></div></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="9" class="text-center status-red">Geçmiş alınamadı: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+function ltDeleteRun(id) {
+  confirmAction('Test kaydını sil', 'Bu testin sonuçları geçmişten silinir.', async () => {
+    try {
+      await API.adminRequest(`/loadtest/runs/${id}`, { method: 'DELETE', raw: true });
+      if (_lt.shown?.id === id) { _lt.shown = null; renderLtResult(null); }
+      if (_lt.compare === id) _lt.compare = '';
+      await loadLtHistory();
+      showToast('Test kaydı silindi', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+  });
 }
 
 // ─── Utility: stringToColor ────────────────────────────────────

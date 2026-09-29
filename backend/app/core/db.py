@@ -27,8 +27,20 @@ def get_engine() -> AsyncEngine:
             settings.database_url,
             pool_size=settings.database_pool_size,
             max_overflow=settings.database_max_overflow,
-            pool_pre_ping=True,
-            pool_recycle=300,  # Recycle connections every 5min to avoid stale prepared stmts
+            pool_timeout=settings.database_pool_timeout,
+            pool_pre_ping=settings.database_pool_pre_ping,
+            pool_recycle=settings.database_pool_recycle,
+            # LIFO hands out the most recently used connection: a few hot
+            # connections serve steady traffic and burst extras go idle.
+            pool_use_lifo=True,
+            connect_args={
+                "server_settings": {
+                    # Postgres JIT compiles plans for "expensive" queries; for
+                    # short OLTP queries the compile costs more than it saves.
+                    "jit": "off",
+                    "application_name": "meetbook-api",
+                },
+            },
         )
         _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
     return _engine

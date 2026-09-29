@@ -12,6 +12,7 @@ import redis.asyncio as aioredis
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.client_ip import resolve_client_ip
+from app.core.maintenance import is_loadtest_request
 from app.core.security import decode_access_token
 
 
@@ -53,7 +54,8 @@ class RateLimitMiddleware:
     # ------------------------------------------------------------------
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        # Load-test traffic is one IP hammering on purpose — never throttle it.
+        if scope["type"] != "http" or is_loadtest_request(scope):
             await self.app(scope, receive, send)
             return
 

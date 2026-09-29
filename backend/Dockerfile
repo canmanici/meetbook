@@ -32,6 +32,9 @@ RUN find /app -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true \
 # ── Runtime optimizations ────────────────────────────────────────────────────
 ENV PYTHON_JIT=1
 ENV PYTHONPATH=/app
+# glibc gives each thread its own malloc arena (up to 8 x cores); an async
+# single-process server gains nothing from that but fragmented RSS.
+ENV MALLOC_ARENA_MAX=2
 # Run the venv's interpreter directly: `uv run` stayed resident as PID 1
 # (~49 MB RSS) only to wrap the Python process. start_app.py runs
 # migrations/seed in-process and never shells out to uv.

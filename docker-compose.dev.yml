@@ -10,7 +10,7 @@
 services:
   backend:
     # Install dev dependencies (watchfiles) before starting
-    entrypoint: ["sh", "-c", "uv sync && exec uv run --no-dev python scripts/start_app.py"]
+    entrypoint: ["sh", "-c", "uv sync && exec .venv/bin/python scripts/start_app.py"]
     environment:
       PYTHON_JIT: "1"
       ENV: development
@@ -20,6 +20,11 @@ services:
       SMTP_PORT: "1025"
       SMTP_STARTTLS: "false"
       KVKK_CONTROLLER_EMAIL: kvkk@meetbook.local
+    # NOTE: do NOT add tunables here as "${VAR:-}". Compose resolves an unset
+    # var to an EMPTY STRING, and pydantic-settings rejects "" for an int
+    # field — get_settings() then raises at import and startup dies with a
+    # misleading "Database NOT ready". Put load-test tunables in
+    # backend/.env instead, or omit the key entirely.
     volumes:
       # Writable source mount — overrides the :ro in docker-compose.yml
       - ./backend/app:/app/app

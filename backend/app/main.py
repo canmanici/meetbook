@@ -1,6 +1,7 @@
 """MeetBook API application factory."""
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
 from app.core.client_context import ClientContextMiddleware
+from app.core.maintenance import MaintenanceMiddleware
 from app.core.rate_limit import RateLimitConfig, RateLimitMiddleware
 from app.core.redis import get_redis
 from app.lifespan import lifespan
@@ -85,30 +87,68 @@ def create_app() -> FastAPI:
     # Storage proxy (fallback MinIO access)
     app.include_router(storage_router)
 
-    # Rate limiting
-    redis_client = aioredis.from_url(get_settings().redis_url)
-    rate_config = RateLimitConfig(
-        requests_per_minute=300,
-        route_limits={
-            "/api/v1/auth/register": (30, 3600),
-            "/api/v1/auth/login": (30, 60),
-            "/api/v1/auth/refresh": (60, 60),
-            "/api/v1/auth/google": (30, 60),
-            "/api/v1/auth/password-reset-request": (20, 3600),
-            "/api/v1/auth/password-reset-confirm": (20, 3600),
-            "/api/v1/auth/verify-email": (30, 3600),
-            "/legal/veri-sahibi-basvuru": (10, 3600),
-            "/api/v1/privacy/deletion-request": (20, 3600),
-            "/api/v1/places": (120, 60),
-            "/api/v1/reports": (60, 3600),
-            "/api/v1/admin": (120, 60),
-            # Public, unauthenticated ingest — cap per client IP.
-            "/api/v1/crash-report": (30, 60),
-        },
-    )
-    app.add_middleware(RateLimitMiddleware, redis_client=redis_client, config=rate_config)
-    # Outermost: record who the client is (real IP, device, ISP) for this request.
+    # Rate limiting — off unless RATE_LIMIT_ENABLED=true (see config.py).
+    # When on, the global ceiling and the per-route table are overridable
+    # from the environment so a load test can raise them without code:
+    #   RATE_LIMIT_GLOBAL=0 disables limiting entirely.
+    #   RATE_LIMIT_SCALE=10 multiplies every limit (useful for load tests).
+    settings = get_settings()
+
+    def _env_int(name: str, default: int) -> int:
+        """Read an int from the environment, tolerating unset/blank/garbage.
+
+        Compose interpolation yields an EMPTY STRING for an unset variable
+        (e.g. RATE_LIMIT_GLOBAL: "${RATE_LIMIT_GLOBAL:-}"), and a bare
+        int("") raises ValueError — which used to abort startup. Unset and
+        malformed both fall back to the default instead.
+        """
+        raw = os.environ.get(name, "").strip()
+        if not raw:
+            return default
+        try:
+            return int(raw)
+        except ValueError:
+            logger.warning("%s=%r is not an int — using %s", name, raw, default)
+            return default
+
+    _global_limit = _env_int("RATE_LIMIT_GLOBAL", 300)
+    _scale = max(0, _env_int("RATE_LIMIT_SCALE", 1))
+    _route_limits = {
+        "/api/v1/auth/register": (30, 3600),
+        "/api/v1/auth/login": (30, 60),
+        "/api/v1/auth/refresh": (60, 60),
+        "/api/v1/auth/google": (30, 60),
+        "/api/v1/auth/password-reset-request": (20, 3600),
+        "/api/v1/auth/password-reset-confirm": (20, 3600),
+        "/api/v1/auth/verify-email": (30, 3600),
+        "/legal/veri-sahibi-basvuru": (10, 3600),
+        "/api/v1/privacy/deletion-request": (20, 3600),
+        "/api/v1/places": (120, 60),
+        "/api/v1/reports": (60, 3600),
+        "/api/v1/admin": (120, 60),
+        # Public, unauthenticated ingest — cap per client IP.
+        "/api/v1/crash-report": (30, 60),
+    }
+    if settings.rate_limit_enabled and _global_limit > 0 and _scale > 0:
+        # A connection pool large enough that the limiter never becomes the
+        # bottleneck: the default 100 was observed exhausting under load
+        # (redis.exceptions.MaxConnectionsError -> HTTP 500).
+        redis_client = aioredis.from_url(
+            settings.redis_url,
+            max_connections=_env_int("RATE_LIMIT_REDIS_POOL", 256),
+        )
+        rate_config = RateLimitConfig(
+            requests_per_minute=_global_limit * _scale,
+            route_limits={k: (v[0] * _scale, v[1]) for k, v in _route_limits.items()},
+        )
+        app.add_middleware(RateLimitMiddleware, redis_client=redis_client, config=rate_config)
+    else:
+        logger.warning("Rate limiting DISABLED")
+    # Record who the client is (real IP, device, ISP) for this request.
     app.add_middleware(ClientContextMiddleware)
+    # Outermost: during an admin load test, turn everyone else away before
+    # any other work is done for them (see app/core/maintenance.py).
+    app.add_middleware(MaintenanceMiddleware)
 
     # Admin panel (admin/index.html) — host'ta project-root/admin, container'da /app/admin
     admin_dir = None

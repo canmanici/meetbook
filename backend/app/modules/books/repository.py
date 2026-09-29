@@ -12,9 +12,11 @@ from typing import Any
 
 from geoalchemy2 import Geometry
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import Select, and_, cast, exists, func, or_, select, update, ColumnElement
+from sqlalchemy import Select, and_, cast, delete, exists, func, or_, select, update, ColumnElement
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.content_policy import normalize_course_code
 from app.modules.auth.models import User
 from app.modules.books.models import Book, BookFavorite, BookPhoto
 from app.modules.books.schemas import OwnerSummary
@@ -718,45 +720,46 @@ class BookRepository:
     # -----------------------------------------------------------------------
 
     async def add_favorite(self, user_id: uuid.UUID, book_id: uuid.UUID) -> bool:
-        """Add a favorite. Returns False if already exists."""
-        existing = await self.session.execute(
-            select(BookFavorite).where(
-                BookFavorite.user_id == user_id, BookFavorite.book_id == book_id
-            )
+        """Add a favorite. Returns False if already exists.
+
+        One atomic INSERT ... ON CONFLICT: a check-then-insert let two
+        concurrent taps both pass the check, and the second insert hit
+        uq_user_book_favorite -> HTTP 500.
+        """
+        inserted = await self.session.execute(
+            pg_insert(BookFavorite)
+            .values(id=uuid.uuid7(), user_id=user_id, book_id=book_id)
+            .on_conflict_do_nothing(index_elements=["user_id", "book_id"])
+            .returning(BookFavorite.id)
         )
-        if existing.scalar_one_or_none() is not None:
+        if inserted.scalar_one_or_none() is None:
             return False
-        fav = BookFavorite(user_id=user_id, book_id=book_id)
-        self.session.add(fav)
-        # Increment counter on book
-        stmt = (
+        await self.session.execute(
             update(Book)
             .where(Book.id == book_id)
             .values(favorite_count=func.coalesce(Book.favorite_count, 0) + 1, updated_at=func.now())
         )
-        await self.session.execute(stmt)
-        await self.session.flush()
         return True
 
     async def remove_favorite(self, user_id: uuid.UUID, book_id: uuid.UUID) -> bool:
-        """Remove a favorite. Returns False if it didn't exist."""
-        existing = await self.session.execute(
-            select(BookFavorite).where(
-                BookFavorite.user_id == user_id, BookFavorite.book_id == book_id
-            )
+        """Remove a favorite. Returns False if it didn't exist.
+
+        DELETE ... RETURNING: only the request that actually removed the row
+        decrements the counter (concurrent removes used to raise StaleDataError
+        or double-decrement).
+        """
+        deleted = await self.session.execute(
+            delete(BookFavorite)
+            .where(BookFavorite.user_id == user_id, BookFavorite.book_id == book_id)
+            .returning(BookFavorite.id)
         )
-        fav = existing.scalar_one_or_none()
-        if fav is None:
+        if deleted.scalar_one_or_none() is None:
             return False
-        await self.session.delete(fav)
-        # Decrement counter on book (floor at 0)
-        stmt = (
+        await self.session.execute(
             update(Book)
             .where(Book.id == book_id, Book.favorite_count > 0)
             .values(favorite_count=func.coalesce(Book.favorite_count, 0) - 1, updated_at=func.now())
         )
-        await self.session.execute(stmt)
-        await self.session.flush()
         return True
 
     async def is_favorited(self, user_id: uuid.UUID, book_id: uuid.UUID) -> bool:

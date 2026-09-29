@@ -15,6 +15,7 @@ from app.core.audit import log_event
 from app.core.config import get_settings
 from app.core.google_auth import GoogleAuthError, verify_google_id_token
 from app.core.mailer import code_email, send_mail
+from app.core.maintenance import LOADTEST_EMAIL_DOMAIN
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -82,6 +83,9 @@ class AuthService:
     ) -> AuthTokensResponse:
         if kvkk_consent is not True:
             raise AuthError("KVKK consent is required", 422)
+        # Reserved for synthetic load-test accounts, which get purged.
+        if email.lower().endswith("@" + LOADTEST_EMAIL_DOMAIN):
+            raise AuthError("Email domain not allowed", 422)
 
         # Check duplicate email
         existing = await self.repo.get_user_by_email(email)

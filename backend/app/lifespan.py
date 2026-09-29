@@ -1,6 +1,7 @@
 """FastAPI lifespan: startup/shutdown hooks."""
 
 import asyncio
+import gc
 import json
 import logging
 from collections.abc import AsyncIterator
@@ -99,6 +100,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         scheduler.add_job(_run_loan_reminders, "interval", hours=1)
         scheduler.add_job(_run_geofence_matcher, "interval", minutes=15)
         scheduler.start()
+
+    if settings.env != "test":
+        from app.modules.admin import loadtest
+
+        # The load test pauses background jobs while it runs, and cleans up
+        # after itself if a restart interrupted it.
+        loadtest.set_scheduler(scheduler)
+        asyncio.create_task(loadtest.recover_after_restart())
+
+    # Everything imported so far (modules, routes, pydantic schemas) lives
+    # for the whole process. Freeze it out of the cyclic GC so collections
+    # stop re-scanning it, and collect gen0 less often: request garbage is
+    # mostly freed by refcounting, not the cycle collector.
+    gc.collect()
+    gc.freeze()
+    gc.set_threshold(50_000, 20, 20)
 
     yield
 

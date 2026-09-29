@@ -20,6 +20,7 @@ import json
 import re
 from contextvars import ContextVar
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Any
 
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -92,7 +93,14 @@ class ClientContext:
     os_version: str | None = None
     device_model: str | None = None
     app_version: str | None = None
-    info: dict[str, Any] | None = None  # verbose X-Client-Info profile
+    # Raw X-Client-Info header; decoded only when a row actually records the
+    # device (sessions, audit events, crashes) — not on every request.
+    info_raw: str | None = None
+
+    @cached_property
+    def info(self) -> dict[str, Any] | None:
+        """Verbose X-Client-Info profile."""
+        return _parse_client_info(self.info_raw)
 
     def device(self) -> dict[str, Any]:
         """Device profile stored alongside sessions / audit events / crashes."""
@@ -182,7 +190,7 @@ def context_from_scope(scope: Scope) -> ClientContext:
         os_version=_clean(headers.get("x-client-os-version")),
         device_model=_clean(headers.get("x-client-device-model")),
         app_version=_clean(headers.get("x-client-app-version")),
-        info=_parse_client_info(headers.get("x-client-info")),
+        info_raw=headers.get("x-client-info"),
     )
 
 

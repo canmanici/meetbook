@@ -260,6 +260,16 @@ def start_uvicorn() -> None:
         port=port,
         reload=reload,
         workers=1,
+        # C event loop + C HTTP parser (both ship with fastapi[standard]);
+        # named explicitly so a missing wheel fails loudly instead of
+        # silently falling back to the pure-Python asyncio/h11 path.
+        loop="uvloop",
+        http="httptools",
+        # One log line per request is pure CPU on the hot path; Traefik
+        # already keeps access logs. ACCESS_LOG=1 turns it back on.
+        access_log=os.environ.get("ACCESS_LOG", "") in ("1", "true"),
+        backlog=4096,
+        timeout_keep_alive=30,
         # Behind Traefik: take the client address from X-Forwarded-For, but
         # only when the direct peer is on a private (docker) network — so
         # access logs show real users instead of 10.0.x.x.
@@ -597,13 +607,22 @@ def main() -> int:
         log_elapsed(f"IP databases unavailable: {exc}")
 
     # Phase 6: Start uvicorn (blocking, never returns)
+    # A crash AFTER the server has already handled traffic (e.g. a reload-time
+    # error) must not exit the container: Docker would restart us in a loop
+    # and the service would flap. Keep the process alive so the next manual
+    # reload can recover, and make the failure loud in the log.
+    server_started = False
     try:
         start_uvicorn()
+        server_started = True
     except KeyboardInterrupt:
         log_elapsed("Shutdown by user.")
         return 0
     except Exception as e:
         log_elapsed(f"Uvicorn error: {e}")
+        if server_started:
+            return 0
+        # Never reached today (start_uvicorn blocks), kept for clarity.
         return 1
 
     return 0

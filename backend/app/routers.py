@@ -13,6 +13,7 @@ def register_routers(app: FastAPI) -> None:
     from app.modules.admin.router import router as admin_router
     from app.modules.admin.client_intel import router as client_intel_router
     from app.modules.admin.user_activity import router as user_activity_router
+    from app.modules.admin.loadtest import router as loadtest_router
     from app.modules.app_updates.router import admin_router as app_release_admin_router
     from app.modules.app_updates.router import public_router as app_updates_router
     from app.modules.auth.router import router as auth_router
@@ -53,6 +54,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(metrics_exchanges_deep_router, prefix="/api/v1")
     app.include_router(metrics_content_router, prefix="/api/v1")
     app.include_router(user_activity_router, prefix="/api/v1")
+    app.include_router(loadtest_router, prefix="/api/v1")
     app.include_router(client_intel_router, prefix="/api/v1")
     app.include_router(push_token_router, prefix="/api/v1")
     app.include_router(saved_searches_router, prefix="/api/v1")
